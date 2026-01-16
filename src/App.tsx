@@ -32,6 +32,17 @@ import PNL from "./pages/PNL";
 import PNLConfig from "./pages/PNLConfig";
 import AdminLeads from "./pages/AdminLeads";
 import ReportAdminProspect from "./pages/ReportAdminProspect";
+// New Logistic Role components
+import LogisticProductManagement from "./components/logistic/LogisticProductManagement";
+import LogisticProductTransaction from "./components/logistic/LogisticProductTransaction";
+import LogisticStockIn from "./components/logistic/LogisticStockIn";
+import LogisticStockOut from "./components/logistic/LogisticStockOut";
+import LogisticBundleManagement from "./components/logistic/LogisticBundleManagement";
+import LogisticOrder from "./components/logistic/LogisticOrder";
+import LogisticProcessed from "./components/logistic/LogisticProcessed";
+import LogisticReturn from "./components/logistic/LogisticReturn";
+import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
+import LogisticCustomers from "./components/logistic/LogisticCustomers";
 
 const queryClient = new QueryClient();
 
@@ -64,14 +75,22 @@ const App = () => (
                   <Route path="dashboard-logistic" element={<DashboardLogistic />} />
                   <Route path="report-pembelian" element={<ReportPembelian />} />
                   <Route path="logistics" element={<Logistics />} />
-                  <Route path="logistics/order" element={<Logistics />} />
-                  <Route path="logistics/shipment" element={<Logistics />} />
-                  <Route path="logistics/return" element={<Logistics />} />
-                  <Route path="logistics/pending-tracking" element={<Logistics />} />
+                  {/* BOD-accessible routes (old logistics) */}
                   <Route path="logistics/product" element={<Logistics />} />
                   <Route path="logistics/bundle" element={<Logistics />} />
-                  <Route path="logistics/stock-in" element={<Logistics />} />
-                  <Route path="logistics/stock-out" element={<Logistics />} />
+                  {/* New Logistic Role routes - Inventory */}
+                  <Route path="logistics/inventory-product" element={<LogisticProductManagement />} />
+                  <Route path="logistics/inventory-transaction" element={<LogisticProductTransaction />} />
+                  <Route path="logistics/stock-in" element={<LogisticStockIn />} />
+                  <Route path="logistics/stock-out" element={<LogisticStockOut />} />
+                  <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
+                  {/* New Logistic Role routes - Logistics */}
+                  <Route path="logistics/order" element={<LogisticOrder />} />
+                  <Route path="logistics/processed" element={<LogisticProcessed />} />
+                  <Route path="logistics/return" element={<LogisticReturn />} />
+                  <Route path="logistics/pending-tracking" element={<LogisticPendingTracking />} />
+                  {/* New Logistic Role routes - Customer HQ */}
+                  <Route path="logistics/customers" element={<LogisticCustomers />} />
                   <Route path="logistics/ninjavan-settings" element={<NinjavanSettings />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />

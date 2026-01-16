@@ -7,6 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface WaybillData {
+  trackingNumbers: string[];
+  profileId: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -18,7 +23,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { trackingNumbers } = await req.json();
+    const { trackingNumbers, profileId }: WaybillData = await req.json();
 
     if (!trackingNumbers || !Array.isArray(trackingNumbers) || trackingNumbers.length === 0) {
       return new Response(
@@ -40,23 +45,23 @@ serve(async (req) => {
     console.log('Fetching waybills for tracking numbers:', validTrackingNumbers);
     console.log('Number of tracking numbers:', validTrackingNumbers.length);
 
-    // Get Ninjavan config
+    // Get NinjaVan config for this profile
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .limit(1)
+      .eq('profile_id', profileId)
       .single();
 
     if (configError || !config) {
       console.error('Config not found:', configError);
       return new Response(
-        JSON.stringify({ error: 'Ninjavan configuration not found.' }),
+        JSON.stringify({ error: 'NinjaVan configuration not found. Please configure in Settings.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get fresh token from Ninjavan OAuth
-    console.log('Requesting fresh token from Ninjavan');
+    // Get fresh token from NinjaVan OAuth
+    console.log('Requesting fresh token from NinjaVan');
 
     const authResponse = await fetch('https://api.ninjavan.co/my/2.0/oauth/access_token', {
       method: 'POST',
@@ -70,9 +75,9 @@ serve(async (req) => {
 
     if (!authResponse.ok) {
       const errorText = await authResponse.text();
-      console.error('Ninjavan Auth failed:', errorText);
+      console.error('NinjaVan Auth failed:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Failed to authenticate with Ninjavan API', details: errorText }),
+        JSON.stringify({ error: 'Failed to authenticate with NinjaVan API', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -100,7 +105,7 @@ serve(async (req) => {
         console.error('Waybill fetch failed:', errorText);
         return new Response(
           JSON.stringify({
-            error: 'Failed to fetch waybill from Ninjavan.',
+            error: 'Failed to fetch waybill from NinjaVan.',
             details: errorText,
             trackingNumber: tid
           }),
@@ -164,7 +169,7 @@ serve(async (req) => {
     if (pdfBuffers.length === 0) {
       return new Response(
         JSON.stringify({
-          error: 'Failed to fetch any waybills from Ninjavan.',
+          error: 'Failed to fetch any waybills from NinjaVan.',
           failedTids: failedTids
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

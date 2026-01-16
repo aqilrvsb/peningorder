@@ -24,6 +24,8 @@ import {
   RotateCcw,
   FileSpreadsheet,
   Receipt,
+  TrendingUp,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -139,41 +141,67 @@ const navItems: NavItem[] = [
     icon: <Boxes className="w-5 h-5" />,
     roles: ['logistic', 'bod'],
   },
-  // ============ LOGISTIC ROLE ============
+  // ============ LOGISTIC ROLE - INVENTORY ============
   {
-    label: 'Order',
-    path: '/dashboard/logistics/order',
-    icon: <ClipboardList className="w-5 h-5" />,
+    label: 'Inventory-Product',
+    path: '/dashboard/logistics/inventory-product',
+    icon: <Package className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {
-    label: 'Processed',
-    path: '/dashboard/logistics/shipment',
-    icon: <Truck className="w-5 h-5" />,
+    label: 'Inventory-Transaction',
+    path: '/dashboard/logistics/inventory-transaction',
+    icon: <TrendingUp className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {
-    label: 'Return',
-    path: '/dashboard/logistics/return',
-    icon: <RotateCcw className="w-5 h-5" />,
-    roles: ['logistic'],
-  },
-  {
-    label: 'Pending Tracking',
-    path: '/dashboard/logistics/pending-tracking',
-    icon: <ClipboardList className="w-5 h-5" />,
-    roles: ['logistic'],
-  },
-  {
-    label: 'Stock In',
+    label: 'Inventory-Stock In',
     path: '/dashboard/logistics/stock-in',
     icon: <ArrowDownToLine className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {
-    label: 'Stock Out',
+    label: 'Inventory-Stock Out',
     path: '/dashboard/logistics/stock-out',
     icon: <ArrowUpFromLine className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Inventory-Bundle',
+    path: '/dashboard/logistics/inventory-bundle',
+    icon: <Boxes className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  // ============ LOGISTIC ROLE - LOGISTICS ============
+  {
+    label: 'Logistic-Order',
+    path: '/dashboard/logistics/order',
+    icon: <ClipboardList className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Logistic-Processed',
+    path: '/dashboard/logistics/processed',
+    icon: <Truck className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Logistic-Return',
+    path: '/dashboard/logistics/return',
+    icon: <RotateCcw className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Logistic-Pending Tracking',
+    path: '/dashboard/logistics/pending-tracking',
+    icon: <Clock className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  // ============ LOGISTIC ROLE - CUSTOMER HQ ============
+  {
+    label: 'Customer HQ',
+    path: '/dashboard/logistics/customers',
+    icon: <Users className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {

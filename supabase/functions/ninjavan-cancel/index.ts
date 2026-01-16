@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface CancelData {
   trackingNumber: string;
+  profileId: string;
 }
 
 serve(async (req) => {
@@ -21,8 +22,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { trackingNumber }: CancelData = await req.json();
-    console.log('Cancelling Ninjavan order with tracking:', trackingNumber);
+    const { trackingNumber, profileId }: CancelData = await req.json();
+    console.log('Cancelling NinjaVan order with tracking:', trackingNumber);
 
     if (!trackingNumber) {
       return new Response(
@@ -31,17 +32,17 @@ serve(async (req) => {
       );
     }
 
-    // Get Ninjavan config
+    // Get NinjaVan config for this profile
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .limit(1)
+      .eq('profile_id', profileId)
       .single();
 
     if (configError || !config) {
       console.error('Config not found:', configError);
       return new Response(
-        JSON.stringify({ error: 'Ninjavan configuration not found.' }),
+        JSON.stringify({ error: 'NinjaVan configuration not found. Please configure in Settings.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -53,6 +54,7 @@ serve(async (req) => {
     const { data: tokenData, error: tokenError } = await supabase
       .from('ninjavan_tokens')
       .select('*')
+      .eq('profile_id', profileId)
       .gt('expires_at', now.toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
@@ -67,7 +69,7 @@ serve(async (req) => {
       console.log('Using existing valid token');
     } else {
       console.log('No valid token found, requesting new token');
-      
+
       const authResponse = await fetch('https://api.ninjavan.co/my/2.0/oauth/access_token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,9 +82,9 @@ serve(async (req) => {
 
       if (!authResponse.ok) {
         const errorText = await authResponse.text();
-        console.error('Ninjavan Auth failed:', errorText);
+        console.error('NinjaVan Auth failed:', errorText);
         return new Response(
-          JSON.stringify({ error: 'Failed to authenticate with Ninjavan API' }),
+          JSON.stringify({ error: 'Failed to authenticate with NinjaVan API' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -93,12 +95,13 @@ serve(async (req) => {
       const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
 
       await supabase.from('ninjavan_tokens').insert({
+        profile_id: profileId,
         access_token: accessToken,
         expires_at: expiresAt.toISOString()
       });
     }
 
-    // Cancel order via Ninjavan API
+    // Cancel order via NinjaVan API
     // DELETE /{countryCode}/2.2/orders/{trackingNo}
     const cancelResponse = await fetch(`https://api.ninjavan.co/my/2.2/orders/${trackingNumber}`, {
       method: 'DELETE',
@@ -109,21 +112,35 @@ serve(async (req) => {
     });
 
     const cancelResult = await cancelResponse.json();
-    console.log('Ninjavan cancel response:', cancelResult);
+    console.log('NinjaVan cancel response:', cancelResult);
 
     if (!cancelResponse.ok) {
+      // Treat "ORDER_ALREADY_CANCELLED" as success - order is already cancelled, which is what we want
+      if (cancelResult.description === 'ORDER_ALREADY_CANCELLED' ||
+          cancelResult.data?.message === 'Order is already cancelled') {
+        console.log('Order already cancelled - treating as success');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadyCancelled: true,
+            message: 'Order was already cancelled'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ 
-          error: cancelResult.message || 'Failed to cancel Ninjavan order', 
-          details: cancelResult 
+        JSON.stringify({
+          error: cancelResult.message || 'Failed to cancel NinjaVan order',
+          details: cancelResult
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         trackingId: cancelResult.trackingId,
         status: cancelResult.status,
         message: 'Order cancelled successfully'

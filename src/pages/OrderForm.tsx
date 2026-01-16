@@ -31,6 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'WhatsappBot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'WhatsappBot', 'Website', 'Call', 'Live', 'Shop'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
+const DELIVERY_METHOD_OPTIONS = ['KURIER', 'PICKUP KEDAI'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -100,8 +101,10 @@ const OrderForm: React.FC = () => {
     negeri: '',
     alamat: '',
     produk: '',
+    quantity: 1,
     hargaJualan: 0,
     caraBayaran: '',
+    deliveryMethod: 'KURIER',
     jenisBayaran: '',
     pilihBank: '',
     nota: '',
@@ -544,11 +547,14 @@ const OrderForm: React.FC = () => {
       hour12: true,
     });
 
-    // Set kurier based on platform and cara bayaran
+    // Set kurier based on platform, cara bayaran and delivery method
     let kurier = '';
     const isShopeeOrTiktokOrder = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
+    const isPickupKedai = formData.deliveryMethod === 'PICKUP KEDAI';
     if (isShopeeOrTiktokOrder) {
       kurier = formData.jenisPlatform; // "Shopee" or "Tiktok"
+    } else if (isPickupKedai) {
+      kurier = 'PICKUP KEDAI';
     } else {
       kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
     }
@@ -750,9 +756,9 @@ const OrderForm: React.FC = () => {
         });
       } else {
         // New order flow
-        // If platform is NOT Shopee or Tiktok, call Ninjavan API
-        const shouldCallNinjavan = !isShopeeOrTiktokOrder;
-        
+        // Skip NinjaVan for Shopee/Tiktok and PICKUP KEDAI
+        const shouldCallNinjavan = !isShopeeOrTiktokOrder && !isPickupKedai;
+
         if (shouldCallNinjavan) {
           try {
             const { data: ninjavanResult, error: ninjavanError } = await supabase.functions.invoke('ninjavan-order', {
@@ -1060,7 +1066,8 @@ const OrderForm: React.FC = () => {
   };
 
   const isShopeeOrTiktok = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
-  const showPaymentDetails = formData.caraBayaran === 'CASH' && !isShopeeOrTiktok;
+  const isPickupKedai = formData.deliveryMethod === 'PICKUP KEDAI';
+  const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupKedai) && !isShopeeOrTiktok;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1277,6 +1284,18 @@ const OrderForm: React.FC = () => {
               </Select>
             </div>
 
+            {/* Kuantiti */}
+            <div>
+              <FormLabel required>Kuantiti (Unit)</FormLabel>
+              <Input
+                type="number"
+                min="1"
+                placeholder="1"
+                value={formData.quantity}
+                onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 1)}
+                className="bg-background"
+              />
+            </div>
 
             {/* Harga Jualan */}
             <div>
@@ -1316,6 +1335,26 @@ const OrderForm: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Delivery Method - Only for non Shopee/Tiktok */}
+            {!isShopeeOrTiktok && (
+              <div>
+                <FormLabel required>Delivery Method</FormLabel>
+                <Select
+                  value={formData.deliveryMethod}
+                  onValueChange={(value) => handleChange('deliveryMethod', value)}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Pilih Delivery Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DELIVERY_METHOD_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Tracking Number - Only for Shopee/Tiktok */}
             {isShopeeOrTiktok && (

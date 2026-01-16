@@ -1,14 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Trophy, Medal, Award, Calendar, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
@@ -45,7 +37,7 @@ interface Order {
   marketer_id_staff: string;
   marketer_name: string;
   date_order: string;
-  harga_jualan_sebenar: number;
+  total_price: number;
   delivery_status: string;
   jenis_customer: string;
   jenis_platform: string;
@@ -67,9 +59,10 @@ const Top10: React.FC = () => {
     const fetchAllOrders = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await (supabase as any)
-          .from('customer_orders')
-          .select('id, marketer_id_staff, marketer_name, date_order, harga_jualan_sebenar, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+        const { data, error } = await supabase
+          .from('customer_purchases')
+          .select('id, marketer_id_staff, marketer_name, date_order, total_price, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+          .not('marketer_id_staff', 'is', null)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -137,7 +130,7 @@ const Top10: React.FC = () => {
       }
 
       // Count sales amount
-      const saleAmount = Number(order.harga_jualan_sebenar) || 0;
+      const saleAmount = Number(order.total_price) || 0;
       stats[idStaff].totalSales += saleAmount;
 
       // Count returns

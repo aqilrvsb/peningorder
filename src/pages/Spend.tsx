@@ -461,14 +461,14 @@ const Spend: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEditClick(spend)}
-                        className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                        className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                         title="Edit"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClick(spend.id)}
-                        className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                        className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />

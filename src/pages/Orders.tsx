@@ -6,10 +6,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { 
-  Search, RotateCcw, Download, Users, DollarSign, Package, 
-  ShoppingBag, Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car
+import {
+  Search, RotateCcw, Download, Users, DollarSign, Package,
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +51,9 @@ interface OrderForTracking {
   hargaJualanSebenar: number;
 }
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success", "Failed"];
+
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { orders, updateOrder, deleteOrder, refreshData } = useData();
@@ -51,6 +61,9 @@ const Orders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -67,19 +80,32 @@ const Orders: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Delivery status filter
+      if (deliveryStatusFilter !== "All" && order.deliveryStatus !== deliveryStatusFilter) {
+        return false;
+      }
+
       const matchesSearch =
         order.noTempahan.toLowerCase().includes(search.toLowerCase()) ||
         order.produk.toLowerCase().includes(search.toLowerCase()) ||
         order.marketerName.toLowerCase().includes(search.toLowerCase()) ||
-        order.noPhone.toLowerCase().includes(search.toLowerCase());
-      
+        order.noPhone.toLowerCase().includes(search.toLowerCase()) ||
+        (order.noTracking || '').toLowerCase().includes(search.toLowerCase());
+
       const orderDate = order.dateOrder || order.tarikhTempahan;
       const matchesStartDate = !startDate || orderDate >= startDate;
       const matchesEndDate = !endDate || orderDate <= endDate;
 
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [orders, search, startDate, endDate]);
+  }, [orders, search, startDate, endDate, deliveryStatusFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -89,17 +115,45 @@ const Orders: React.FC = () => {
     const totalUnit = orders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
     const totalPending = orders.filter(o => o.deliveryStatus === 'Pending').length;
     const totalShipped = orders.filter(o => o.deliveryStatus === 'Shipped' || o.deliveryStatus === 'Success').length;
-    const totalOrderReturn = orders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return').length;
     const totalCash = orders.filter(o => o.caraBayaran === 'CASH').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalCOD = orders.filter(o => o.caraBayaran === 'COD').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    
-    return { totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalOrderReturn, totalCash, totalCOD };
+
+    return { totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD };
   }, [orders]);
 
   const resetFilters = () => {
     setSearch('');
     setStartDate('');
     setEndDate('');
+    setDeliveryStatusFilter("All");
+    setCurrentPage(1);
+  };
+
+  const handleWhatsAppClick = (order: typeof orders[0]) => {
+    // Format phone number - remove leading 0 and add Malaysia country code
+    let phone = order.noPhone || "";
+    phone = phone.replace(/\D/g, ""); // Remove non-digits
+    if (phone.startsWith("0")) {
+      phone = "60" + phone.substring(1);
+    } else if (!phone.startsWith("60")) {
+      phone = "60" + phone;
+    }
+
+    // Build message with order details
+    const message = `Assalamualaikum ${order.marketerName || ""},
+
+Maklumat Pesanan:
+- Produk: ${order.produk || "-"}
+- Kuantiti: ${order.kuantiti || 1}
+- Harga: RM ${Number(order.hargaJualanSebenar || 0).toFixed(2)}
+- Cara Bayaran: ${order.caraBayaran || "-"}
+- Tracking No: ${order.noTracking || "-"}
+
+Terima kasih! 🙏`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
+    window.open(whatsappUrl, "_blank");
   };
 
   const exportCSV = () => {
@@ -368,8 +422,8 @@ const Orders: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4 text-blue-500" />
@@ -402,14 +456,6 @@ const Orders: React.FC = () => {
           <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {stats.totalCOD.toLocaleString()}</p>
         </div>
 
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
-            <RotateCw className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Return</span>
-          </div>
-          <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
-        </div>
-
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Package className="w-4 h-4 text-purple-500" />
@@ -421,7 +467,7 @@ const Orders: React.FC = () => {
         <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
             <Clock className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Order Pending</span>
+            <span className="text-xs uppercase font-medium">Pending</span>
           </div>
           <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stats.totalPending}</p>
         </div>
@@ -429,17 +475,17 @@ const Orders: React.FC = () => {
         <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
             <Truck className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Order Shipped</span>
+            <span className="text-xs uppercase font-medium">Shipped</span>
           </div>
           <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
         </div>
 
-        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 mb-1">
-            <ShoppingBag className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Order Return</span>
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
+            <RotateCw className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Return</span>
           </div>
-          <p className="text-2xl font-bold text-rose-700 dark:text-rose-300">{stats.totalOrderReturn}</p>
+          <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
         </div>
       </div>
 
@@ -451,7 +497,10 @@ const Orders: React.FC = () => {
           <Input
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-40"
           />
         </div>
@@ -462,7 +511,10 @@ const Orders: React.FC = () => {
           <Input
             type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-40"
           />
         </div>
@@ -472,10 +524,54 @@ const Orders: React.FC = () => {
           <Input
             placeholder="Name, phone, product..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-10"
           />
         </div>
+
+        <div className="flex items-center gap-2">
+          <Truck className="w-4 h-4 text-muted-foreground" />
+          <Select
+            value={deliveryStatusFilter}
+            onValueChange={(v) => {
+              setDeliveryStatusFilter(v);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DELIVERY_STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Select
+          value={pageSize.toString()}
+          onValueChange={(v) => {
+            setPageSize(Number(v));
+            setCurrentPage(1);
+          }}
+        >
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <SelectItem key={size} value={size.toString()}>
+                {size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetFilters}>
@@ -506,18 +602,22 @@ const Orders: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Delivery Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Platform</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Closing</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Negeri</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Waybill</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SEO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredOrders.length > 0 ? (
-                filteredOrders.map((order, index) => (
+              {paginatedOrders.length > 0 ? (
+                paginatedOrders.map((order, idx) => (
                   <tr key={order.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{(currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
@@ -572,9 +672,40 @@ const Orders: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{order.jenisPlatform || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{order.jenisCustomer || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{order.jenisClosing || '-'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`font-medium ${
+                          order.jenisCustomer === "NP"
+                            ? "text-green-600"
+                            : order.jenisCustomer === "EP"
+                            ? "text-purple-600"
+                            : order.jenisCustomer === "EC"
+                            ? "text-amber-600"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {order.jenisCustomer || "-"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.negeri}</td>
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.alamat}</td>
+                    <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.notaStaff || '-'}</td>
+                    <td className="px-4 py-3">
+                      {order.waybillUrl && (order.jenisPlatform === "Tiktok" || order.jenisPlatform === "Shopee") ? (
+                        <a
+                          href={order.waybillUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors inline-flex"
+                          title="View Waybill"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         order.seo === 'Successfull Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
@@ -584,6 +715,15 @@ const Orders: React.FC = () => {
                       }`}>
                         {order.seo || '-'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleWhatsAppClick(order)}
+                        className="p-1.5 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 transition-colors"
+                        title="WhatsApp Customer"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       {order.deliveryStatus === 'Pending' && (
@@ -609,7 +749,7 @@ const Orders: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={16} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={20} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

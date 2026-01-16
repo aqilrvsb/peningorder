@@ -7,8 +7,7 @@ const corsHeaders = {
 };
 
 interface OrderData {
-  orderId: string;
-  idSale: string;
+  profileId: string;
   customerName: string;
   phone: string;
   address: string;
@@ -16,9 +15,13 @@ interface OrderData {
   city: string;
   state: string;
   price: number;
-  caraBayaran: string;
-  produk: string;
-  marketerIdStaff: string;
+  paymentMethod: string;
+  productName: string;
+  productSku?: string; // Product SKU for delivery instructions
+  quantity: number;
+  nota?: string; // Staff notes for delivery instructions
+  idSale?: string; // Optional sale ID for tracking (max 9 chars)
+  marketerIdStaff?: string; // Optional marketer ID for delivery instructions
 }
 
 serve(async (req) => {
@@ -35,17 +38,17 @@ serve(async (req) => {
     const orderData: OrderData = await req.json();
     console.log('Received order data:', orderData);
 
-    // Get Ninjavan config
+    // Get NinjaVan config for this profile
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .limit(1)
+      .eq('profile_id', orderData.profileId)
       .single();
 
     if (configError || !config) {
       console.error('Config not found:', configError);
       return new Response(
-        JSON.stringify({ error: 'Ninjavan configuration not found. Please configure in Logistics Settings.' }),
+        JSON.stringify({ error: 'NinjaVan configuration not found. Please configure in Settings.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -58,6 +61,7 @@ serve(async (req) => {
     const { data: tokenData, error: tokenError } = await supabase
       .from('ninjavan_tokens')
       .select('*')
+      .eq('profile_id', orderData.profileId)
       .gt('expires_at', now.toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
@@ -72,9 +76,9 @@ serve(async (req) => {
       accessToken = tokenData.access_token;
       console.log('Using existing valid token, expires at:', tokenData.expires_at);
     } else {
-      // No valid token found, get new one from Ninjavan OAuth
-      console.log('No valid token found, requesting new token from Ninjavan');
-      
+      // No valid token found, get new one from NinjaVan OAuth
+      console.log('No valid token found, requesting new token from NinjaVan');
+
       const authResponse = await fetch('https://api.ninjavan.co/my/2.0/oauth/access_token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,9 +91,9 @@ serve(async (req) => {
 
       if (!authResponse.ok) {
         const errorText = await authResponse.text();
-        console.error('Ninjavan Auth failed:', errorText);
+        console.error('NinjaVan Auth failed:', errorText);
         return new Response(
-          JSON.stringify({ error: 'Failed to authenticate with Ninjavan API', details: errorText }),
+          JSON.stringify({ error: 'Failed to authenticate with NinjaVan API', details: errorText }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -97,7 +101,7 @@ serve(async (req) => {
       const authData = await authResponse.json();
       accessToken = authData.access_token;
       const expiresIn = authData.expires_in || 3600; // default 1 hour if not provided
-      
+
       // Calculate expiry time (subtract 5 minutes buffer for safety)
       const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
 
@@ -105,6 +109,7 @@ serve(async (req) => {
 
       // Store new token in database
       const { error: insertError } = await supabase.from('ninjavan_tokens').insert({
+        profile_id: orderData.profileId,
         access_token: accessToken,
         expires_at: expiresAt.toISOString()
       });
@@ -117,6 +122,17 @@ serve(async (req) => {
       }
     }
 
+    // Generate unique tracking ID (max 9 chars for NinjaVan API)
+    // Use idSale if provided, otherwise generate short ID
+    let trackingId: string;
+    if (orderData.idSale && orderData.idSale.length <= 9) {
+      trackingId = orderData.idSale;
+    } else {
+      // Generate short ID: DFR + 5 digit sequence (e.g., "DFR12345" = 8 chars)
+      const ts = Date.now().toString().slice(-5);
+      trackingId = `DFR${ts}`;
+    }
+
     // Prepare address (split if > 100 chars)
     let address1 = orderData.address;
     let address2 = '';
@@ -125,24 +141,35 @@ serve(async (req) => {
       address2 = orderData.address.substring(100, 200);
     }
 
-    // Calculate dates
-    const today = new Date();
-    const pickupDate = today.toISOString().split('T')[0];
-    const deliveryDate = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Calculate dates in Malaysia timezone (UTC+8)
+    // Edge functions run in UTC, so we need to add 8 hours to get Malaysia time
+    const nowUTC = new Date();
+    const malaysiaOffset = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+    const malaysiaTime = new Date(nowUTC.getTime() + malaysiaOffset);
 
-    // COD amount (0 if CASH)
-    const codAmount = orderData.caraBayaran === 'COD' ? Math.round(orderData.price) : 0;
+    // Format as YYYY-MM-DD
+    const pickupDate = malaysiaTime.toISOString().split('T')[0];
+    const deliveryTime = new Date(malaysiaTime.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const deliveryDate = deliveryTime.toISOString().split('T')[0];
 
-    // Delivery instructions
-    const deliveryInstructions = `${orderData.produk} (${orderData.marketerIdStaff}) (${pickupDate})`;
+    console.log('Malaysia time:', malaysiaTime.toISOString(), 'Pickup date:', pickupDate, 'Delivery date:', deliveryDate);
 
-    // Create order payload - use idSale for tracking
+    // COD amount (only for COD payments)
+    const codAmount = orderData.paymentMethod === 'COD' ? Math.round(orderData.price) : 0;
+
+    // Delivery instructions format: SKU - unit, id_staff, nota
+    const sku = orderData.productSku || orderData.productName;
+    const idStaff = orderData.marketerIdStaff || '';
+    const nota = orderData.nota || '';
+    const deliveryInstructions = `${sku} - ${orderData.quantity}, ${idStaff}, ${nota}`.trim();
+
+    // Create order payload
     const ninjavanPayload = {
       service_type: "Parcel",
       service_level: "Standard",
-      requested_tracking_number: orderData.idSale,
+      requested_tracking_number: trackingId,
       reference: {
-        merchant_order_number: `BISNESOWNER-${orderData.idSale}`
+        merchant_order_number: `DFREMPIRE-${trackingId}`
       },
       from: {
         name: config.sender_name,
@@ -195,9 +222,9 @@ serve(async (req) => {
       }
     };
 
-    console.log('Sending to Ninjavan:', JSON.stringify(ninjavanPayload));
+    console.log('Sending to NinjaVan:', JSON.stringify(ninjavanPayload));
 
-    // Send order to Ninjavan
+    // Send order to NinjaVan
     const orderResponse = await fetch('https://api.ninjavan.co/my/4.1/orders', {
       method: 'POST',
       headers: {
@@ -208,20 +235,20 @@ serve(async (req) => {
     });
 
     const orderResult = await orderResponse.json();
-    console.log('Ninjavan response:', orderResult);
+    console.log('NinjaVan response:', orderResult);
 
     if (!orderResponse.ok) {
       return new Response(
-        JSON.stringify({ error: orderResult.message || 'Failed to create Ninjavan order', details: orderResult }),
+        JSON.stringify({ error: orderResult.message || 'Failed to create NinjaVan order', details: orderResult }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        trackingNumber: orderResult.tracking_number,
-        message: 'Order sent to Ninjavan successfully'
+      JSON.stringify({
+        success: true,
+        trackingNumber: orderResult.tracking_number || trackingId,
+        message: 'Order sent to NinjaVan successfully'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
