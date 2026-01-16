@@ -30,9 +30,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Package, Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import Swal from "sweetalert2";
 
 interface BundleItem {
   productId: string;
@@ -50,6 +59,8 @@ const LogisticBundleManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingBundleId, setEditingBundleId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bundleToDelete, setBundleToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Form states
   const [bundleName, setBundleName] = useState("");
@@ -297,25 +308,21 @@ const LogisticBundleManagement = () => {
     }
   };
 
-  // Delete bundle
-  const handleDelete = async (bundleId: string, bundleName: string) => {
-    const result = await Swal.fire({
-      icon: "warning",
-      title: "Delete Bundle?",
-      text: `Are you sure you want to delete "${bundleName}"? This action cannot be undone.`,
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      confirmButtonText: "Yes, Delete",
-      cancelButtonText: "Cancel",
-    });
+  // Delete bundle - open confirmation dialog
+  const handleDeleteClick = (bundleId: string, bundleName: string) => {
+    setBundleToDelete({ id: bundleId, name: bundleName });
+    setDeleteDialogOpen(true);
+  };
 
-    if (!result.isConfirmed) return;
+  // Confirm delete bundle
+  const handleConfirmDelete = async () => {
+    if (!bundleToDelete) return;
 
     try {
       const { error } = await supabase
         .from("logistic_bundles")
         .delete()
-        .eq("id", bundleId);
+        .eq("id", bundleToDelete.id);
 
       if (error) throw error;
 
@@ -323,6 +330,9 @@ const LogisticBundleManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["logistic-bundles"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to delete bundle");
+    } finally {
+      setDeleteDialogOpen(false);
+      setBundleToDelete(null);
     }
   };
 
@@ -423,7 +433,7 @@ const LogisticBundleManagement = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(bundle.id, bundle.name)}
+                          onClick={() => handleDeleteClick(bundle.id, bundle.name)}
                           className="text-red-500 hover:text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -601,6 +611,27 @@ const LogisticBundleManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Bundle?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{bundleToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

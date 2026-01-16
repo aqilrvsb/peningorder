@@ -11,8 +11,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { Users, ShoppingCart, DollarSign, Package, Plus, Loader2, FileText, Trash2, Search, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import Swal from "sweetalert2";
 import AddCustomerModal, { CustomerPurchaseData } from "./AddCustomerModal";
 import { getMalaysiaDate } from "@/lib/utils";
 import PaymentDetailsModal from "./PaymentDetailsModal";
@@ -27,6 +36,9 @@ const LogisticCustomers = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Quick search state (search without date filter)
   const [quickSearch, setQuickSearch] = useState("");
@@ -276,25 +288,18 @@ const LogisticCustomers = () => {
     setIsQuickSearchActive(false);
   };
 
-  // Delete selected orders
-  const handleDeleteSelected = async () => {
+  // Delete selected orders - open confirmation
+  const handleDeleteSelected = () => {
     if (selectedOrders.size === 0) {
       toast.error("Please select orders to delete");
       return;
     }
+    setDeleteDialogOpen(true);
+  };
 
-    const result = await Swal.fire({
-      icon: "warning",
-      title: "Delete Orders?",
-      html: `<p>Are you sure you want to delete <strong>${selectedOrders.size}</strong> order(s)?</p><p class="text-red-600 mt-2">This action cannot be undone. Inventory will be restored.</p>`,
-      showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      confirmButtonText: "Yes, Delete",
-      cancelButtonText: "Cancel",
-    });
-
-    if (!result.isConfirmed) return;
-
+  // Confirm delete selected orders
+  const confirmDeleteSelected = async () => {
+    setDeleteDialogOpen(false);
     setIsDeleting(true);
     try {
       const selectedOrdersList = groupedPurchases.filter((p: any) => selectedOrders.has(p.id));
@@ -672,17 +677,13 @@ const LogisticCustomers = () => {
       queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
       setIsModalOpen(false);
 
-      let successMessage = "Customer purchase recorded successfully. Inventory has been updated.";
+      let msg = "Customer purchase recorded successfully. Inventory has been updated.";
       if (result?.trackingNumber) {
-        successMessage += `\n\nTracking Number: ${result.trackingNumber}`;
+        msg += `\n\nTracking Number: ${result.trackingNumber}`;
       }
 
-      Swal.fire({
-        icon: "success",
-        title: "Success!",
-        text: successMessage,
-        confirmButtonText: "OK"
-      });
+      setSuccessMessage(msg);
+      setSuccessDialogOpen(true);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create customer purchase");
@@ -1225,6 +1226,46 @@ const LogisticCustomers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Orders?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{selectedOrders.size}</strong> order(s)?
+              <br />
+              <span className="text-red-600">This action cannot be undone. Inventory will be restored.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSelected}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success Dialog */}
+      <AlertDialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Success!</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">
+              {successMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setSuccessDialogOpen(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
