@@ -597,14 +597,14 @@ const LogisticProcessed = () => {
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_processed || order.date_order || "-"}</td>
-                          <td className="p-2">{order.customer?.name || "-"}</td>
+                          <td className="p-2">{order.customer?.name || order.nama_pelanggan || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.customer?.phone || order.no_phone || "-"}</td>
                           <td className="p-2">
                             <span className="truncate max-w-[150px] block">{order.product?.name || order.produk || "-"}</span>
                           </td>
                           <td className="p-2 text-center">{order.quantity || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                            <span className="font-mono text-xs">{order.tracking_number || order.tracking_no || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
                           <td className="p-2">

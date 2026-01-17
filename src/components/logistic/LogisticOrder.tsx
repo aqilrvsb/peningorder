@@ -905,7 +905,7 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
-                          <td className="p-2">{order.customer?.name || "-"}</td>
+                          <td className="p-2">{order.customer?.name || order.nama_pelanggan || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.customer?.phone || order.no_phone || "-"}</td>
                           <td className="p-2">
                             {order.product?.name || order.produk ? (
@@ -927,8 +927,8 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2 text-center">{order.quantity || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            {order.tracking_number ? (
-                              <span className="font-mono text-xs">{order.tracking_number}</span>
+                            {order.tracking_number || order.tracking_no ? (
+                              <span className="font-mono text-xs">{order.tracking_number || order.tracking_no}</span>
                             ) : needsTrackingGeneration(order) ? (
                               <Button
                                 variant="outline"
