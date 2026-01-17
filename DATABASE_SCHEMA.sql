@@ -1,182 +1,6 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
--- ============================================================================
--- NEW TABLES FOR LOGISTIC ROLE (Copied from chain-stock-flow Branch Role)
--- ============================================================================
-
--- Customers table for Customer HQ management
-CREATE TABLE public.customers (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  phone text NOT NULL,
-  address text,
-  state text NOT NULL,
-  created_by uuid NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  postcode text,
-  city text,
-  CONSTRAINT customers_pkey PRIMARY KEY (id),
-  CONSTRAINT customers_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
-);
-
--- Inventory table for tracking user-specific product quantities
-CREATE TABLE public.inventory (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL DEFAULT 0,
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT inventory_pkey PRIMARY KEY (id),
-  CONSTRAINT inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
-  CONSTRAINT inventory_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
-
--- Customer purchases table for order management
-CREATE TABLE public.customer_purchases (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  customer_id uuid NOT NULL,
-  seller_id uuid NOT NULL,
-  bundle_id uuid,
-  product_id uuid,
-  quantity integer NOT NULL DEFAULT 1,
-  unit_price numeric NOT NULL,
-  total_price numeric NOT NULL,
-  payment_method text NOT NULL CHECK (payment_method = ANY (ARRAY['Online Transfer'::text, 'COD'::text, 'Cash'::text])),
-  remarks text DEFAULT 'Customer purchase'::text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  closing_type text CHECK (closing_type IS NULL OR (closing_type = ANY (ARRAY['Website'::text, 'WhatsappBot'::text, 'Call'::text, 'Manual'::text, 'Live'::text, 'Shop'::text, 'Walk In'::text]))),
-  tracking_number text,
-  platform text DEFAULT 'Manual'::text,
-  ninjavan_order_id text,
-  delivery_status text DEFAULT 'Pending'::text,
-  date_processed date,
-  date_return date,
-  tarikh_bayaran date,
-  seo text,
-  order_from text,
-  attachment_url text,
-  marketer_id uuid,
-  marketer_id_staff text,
-  marketer_name text,
-  jenis_platform text,
-  jenis_customer text,
-  jenis_closing text,
-  harga_jualan_produk numeric,
-  kos_pos numeric DEFAULT 0,
-  kos_produk numeric DEFAULT 0,
-  profit numeric DEFAULT 0,
-  date_order date DEFAULT CURRENT_DATE,
-  receipt_image_url text,
-  waybill_url text,
-  jenis_bayaran text,
-  bank text,
-  alamat text,
-  bandar text,
-  poskod text,
-  negeri text,
-  no_phone text,
-  produk text,
-  sku text,
-  kurier text,
-  no_tracking text,
-  cara_bayaran text,
-  nota_staff text,
-  id_sale text,
-  woo_order_id integer,
-  logistic_bundle_id uuid,
-  CONSTRAINT customer_purchases_pkey PRIMARY KEY (id),
-  CONSTRAINT customer_purchases_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
-  CONSTRAINT customer_purchases_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
-  CONSTRAINT customer_purchases_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.bundles(id),
-  CONSTRAINT customer_purchases_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT customer_purchases_marketer_id_fkey FOREIGN KEY (marketer_id) REFERENCES public.profiles(id),
-  CONSTRAINT customer_purchases_logistic_bundle_id_fkey FOREIGN KEY (logistic_bundle_id) REFERENCES public.logistic_bundles(id)
-);
-
--- Logistic bundles table for bundle management
-CREATE TABLE public.logistic_bundles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  logistic_id uuid NOT NULL,
-  name text NOT NULL,
-  description text,
-  sku text,
-  total_price numeric NOT NULL DEFAULT 0,
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT logistic_bundles_pkey PRIMARY KEY (id),
-  CONSTRAINT logistic_bundles_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id)
-);
-
--- Logistic bundle items table
-CREATE TABLE public.logistic_bundle_items (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bundle_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT logistic_bundle_items_pkey PRIMARY KEY (id),
-  CONSTRAINT logistic_bundle_items_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.logistic_bundles(id),
-  CONSTRAINT logistic_bundle_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
-
--- Stock in for logistic
-CREATE TABLE public.stock_in_logistic (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  logistic_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL CHECK (quantity > 0),
-  description text,
-  date timestamp with time zone NOT NULL DEFAULT now(),
-  source_type text NOT NULL DEFAULT 'hq'::text CHECK (source_type = ANY (ARRAY['hq'::text, 'transfer'::text])),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT stock_in_logistic_pkey PRIMARY KEY (id),
-  CONSTRAINT stock_in_logistic_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
-  CONSTRAINT stock_in_logistic_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
-
--- Stock out for logistic
-CREATE TABLE public.stock_out_logistic (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  logistic_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL CHECK (quantity > 0),
-  description text,
-  date timestamp with time zone NOT NULL DEFAULT now(),
-  recipient_id uuid,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT stock_out_logistic_pkey PRIMARY KEY (id),
-  CONSTRAINT stock_out_logistic_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
-  CONSTRAINT stock_out_logistic_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT stock_out_logistic_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.profiles(id)
-);
-
--- Stock requests for logistic
-CREATE TABLE public.logistic_stock_requests (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  logistic_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL CHECK (quantity > 0),
-  description text,
-  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
-  requested_at timestamp with time zone NOT NULL DEFAULT now(),
-  processed_at timestamp with time zone,
-  processed_by uuid,
-  rejection_reason text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT logistic_stock_requests_pkey PRIMARY KEY (id),
-  CONSTRAINT logistic_stock_requests_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
-  CONSTRAINT logistic_stock_requests_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT logistic_stock_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.profiles(id)
-);
-
--- ============================================================================
--- EXISTING TABLES
--- ============================================================================
-
 CREATE TABLE public.bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -248,6 +72,81 @@ CREATE TABLE public.customer_orders (
   prospect_id uuid,
   CONSTRAINT customer_orders_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.customer_purchases (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid,
+  seller_id uuid,
+  bundle_id uuid,
+  product_id uuid,
+  quantity integer NOT NULL DEFAULT 1,
+  unit_price numeric NOT NULL DEFAULT 0,
+  total_price numeric NOT NULL DEFAULT 0,
+  payment_method text CHECK (payment_method IS NULL OR (payment_method = ANY (ARRAY['Online Transfer'::text, 'COD'::text, 'Cash'::text]))),
+  remarks text DEFAULT 'Customer purchase'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  closing_type text CHECK (closing_type IS NULL OR (closing_type = ANY (ARRAY['Website'::text, 'WhatsappBot'::text, 'Call'::text, 'Manual'::text, 'Live'::text, 'Shop'::text, 'Walk In'::text]))),
+  tracking_number text,
+  platform text DEFAULT 'Manual'::text,
+  ninjavan_order_id text,
+  delivery_status text DEFAULT 'Pending'::text,
+  date_processed date,
+  date_return date,
+  tarikh_bayaran date,
+  seo text,
+  order_from text,
+  attachment_url text,
+  marketer_id uuid,
+  marketer_id_staff text,
+  marketer_name text,
+  jenis_platform text,
+  jenis_customer text,
+  jenis_closing text,
+  harga_jualan_produk numeric,
+  kos_pos numeric DEFAULT 0,
+  kos_produk numeric DEFAULT 0,
+  profit numeric DEFAULT 0,
+  date_order date DEFAULT CURRENT_DATE,
+  receipt_image_url text,
+  waybill_url text,
+  jenis_bayaran text,
+  bank text,
+  alamat text,
+  bandar text,
+  poskod text,
+  negeri text,
+  no_phone text,
+  produk text,
+  sku text,
+  kurier text,
+  no_tracking text,
+  cara_bayaran text,
+  nota_staff text,
+  id_sale text,
+  woo_order_id integer,
+  logistic_bundle_id uuid,
+  CONSTRAINT customer_purchases_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_purchases_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_purchases_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
+  CONSTRAINT customer_purchases_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.bundles(id),
+  CONSTRAINT customer_purchases_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT customer_purchases_marketer_id_fkey FOREIGN KEY (marketer_id) REFERENCES public.profiles(id),
+  CONSTRAINT customer_purchases_logistic_bundle_id_fkey FOREIGN KEY (logistic_bundle_id) REFERENCES public.logistic_bundles(id)
+);
+CREATE TABLE public.customers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  phone text NOT NULL,
+  address text,
+  state text NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  postcode text,
+  city text,
+  CONSTRAINT customers_pkey PRIMARY KEY (id),
+  CONSTRAINT customers_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.device_setting (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -264,9 +163,58 @@ CREATE TABLE public.device_setting (
   CONSTRAINT device_setting_pkey PRIMARY KEY (id),
   CONSTRAINT device_setting_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.inventory (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL DEFAULT 0,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT inventory_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT inventory_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.logistic_bundle_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bundle_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT logistic_bundle_items_pkey PRIMARY KEY (id),
+  CONSTRAINT logistic_bundle_items_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.logistic_bundles(id),
+  CONSTRAINT logistic_bundle_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.logistic_bundles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  logistic_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  sku text,
+  total_price numeric NOT NULL DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT logistic_bundles_pkey PRIMARY KEY (id),
+  CONSTRAINT logistic_bundles_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.logistic_stock_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  logistic_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL CHECK (quantity > 0),
+  description text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+  requested_at timestamp with time zone NOT NULL DEFAULT now(),
+  processed_at timestamp with time zone,
+  processed_by uuid,
+  rejection_reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT logistic_stock_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT logistic_stock_requests_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
+  CONSTRAINT logistic_stock_requests_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT logistic_stock_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.profiles(id)
+);
 CREATE TABLE public.ninjavan_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  profile_id uuid NOT NULL UNIQUE,
   client_id text NOT NULL,
   client_secret text NOT NULL,
   sender_name text NOT NULL,
@@ -279,17 +227,14 @@ CREATE TABLE public.ninjavan_config (
   sender_state text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT ninjavan_config_pkey PRIMARY KEY (id),
-  CONSTRAINT ninjavan_config_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+  CONSTRAINT ninjavan_config_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.ninjavan_tokens (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  profile_id uuid NOT NULL,
   access_token text NOT NULL,
   expires_at timestamp with time zone NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT ninjavan_tokens_pkey PRIMARY KEY (id),
-  CONSTRAINT ninjavan_tokens_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+  CONSTRAINT ninjavan_tokens_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.pnl_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -359,6 +304,19 @@ CREATE TABLE public.spends (
   jenis_closing text,
   CONSTRAINT spends_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.stock_in_logistic (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  logistic_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL CHECK (quantity > 0),
+  description text,
+  date timestamp with time zone NOT NULL DEFAULT now(),
+  source_type text NOT NULL DEFAULT 'hq'::text CHECK (source_type = ANY (ARRAY['hq'::text, 'transfer'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT stock_in_logistic_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_in_logistic_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
+  CONSTRAINT stock_in_logistic_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
 CREATE TABLE public.stock_movements (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   product_id uuid NOT NULL,
@@ -371,6 +329,20 @@ CREATE TABLE public.stock_movements (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT stock_movements_pkey PRIMARY KEY (id),
   CONSTRAINT stock_movements_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.stock_out_logistic (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  logistic_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL CHECK (quantity > 0),
+  description text,
+  date timestamp with time zone NOT NULL DEFAULT now(),
+  recipient_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT stock_out_logistic_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_out_logistic_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
+  CONSTRAINT stock_out_logistic_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT stock_out_logistic_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.user_roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
