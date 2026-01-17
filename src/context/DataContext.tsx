@@ -53,19 +53,47 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isMarketer = profile?.role === 'marketer';
   const userIdStaff = profile?.idstaff;
 
+  // Map customer_purchases table to CustomerOrder interface
   const mapOrder = (d: any): CustomerOrder => ({
-    id: d.id, noTempahan: d.no_tempahan, idSale: d.id_sale || '', marketerIdStaff: d.marketer_id_staff, marketerName: d.marketer_name,
-    noPhone: d.no_phone, alamat: d.alamat, poskod: d.poskod, bandar: d.bandar, negeri: d.negeri,
-    sku: d.sku, produk: d.produk, kuantiti: d.kuantiti, hargaJualanProduk: parseFloat(d.harga_jualan_produk) || 0,
-    hargaJualanSebenar: parseFloat(d.harga_jualan_sebenar) || 0, kosPos: parseFloat(d.kos_pos) || 0,
-    kosProduk: parseFloat(d.kos_produk) || 0, profit: parseFloat(d.profit) || 0,
-    hargaJualanAgen: parseFloat(d.harga_jualan_agen) || 0, tarikhTempahan: d.tarikh_tempahan,
-    kurier: d.kurier || '', noTracking: d.no_tracking || '', statusParcel: d.status_parcel || 'Pending',
-    notaStaff: d.nota_staff || '', beratParcel: d.berat_parcel || 0, createdAt: d.created_at,
-    deliveryStatus: d.delivery_status || 'Pending', dateOrder: d.date_order || '', dateProcessed: d.date_processed || '',
+    id: d.id,
+    noTempahan: d.id_sale || d.id?.substring(0, 8) || '', // Use id_sale as order number
+    idSale: d.id_sale || '',
+    marketerIdStaff: d.marketer_id_staff || '',
+    marketerName: d.marketer_name || '',
+    noPhone: d.no_phone || '',
+    alamat: d.alamat || '',
+    poskod: d.poskod || '',
+    bandar: d.bandar || '',
+    negeri: d.negeri || '',
+    sku: d.sku || '',
+    produk: d.produk || '',
+    kuantiti: d.quantity || 1, // customer_purchases uses 'quantity' not 'kuantiti'
+    hargaJualanProduk: parseFloat(d.harga_jualan_produk) || 0,
+    hargaJualanSebenar: parseFloat(d.total_price) || 0, // customer_purchases uses 'total_price'
+    kosPos: parseFloat(d.kos_pos) || 0,
+    kosProduk: parseFloat(d.kos_produk) || 0,
+    profit: parseFloat(d.profit) || 0,
+    hargaJualanAgen: parseFloat(d.harga_jualan_agen) || 0,
+    tarikhTempahan: d.date_order || '', // customer_purchases uses 'date_order' (date type)
+    kurier: d.kurier || '',
+    noTracking: d.no_tracking || '',
+    statusParcel: d.delivery_status || 'Pending', // Use delivery_status
+    notaStaff: d.nota_staff || '',
+    beratParcel: 0, // Not in customer_purchases
+    createdAt: d.created_at,
+    deliveryStatus: d.delivery_status || 'Pending',
+    dateOrder: d.date_order || '',
+    dateProcessed: d.date_processed || '',
     dateReturn: d.date_return || '',
-    jenisPlatform: d.jenis_platform || '', jenisCustomer: d.jenis_customer || '', jenisClosing: d.jenis_closing || '', caraBayaran: d.cara_bayaran || '',
-    tarikhBayaran: d.tarikh_bayaran || '', jenisBayaran: d.jenis_bayaran || '', bank: d.bank || '', receiptImageUrl: d.receipt_image_url || '', waybillUrl: d.waybill_url || '',
+    jenisPlatform: d.jenis_platform || '',
+    jenisCustomer: d.jenis_customer || '',
+    jenisClosing: d.jenis_closing || '',
+    caraBayaran: d.cara_bayaran || '',
+    tarikhBayaran: d.tarikh_bayaran || '',
+    jenisBayaran: d.jenis_bayaran || '',
+    bank: d.bank || '',
+    receiptImageUrl: d.receipt_image_url || '',
+    waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
   });
 
@@ -83,7 +111,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       // Build queries - filter by marketer's idstaff if user is a marketer
-      let ordersQuery = queryTable('customer_orders').select('*').order('created_at', { ascending: false });
+      let ordersQuery = queryTable('customer_purchases').select('*').order('created_at', { ascending: false });
       let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false });
 
       // Marketers only see their own data
@@ -102,15 +130,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => { refreshData(); }, [isAuthenticated, isMarketer, userIdStaff]);
 
   const addOrder = async (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => {
-    const { error } = await queryTable('customer_orders').insert({
-      no_tempahan: order.noTempahan, id_sale: order.idSale, marketer_id: user?.id, marketer_id_staff: order.marketerIdStaff,
+    const { error } = await queryTable('customer_purchases').insert({
+      id_sale: order.idSale, marketer_id: user?.id, marketer_id_staff: order.marketerIdStaff,
       marketer_name: order.marketerName, no_phone: order.noPhone, alamat: order.alamat,
       poskod: order.poskod, bandar: order.bandar, negeri: order.negeri, sku: order.sku,
-      produk: order.produk, kuantiti: order.kuantiti, harga_jualan_produk: order.hargaJualanProduk,
-      harga_jualan_sebenar: order.hargaJualanSebenar, kos_pos: order.kosPos, kos_produk: order.kosProduk,
-      profit: order.profit, harga_jualan_agen: order.hargaJualanAgen, tarikh_tempahan: order.tarikhTempahan,
-      kurier: order.kurier, no_tracking: order.noTracking, status_parcel: order.statusParcel,
-      nota_staff: order.notaStaff, berat_parcel: order.beratParcel,
+      produk: order.produk, quantity: order.kuantiti, harga_jualan_produk: order.hargaJualanProduk,
+      total_price: order.hargaJualanSebenar, kos_pos: order.kosPos, kos_produk: order.kosProduk,
+      profit: order.profit, harga_jualan_agen: order.hargaJualanAgen,
+      kurier: order.kurier, no_tracking: order.noTracking,
+      nota_staff: order.notaStaff,
       delivery_status: order.deliveryStatus, date_order: order.dateOrder,
       jenis_platform: order.jenisPlatform, jenis_customer: order.jenisCustomer, jenis_closing: order.jenisClosing, cara_bayaran: order.caraBayaran,
       tarikh_bayaran: order.tarikhBayaran || null, jenis_bayaran: order.jenisBayaran || null,
@@ -122,18 +150,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateOrder = async (id: string, data: Partial<CustomerOrder>) => {
     const upd: any = {};
-    if (data.statusParcel !== undefined) upd.status_parcel = data.statusParcel;
+    if (data.statusParcel !== undefined) upd.delivery_status = data.statusParcel;
     if (data.noTracking !== undefined) upd.no_tracking = data.noTracking;
     if (data.deliveryStatus !== undefined) upd.delivery_status = data.deliveryStatus;
     if (data.dateProcessed !== undefined) upd.date_processed = data.dateProcessed;
-    const { error } = await queryTable('customer_orders').update(upd).eq('id', id);
+    const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;
     await refreshData();
   };
 
   const deleteOrder = async (id: string) => {
     console.log('Deleting order with ID:', id);
-    const { error } = await queryTable('customer_orders').delete().eq('id', id);
+    const { error } = await queryTable('customer_purchases').delete().eq('id', id);
     
     if (error) {
       console.error('Delete error:', error);

@@ -239,7 +239,7 @@ Terima kasih! 🙏`;
         idSale = saleIdData;
         
         // Update the order with new id_sale
-        await supabase.from('customer_orders').update({ id_sale: idSale }).eq('id', orderForTracking.id);
+        await supabase.from('customer_purchases').update({ id_sale: idSale }).eq('id', orderForTracking.id);
       }
       
       // Determine COD based on cara_bayaran

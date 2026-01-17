@@ -11,7 +11,7 @@ interface Order {
   marketer_id_staff: string;
   marketer_name: string;
   date_order: string;
-  harga_jualan_sebenar: number;
+  total_price: number;
   delivery_status: string;
   jenis_customer: string;
   jenis_platform: string;
@@ -85,8 +85,8 @@ const ReportSales: React.FC = () => {
       try {
         const [ordersRes, spendsRes] = await Promise.all([
           (supabase as any)
-            .from('customer_orders')
-            .select('id, marketer_id_staff, marketer_name, date_order, harga_jualan_sebenar, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, marketer_name, date_order, total_price, delivery_status, jenis_customer, jenis_platform, jenis_closing')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('spends')
@@ -192,7 +192,7 @@ const ReportSales: React.FC = () => {
         };
       }
 
-      const saleAmount = Number(order.harga_jualan_sebenar) || 0;
+      const saleAmount = Number(order.total_price) || 0;
       stats[idStaff].totalSales += saleAmount;
 
       // Count returns

@@ -33,7 +33,7 @@ const DashboardLogistic: React.FC = () => {
       setIsLoading(true);
       try {
         const { data, error } = await (supabase as any)
-          .from('customer_orders')
+          .from('customer_purchases')
           .select('*')
           .order('created_at', { ascending: false });
         if (error) throw error;

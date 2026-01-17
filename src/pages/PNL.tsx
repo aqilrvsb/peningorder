@@ -104,8 +104,8 @@ const PNL: React.FC = () => {
 
       // Fetch shipped orders only (delivery_status = 'Shipped' or 'Success')
       const { data: orders, error: ordersError } = await (supabase as any)
-        .from('customer_orders')
-        .select('harga_jualan_sebenar, delivery_status')
+        .from('customer_purchases')
+        .select('total_price, delivery_status')
         .eq('marketer_id_staff', marketerIdStaff)
         .gte('date_order', startDate)
         .lte('date_order', endDate)
@@ -124,7 +124,7 @@ const PNL: React.FC = () => {
       if (spendsError) throw spendsError;
 
       // Calculate totals
-      const totalSales = orders?.reduce((sum: number, o: any) => sum + (Number(o.harga_jualan_sebenar) || 0), 0) || 0;
+      const totalSales = orders?.reduce((sum: number, o: any) => sum + (Number(o.total_price) || 0), 0) || 0;
       const totalSpend = spends?.reduce((sum: number, s: any) => sum + (Number(s.total_spend) || 0), 0) || 0;
       const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
 

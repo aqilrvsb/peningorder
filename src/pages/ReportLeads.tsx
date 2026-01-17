@@ -20,7 +20,7 @@ interface Order {
   id: string;
   marketer_id_staff: string;
   date_order: string;
-  harga_jualan_sebenar: number;
+  total_price: number;
   jenis_customer: string;
 }
 
@@ -99,8 +99,8 @@ const ReportLeads: React.FC = () => {
             .from('prospects')
             .select('id, marketer_id_staff, tarikh_phone_number, jenis_prospek, status_closed, price_closed, admin_id_staff'),
           (supabase as any)
-            .from('customer_orders')
-            .select('id, marketer_id_staff, date_order, harga_jualan_sebenar, jenis_customer')
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_price, jenis_customer')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('spends')
@@ -270,7 +270,7 @@ const ReportLeads: React.FC = () => {
       if (stats[idStaff]) {
         const jenisCustomer = order.jenis_customer?.toUpperCase();
         if (jenisCustomer === 'NP' || jenisCustomer === 'EP') {
-          stats[idStaff].totalSales += Number(order.harga_jualan_sebenar) || 0;
+          stats[idStaff].totalSales += Number(order.total_price) || 0;
         }
       }
     });

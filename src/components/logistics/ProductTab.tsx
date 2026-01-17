@@ -64,16 +64,16 @@ const ProductTab: React.FC = () => {
       try {
         // Fetch Return orders (delivery_status = 'Return')
         const { data: returnData, error: returnError } = await supabase
-          .from('customer_orders' as any)
-          .select('produk, kuantiti')
+          .from('customer_purchases' as any)
+          .select('produk, quantity')
           .eq('delivery_status', 'Return');
 
         if (returnError) throw returnError;
 
         // Fetch Shipped orders (delivery_status = 'Shipped')
         const { data: shippedData, error: shippedError } = await supabase
-          .from('customer_orders' as any)
-          .select('produk, kuantiti')
+          .from('customer_purchases' as any)
+          .select('produk, quantity')
           .eq('delivery_status', 'Shipped');
 
         if (shippedError) throw shippedError;
@@ -85,7 +85,7 @@ const ProductTab: React.FC = () => {
           const productId = getProductIdFromBundleName(order.produk);
           if (productId) {
             const existing = orderMap.get(productId) || { returnIn: 0, processedOut: 0 };
-            existing.returnIn += order.kuantiti || 1;
+            existing.returnIn += order.quantity || 1;
             orderMap.set(productId, existing);
           }
         });
@@ -94,7 +94,7 @@ const ProductTab: React.FC = () => {
           const productId = getProductIdFromBundleName(order.produk);
           if (productId) {
             const existing = orderMap.get(productId) || { returnIn: 0, processedOut: 0 };
-            existing.processedOut += order.kuantiti || 1;
+            existing.processedOut += order.quantity || 1;
             orderMap.set(productId, existing);
           }
         });
@@ -157,8 +157,8 @@ const ProductTab: React.FC = () => {
 
         // Fetch Return In orders (filter by date_return)
         let returnQuery = supabase
-          .from('customer_orders' as any)
-          .select('produk, kuantiti, date_return')
+          .from('customer_purchases' as any)
+          .select('produk, quantity, date_return')
           .eq('delivery_status', 'Return');
 
         if (startDate) {
@@ -173,8 +173,8 @@ const ProductTab: React.FC = () => {
 
         // Fetch Processed Out orders (filter by date_processed)
         let processedQuery = supabase
-          .from('customer_orders' as any)
-          .select('produk, kuantiti, date_processed')
+          .from('customer_purchases' as any)
+          .select('produk, quantity, date_processed')
           .eq('delivery_status', 'Shipped');
 
         if (startDate) {
@@ -194,7 +194,7 @@ const ProductTab: React.FC = () => {
           const productId = getProductIdFromBundleName(order.produk);
           if (productId) {
             const existing = orderMap.get(productId) || { returnIn: 0, processedOut: 0 };
-            existing.returnIn += order.kuantiti || 1;
+            existing.returnIn += order.quantity || 1;
             orderMap.set(productId, existing);
           }
         });
@@ -203,7 +203,7 @@ const ProductTab: React.FC = () => {
           const productId = getProductIdFromBundleName(order.produk);
           if (productId) {
             const existing = orderMap.get(productId) || { returnIn: 0, processedOut: 0 };
-            existing.processedOut += order.kuantiti || 1;
+            existing.processedOut += order.quantity || 1;
             orderMap.set(productId, existing);
           }
         });

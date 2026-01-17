@@ -124,7 +124,7 @@ const Dashboard: React.FC = () => {
       setAllOrdersLoading(true);
       try {
         const { data, error } = await (supabase as any)
-          .from('customer_orders')
+          .from('customer_purchases')
           .select('*')
           .order('created_at', { ascending: false });
         if (error) throw error;

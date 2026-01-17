@@ -714,7 +714,7 @@ const OrderForm: React.FC = () => {
 
         // Update existing order in database
         const { error: updateError } = await supabase
-          .from('customer_orders')
+          .from('customer_purchases')
           .update({
             marketer_name: formData.namaPelanggan,
             no_phone: formData.noPhone,
@@ -724,9 +724,9 @@ const OrderForm: React.FC = () => {
             negeri: formData.negeri,
             produk: formData.produk,
             sku: formData.produk,
-            kuantiti: editBundleUnits,
+            quantity: editBundleUnits,
             harga_jualan_produk: formData.hargaJualan,
-            harga_jualan_sebenar: formData.hargaJualan,
+            total_price: formData.hargaJualan,
             profit: formData.hargaJualan,
             kurier,
             no_tracking: trackingNumber,
@@ -865,15 +865,11 @@ const OrderForm: React.FC = () => {
         // For admin lead orders, insert directly to include admin-specific fields
         if (isAdminLeadOrder && adminLeadData) {
           const { error: insertError } = await (supabase as any)
-            .from('customer_orders')
+            .from('customer_purchases')
             .insert({
-              no_tempahan: orderNumber,
               id_sale: idSale,
               marketer_id: null, // No marketer_id for admin orders
               marketer_id_staff: profile?.username || '', // Admin's ID as order creator
-              marketer_lead_id_staff: adminLeadData.marketerLeadIdStaff, // Marketer who owns the lead
-              admin_id_staff: adminLeadData.adminIdStaff, // Admin who created the order
-              prospect_id: adminLeadData.prospectId, // Link to the prospect
               marketer_name: formData.namaPelanggan,
               no_phone: formData.noPhone,
               alamat: formData.alamat,
@@ -882,17 +878,14 @@ const OrderForm: React.FC = () => {
               negeri: formData.negeri,
               sku: formData.produk,
               produk: formData.produk,
-              kuantiti: bundleUnits,
+              quantity: bundleUnits,
               harga_jualan_produk: formData.hargaJualan,
-              harga_jualan_sebenar: formData.hargaJualan,
+              total_price: formData.hargaJualan,
               kos_pos: 0,
               kos_produk: 0,
               profit: formData.hargaJualan,
-              harga_jualan_agen: 0,
-              tarikh_tempahan: tarikhTempahan,
               kurier,
               no_tracking: trackingNumber,
-              status_parcel: 'Pending',
               delivery_status: 'Pending',
               date_order: dateOrder,
               jenis_platform: formData.jenisPlatform,
@@ -900,7 +893,6 @@ const OrderForm: React.FC = () => {
               jenis_closing: formData.jenisClosing,
               cara_bayaran: formData.caraBayaran,
               nota_staff: formData.nota,
-              berat_parcel: 0,
               tarikh_bayaran: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null,
               jenis_bayaran: showPaymentDetails ? formData.jenisBayaran : null,
               bank: showPaymentDetails ? formData.pilihBank : null,

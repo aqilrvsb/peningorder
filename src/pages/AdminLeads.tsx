@@ -276,11 +276,11 @@ const AdminLeads: React.FC = () => {
 
     try {
       const { data: orders, error } = await (supabase as any)
-        .from('customer_orders')
-        .select('tarikh_tempahan, harga_jualan_sebenar, produk, kuantiti')
+        .from('customer_purchases')
+        .select('date_order, total_price, produk, quantity')
         .eq('no_phone', prospect.noTelefon)
         .eq('marketer_id_staff', prospect.marketerIdStaff)
-        .order('tarikh_tempahan', { ascending: false });
+        .order('date_order', { ascending: false });
 
       if (error) throw error;
       setSelectedProspectOrders(orders || []);
@@ -981,10 +981,10 @@ const AdminLeads: React.FC = () => {
                   <tbody className="divide-y divide-border">
                     {selectedProspectOrders.map((order, idx) => (
                       <tr key={idx} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 text-foreground">{order.tarikh_tempahan || '-'}</td>
-                        <td className="px-3 py-2 text-foreground">RM {(order.harga_jualan_sebenar || 0).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-foreground">{order.date_order || '-'}</td>
+                        <td className="px-3 py-2 text-foreground">RM {(order.total_price || 0).toFixed(2)}</td>
                         <td className="px-3 py-2 text-foreground">{order.produk || '-'}</td>
-                        <td className="px-3 py-2 text-foreground text-center">{order.kuantiti || 1}</td>
+                        <td className="px-3 py-2 text-foreground text-center">{order.quantity || 1}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -992,11 +992,11 @@ const AdminLeads: React.FC = () => {
                     <tr>
                       <td className="px-3 py-2 font-semibold text-foreground">Total</td>
                       <td className="px-3 py-2 font-semibold text-foreground">
-                        RM {selectedProspectOrders.reduce((sum, o) => sum + (o.harga_jualan_sebenar || 0), 0).toFixed(2)}
+                        RM {selectedProspectOrders.reduce((sum, o) => sum + (o.total_price || 0), 0).toFixed(2)}
                       </td>
                       <td className="px-3 py-2"></td>
                       <td className="px-3 py-2 font-semibold text-foreground text-center">
-                        {selectedProspectOrders.reduce((sum, o) => sum + (o.kuantiti || 1), 0)}
+                        {selectedProspectOrders.reduce((sum, o) => sum + (o.quantity || 1), 0)}
                       </td>
                     </tr>
                   </tfoot>

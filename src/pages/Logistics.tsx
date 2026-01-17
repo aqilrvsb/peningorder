@@ -497,7 +497,7 @@ const Logistics: React.FC = () => {
       // Update all selected orders - also set SEO to 'Shipped'
       const updatePromises = Array.from(selectedOrders).map(orderId =>
         supabase
-          .from('customer_orders')
+          .from('customer_purchases')
           .update({
             delivery_status: 'Shipped',
             date_processed: today,
@@ -852,7 +852,7 @@ const Logistics: React.FC = () => {
       // Update all selected orders - set date_processed to null, delivery_status to Pending, and SEO to null
       const updatePromises = Array.from(selectedShipmentOrders).map(orderId =>
         supabase
-          .from('customer_orders')
+          .from('customer_purchases')
           .update({
             delivery_status: 'Pending',
             date_processed: null,
@@ -1217,7 +1217,7 @@ const Logistics: React.FC = () => {
 
       const updatePromises = ordersToUpdate.map(order =>
         supabase
-          .from('customer_orders')
+          .from('customer_purchases')
           .update(updateData)
           .eq('id', order.id)
       );
