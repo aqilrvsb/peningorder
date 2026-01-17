@@ -81,7 +81,7 @@ const LogisticStockIn = () => {
           quantity: quantityToAdd,
           date: stockDate,
           description: description || null,
-          source_type: "manual",
+          source_type: "hq",
         });
 
       if (stockInError) throw stockInError;
