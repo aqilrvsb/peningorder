@@ -13,17 +13,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Loader2, Pencil } from "lucide-react";
+import { Package, Loader2, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const LogisticProductManagement = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Add product dialog state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductSku, setNewProductSku] = useState("");
+  const [newProductBaseCost, setNewProductBaseCost] = useState("");
+  const [newProductQuantity, setNewProductQuantity] = useState("0");
+
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [editQuantity, setEditQuantity] = useState("");
+  const [editBaseCost, setEditBaseCost] = useState("");
 
   // Fetch all products
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -55,15 +63,82 @@ const LogisticProductManagement = () => {
     enabled: !!user?.id,
   });
 
-  // Update inventory mutation
-  const updateInventoryMutation = useMutation({
+  // Add product mutation
+  const addProductMutation = useMutation({
+    mutationFn: async ({
+      name,
+      sku,
+      baseCost,
+      quantity,
+    }: {
+      name: string;
+      sku: string;
+      baseCost: number;
+      quantity: number;
+    }) => {
+      // Insert new product
+      const { data: newProduct, error: productError } = await supabase
+        .from("products")
+        .insert({
+          name,
+          sku,
+          base_cost: baseCost,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (productError) throw productError;
+
+      // Insert inventory record for this logistic user
+      if (quantity > 0) {
+        const { error: inventoryError } = await supabase
+          .from("inventory")
+          .insert({
+            user_id: user?.id,
+            product_id: newProduct.id,
+            quantity,
+          });
+
+        if (inventoryError) throw inventoryError;
+      }
+
+      return newProduct;
+    },
+    onSuccess: () => {
+      toast.success("Product added successfully");
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
+      setIsAddDialogOpen(false);
+      setNewProductName("");
+      setNewProductSku("");
+      setNewProductBaseCost("");
+      setNewProductQuantity("0");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to add product");
+    },
+  });
+
+  // Update product and inventory mutation
+  const updateProductMutation = useMutation({
     mutationFn: async ({
       productId,
+      baseCost,
       quantity,
     }: {
       productId: string;
+      baseCost: number;
       quantity: number;
     }) => {
+      // Update product base cost
+      const { error: productError } = await supabase
+        .from("products")
+        .update({ base_cost: baseCost, updated_at: new Date().toISOString() })
+        .eq("id", productId);
+
+      if (productError) throw productError;
+
       // Check if inventory record exists
       const existingInventory = inventory?.find(inv => inv.product_id === productId);
 
@@ -89,14 +164,16 @@ const LogisticProductManagement = () => {
       }
     },
     onSuccess: () => {
-      toast.success("Inventory quantity updated successfully");
+      toast.success("Product updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
       queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
       setEditQuantity("");
+      setEditBaseCost("");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to update inventory");
+      toast.error(error.message || "Failed to update product");
     },
   });
 
@@ -110,20 +187,56 @@ const LogisticProductManagement = () => {
   const openEditDialog = (product: any) => {
     setEditingProduct(product);
     setEditQuantity(String(getQuantity(product.id)));
+    setEditBaseCost(String(product.base_cost || 0));
     setIsEditDialogOpen(true);
+  };
+
+  // Handle add product submit
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName.trim()) {
+      toast.error("Please enter product name");
+      return;
+    }
+    if (!newProductSku.trim()) {
+      toast.error("Please enter product SKU");
+      return;
+    }
+    const baseCost = parseFloat(newProductBaseCost) || 0;
+    const qty = parseInt(newProductQuantity, 10) || 0;
+    if (baseCost < 0) {
+      toast.error("Base cost cannot be negative");
+      return;
+    }
+    if (qty < 0) {
+      toast.error("Quantity cannot be negative");
+      return;
+    }
+    addProductMutation.mutate({
+      name: newProductName.trim(),
+      sku: newProductSku.trim().toUpperCase(),
+      baseCost,
+      quantity: qty,
+    });
   };
 
   // Handle edit submit
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const qty = parseInt(editQuantity, 10);
+    const baseCost = parseFloat(editBaseCost);
     if (isNaN(qty) || qty < 0) {
       toast.error("Please enter a valid quantity (0 or more)");
       return;
     }
+    if (isNaN(baseCost) || baseCost < 0) {
+      toast.error("Please enter a valid base cost (0 or more)");
+      return;
+    }
     if (!editingProduct) return;
-    updateInventoryMutation.mutate({
+    updateProductMutation.mutate({
       productId: editingProduct.id,
+      baseCost,
       quantity: qty,
     });
   };
@@ -146,13 +259,19 @@ const LogisticProductManagement = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-          Inventory Management
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your inventory quantities
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Product Management
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your products and inventory
+          </p>
+        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -247,11 +366,82 @@ const LogisticProductManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Quantity Dialog */}
+      {/* Add Product Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newProductName">Product Name *</Label>
+              <Input
+                id="newProductName"
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
+                placeholder="Enter product name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newProductSku">SKU *</Label>
+              <Input
+                id="newProductSku"
+                value={newProductSku}
+                onChange={(e) => setNewProductSku(e.target.value.toUpperCase())}
+                placeholder="Enter SKU (e.g., GSI)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newProductBaseCost">Base Cost (RM)</Label>
+              <Input
+                id="newProductBaseCost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={newProductBaseCost}
+                onChange={(e) => setNewProductBaseCost(e.target.value)}
+                placeholder="Enter base cost"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newProductQuantity">Initial Quantity</Label>
+              <Input
+                id="newProductQuantity"
+                type="number"
+                min="0"
+                value={newProductQuantity}
+                onChange={(e) => setNewProductQuantity(e.target.value)}
+                placeholder="Enter initial quantity"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addProductMutation.isPending}>
+                {addProductMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Product"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Inventory Quantity</DialogTitle>
+            <DialogTitle>Edit Product</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -260,6 +450,18 @@ const LogisticProductManagement = () => {
                 value={editingProduct ? `${editingProduct.sku} - ${editingProduct.name}` : ""}
                 disabled
                 className="bg-muted"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editBaseCost">Base Cost (RM)</Label>
+              <Input
+                id="editBaseCost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editBaseCost}
+                onChange={(e) => setEditBaseCost(e.target.value)}
+                placeholder="Enter base cost"
               />
             </div>
             <div className="space-y-2">
@@ -281,8 +483,8 @@ const LogisticProductManagement = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateInventoryMutation.isPending}>
-                {updateInventoryMutation.isPending ? (
+              <Button type="submit" disabled={updateProductMutation.isPending}>
+                {updateProductMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Saving...
