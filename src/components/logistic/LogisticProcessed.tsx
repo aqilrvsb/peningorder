@@ -40,9 +40,9 @@ const LogisticProcessed = () => {
   const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch processed orders (Shipped, Delivered, Successfull Delivery)
+  // Fetch processed orders (Shipped, Delivered) - Logistic sees ALL orders
   const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ["logistic-processed", user?.id, startDate, endDate, platformFilter, paymentFilter, statusFilter],
+    queryKey: ["logistic-processed", startDate, endDate, platformFilter, paymentFilter, statusFilter],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -50,7 +50,6 @@ const LogisticProcessed = () => {
           *,
           customer:customers(id, name, phone, address, state, city, postcode)
         `)
-        .eq("seller_id", user?.id)
         .in("delivery_status", ["Shipped", "Delivered"])
         .order("date_processed", { ascending: false });
 

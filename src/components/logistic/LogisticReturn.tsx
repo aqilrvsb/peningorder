@@ -39,9 +39,9 @@ const LogisticReturn = () => {
   const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch returned orders
+  // Fetch returned orders - Logistic sees ALL orders
   const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ["logistic-returns", user?.id, startDate, endDate, platformFilter, paymentFilter],
+    queryKey: ["logistic-returns", startDate, endDate, platformFilter, paymentFilter],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -49,7 +49,6 @@ const LogisticReturn = () => {
           *,
           customer:customers(id, name, phone, address, state, city, postcode)
         `)
-        .eq("seller_id", user?.id)
         .eq("delivery_status", "Return")
         .order("date_return", { ascending: false });
 

@@ -62,9 +62,9 @@ const LogisticOrder = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<any>(null);
 
-  // Fetch orders (Pending delivery status)
+  // Fetch orders (Pending delivery status) - Logistic sees ALL orders, not filtered by seller_id
   const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ["logistic-orders", user?.id, startDate, endDate, platformFilter, paymentFilter],
+    queryKey: ["logistic-orders", startDate, endDate, platformFilter, paymentFilter],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -72,7 +72,6 @@ const LogisticOrder = () => {
           *,
           customer:customers(id, name, phone, address, state, city, postcode)
         `)
-        .eq("seller_id", user?.id)
         .eq("delivery_status", "Pending")
         .order("created_at", { ascending: false });
 

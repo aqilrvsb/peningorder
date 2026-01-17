@@ -421,7 +421,7 @@ const OrderForm: React.FC = () => {
 
   // Get effective customer type for price calculation (multiply by quantity)
   const minPricePerUnit = getMinimumPrice(formData.produk, formData.jenisPlatform, formData.jenisCustomer);
-  const currentMinPrice = minPricePerUnit * (formData.kuantiti || 1);
+  const currentMinPrice = minPricePerUnit * (formData.quantity || 1);
   const isPriceBelowMinimum = formData.hargaJualan > 0 && formData.hargaJualan < currentMinPrice;
 
   const handleChange = (field: string, value: string | number) => {
@@ -471,16 +471,16 @@ const OrderForm: React.FC = () => {
       }
 
       // Auto-populate price when product, platform, customer type, or quantity changes (only for new orders)
-      if ((field === 'produk' || field === 'jenisPlatform' || field === 'jenisCustomer' || field === 'kuantiti') && !isEditMode) {
+      if ((field === 'produk' || field === 'jenisPlatform' || field === 'jenisCustomer' || field === 'quantity') && !isEditMode) {
         const bundleName = field === 'produk' ? value as string : prev.produk;
         const platform = field === 'jenisPlatform' ? value as string : prev.jenisPlatform;
         const customerType = field === 'jenisCustomer' ? value as string : prev.jenisCustomer;
-        const quantity = field === 'kuantiti' ? Number(value) : prev.kuantiti;
+        const quantity = field === 'quantity' ? Number(value) : prev.quantity;
 
         if (bundleName && customerType) {
           const minPricePerUnit = getMinimumPrice(bundleName, platform, customerType);
           // Auto-populate: price = minPrice * quantity
-          if (field === 'produk' || field === 'jenisCustomer' || field === 'kuantiti' || prev.hargaJualan === 0) {
+          if (field === 'produk' || field === 'jenisCustomer' || field === 'quantity' || prev.hargaJualan === 0) {
             newData.hargaJualan = minPricePerUnit * (quantity || 1);
           }
         }

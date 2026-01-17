@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import {
   UserCircle, Lock, Phone, Loader2, Eye, EyeOff, Smartphone,
-  RefreshCw, QrCode, Wifi, WifiOff, Plus, Trash2
+  RefreshCw, QrCode, Wifi, WifiOff, Plus, LogOut
 } from 'lucide-react';
 import {
   Dialog,
@@ -324,43 +324,52 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleDeleteDevice = async () => {
-    if (!device) return;
-
-    if (!confirm('Adakah anda pasti mahu padam device ini?')) return;
-
-    try {
-      // Delete from Whacenter if instance exists
-      if (device.instance) {
-        try {
-          const deleteUrl = `${WHACENTER_PROXY_URL}?endpoint=deleteDevice&device_id=${encodeURIComponent(device.instance)}`;
-          await fetch(deleteUrl);
-        } catch (err) {
-          console.warn('Failed to delete from Whacenter:', err);
-        }
-      }
-
-      // Delete from database
-      const { error } = await (supabase as any)
-        .from('device_setting')
-        .delete()
-        .eq('id', device.id);
-
-      if (error) throw error;
-
-      setDevice(null);
-      setDeviceForm({ phoneNumber: '' });
-      toast({
-        title: 'Berjaya',
-        description: 'Device berjaya dipadam.',
-      });
-    } catch (error: any) {
-      console.error('Delete device error:', error);
+  const handleLogoutDevice = async () => {
+    if (!device || !device.instance) {
       toast({
         title: 'Error',
-        description: error.message || 'Gagal memadam device.',
+        description: 'Device belum digenerate.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    if (!confirm('Adakah anda pasti mahu logout device ini?')) return;
+
+    setIsCheckingStatus(true);
+    try {
+      // Logout from Whacenter
+      const logoutUrl = `${WHACENTER_PROXY_URL}?endpoint=logoutDevice&device_id=${encodeURIComponent(device.instance)}`;
+      const response = await fetch(logoutUrl);
+      const result = await response.json();
+
+      console.log('Logout result:', result);
+
+      // Update status in database to disconnected
+      await (supabase as any)
+        .from('device_setting')
+        .update({
+          status_wa: 'disconnected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', device.id);
+
+      // Reload device to refresh status
+      await loadDevice();
+
+      toast({
+        title: 'Berjaya',
+        description: 'Device berjaya logout. Klik "Scan QR" untuk sambung semula.',
+      });
+    } catch (error: any) {
+      console.error('Logout device error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal logout device.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -594,10 +603,11 @@ const Profile: React.FC = () => {
                 <Button
                   variant="destructive"
                   size="icon"
-                  onClick={handleDeleteDevice}
-                  title="Padam Device"
+                  onClick={handleLogoutDevice}
+                  disabled={isCheckingStatus || !device.instance}
+                  title="Logout Device"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <LogOut className="w-4 h-4" />
                 </Button>
               </div>
             </div>

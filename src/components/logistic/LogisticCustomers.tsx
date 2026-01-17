@@ -136,14 +136,13 @@ const LogisticCustomers = () => {
     enabled: !!user?.id,
   });
 
-  // Fetch customer purchases
+  // Fetch customer purchases - Logistic sees ALL HQ orders (where marketer_id is null)
   const { data: purchases, isLoading } = useQuery({
-    queryKey: ["customer_purchases", user?.id, startDate, endDate, platformFilter, isQuickSearchActive],
+    queryKey: ["customer_purchases", startDate, endDate, platformFilter, isQuickSearchActive],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
         .select("*")
-        .eq("seller_id", user?.id)
         .is("marketer_id", null)
         .order("date_order", { ascending: false, nullsFirst: false });
 

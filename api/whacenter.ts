@@ -67,6 +67,19 @@ export default async function handler(req: any, res: any) {
         url = `${API_BASE}/api/deleteDevice?api_key=${encodeURIComponent(API_KEY)}&device_id=${encodeURIComponent(device_id as string)}`
         break
 
+      case 'logoutDevice':
+        // Logout device uses POST method with body
+        const logoutResponse = await fetch(`${API_BASE}/api/logoutDevice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: API_KEY,
+            device_id: device_id
+          })
+        })
+        const logoutData = await logoutResponse.json()
+        return res.status(200).json(logoutData)
+
       case 'send':
         const { number: sendNumber, message } = req.query
         url = `${API_BASE}/api/send?device_id=${encodeURIComponent(device_id as string)}&number=${encodeURIComponent(sendNumber as string)}&message=${encodeURIComponent(message as string)}`

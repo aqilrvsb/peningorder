@@ -59,9 +59,9 @@ const LogisticPendingTracking = () => {
   const [bulkDate, setBulkDate] = useState(today);
   const [bulkTrackingList, setBulkTrackingList] = useState("");
 
-  // Fetch COD orders that are shipped but not yet confirmed
+  // Fetch COD orders that are shipped but not yet confirmed - Logistic sees ALL orders
   const { data: orders = [], isLoading, refetch } = useQuery({
-    queryKey: ["logistic-pending-tracking", user?.id, startDate, endDate],
+    queryKey: ["logistic-pending-tracking", startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -69,7 +69,6 @@ const LogisticPendingTracking = () => {
           *,
           customer:customers(id, name, phone, address, state, city, postcode)
         `)
-        .eq("seller_id", user?.id)
         .eq("delivery_status", "Shipped")
         .eq("payment_method", "COD")
         .or("seo.is.null,seo.neq.Successfull Delivery")
