@@ -70,7 +70,6 @@ const LogisticPendingTracking = () => {
         .from("customer_purchases")
         .select(`
           *,
-          customer:customers(name, phone, address, state, postcode, city),
           product:products(name, sku)
         `)
         .eq("delivery_status", "Shipped")
@@ -100,11 +99,12 @@ const LogisticPendingTracking = () => {
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
       const matchesSearch = searchTerms.every((term) =>
-        order.customer?.name?.toLowerCase().includes(term) ||
-        order.customer?.phone?.toLowerCase().includes(term) ||
+        order.nama_pelanggan?.toLowerCase().includes(term) ||
+        order.no_phone?.toLowerCase().includes(term) ||
         order.tracking_number?.toLowerCase().includes(term) ||
         order.product?.name?.toLowerCase().includes(term) ||
-        order.customer?.address?.toLowerCase().includes(term)
+        order.produk?.toLowerCase().includes(term) ||
+        order.alamat?.toLowerCase().includes(term)
       );
       if (!matchesSearch) return false;
     }
@@ -594,8 +594,8 @@ const LogisticPendingTracking = () => {
                           </td>
                           <td className="p-2">{(currentPage - 1) * pageSize + index + 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || format(new Date(order.created_at), "yyyy-MM-dd")}</td>
-                          <td className="p-2">{order.customer?.name || order.nama_pelanggan || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.customer?.phone || order.no_phone || "-"}</td>
+                          <td className="p-2">{order.nama_pelanggan || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.no_phone || "-"}</td>
                           <td className="p-2">
                             <span className="truncate max-w-[150px] block">{order.product?.name || order.produk || "-"}</span>
                           </td>
@@ -617,12 +617,12 @@ const LogisticPendingTracking = () => {
                           <td className="p-2 text-xs">{order.jenis_platform || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
-                          <td className="p-2 text-xs">{order.customer?.state || order.negeri || "-"}</td>
+                          <td className="p-2 text-xs">{order.negeri || "-"}</td>
                           <td className="p-2">
                             <div className="max-w-[150px]">
-                              <p className="text-xs truncate">{order.alamat || order.customer?.address || "-"}</p>
+                              <p className="text-xs truncate">{order.alamat || "-"}</p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {order.customer?.postcode} {order.customer?.city}
+                                {order.poskod} {order.bandar}
                               </p>
                             </div>
                           </td>
@@ -642,9 +642,9 @@ const LogisticPendingTracking = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {(order.customer?.phone || order.no_phone) && (
+                            {order.no_phone && (
                               <a
-                                href={`https://wa.me/6${(order.customer?.phone || order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
