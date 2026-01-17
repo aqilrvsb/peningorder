@@ -28,6 +28,7 @@ import {
   CreditCard,
   Trash2,
   RotateCcw,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -554,82 +555,123 @@ const LogisticProcessed = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="p-3 text-left w-10">
+                      <th className="p-2 text-left w-10">
                         <Checkbox
                           checked={isAllSelected}
                           onCheckedChange={handleSelectAll}
                         />
                       </th>
-                      <th className="p-3 text-left">No</th>
-                      <th className="p-3 text-left">Date Processed</th>
-                      <th className="p-3 text-left">Customer</th>
-                      <th className="p-3 text-left">Phone</th>
-                      <th className="p-3 text-left">Product</th>
-                      <th className="p-3 text-left">Qty</th>
-                      <th className="p-3 text-left">Total</th>
-                      <th className="p-3 text-left">Payment</th>
-                      <th className="p-3 text-left">Platform</th>
-                      <th className="p-3 text-left">Tracking</th>
-                      <th className="p-3 text-left">State</th>
-                      <th className="p-3 text-left">Address</th>
-                      <th className="p-3 text-left">Nota</th>
+                      <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left">Tarikh Order</th>
+                      <th className="p-2 text-left">Nama Pelanggan</th>
+                      <th className="p-2 text-left">Phone</th>
+                      <th className="p-2 text-left">Produk</th>
+                      <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Tracking</th>
+                      <th className="p-2 text-left">Total Sales</th>
+                      <th className="p-2 text-left">Cara Bayaran</th>
+                      <th className="p-2 text-left">Delivery Status</th>
+                      <th className="p-2 text-left">Jenis Platform</th>
+                      <th className="p-2 text-left">Jenis Closing</th>
+                      <th className="p-2 text-left">Jenis Customer</th>
+                      <th className="p-2 text-left">Negeri</th>
+                      <th className="p-2 text-left">Alamat</th>
+                      <th className="p-2 text-left">Nota</th>
+                      <th className="p-2 text-left">Waybill</th>
+                      <th className="p-2 text-left">SEO</th>
+                      <th className="p-2 text-left">WhatsApp</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((order: any, index: number) => (
                         <tr key={order.id} className="border-b hover:bg-muted/30">
-                          <td className="p-3">
+                          <td className="p-2">
                             <Checkbox
                               checked={selectedOrders.has(order.id)}
                               onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
                             />
                           </td>
-                          <td className="p-3">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
-                          <td className="p-3">{order.date_processed || "-"}</td>
-                          <td className="p-3">{order.customer?.name || "-"}</td>
-                          <td className="p-3">{order.customer?.phone || order.no_phone || "-"}</td>
-                          <td className="p-3">{order.product?.name || order.produk || "-"}</td>
-                          <td className="p-3">{order.quantity}</td>
-                          <td className="p-3">RM {Number(order.total_price || 0).toFixed(2)}</td>
-                          <td className="p-3">
-                            <span className={order.cara_bayaran === "COD" ? "text-orange-600 font-medium" : "text-blue-600 font-medium"}>
+                          <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_processed || order.date_order || "-"}</td>
+                          <td className="p-2">{order.customer?.name || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.customer?.phone || order.no_phone || "-"}</td>
+                          <td className="p-2">
+                            <span className="truncate max-w-[150px] block">{order.product?.name || order.produk || "-"}</span>
+                          </td>
+                          <td className="p-2 text-center">{order.quantity || 1}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                          </td>
+                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
+                          <td className="p-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.cara_bayaran === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.cara_bayaran || "-"}
                             </span>
                           </td>
-                          <td className="p-3">
-                            <span className={
-                              getOrderPlatform(order) === "Tiktok" ? "text-pink-600 font-medium" :
-                              getOrderPlatform(order) === "Shopee" ? "text-orange-500 font-medium" :
-                              getOrderPlatform(order) === "Facebook" ? "text-blue-600 font-medium" :
-                              getOrderPlatform(order) === "Google" ? "text-green-600 font-medium" :
-                              getOrderPlatform(order) === "Database" ? "text-purple-600 font-medium" :
+                          <td className="p-2">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                              {order.delivery_status || "-"}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <span className={`text-xs font-medium ${
+                              getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
+                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
+                              getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
+                              getOrderPlatform(order) === "Google" ? "text-green-600" :
+                              getOrderPlatform(order) === "Database" ? "text-purple-600" :
                               "text-gray-600"
-                            }>
+                            }`}>
                               {getOrderPlatform(order) || "-"}
                             </span>
                           </td>
-                          <td className="p-3 font-mono text-sm">{order.tracking_number || "-"}</td>
-                          <td className="p-3">{order.customer?.state || order.negeri || "-"}</td>
-                          <td className="p-3">
-                            <div className="max-w-xs">
-                              <p className="text-sm truncate">{order.alamat || order.customer?.address || "-"}</p>
-                              <p className="text-xs text-muted-foreground">
+                          <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
+                          <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
+                          <td className="p-2 text-xs">{order.customer?.state || order.negeri || "-"}</td>
+                          <td className="p-2">
+                            <div className="max-w-[150px]">
+                              <p className="text-xs truncate">{order.alamat || order.customer?.address || "-"}</p>
+                              <p className="text-xs text-muted-foreground truncate">
                                 {order.customer?.postcode} {order.customer?.city}
                               </p>
                             </div>
                           </td>
-                          <td className="p-3">
-                            <p className="text-sm truncate max-w-xs">{order.nota_staff || "-"}</p>
+                          <td className="p-2">
+                            <p className="text-xs truncate max-w-[100px]">{order.nota_staff || "-"}</p>
+                          </td>
+                          <td className="p-2">
+                            {order.waybill_url ? (
+                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                View
+                              </a>
+                            ) : "-"}
+                          </td>
+                          <td className="p-2">
+                            <span className={`text-xs ${order.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                              {order.seo || "-"}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            {(order.customer?.phone || order.no_phone) && (
+                              <a
+                                href={`https://wa.me/6${(order.customer?.phone || order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </a>
+                            )}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={14} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
                           No processed orders found.
                         </td>
                       </tr>
