@@ -59,10 +59,10 @@ const LogisticReturn = () => {
         query = query.lte("date_return", endDate);
       }
       if (platformFilter !== "all") {
-        query = query.eq("platform", platformFilter);
+        query = query.eq("jenis_platform", platformFilter);
       }
       if (paymentFilter !== "all") {
-        query = query.eq("payment_method", paymentFilter);
+        query = query.eq("cara_bayaran", paymentFilter);
       }
 
       const { data, error } = await query;
@@ -93,8 +93,8 @@ const LogisticReturn = () => {
 
   // Stats
   const totalReturns = filteredOrders.length;
-  const codReturns = filteredOrders.filter((o: any) => o.payment_method === "COD").length;
-  const transferReturns = filteredOrders.filter((o: any) => o.payment_method === "Online Transfer").length;
+  const codReturns = filteredOrders.filter((o: any) => o.cara_bayaran === "COD").length;
+  const transferReturns = filteredOrders.filter((o: any) => o.cara_bayaran === "Online Transfer" || o.cara_bayaran === "CASH").length;
   const totalValue = filteredOrders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0);
 
   return (
@@ -289,12 +289,12 @@ const LogisticReturn = () => {
                           RM {(order.total_price || 0).toFixed(2)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={order.payment_method === "COD" ? "outline" : "default"}>
-                            {order.payment_method || "-"}
+                          <Badge variant={order.cara_bayaran === "COD" ? "outline" : "default"}>
+                            {order.cara_bayaran || "-"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{order.platform || "-"}</Badge>
+                          <Badge variant="secondary">{order.jenis_platform || "-"}</Badge>
                         </TableCell>
                         <TableCell>
                           <code className="text-xs">{order.tracking_number || "-"}</code>

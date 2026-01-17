@@ -70,7 +70,7 @@ const LogisticPendingTracking = () => {
           customer:customers(id, name, phone, address, state, city, postcode)
         `)
         .eq("delivery_status", "Shipped")
-        .eq("payment_method", "COD")
+        .eq("cara_bayaran", "COD")
         .or("seo.is.null,seo.neq.Successfull Delivery")
         .order("date_processed", { ascending: false });
 

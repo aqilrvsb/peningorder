@@ -199,11 +199,11 @@ const DashboardLogistic: React.FC = () => {
 
       {/* Platform Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {/* Total Order Biasa */}
+        {/* Total Online */}
         <div className="stat-card">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <Package className="w-5 h-5" />
-            <span className="text-sm font-medium">TOTAL ORDER BIASA</span>
+            <span className="text-sm font-medium">TOTAL ONLINE</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{logisticStats.totalOrderBiasa}</p>
           <p className="text-xs text-muted-foreground mt-1">FB + Database + Google</p>

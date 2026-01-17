@@ -82,10 +82,10 @@ const LogisticOrder = () => {
         query = query.lte("date_order", endDate);
       }
       if (platformFilter !== "all") {
-        query = query.eq("platform", platformFilter);
+        query = query.eq("jenis_platform", platformFilter);
       }
       if (paymentFilter !== "all") {
-        query = query.eq("payment_method", paymentFilter);
+        query = query.eq("cara_bayaran", paymentFilter);
       }
 
       const { data, error } = await query;
@@ -236,8 +236,8 @@ const LogisticOrder = () => {
 
   // Stats
   const totalOrders = filteredOrders.length;
-  const codOrders = filteredOrders.filter((o: any) => o.payment_method === "COD").length;
-  const transferOrders = filteredOrders.filter((o: any) => o.payment_method === "Online Transfer").length;
+  const codOrders = filteredOrders.filter((o: any) => o.cara_bayaran === "COD").length;
+  const transferOrders = filteredOrders.filter((o: any) => o.cara_bayaran === "Online Transfer" || o.cara_bayaran === "CASH").length;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -451,12 +451,12 @@ const LogisticOrder = () => {
                           RM {(order.total_price || 0).toFixed(2)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={order.payment_method === "COD" ? "outline" : "default"}>
-                            {order.payment_method || "-"}
+                          <Badge variant={order.cara_bayaran === "COD" ? "outline" : "default"}>
+                            {order.cara_bayaran || "-"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{order.platform || "-"}</Badge>
+                          <Badge variant="secondary">{order.jenis_platform || "-"}</Badge>
                         </TableCell>
                         <TableCell>
                           <code className="text-xs">{order.tracking_number || "-"}</code>
@@ -473,7 +473,7 @@ const LogisticOrder = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            {order.payment_method === "Online Transfer" && (
+                            {(order.cara_bayaran === "Online Transfer" || order.cara_bayaran === "CASH") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -569,7 +569,7 @@ const LogisticOrder = () => {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Payment</Label>
-                  <p className="font-medium">{selectedOrder.payment_method}</p>
+                  <p className="font-medium">{selectedOrder.cara_bayaran}</p>
                 </div>
               </div>
             </div>

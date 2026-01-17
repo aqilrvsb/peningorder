@@ -155,7 +155,7 @@ const LogisticCustomers = () => {
         }
       }
       if (platformFilter !== "all") {
-        query = query.eq("platform", platformFilter);
+        query = query.eq("jenis_platform", platformFilter);
       }
 
       const { data, error } = await query;
