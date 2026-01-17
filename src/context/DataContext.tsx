@@ -136,7 +136,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       poskod: order.poskod, bandar: order.bandar, negeri: order.negeri, sku: order.sku,
       produk: order.produk, quantity: order.kuantiti, harga_jualan_produk: order.hargaJualanProduk,
       total_price: order.hargaJualanSebenar, kos_pos: order.kosPos, kos_produk: order.kosProduk,
-      profit: order.profit, harga_jualan_agen: order.hargaJualanAgen,
+      profit: order.profit,
       kurier: order.kurier, no_tracking: order.noTracking,
       nota_staff: order.notaStaff,
       delivery_status: order.deliveryStatus, date_order: order.dateOrder,

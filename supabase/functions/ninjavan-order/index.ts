@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 interface OrderData {
-  profileId: string;
   customerName: string;
   phone: string;
   address: string;
@@ -15,10 +14,12 @@ interface OrderData {
   city: string;
   state: string;
   price: number;
-  paymentMethod: string;
-  productName: string;
+  paymentMethod?: string;
+  caraBayaran?: string; // Alternative field name for payment method
+  productName?: string;
+  produk?: string; // Alternative field name for product
   productSku?: string; // Product SKU for delivery instructions
-  quantity: number;
+  quantity?: number;
   nota?: string; // Staff notes for delivery instructions
   idSale?: string; // Optional sale ID for tracking (max 9 chars)
   marketerIdStaff?: string; // Optional marketer ID for delivery instructions
@@ -38,12 +39,12 @@ serve(async (req) => {
     const orderData: OrderData = await req.json();
     console.log('Received order data:', orderData);
 
-    // Get NinjaVan config for this profile
+    // Get NinjaVan config (global config - single record)
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .eq('profile_id', orderData.profileId)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (configError || !config) {
       console.error('Config not found:', configError);
@@ -57,11 +58,10 @@ serve(async (req) => {
     let accessToken: string;
     const now = new Date();
 
-    // First check if we have a valid (non-expired) token
+    // First check if we have a valid (non-expired) token (global token)
     const { data: tokenData, error: tokenError } = await supabase
       .from('ninjavan_tokens')
       .select('*')
-      .eq('profile_id', orderData.profileId)
       .gt('expires_at', now.toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
@@ -107,9 +107,8 @@ serve(async (req) => {
 
       console.log('New token obtained, expires in:', expiresIn, 'seconds, stored expiry:', expiresAt.toISOString());
 
-      // Store new token in database
+      // Store new token in database (global token)
       const { error: insertError } = await supabase.from('ninjavan_tokens').insert({
-        profile_id: orderData.profileId,
         access_token: accessToken,
         expires_at: expiresAt.toISOString()
       });
@@ -128,9 +127,9 @@ serve(async (req) => {
     if (orderData.idSale && orderData.idSale.length <= 9) {
       trackingId = orderData.idSale;
     } else {
-      // Generate short ID: DFR + 5 digit sequence (e.g., "DFR12345" = 8 chars)
+      // Generate short ID: OJ + 5 digit sequence (e.g., "OJ12345" = 7 chars)
       const ts = Date.now().toString().slice(-5);
-      trackingId = `DFR${ts}`;
+      trackingId = `OJ${ts}`;
     }
 
     // Prepare address (split if > 100 chars)
@@ -154,14 +153,17 @@ serve(async (req) => {
 
     console.log('Malaysia time:', malaysiaTime.toISOString(), 'Pickup date:', pickupDate, 'Delivery date:', deliveryDate);
 
-    // COD amount (only for COD payments)
-    const codAmount = orderData.paymentMethod === 'COD' ? Math.round(orderData.price) : 0;
+    // COD amount (only for COD payments) - support both field names
+    const paymentMethod = orderData.paymentMethod || orderData.caraBayaran || '';
+    const codAmount = paymentMethod === 'COD' ? Math.round(orderData.price) : 0;
 
     // Delivery instructions format: SKU - unit, id_staff, nota
-    const sku = orderData.productSku || orderData.productName;
+    const productName = orderData.productName || orderData.produk || '';
+    const sku = orderData.productSku || productName;
     const idStaff = orderData.marketerIdStaff || '';
     const nota = orderData.nota || '';
-    const deliveryInstructions = `${sku} - ${orderData.quantity}, ${idStaff}, ${nota}`.trim();
+    const quantity = orderData.quantity || 1;
+    const deliveryInstructions = `${sku} - ${quantity}, ${idStaff}, ${nota}`.trim();
 
     // Create order payload
     const ninjavanPayload = {
@@ -169,7 +171,7 @@ serve(async (req) => {
       service_level: "Standard",
       requested_tracking_number: trackingId,
       reference: {
-        merchant_order_number: `DFREMPIRE-${trackingId}`
+        merchant_order_number: `OLIVEJARDIN-${trackingId}`
       },
       from: {
         name: config.sender_name,

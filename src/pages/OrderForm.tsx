@@ -31,7 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'WhatsappBot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'WhatsappBot', 'Website', 'Call', 'Live', 'Shop'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['KURIER', 'PICKUP KEDAI'];
+const DELIVERY_METHOD_OPTIONS = ['KURIER', 'PICKUP'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -433,6 +433,42 @@ const OrderForm: React.FC = () => {
 
       const newData = { ...prev, [field]: processedValue };
 
+      // Auto-populate poskod, daerah, negeri from alamat field
+      if (field === 'alamat' && typeof processedValue === 'string') {
+        const addressText = processedValue;
+
+        // Find 5-digit poskod in the address
+        const poskodMatch = addressText.match(/\b(\d{5})\b/);
+        if (poskodMatch) {
+          newData.poskod = poskodMatch[1];
+
+          // Get text after poskod to extract daerah and negeri
+          const poskodIndex = addressText.indexOf(poskodMatch[1]);
+          const afterPoskod = addressText.substring(poskodIndex + 5).trim();
+
+          // Split by comma to get daerah (city) and negeri (state)
+          // Format expected: "..., 12345 DAERAH, NEGERI" or "..., 12345, DAERAH, NEGERI"
+          const parts = afterPoskod.split(',').map(p => p.trim()).filter(p => p.length > 0);
+
+          if (parts.length >= 2) {
+            // Last part is negeri, second to last is daerah
+            newData.daerah = parts[parts.length - 2];
+            const potentialNegeri = parts[parts.length - 1];
+            // Check if it matches known negeri options
+            const matchedNegeri = NEGERI_OPTIONS.find(n =>
+              n.toUpperCase() === potentialNegeri.toUpperCase() ||
+              potentialNegeri.toUpperCase().includes(n.toUpperCase())
+            );
+            if (matchedNegeri) {
+              newData.negeri = matchedNegeri;
+            }
+          } else if (parts.length === 1) {
+            // Only one part after poskod - could be daerah
+            newData.daerah = parts[0];
+          }
+        }
+      }
+
       // Auto-populate price when product, platform, or customer type changes (only for new orders)
       if ((field === 'produk' || field === 'jenisPlatform' || field === 'jenisCustomer') && !isEditMode) {
         const bundleName = field === 'produk' ? value as string : prev.produk;
@@ -596,11 +632,11 @@ const OrderForm: React.FC = () => {
     // Set kurier based on platform, cara bayaran and delivery method
     let kurier = '';
     const isShopeeOrTiktokOrder = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
-    const isPickupKedai = formData.deliveryMethod === 'PICKUP KEDAI';
+    const isPickup = formData.deliveryMethod === 'PICKUP';
     if (isShopeeOrTiktokOrder) {
       kurier = formData.jenisPlatform; // "Shopee" or "Tiktok"
-    } else if (isPickupKedai) {
-      kurier = 'PICKUP KEDAI';
+    } else if (isPickup) {
+      kurier = 'PICKUP';
     } else {
       kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
     }
@@ -802,8 +838,8 @@ const OrderForm: React.FC = () => {
         });
       } else {
         // New order flow
-        // Skip NinjaVan for Shopee/Tiktok and PICKUP KEDAI
-        const shouldCallNinjavan = !isShopeeOrTiktokOrder && !isPickupKedai;
+        // Skip NinjaVan for Shopee/Tiktok and PICKUP
+        const shouldCallNinjavan = !isShopeeOrTiktokOrder && !isPickup;
 
         if (shouldCallNinjavan) {
           try {
@@ -1104,8 +1140,8 @@ const OrderForm: React.FC = () => {
   };
 
   const isShopeeOrTiktok = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
-  const isPickupKedai = formData.deliveryMethod === 'PICKUP KEDAI';
-  const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupKedai) && !isShopeeOrTiktok;
+  const isPickup = formData.deliveryMethod === 'PICKUP';
+  const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickup) && !isShopeeOrTiktok;
 
   return (
     <div className="space-y-6 animate-fade-in">

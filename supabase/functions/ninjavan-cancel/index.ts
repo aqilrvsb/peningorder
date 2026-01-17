@@ -8,7 +8,6 @@ const corsHeaders = {
 
 interface CancelData {
   trackingNumber: string;
-  profileId: string;
 }
 
 serve(async (req) => {
@@ -22,7 +21,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { trackingNumber, profileId }: CancelData = await req.json();
+    const { trackingNumber }: CancelData = await req.json();
     console.log('Cancelling NinjaVan order with tracking:', trackingNumber);
 
     if (!trackingNumber) {
@@ -32,12 +31,12 @@ serve(async (req) => {
       );
     }
 
-    // Get NinjaVan config for this profile
+    // Get NinjaVan config (global config - single record)
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .eq('profile_id', profileId)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (configError || !config) {
       console.error('Config not found:', configError);
@@ -54,7 +53,6 @@ serve(async (req) => {
     const { data: tokenData, error: tokenError } = await supabase
       .from('ninjavan_tokens')
       .select('*')
-      .eq('profile_id', profileId)
       .gt('expires_at', now.toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
@@ -95,7 +93,6 @@ serve(async (req) => {
       const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
 
       await supabase.from('ninjavan_tokens').insert({
-        profile_id: profileId,
         access_token: accessToken,
         expires_at: expiresAt.toISOString()
       });

@@ -9,7 +9,6 @@ const corsHeaders = {
 
 interface WaybillData {
   trackingNumbers: string[];
-  profileId: string;
 }
 
 serve(async (req) => {
@@ -23,7 +22,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { trackingNumbers, profileId }: WaybillData = await req.json();
+    const { trackingNumbers }: WaybillData = await req.json();
 
     if (!trackingNumbers || !Array.isArray(trackingNumbers) || trackingNumbers.length === 0) {
       return new Response(
@@ -45,12 +44,12 @@ serve(async (req) => {
     console.log('Fetching waybills for tracking numbers:', validTrackingNumbers);
     console.log('Number of tracking numbers:', validTrackingNumbers.length);
 
-    // Get NinjaVan config for this profile
+    // Get NinjaVan config (global config - single record)
     const { data: config, error: configError } = await supabase
       .from('ninjavan_config')
       .select('*')
-      .eq('profile_id', profileId)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (configError || !config) {
       console.error('Config not found:', configError);

@@ -193,6 +193,9 @@ CREATE TABLE public.logistic_bundles (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  price_np numeric NOT NULL DEFAULT 0,
+  price_ep numeric NOT NULL DEFAULT 0,
+  price_ec numeric NOT NULL DEFAULT 0,
   CONSTRAINT logistic_bundles_pkey PRIMARY KEY (id),
   CONSTRAINT logistic_bundles_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id)
 );
