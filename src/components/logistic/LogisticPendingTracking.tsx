@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,87 +15,100 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { format } from "date-fns";
+import { getMalaysiaDate } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
+  Package,
   Clock,
   Loader2,
+  Printer,
   Search,
-  RefreshCw,
-  CheckCircle,
-  RotateCcw,
-  ClipboardList,
+  DollarSign,
+  Wallet,
+  Save,
 } from "lucide-react";
-import { format } from "date-fns";
 import { toast } from "sonner";
-import { getMalaysiaDate } from "@/lib/utils";
+
+const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 const LogisticPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = getMalaysiaDate();
+  const today = format(new Date(), "yyyy-MM-dd");
 
   // Filter states
+  const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Selection states
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
+  // Selection state
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
-  // Bulk update dialog
-  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  // Bulk update states
   const [bulkStatus, setBulkStatus] = useState<"Success" | "Return">("Success");
-  const [bulkDate, setBulkDate] = useState(today);
+  const [bulkDate, setBulkDate] = useState("");
   const [bulkTrackingList, setBulkTrackingList] = useState("");
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
-  // Fetch COD orders that are shipped but not yet confirmed - Logistic sees ALL orders
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  // Individual update states
+  const [individualStatus, setIndividualStatus] = useState<"Success" | "Return">("Success");
+  const [individualDate, setIndividualDate] = useState("");
+  const [isIndividualUpdating, setIsIndividualUpdating] = useState(false);
+
+  // Loading states
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  // Fetch pending tracking orders (Shipped + COD + SEO not successful)
+  // Pending tracking only for Ninjavan orders (exclude Tiktok, Shopee)
+  const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
         .select(`
           *,
-          customer:customers(id, name, phone, address, state, city, postcode)
+          customer:customers(name, phone, address, state, postcode, city),
+          product:products(name, sku)
         `)
         .eq("delivery_status", "Shipped")
         .eq("cara_bayaran", "COD")
+        .neq("jenis_platform", "Tiktok")
+        .neq("jenis_platform", "Shopee")
         .or("seo.is.null,seo.neq.Successfull Delivery")
-        .order("date_processed", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (startDate) {
-        query = query.gte("date_processed", startDate);
+        query = query.gte("date_order", startDate);
       }
       if (endDate) {
-        query = query.lte("date_processed", endDate);
+        query = query.lte("date_order", endDate);
       }
 
       const { data, error } = await query;
       if (error) throw error;
+
       return data || [];
     },
-    enabled: !!user?.id,
   });
 
-  // Filter by search
+  // Filter orders
   const filteredOrders = orders.filter((order: any) => {
-    if (!searchQuery) return true;
-    const search = searchQuery.toLowerCase();
-    return (
-      order.customer?.name?.toLowerCase().includes(search) ||
-      order.customer?.phone?.includes(search) ||
-      order.tracking_number?.toLowerCase().includes(search) ||
-      order.id?.toLowerCase().includes(search)
-    );
+    // Search filter
+    if (search.trim()) {
+      const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
+      const matchesSearch = searchTerms.every((term) =>
+        order.customer?.name?.toLowerCase().includes(term) ||
+        order.customer?.phone?.toLowerCase().includes(term) ||
+        order.tracking_number?.toLowerCase().includes(term) ||
+        order.product?.name?.toLowerCase().includes(term) ||
+        order.customer?.address?.toLowerCase().includes(term)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    return true;
   });
 
   // Pagination
@@ -107,371 +118,522 @@ const LogisticPendingTracking = () => {
     currentPage * pageSize
   );
 
-  // Bulk update mutation
-  const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ ids, status, date }: { ids: string[]; status: string; date: string }) => {
-      if (status === "Success") {
-        const { error } = await supabase
-          .from("customer_purchases")
-          .update({
-            seo: "Successfull Delivery",
-            delivery_status: "Delivered",
-          })
-          .in("id", ids);
+  // Counts
+  const counts = {
+    total: filteredOrders.length,
+    cod: filteredOrders.filter((o: any) => o.cara_bayaran === "COD").length,
+    totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_price) || 0), 0),
+  };
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("customer_purchases")
-          .update({
-            delivery_status: "Return",
-            date_return: date,
-          })
-          .in("id", ids);
-
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      toast.success(`Orders updated to ${bulkStatus}`);
-      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
-      setSelectedIds([]);
-      setSelectAll(false);
-      setIsBulkDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update orders");
-    },
-  });
-
-  // Single update mutation
-  const updateOrderMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "Success" | "Return" }) => {
-      if (status === "Success") {
-        const { error } = await supabase
-          .from("customer_purchases")
-          .update({
-            seo: "Successfull Delivery",
-            delivery_status: "Delivered",
-          })
-          .eq("id", id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("customer_purchases")
-          .update({
-            delivery_status: "Return",
-            date_return: today,
-          })
-          .eq("id", id);
-
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      toast.success("Order updated");
-      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update order");
-    },
-  });
-
-  // Handle select all
+  // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
-    setSelectAll(checked);
     if (checked) {
-      setSelectedIds(paginatedOrders.map((o: any) => o.id));
+      setSelectedOrders(new Set(paginatedOrders.map((o: any) => o.id)));
     } else {
-      setSelectedIds([]);
+      setSelectedOrders(new Set());
     }
   };
 
-  // Handle individual selection
-  const handleSelect = (id: string, checked: boolean) => {
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    const newSelection = new Set(selectedOrders);
     if (checked) {
-      setSelectedIds([...selectedIds, id]);
+      newSelection.add(orderId);
     } else {
-      setSelectedIds(selectedIds.filter((i) => i !== id));
+      newSelection.delete(orderId);
     }
+    setSelectedOrders(newSelection);
   };
 
-  // Handle bulk update
-  const handleBulkUpdate = () => {
-    if (selectedIds.length === 0) {
-      toast.error("Please select orders first");
+  const isAllSelected = paginatedOrders.length > 0 && paginatedOrders.every((o: any) => selectedOrders.has(o.id));
+
+  // Bulk Print action
+  const handleBulkPrint = async () => {
+    if (selectedOrders.size === 0) {
+      toast.error("Please select orders to print waybills");
       return;
     }
-    bulkUpdateMutation.mutate({
-      ids: selectedIds,
-      status: bulkStatus,
-      date: bulkDate,
-    });
+
+    const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+
+    // Only NinjaVan orders in pending tracking
+    const ninjavanOrders = selectedOrdersList.filter((o: any) => o.tracking_number);
+
+    if (ninjavanOrders.length === 0) {
+      toast.error("Selected orders do not have waybills to print");
+      return;
+    }
+
+    setIsPrinting(true);
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const trackingNumbers = ninjavanOrders.map((o: any) => o.tracking_number);
+
+      const response = await supabase.functions.invoke("ninjavan-waybill", {
+        body: { trackingNumbers, profileId: user?.id },
+        headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+      });
+
+      if (response.error) {
+        console.error("NinjaVan waybill error:", response.error);
+        toast.error("Failed to fetch NinjaVan waybills");
+      } else if (response.data) {
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to generate waybills");
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
-  // Handle bulk tracking list update
-  const handleBulkTrackingUpdate = () => {
-    // Parse tracking numbers from textarea
-    const trackingNumbers = bulkTrackingList
-      .split("\n")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+  // Mark single order as COD received
+  const handleCODReceived = async (orderId: string) => {
+    const today = getMalaysiaDate();
+    try {
+      await supabase
+        .from("customer_purchases")
+        .update({
+          seo: "Successfull Delivery",
+          tarikh_bayaran: today,
+        })
+        .eq("id", orderId);
 
-    if (trackingNumbers.length === 0) {
+      toast.success("COD payment marked as received");
+      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update order");
+    }
+  };
+
+  // Bulk update by tracking numbers
+  const handleBulkUpdate = async () => {
+    if (!bulkTrackingList.trim()) {
       toast.error("Please enter tracking numbers");
       return;
     }
-
-    // Find matching orders
-    const matchingOrders = filteredOrders.filter((o: any) =>
-      trackingNumbers.includes(o.tracking_number)
-    );
-
-    if (matchingOrders.length === 0) {
-      toast.error("No matching orders found");
+    if (!bulkDate) {
+      toast.error("Please select a date");
       return;
     }
 
-    const ids = matchingOrders.map((o: any) => o.id);
-    bulkUpdateMutation.mutate({
-      ids,
-      status: bulkStatus,
-      date: bulkDate,
-    });
+    const trackingNumbers = bulkTrackingList
+      .split("\n")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (trackingNumbers.length === 0) {
+      toast.error("No valid tracking numbers found");
+      return;
+    }
+
+    // Find orders matching the tracking numbers
+    const ordersToUpdate = filteredOrders.filter((o: any) =>
+      trackingNumbers.includes(o.tracking_number)
+    );
+
+    if (ordersToUpdate.length === 0) {
+      toast.error("No matching orders found for the tracking numbers");
+      return;
+    }
+
+    setIsBulkUpdating(true);
+
+    try {
+      let updateData: any;
+      if (bulkStatus === "Success") {
+        updateData = {
+          seo: "Successfull Delivery",
+          tarikh_bayaran: bulkDate,
+          delivery_status: "Shipped",
+        };
+      } else {
+        updateData = {
+          seo: "Return",
+          date_return: bulkDate,
+          delivery_status: "Return",
+        };
+      }
+
+      const updatePromises = ordersToUpdate.map((order: any) =>
+        supabase
+          .from("customer_purchases")
+          .update(updateData)
+          .eq("id", order.id)
+      );
+
+      await Promise.all(updatePromises);
+
+      toast.success(`${ordersToUpdate.length} order(s) updated to ${bulkStatus}`);
+      setBulkTrackingList("");
+      setBulkDate("");
+      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
+      queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update orders");
+    } finally {
+      setIsBulkUpdating(false);
+    }
   };
 
-  // Stats
-  const totalPending = filteredOrders.length;
-  const totalValue = filteredOrders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0);
+  // Individual update by selected orders (checkbox selection)
+  const handleIndividualUpdate = async () => {
+    if (selectedOrders.size === 0) {
+      toast.error("Please select orders to update");
+      return;
+    }
+    if (!individualDate) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    const ordersToUpdate = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+
+    if (ordersToUpdate.length === 0) {
+      toast.error("No orders selected");
+      return;
+    }
+
+    setIsIndividualUpdating(true);
+
+    try {
+      let updateData: any;
+      if (individualStatus === "Success") {
+        updateData = {
+          seo: "Successfull Delivery",
+          tarikh_bayaran: individualDate,
+          delivery_status: "Shipped",
+        };
+      } else {
+        updateData = {
+          seo: "Return",
+          date_return: individualDate,
+          delivery_status: "Return",
+        };
+      }
+
+      const updatePromises = ordersToUpdate.map((order: any) =>
+        supabase
+          .from("customer_purchases")
+          .update(updateData)
+          .eq("id", order.id)
+      );
+
+      await Promise.all(updatePromises);
+
+      toast.success(`${ordersToUpdate.length} order(s) updated to ${individualStatus}`);
+      setSelectedOrders(new Set());
+      setIndividualDate("");
+      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
+      queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update orders");
+    } finally {
+      setIsIndividualUpdating(false);
+    }
+  };
+
+  const handleFilterChange = () => {
+    setCurrentPage(1);
+    setSelectedOrders(new Set());
+  };
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-600 bg-clip-text text-transparent">
-            Pending Tracking Confirmation
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            COD orders awaiting delivery confirmation - {totalPending} orders
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={() => setIsBulkDialogOpen(true)}>
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Bulk Update
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Pending Tracking</h1>
+        <p className="text-muted-foreground mt-2">
+          Track COD orders awaiting payment confirmation
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Clock className="w-8 h-8 text-purple-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Pending Orders</p>
-                <p className="text-2xl font-bold text-yellow-600">{totalPending}</p>
+                <p className="text-2xl font-bold">{counts.total}</p>
+                <p className="text-sm text-muted-foreground">Total Pending</p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-orange-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Pending Value (COD)</p>
-                <p className="text-2xl font-bold text-green-600">RM {totalValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{counts.cod}</p>
+                <p className="text-sm text-muted-foreground">COD Orders</p>
               </div>
-              <Clock className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-8 h-8 text-green-500" />
+              <div>
+                <p className="text-2xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Pending Collection</p>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Bulk Update Section */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="font-semibold mb-4">Bulk Update by Tracking Number</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <Label>Tracking Numbers (one per line)</Label>
+              <Textarea
+                placeholder="Enter tracking numbers..."
+                value={bulkTrackingList}
+                onChange={(e) => setBulkTrackingList(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <Label>Status</Label>
+                <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Success">Success</SelectItem>
+                    <SelectItem value="Return">Return</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={bulkDate}
+                  onChange={(e) => setBulkDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} className="w-full">
+                {isBulkUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Update Orders
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Individual Update by Selection */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="font-semibold mb-4">Update by Selection</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Select orders from the table below using checkboxes, then update them here
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 sm:flex-none">
+              <Label>Selected Orders</Label>
+              <div className="text-2xl font-bold text-primary">{selectedOrders.size}</div>
+            </div>
+            <div className="w-full sm:w-40">
+              <Label>Status</Label>
+              <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Success">Success</SelectItem>
+                  <SelectItem value="Return">Return</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full sm:w-40">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={individualDate}
+                onChange={(e) => setIndividualDate(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleIndividualUpdate}
+              disabled={isIndividualUpdating || selectedOrders.size === 0}
+              className="w-full sm:w-auto"
+            >
+              {isIndividualUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              Update Selected ({selectedOrders.size})
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Search</Label>
-              <div className="relative">
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="pl-9"
+                  placeholder="Search... (use + to combine filters)"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                  className="pl-10"
                 />
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
+                  className="w-40"
+                />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
+                  className="w-40"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show:</span>
+                <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">entries</span>
+              </div>
+
+              <div className="flex-1" />
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleBulkPrint}
+                  disabled={selectedOrders.size === 0 || isPrinting}
+                >
+                  {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
+                  Print ({selectedOrders.size})
+                </Button>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bulk Actions */}
-      {selectedIds.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{selectedIds.length} selected</span>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setBulkStatus("Success");
-                  handleBulkUpdate();
-                }}
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Mark as Success
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  setBulkStatus("Return");
-                  handleBulkUpdate();
-                }}
-              >
-                <RotateCcw className="w-4 h-4 mr-1" />
-                Mark as Return
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Orders Table */}
+      {/* Table */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Pending Tracking</CardTitle>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : paginatedOrders.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              No pending tracking orders found.
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-3 text-left w-10">
                         <Checkbox
-                          checked={selectAll}
+                          checked={isAllSelected}
                           onCheckedChange={handleSelectAll}
                         />
-                      </TableHead>
-                      <TableHead>Processed Date</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Tracking</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedOrders.map((order: any) => (
-                      <TableRow key={order.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.includes(order.id)}
-                            onCheckedChange={(checked) => handleSelect(order.id, checked as boolean)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {order.date_processed ? format(new Date(order.date_processed), "dd/MM/yyyy") : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{order.customer?.name || "-"}</p>
-                            <p className="text-xs text-muted-foreground">{order.customer?.phone || "-"}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{order.produk || "-"}</p>
-                            <p className="text-xs text-muted-foreground">x{order.quantity || 1}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-bold">
-                          RM {(order.total_price || 0).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <code className="text-xs">{order.tracking_number || "-"}</code>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
+                      </th>
+                      <th className="p-3 text-left">No</th>
+                      <th className="p-3 text-left">Date Order</th>
+                      <th className="p-3 text-left">Customer</th>
+                      <th className="p-3 text-left">Phone</th>
+                      <th className="p-3 text-left">Product</th>
+                      <th className="p-3 text-left">Qty</th>
+                      <th className="p-3 text-left">Total</th>
+                      <th className="p-3 text-left">Tracking</th>
+                      <th className="p-3 text-left">State</th>
+                      <th className="p-3 text-left">Address</th>
+                      <th className="p-3 text-left">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedOrders.length > 0 ? (
+                      paginatedOrders.map((order: any, index: number) => (
+                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                          <td className="p-3">
+                            <Checkbox
+                              checked={selectedOrders.has(order.id)}
+                              onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                            />
+                          </td>
+                          <td className="p-3">{(currentPage - 1) * pageSize + index + 1}</td>
+                          <td className="p-3">{order.date_order || format(new Date(order.created_at), "yyyy-MM-dd")}</td>
+                          <td className="p-3">{order.customer?.name || "-"}</td>
+                          <td className="p-3">{order.customer?.phone || order.no_phone || "-"}</td>
+                          <td className="p-3">{order.product?.name || order.produk || "-"}</td>
+                          <td className="p-3">{order.quantity}</td>
+                          <td className="p-3">RM {Number(order.total_price || 0).toFixed(2)}</td>
+                          <td className="p-3 font-mono text-sm">{order.tracking_number || "-"}</td>
+                          <td className="p-3">{order.customer?.state || "-"}</td>
+                          <td className="p-3">
+                            <div className="max-w-xs">
+                              <p className="text-sm truncate">{order.alamat || order.customer?.address || "-"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {order.customer?.postcode} {order.customer?.city}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-3">
                             <Button
-                              variant="outline"
                               size="sm"
-                              onClick={() => updateOrderMutation.mutate({ id: order.id, status: "Success" })}
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            </Button>
-                            <Button
                               variant="outline"
-                              size="sm"
-                              onClick={() => updateOrderMutation.mutate({ id: order.id, status: "Return" })}
+                              className="text-green-600"
+                              onClick={() => handleCODReceived(order.id)}
                             >
-                              <RotateCcw className="w-4 h-4 text-red-500" />
+                              <Wallet className="w-4 h-4 mr-1" />
+                              COD Received
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                          No pending tracking orders found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </p>
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} entries
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                     >
                       Previous
@@ -479,7 +641,7 @@ const LogisticPendingTracking = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
                     >
                       Next
@@ -491,63 +653,6 @@ const LogisticPendingTracking = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Bulk Update Dialog */}
-      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Bulk Update Tracking Status</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Success">Success (Delivered)</SelectItem>
-                  <SelectItem value="Return">Return</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {bulkStatus === "Return" && (
-              <div className="space-y-2">
-                <Label>Return Date</Label>
-                <Input
-                  type="date"
-                  value={bulkDate}
-                  onChange={(e) => setBulkDate(e.target.value)}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Tracking Numbers (one per line)</Label>
-              <Textarea
-                value={bulkTrackingList}
-                onChange={(e) => setBulkTrackingList(e.target.value)}
-                placeholder="Enter tracking numbers, one per line..."
-                rows={6}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleBulkTrackingUpdate} disabled={bulkUpdateMutation.isPending}>
-              {bulkUpdateMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Updating...
-                </>
-              ) : (
-                "Update Orders"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
