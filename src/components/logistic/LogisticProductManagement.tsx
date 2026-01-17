@@ -90,6 +90,19 @@ const LogisticProductManagement = () => {
       baseCost: number;
       quantity: number;
     }) => {
+      // Check for duplicate SKU
+      const { data: existingProduct, error: checkError } = await supabase
+        .from("products")
+        .select("id, sku")
+        .eq("sku", sku)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingProduct) {
+        throw new Error(`SKU "${sku}" already exists. Please use a different SKU.`);
+      }
+
       // Insert new product
       const { data: newProduct, error: productError } = await supabase
         .from("products")
