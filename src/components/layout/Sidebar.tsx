@@ -129,18 +129,6 @@ const navItems: NavItem[] = [
     icon: <ShoppingCart className="w-5 h-5" />,
     roles: ['bod'],
   },
-  {
-    label: 'Product',
-    path: '/dashboard/logistics/product',
-    icon: <Package className="w-5 h-5" />,
-    roles: ['logistic', 'bod'],
-  },
-  {
-    label: 'Bundle',
-    path: '/dashboard/logistics/bundle',
-    icon: <Boxes className="w-5 h-5" />,
-    roles: ['logistic', 'bod'],
-  },
   // ============ LOGISTIC ROLE - INVENTORY ============
   {
     label: 'Inventory-Product',

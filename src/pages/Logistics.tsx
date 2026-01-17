@@ -18,8 +18,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { STATUS_OPTIONS, KURIER_OPTIONS } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import ProductTab from '@/components/logistics/ProductTab';
-import BundleTab from '@/components/logistics/BundleTab';
 import StockInTab from '@/components/logistics/StockInTab';
 import StockOutTab from '@/components/logistics/StockOutTab';
 
@@ -99,8 +97,6 @@ const Logistics: React.FC = () => {
 
   // Determine current tab from URL path
   const getTabFromPath = () => {
-    if (location.pathname.includes('/logistics/product')) return 'product';
-    if (location.pathname.includes('/logistics/bundle')) return 'bundle';
     if (location.pathname.includes('/logistics/stock-in')) return 'stock-in';
     if (location.pathname.includes('/logistics/stock-out')) return 'stock-out';
     if (location.pathname.includes('/logistics/order')) return 'order';
@@ -2520,14 +2516,6 @@ const Logistics: React.FC = () => {
               </div>
             )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="product" className="mt-6">
-          <ProductTab />
-        </TabsContent>
-
-        <TabsContent value="bundle" className="mt-6">
-          <BundleTab />
         </TabsContent>
 
         <TabsContent value="stock-in" className="mt-6">

@@ -75,9 +75,6 @@ const App = () => (
                   <Route path="dashboard-logistic" element={<DashboardLogistic />} />
                   <Route path="report-pembelian" element={<ReportPembelian />} />
                   <Route path="logistics" element={<Logistics />} />
-                  {/* BOD-accessible routes (old logistics) */}
-                  <Route path="logistics/product" element={<Logistics />} />
-                  <Route path="logistics/bundle" element={<Logistics />} />
                   {/* New Logistic Role routes - Inventory */}
                   <Route path="logistics/inventory-product" element={<LogisticProductManagement />} />
                   <Route path="logistics/inventory-transaction" element={<LogisticProductTransaction />} />
