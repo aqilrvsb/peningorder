@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +63,54 @@ const OrderForm: React.FC = () => {
   const location = useLocation();
   const { profile } = useAuth();
   const { addOrder, updateOrder, orders, refreshData } = useData();
-  const { bundles, isLoading: bundlesLoading, refreshData: refreshBundles } = useBundles();
-  const activeBundles = bundles.filter(b => b.isActive);
+  // Fetch logistic bundles (active only) - this is the main bundle source for Marketer orders
+  const { data: logisticBundles = [], isLoading: bundlesLoading, refetch: refetchLogisticBundles } = useQuery({
+    queryKey: ['logistic-bundles-for-order'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('logistic_bundles')
+        .select(`
+          id,
+          name,
+          sku,
+          description,
+          price_np,
+          price_ep,
+          price_ec,
+          is_active,
+          items:logistic_bundle_items(
+            quantity,
+            product:products(id, name, sku)
+          )
+        `)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Map logistic bundles to the format expected by the order form
+  const activeBundles = logisticBundles.map((lb: any) => {
+    // Calculate total units from items
+    const totalUnits = lb.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 1;
+    return {
+      id: lb.id,
+      name: lb.name,
+      units: totalUnits,
+      // Use same price for all platforms (NP, EP, EC)
+      priceNormalNp: Number(lb.price_np) || 0,
+      priceNormalEp: Number(lb.price_ep) || 0,
+      priceNormalEc: Number(lb.price_ec) || 0,
+      priceShopeeNp: Number(lb.price_np) || 0,
+      priceShopeeEp: Number(lb.price_ep) || 0,
+      priceShopeeEc: Number(lb.price_ec) || 0,
+      priceTiktokNp: Number(lb.price_np) || 0,
+      priceTiktokEp: Number(lb.price_ep) || 0,
+      priceTiktokEc: Number(lb.price_ec) || 0,
+      productName: lb.name,
+    };
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tarikhBayaran, setTarikhBayaran] = useState<Date>();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -147,9 +193,9 @@ const OrderForm: React.FC = () => {
     }
   }, [editOrder]);
 
-  // Refresh bundles when component mounts to ensure fresh data
+  // Refresh logistic bundles when component mounts to ensure fresh data
   useEffect(() => {
-    refreshBundles();
+    refetchLogisticBundles();
   }, []);
 
   // Check for admin lead order data from sessionStorage
@@ -1269,7 +1315,9 @@ const OrderForm: React.FC = () => {
                     <SelectItem value="empty" disabled>No active bundles available</SelectItem>
                   ) : (
                     activeBundles.map((bundle) => (
-                      <SelectItem key={bundle.id} value={bundle.name}>{bundle.name}</SelectItem>
+                      <SelectItem key={bundle.id} value={bundle.name}>
+                        {bundle.name}
+                      </SelectItem>
                     ))
                   )}
                 </SelectContent>

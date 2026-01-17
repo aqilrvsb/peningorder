@@ -66,6 +66,9 @@ const LogisticBundleManagement = () => {
   const [bundleName, setBundleName] = useState("");
   const [bundleDescription, setBundleDescription] = useState("");
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
+  const [priceNp, setPriceNp] = useState<number>(0);
+  const [priceEp, setPriceEp] = useState<number>(0);
+  const [priceEc, setPriceEc] = useState<number>(0);
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -124,6 +127,9 @@ const LogisticBundleManagement = () => {
     setBundleName("");
     setBundleDescription("");
     setBundleItems([]);
+    setPriceNp(0);
+    setPriceEp(0);
+    setPriceEc(0);
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -142,6 +148,9 @@ const LogisticBundleManagement = () => {
     setEditingBundleId(bundle.id);
     setBundleName(bundle.name);
     setBundleDescription(bundle.description || "");
+    setPriceNp(Number(bundle.price_np) || 0);
+    setPriceEp(Number(bundle.price_ep) || 0);
+    setPriceEc(Number(bundle.price_ec) || 0);
     setBundleItems(
       bundle.items.map((item: any) => ({
         productId: item.product_id,
@@ -224,6 +233,9 @@ const LogisticBundleManagement = () => {
             name: bundleName.trim(),
             description: bundleDescription.trim() || null,
             sku: generatedSku,
+            price_np: priceNp,
+            price_ep: priceEp,
+            price_ec: priceEc,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingBundleId);
@@ -258,6 +270,9 @@ const LogisticBundleManagement = () => {
             name: bundleName.trim(),
             description: bundleDescription.trim() || null,
             sku: generatedSku,
+            price_np: priceNp,
+            price_ep: priceEp,
+            price_ec: priceEc,
           })
           .select()
           .single();
@@ -377,6 +392,9 @@ const LogisticBundleManagement = () => {
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Products</TableHead>
+                  <TableHead className="text-center">NP Price</TableHead>
+                  <TableHead className="text-center">EP Price</TableHead>
+                  <TableHead className="text-center">EC Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -407,6 +425,15 @@ const LogisticBundleManagement = () => {
                           </Badge>
                         ))}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-green-600">
+                      RM {Number(bundle.price_np || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-purple-600">
+                      RM {Number(bundle.price_ep || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-amber-600">
+                      RM {Number(bundle.price_ec || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -565,6 +592,58 @@ const LogisticBundleManagement = () => {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Minimum Prices Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold">Minimum Prices (for Marketer)</h3>
+              <p className="text-xs text-muted-foreground">
+                Set minimum selling prices for each customer type. Marketers can sell at or above these prices.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="priceNp" className="text-green-600 font-medium">NP Price (RM)</Label>
+                  <Input
+                    id="priceNp"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceNp || ""}
+                    onChange={(e) => setPriceNp(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-green-300 focus:border-green-500"
+                  />
+                  <p className="text-xs text-muted-foreground">New Prospect</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priceEp" className="text-purple-600 font-medium">EP Price (RM)</Label>
+                  <Input
+                    id="priceEp"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceEp || ""}
+                    onChange={(e) => setPriceEp(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-purple-300 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-muted-foreground">Existing Prospect</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priceEc" className="text-amber-600 font-medium">EC Price (RM)</Label>
+                  <Input
+                    id="priceEc"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceEc || ""}
+                    onChange={(e) => setPriceEc(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-amber-300 focus:border-amber-500"
+                  />
+                  <p className="text-xs text-muted-foreground">Existing Customer</p>
+                </div>
+              </div>
             </div>
 
             {/* Summary */}
