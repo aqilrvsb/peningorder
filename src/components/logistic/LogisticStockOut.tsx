@@ -29,7 +29,6 @@ const LogisticStockOut = () => {
   const [quantity, setQuantity] = useState("");
   const [stockDate, setStockDate] = useState(getMalaysiaDate());
   const [description, setDescription] = useState("");
-  const [selectedRecipient, setSelectedRecipient] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["products"],
@@ -43,21 +42,6 @@ const LogisticStockOut = () => {
     },
   });
 
-  // Get all profiles that can receive stock (marketers, etc.)
-  const { data: recipients } = useQuery({
-    queryKey: ["stock-recipients"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, idstaff")
-        .neq("id", user?.id);
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
   const { data: stockOuts, isLoading } = useQuery({
     queryKey: ["stock-out-logistic", user?.id, startDate, endDate],
     queryFn: async () => {
@@ -65,8 +49,7 @@ const LogisticStockOut = () => {
         .from("stock_out_logistic")
         .select(`
           *,
-          product:products(name, sku),
-          recipient:profiles!stock_out_logistic_recipient_id_fkey(idstaff, full_name)
+          product:products(name, sku)
         `)
         .eq("logistic_id", user?.id)
         .order("date", { ascending: false });
@@ -87,6 +70,8 @@ const LogisticStockOut = () => {
 
   const removeStock = useMutation({
     mutationFn: async () => {
+      const quantityToRemove = parseInt(quantity);
+
       // Check if sufficient inventory exists
       const { data: existing, error: fetchError } = await supabase
         .from("inventory")
@@ -95,11 +80,14 @@ const LogisticStockOut = () => {
         .eq("product_id", selectedProduct)
         .single();
 
-      if (fetchError || !existing) {
+      if (fetchError && fetchError.code !== "PGRST116") {
+        throw fetchError;
+      }
+
+      if (!existing) {
         throw new Error("No inventory found for this product");
       }
 
-      const quantityToRemove = parseInt(quantity);
       if (existing.quantity < quantityToRemove) {
         throw new Error(`Insufficient inventory. Available: ${existing.quantity}, Requested: ${quantityToRemove}`);
       }
@@ -113,7 +101,6 @@ const LogisticStockOut = () => {
           quantity: quantityToRemove,
           date: stockDate,
           description: description || null,
-          recipient_id: selectedRecipient || null,
         });
 
       if (stockOutError) throw stockOutError;
@@ -125,45 +112,11 @@ const LogisticStockOut = () => {
         .eq("id", existing.id);
 
       if (invError) throw invError;
-
-      // If recipient is selected, update recipient's inventory
-      if (selectedRecipient && selectedRecipient.trim() !== "") {
-        const { data: recipientInventory } = await supabase
-          .from("inventory")
-          .select("*")
-          .eq("user_id", selectedRecipient)
-          .eq("product_id", selectedProduct)
-          .single();
-
-        if (recipientInventory) {
-          const { error: recipientUpdateError } = await supabase
-            .from("inventory")
-            .update({ quantity: recipientInventory.quantity + quantityToRemove })
-            .eq("id", recipientInventory.id);
-
-          if (recipientUpdateError) throw recipientUpdateError;
-        } else {
-          const { error: recipientInsertError } = await supabase
-            .from("inventory")
-            .insert({
-              user_id: selectedRecipient,
-              product_id: selectedProduct,
-              quantity: quantityToRemove,
-            });
-
-          if (recipientInsertError) throw recipientInsertError;
-        }
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-out-logistic"] });
       queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
-
-      const message = selectedRecipient && selectedRecipient.trim() !== ""
-        ? "Stock transferred successfully"
-        : "Stock out recorded successfully";
-      toast.success(message);
-
+      toast.success("Stock out recorded successfully");
       setIsDialogOpen(false);
       resetForm();
     },
@@ -220,7 +173,6 @@ const LogisticStockOut = () => {
     setQuantity("");
     setStockDate(getMalaysiaDate());
     setDescription("");
-    setSelectedRecipient("");
     setEditingItem(null);
   };
 
@@ -255,7 +207,7 @@ const LogisticStockOut = () => {
             Stock Out
           </h1>
           <p className="text-muted-foreground mt-2">
-            Transfer stock to recipients (optional)
+            Remove stock from your inventory
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -284,32 +236,6 @@ const LogisticStockOut = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Recipient (Optional)</Label>
-                <div className="flex gap-2">
-                  <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="No Recipient (Regular Stock Out)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {recipients?.map((recipient) => (
-                        <SelectItem key={recipient.id} value={recipient.id}>
-                          {recipient.idstaff} - {recipient.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedRecipient && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setSelectedRecipient("")}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
               </div>
               <div className="space-y-2">
                 <Label>Quantity</Label>
@@ -400,46 +326,52 @@ const LogisticStockOut = () => {
                     <TableHead>Date</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead>Recipient</TableHead>
                     <TableHead>Quantity</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {stockOuts?.map((item) => {
-                    const itemDate = item.date ? new Date(item.date) : null;
-                    const isValidDate = itemDate && !isNaN(itemDate.getTime());
+                  {stockOuts && stockOuts.length > 0 ? (
+                    stockOuts.map((item) => {
+                      const itemDate = item.date ? new Date(item.date) : null;
+                      const isValidDate = itemDate && !isNaN(itemDate.getTime());
 
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell>{isValidDate ? format(itemDate, "dd-MM-yyyy") : "-"}</TableCell>
-                        <TableCell>{item.product?.name}</TableCell>
-                        <TableCell>{item.product?.sku}</TableCell>
-                        <TableCell>{item.recipient?.idstaff || "-"}</TableCell>
-                        <TableCell className="font-bold text-red-600">{item.quantity}</TableCell>
-                        <TableCell>{item.description || "-"}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(item)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>{isValidDate ? format(itemDate, "dd-MM-yyyy") : "-"}</TableCell>
+                          <TableCell>{item.product?.name}</TableCell>
+                          <TableCell>{item.product?.sku}</TableCell>
+                          <TableCell className="font-bold text-red-600">-{item.quantity}</TableCell>
+                          <TableCell>{item.description || "-"}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(item)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDelete(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No stock out records found.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
