@@ -926,8 +926,8 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2 text-center">{order.quantity || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            {order.tracking_number || order.tracking_no ? (
-                              <span className="font-mono text-xs">{order.tracking_number || order.tracking_no}</span>
+                            {order.no_tracking ? (
+                              <span className="font-mono text-xs">{order.no_tracking}</span>
                             ) : needsTrackingGeneration(order) ? (
                               <Button
                                 variant="outline"

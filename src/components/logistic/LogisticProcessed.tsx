@@ -115,7 +115,7 @@ const LogisticProcessed = () => {
       const matchesSearch = searchTerms.every((term) =>
         order.nama_pelanggan?.toLowerCase().includes(term) ||
         order.no_phone?.toLowerCase().includes(term) ||
-        order.tracking_number?.toLowerCase().includes(term) ||
+        order.no_tracking?.toLowerCase().includes(term) ||
         order.product?.name?.toLowerCase().includes(term) ||
         order.produk?.toLowerCase().includes(term) ||
         order.alamat?.toLowerCase().includes(term)
@@ -604,7 +604,7 @@ const LogisticProcessed = () => {
                           </td>
                           <td className="p-2 text-center">{order.quantity || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || order.tracking_no || "-"}</span>
+                            <span className="font-mono text-xs">{order.no_tracking || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
                           <td className="p-2">
