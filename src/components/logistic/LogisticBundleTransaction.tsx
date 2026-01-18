@@ -369,7 +369,7 @@ const LogisticBundleTransaction = () => {
               <span className="text-xs font-medium">Shipped</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalShipped}</p>
-            <div className="text-xs text-muted-foreground mt-1">Units</div>
+            <div className="text-xs text-muted-foreground mt-1">Order</div>
           </CardContent>
         </Card>
 
@@ -380,7 +380,7 @@ const LogisticBundleTransaction = () => {
               <span className="text-xs font-medium">Success</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalSuccess}</p>
-            <div className="text-xs text-muted-foreground mt-1">Units</div>
+            <div className="text-xs text-muted-foreground mt-1">Order</div>
           </CardContent>
         </Card>
 
@@ -391,7 +391,7 @@ const LogisticBundleTransaction = () => {
               <span className="text-xs font-medium">Return</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalReturn}</p>
-            <div className="text-xs text-muted-foreground mt-1">Units</div>
+            <div className="text-xs text-muted-foreground mt-1">Order</div>
           </CardContent>
         </Card>
 
@@ -402,7 +402,7 @@ const LogisticBundleTransaction = () => {
               <span className="text-xs font-medium">Remaining</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalRemaining}</p>
-            <div className="text-xs text-muted-foreground mt-1">Units</div>
+            <div className="text-xs text-muted-foreground mt-1">Order</div>
           </CardContent>
         </Card>
 
@@ -536,41 +536,41 @@ const LogisticBundleTransaction = () => {
                 <TableRow>
                   <TableHead className="sticky left-0 bg-background z-10"></TableHead>
                   <TableHead></TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Order</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Order</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Order</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Order</TableHead>
                   <TableHead className="text-right text-xs text-muted-foreground">RM</TableHead>
                   {/* Tiktok sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">%</TableHead>
                   {/* Shopee sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">%</TableHead>
                   {/* Facebook sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">%</TableHead>
                   {/* Database sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">%</TableHead>
                   {/* Google sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Remain</TableHead>
