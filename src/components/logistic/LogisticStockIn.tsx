@@ -13,14 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Package, Plus, Calendar, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { getMalaysiaDate } from "@/lib/utils";
+import { getMalaysiaDate, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from "@/lib/utils";
 
 const LogisticStockIn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = getMalaysiaDate();
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState("");

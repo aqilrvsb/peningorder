@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
+import { getMalaysiaDate } from "@/lib/utils";
 import {
   Package,
   Truck,
@@ -40,11 +40,10 @@ const LogisticProcessed = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const today = getMalaysiaDate();
-  const firstDayOfMonth = getMalaysiaStartOfMonth();
 
   // Filter states
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(firstDayOfMonth);
+  const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");

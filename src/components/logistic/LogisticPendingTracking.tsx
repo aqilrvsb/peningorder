@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaDate } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from "@/lib/utils";
 import {
   Package,
   Clock,
@@ -34,12 +34,11 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100];
 const LogisticPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = getMalaysiaDate();
 
   // Filter states
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
