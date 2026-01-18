@@ -9,9 +9,8 @@ import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 interface Order {
   id: string;
   marketer_id_staff: string;
-  marketer_name: string;
   date_order: string;
-  total_price: number;
+  total_sale: number;
   jenis_platform: string;
 }
 
@@ -21,6 +20,11 @@ interface Spend {
   jenis_platform: string;
   total_spend: number;
   tarikh_spend: string;
+}
+
+interface Profile {
+  idstaff: string;
+  full_name: string;
 }
 
 interface MarketerSpendStats {
@@ -55,6 +59,7 @@ interface MarketerSpendStats {
 const ReportingSpendBOD: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [spends, setSpends] = useState<Spend[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Date filter state - default to current month (Malaysia timezone)
@@ -67,22 +72,35 @@ const ReportingSpendBOD: React.FC = () => {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        const [ordersRes, spendsRes] = await Promise.all([
+        const [ordersRes, spendsRes, profilesRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, marketer_name, date_order, total_price, jenis_platform')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('spends')
             .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
             .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('profiles')
+            .select('idstaff, full_name'),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;
         if (spendsRes.error) throw spendsRes.error;
+        if (profilesRes.error) throw profilesRes.error;
 
         setOrders(ordersRes.data || []);
         setSpends(spendsRes.data || []);
+
+        // Create a mapping of idstaff to full_name
+        const profileMap: Record<string, string> = {};
+        (profilesRes.data || []).forEach((p: Profile) => {
+          if (p.idstaff) {
+            profileMap[p.idstaff] = p.full_name || p.idstaff;
+          }
+        });
+        setProfiles(profileMap);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -132,8 +150,10 @@ const ReportingSpendBOD: React.FC = () => {
     // Process orders (sales)
     filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff;
-      const name = order.marketer_name || idStaff;
-      const amount = Number(order.total_price) || 0;
+      if (!idStaff) return;
+
+      const name = profiles[idStaff] || idStaff;
+      const amount = Number(order.total_sale) || 0;
 
       if (!stats[idStaff]) {
         stats[idStaff] = {
@@ -175,12 +195,13 @@ const ReportingSpendBOD: React.FC = () => {
       if (!idStaff) return;
 
       const amount = Number(spend.total_spend) || 0;
+      const name = profiles[idStaff] || idStaff;
 
       // Initialize if not exists (marketer has spend but no sales)
       if (!stats[idStaff]) {
         stats[idStaff] = {
           idStaff,
-          name: idStaff,
+          name,
           totalSales: 0,
           totalSpend: 0,
           roas: 0,
@@ -222,7 +243,7 @@ const ReportingSpendBOD: React.FC = () => {
 
     // Convert to array and sort by total sales (highest first)
     return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
-  }, [filteredOrders, filteredSpends]);
+  }, [filteredOrders, filteredSpends, profiles]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {
