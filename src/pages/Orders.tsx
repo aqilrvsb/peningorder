@@ -52,15 +52,31 @@ interface OrderForTracking {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success", "Failed"];
+const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Remaining", "Return", "Success", "Failed"];
+
+// Helper to get Malaysia date (UTC+8)
+const getMalaysiaDate = () => {
+  const now = new Date();
+  const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  return malaysiaTime.toISOString().split('T')[0];
+};
+
+// Helper to get first day of current month in Malaysia timezone
+const getMalaysiaStartOfMonth = () => {
+  const now = new Date();
+  const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  const year = malaysiaTime.getUTCFullYear();
+  const month = String(malaysiaTime.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+};
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { orders, updateOrder, deleteOrder, refreshData } = useData();
   const { bundles, products } = useBundles();
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaDate());
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
@@ -81,8 +97,15 @@ const Orders: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       // Delivery status filter
-      if (deliveryStatusFilter !== "All" && order.deliveryStatus !== deliveryStatusFilter) {
-        return false;
+      if (deliveryStatusFilter !== "All") {
+        if (deliveryStatusFilter === "Remaining") {
+          // Remaining = Shipped but seo !== 'Successfull Delivery'
+          if (!(order.deliveryStatus === 'Shipped' && order.seo !== 'Successfull Delivery')) {
+            return false;
+          }
+        } else if (order.deliveryStatus !== deliveryStatusFilter) {
+          return false;
+        }
       }
 
       const matchesSearch =
