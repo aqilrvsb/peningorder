@@ -34,7 +34,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaDate } from '@/lib/utils';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -75,9 +75,9 @@ const Dashboard: React.FC = () => {
   const [spends, setSpends] = useState<Spend[]>([]);
   const [spendsLoading, setSpendsLoading] = useState(true);
 
-  // Date filter state - default to current month (Malaysia timezone)
+  // Date filter state - default to start of month to current day (Malaysia timezone)
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
-  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaDate());
 
   // Check user role
   const isMarketer = profile?.role === 'marketer';

@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
+import { getMalaysiaYesterday } from '@/lib/utils';
 
 interface Spend {
   id: string;
@@ -67,8 +68,8 @@ const ReportingSpend: React.FC = () => {
   const [spends, setSpends] = useState<Spend[]>([]);
   const [logisticBundles, setLogisticBundles] = useState<LogisticBundle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getMalaysiaYesterday());
+  const [endDate, setEndDate] = useState(getMalaysiaYesterday());
 
   // Check if current user is marketer (should only see their own data)
   const isMarketer = profile?.role === 'marketer';

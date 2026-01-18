@@ -42,6 +42,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
+import { getMalaysiaYesterday } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Beg Lead'];
@@ -62,8 +63,8 @@ const Spend: React.FC = () => {
   const { products } = useBundles();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getMalaysiaYesterday());
+  const [endDate, setEndDate] = useState(getMalaysiaYesterday());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSpend, setEditingSpend] = useState<Spend | null>(null);

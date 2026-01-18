@@ -37,6 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { getMalaysiaDate } from '@/lib/utils';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -45,8 +46,8 @@ const Prospects: React.FC = () => {
   const { prospects, addProspect, updateProspect, deleteProspect, isLoading } = useData();
   const { products } = useBundles();
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getMalaysiaDate());
+  const [endDate, setEndDate] = useState(getMalaysiaDate());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProspect, setEditingProspect] = useState<any>(null);

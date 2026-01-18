@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock, X, Facebook, Database, Search } from "lucide-react";
-import { getMalaysiaDate } from "@/lib/utils";
+import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
 
 // Detail modal type
 type DetailModalType = "success" | "return" | "remaining" | null;
@@ -26,9 +26,9 @@ type PlatformType = "all" | "tiktok" | "shopee" | "facebook" | "database" | "goo
 const MarketerBundleTransaction = () => {
   const { profile } = useAuth();
 
-  // Date filter state - default to current date only
+  // Date filter state - default to first day of current month to current day
   const today = getMalaysiaDate();
-  const [startDate, setStartDate] = useState(today);
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(today);
 
   // Modal state
