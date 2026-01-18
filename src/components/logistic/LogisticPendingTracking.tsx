@@ -167,12 +167,10 @@ const LogisticPendingTracking = () => {
     setIsPrinting(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
       const trackingNumbers = ninjavanOrders.map((o: any) => o.tracking_number);
 
       const response = await supabase.functions.invoke("ninjavan-waybill", {
-        body: { trackingNumbers, profileId: user?.id },
-        headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+        body: { trackingNumbers },
       });
 
       if (response.error) {

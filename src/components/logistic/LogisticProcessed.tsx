@@ -250,15 +250,12 @@ const LogisticProcessed = () => {
     setIsPrinting(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
-
       // Handle NinjaVan orders
       if (ninjavanOrdersForPrint.length > 0) {
         const trackingNumbers = ninjavanOrdersForPrint.map((o: any) => o.tracking_number);
 
         const response = await supabase.functions.invoke("ninjavan-waybill", {
-          body: { trackingNumbers, profileId: user?.id },
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+          body: { trackingNumbers },
         });
 
         if (response.error) {
@@ -278,7 +275,6 @@ const LogisticProcessed = () => {
 
         const response = await supabase.functions.invoke("merge-waybills", {
           body: { waybillUrls },
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
         });
 
         if (response.error) {
