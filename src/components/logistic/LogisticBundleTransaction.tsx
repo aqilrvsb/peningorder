@@ -13,12 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock, X } from "lucide-react";
+import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock, X, Facebook, Database, Search } from "lucide-react";
 import { getMalaysiaDate } from "@/lib/utils";
 
 // Detail modal type
 type DetailModalType = "success" | "return" | "remaining" | null;
-type PlatformType = "all" | "tiktok" | "shopee" | "online";
+type PlatformType = "all" | "tiktok" | "shopee" | "facebook" | "database" | "google";
 
 // Transaction Bundle tab - Bundle-level based on logistic_bundles table
 // WITH Total Sales
@@ -97,7 +97,9 @@ const LogisticBundleTransaction = () => {
       totalSales: number;
       tiktok: { units: number; success: number; returnUnits: number; sales: number };
       shopee: { units: number; success: number; returnUnits: number; sales: number };
-      online: { units: number; success: number; returnUnits: number; sales: number };
+      facebook: { units: number; success: number; returnUnits: number; sales: number };
+      database: { units: number; success: number; returnUnits: number; sales: number };
+      google: { units: number; success: number; returnUnits: number; sales: number };
     }>();
 
     // Initialize with all bundles
@@ -112,7 +114,9 @@ const LogisticBundleTransaction = () => {
         totalSales: 0,
         tiktok: { units: 0, success: 0, returnUnits: 0, sales: 0 },
         shopee: { units: 0, success: 0, returnUnits: 0, sales: 0 },
-        online: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        facebook: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        database: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        google: { units: 0, success: 0, returnUnits: 0, sales: 0 },
       });
     });
 
@@ -147,7 +151,9 @@ const LogisticBundleTransaction = () => {
       const getPlatformEntry = () => {
         if (p.jenis_platform === "Tiktok") return entry.tiktok;
         if (p.jenis_platform === "Shopee") return entry.shopee;
-        if (p.jenis_platform) return entry.online;
+        if (p.jenis_platform === "Facebook") return entry.facebook;
+        if (p.jenis_platform === "Database") return entry.database;
+        if (p.jenis_platform === "Google") return entry.google;
         return null;
       };
 
@@ -169,23 +175,29 @@ const LogisticBundleTransaction = () => {
     // Convert to array and calculate percentages and remaining
     return Array.from(bundleMap.values())
       .map((bundle) => {
-        const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.online.units;
+        const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.facebook.units + bundle.database.units + bundle.google.units;
         const tiktokPct = totalPlatformUnits > 0 ? (bundle.tiktok.units / totalPlatformUnits) * 100 : 0;
         const shopeePct = totalPlatformUnits > 0 ? (bundle.shopee.units / totalPlatformUnits) * 100 : 0;
-        const onlinePct = totalPlatformUnits > 0 ? (bundle.online.units / totalPlatformUnits) * 100 : 0;
+        const facebookPct = totalPlatformUnits > 0 ? (bundle.facebook.units / totalPlatformUnits) * 100 : 0;
+        const databasePct = totalPlatformUnits > 0 ? (bundle.database.units / totalPlatformUnits) * 100 : 0;
+        const googlePct = totalPlatformUnits > 0 ? (bundle.google.units / totalPlatformUnits) * 100 : 0;
 
         // Remaining = Shipped - Success - Return
         const remaining = bundle.shippedUnits - bundle.successUnits - bundle.returnUnits;
         const tiktokRemaining = bundle.tiktok.units - bundle.tiktok.success - bundle.tiktok.returnUnits;
         const shopeeRemaining = bundle.shopee.units - bundle.shopee.success - bundle.shopee.returnUnits;
-        const onlineRemaining = bundle.online.units - bundle.online.success - bundle.online.returnUnits;
+        const facebookRemaining = bundle.facebook.units - bundle.facebook.success - bundle.facebook.returnUnits;
+        const databaseRemaining = bundle.database.units - bundle.database.success - bundle.database.returnUnits;
+        const googleRemaining = bundle.google.units - bundle.google.success - bundle.google.returnUnits;
 
         return {
           ...bundle,
           remaining,
           tiktok: { ...bundle.tiktok, pct: tiktokPct, remaining: tiktokRemaining },
           shopee: { ...bundle.shopee, pct: shopeePct, remaining: shopeeRemaining },
-          online: { ...bundle.online, pct: onlinePct, remaining: onlineRemaining },
+          facebook: { ...bundle.facebook, pct: facebookPct, remaining: facebookRemaining },
+          database: { ...bundle.database, pct: databasePct, remaining: databaseRemaining },
+          google: { ...bundle.google, pct: googlePct, remaining: googleRemaining },
         };
       })
       .filter((b) => b.shippedUnits > 0 || b.returnUnits > 0);
@@ -196,7 +208,9 @@ const LogisticBundleTransaction = () => {
     if (platform === "all") return true;
     if (platform === "tiktok") return order.jenis_platform === "Tiktok";
     if (platform === "shopee") return order.jenis_platform === "Shopee";
-    if (platform === "online") return order.jenis_platform && order.jenis_platform !== "Tiktok" && order.jenis_platform !== "Shopee";
+    if (platform === "facebook") return order.jenis_platform === "Facebook";
+    if (platform === "database") return order.jenis_platform === "Database";
+    if (platform === "google") return order.jenis_platform === "Google";
     return false;
   };
 
@@ -240,8 +254,12 @@ const LogisticBundleTransaction = () => {
     const totalTiktokSales = bundleTransactions.reduce((sum, b) => sum + b.tiktok.sales, 0);
     const totalShopee = bundleTransactions.reduce((sum, b) => sum + b.shopee.units, 0);
     const totalShopeeSales = bundleTransactions.reduce((sum, b) => sum + b.shopee.sales, 0);
-    const totalOnline = bundleTransactions.reduce((sum, b) => sum + b.online.units, 0);
-    const totalOnlineSales = bundleTransactions.reduce((sum, b) => sum + b.online.sales, 0);
+    const totalFacebook = bundleTransactions.reduce((sum, b) => sum + b.facebook.units, 0);
+    const totalFacebookSales = bundleTransactions.reduce((sum, b) => sum + b.facebook.sales, 0);
+    const totalDatabase = bundleTransactions.reduce((sum, b) => sum + b.database.units, 0);
+    const totalDatabaseSales = bundleTransactions.reduce((sum, b) => sum + b.database.sales, 0);
+    const totalGoogle = bundleTransactions.reduce((sum, b) => sum + b.google.units, 0);
+    const totalGoogleSales = bundleTransactions.reduce((sum, b) => sum + b.google.sales, 0);
 
     return {
       totalShipped,
@@ -253,8 +271,12 @@ const LogisticBundleTransaction = () => {
       totalTiktokSales,
       totalShopee,
       totalShopeeSales,
-      totalOnline,
-      totalOnlineSales,
+      totalFacebook,
+      totalFacebookSales,
+      totalDatabase,
+      totalDatabaseSales,
+      totalGoogle,
+      totalGoogleSales,
     };
   }, [bundleTransactions]);
 
@@ -264,7 +286,9 @@ const LogisticBundleTransaction = () => {
   const getPlatformLabel = () => {
     if (modalPlatform === "tiktok") return " (Tiktok)";
     if (modalPlatform === "shopee") return " (Shopee)";
-    if (modalPlatform === "online") return " (Online)";
+    if (modalPlatform === "facebook") return " (Facebook)";
+    if (modalPlatform === "database") return " (Database)";
+    if (modalPlatform === "google") return " (Google)";
     return "";
   };
 
@@ -337,7 +361,7 @@ const LogisticBundleTransaction = () => {
       </Card>
 
       {/* Summary Stats Cards - WITH Total Sales */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-11 gap-3">
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-blue-600 mb-1">
@@ -415,14 +439,36 @@ const LogisticBundleTransaction = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-sky-500">
+        <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-sky-600 mb-1">
-              <Globe className="w-4 h-4" />
-              <span className="text-xs font-medium">Online</span>
+            <div className="flex items-center gap-2 text-blue-600 mb-1">
+              <Facebook className="w-4 h-4" />
+              <span className="text-xs font-medium">Facebook</span>
             </div>
-            <p className="text-xl font-bold">{summaryStats.totalOnline}</p>
-            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalOnlineSales)}</div>
+            <p className="text-xl font-bold">{summaryStats.totalFacebook}</p>
+            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalFacebookSales)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-cyan-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-cyan-600 mb-1">
+              <Database className="w-4 h-4" />
+              <span className="text-xs font-medium">Database</span>
+            </div>
+            <p className="text-xl font-bold">{summaryStats.totalDatabase}</p>
+            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalDatabaseSales)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-red-600 mb-1">
+              <Search className="w-4 h-4" />
+              <span className="text-xs font-medium">Google</span>
+            </div>
+            <p className="text-xl font-bold">{summaryStats.totalGoogle}</p>
+            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalGoogleSales)}</div>
           </CardContent>
         </Card>
 
@@ -468,10 +514,22 @@ const LogisticBundleTransaction = () => {
                       Shopee
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-sky-50" colSpan={6}>
+                  <TableHead className="text-center bg-blue-50" colSpan={6}>
                     <div className="flex items-center justify-center gap-1">
-                      <Globe className="w-3 h-3" />
-                      Online
+                      <Facebook className="w-3 h-3" />
+                      Facebook
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center bg-cyan-50" colSpan={6}>
+                    <div className="flex items-center justify-center gap-1">
+                      <Database className="w-3 h-3" />
+                      Database
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center bg-red-50" colSpan={6}>
+                    <div className="flex items-center justify-center gap-1">
+                      <Search className="w-3 h-3" />
+                      Google
                     </div>
                   </TableHead>
                 </TableRow>
@@ -497,13 +555,27 @@ const LogisticBundleTransaction = () => {
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">%</TableHead>
-                  {/* Online sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Success</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Return</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Remain</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Sales</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">%</TableHead>
+                  {/* Facebook sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Remain</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Sales</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">%</TableHead>
+                  {/* Database sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Remain</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">Sales</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-cyan-50">%</TableHead>
+                  {/* Google sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Remain</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">Sales</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-red-50">%</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -630,51 +702,131 @@ const LogisticBundleTransaction = () => {
                       </TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatCurrency(bundle.shopee.sales)}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(bundle.shopee.pct)}</TableCell>
-                      {/* Online */}
-                      <TableCell className="text-center bg-sky-50/50">{bundle.online.units}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-green-600">
-                        {bundle.online.success > 0 ? (
+                      {/* Facebook */}
+                      <TableCell className="text-center bg-blue-50/50">{bundle.facebook.units}</TableCell>
+                      <TableCell className="text-center bg-blue-50/50 text-green-600">
+                        {bundle.facebook.success > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "success", "online")}
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "facebook")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.online.success}
+                            {bundle.facebook.success}
                           </button>
                         ) : (
-                          bundle.online.success
+                          bundle.facebook.success
                         )}
                       </TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-orange-600">
-                        {bundle.online.returnUnits > 0 ? (
+                      <TableCell className="text-center bg-blue-50/50 text-orange-600">
+                        {bundle.facebook.returnUnits > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "return", "online")}
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "facebook")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.online.returnUnits}
+                            {bundle.facebook.returnUnits}
                           </button>
                         ) : (
-                          bundle.online.returnUnits
+                          bundle.facebook.returnUnits
                         )}
                       </TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-amber-600">
-                        {bundle.online.remaining > 0 ? (
+                      <TableCell className="text-center bg-blue-50/50 text-amber-600">
+                        {bundle.facebook.remaining > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "online")}
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "facebook")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.online.remaining}
+                            {bundle.facebook.remaining}
                           </button>
                         ) : (
-                          bundle.online.remaining
+                          bundle.facebook.remaining
                         )}
                       </TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-xs">{formatCurrency(bundle.online.sales)}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-xs">{formatPercent(bundle.online.pct)}</TableCell>
+                      <TableCell className="text-center bg-blue-50/50 text-xs">{formatCurrency(bundle.facebook.sales)}</TableCell>
+                      <TableCell className="text-center bg-blue-50/50 text-xs">{formatPercent(bundle.facebook.pct)}</TableCell>
+                      {/* Database */}
+                      <TableCell className="text-center bg-cyan-50/50">{bundle.database.units}</TableCell>
+                      <TableCell className="text-center bg-cyan-50/50 text-green-600">
+                        {bundle.database.success > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "database")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.database.success}
+                          </button>
+                        ) : (
+                          bundle.database.success
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-cyan-50/50 text-orange-600">
+                        {bundle.database.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "database")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.database.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.database.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-cyan-50/50 text-amber-600">
+                        {bundle.database.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "database")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.database.remaining}
+                          </button>
+                        ) : (
+                          bundle.database.remaining
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-cyan-50/50 text-xs">{formatCurrency(bundle.database.sales)}</TableCell>
+                      <TableCell className="text-center bg-cyan-50/50 text-xs">{formatPercent(bundle.database.pct)}</TableCell>
+                      {/* Google */}
+                      <TableCell className="text-center bg-red-50/50">{bundle.google.units}</TableCell>
+                      <TableCell className="text-center bg-red-50/50 text-green-600">
+                        {bundle.google.success > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "google")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.google.success}
+                          </button>
+                        ) : (
+                          bundle.google.success
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-red-50/50 text-orange-600">
+                        {bundle.google.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "google")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.google.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.google.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-red-50/50 text-amber-600">
+                        {bundle.google.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "google")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.google.remaining}
+                          </button>
+                        ) : (
+                          bundle.google.remaining
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-red-50/50 text-xs">{formatCurrency(bundle.google.sales)}</TableCell>
+                      <TableCell className="text-center bg-red-50/50 text-xs">{formatPercent(bundle.google.pct)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={25} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={37} className="text-center py-8 text-muted-foreground">
                       No bundle transactions found.
                     </TableCell>
                   </TableRow>

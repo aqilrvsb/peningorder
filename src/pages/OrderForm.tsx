@@ -571,9 +571,8 @@ const OrderForm: React.FC = () => {
       return;
     }
 
-    // Validate payment details for CASH (non-Shopee/TikTok)
-    const isShopeeOrTiktokPlatform = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
-    if (!isShopeeOrTiktokPlatform && formData.caraBayaran === 'CASH') {
+    // Validate payment details for CASH (all platforms now use same flow)
+    if (formData.caraBayaran === 'CASH') {
       if (!tarikhBayaran) {
         toast({
           title: 'Error',
@@ -641,13 +640,11 @@ const OrderForm: React.FC = () => {
       hour12: true,
     });
 
-    // Set kurier based on platform, cara bayaran and delivery method
+    // Set kurier based on cara bayaran and delivery method
+    // All platforms (Facebook, Shopee, Tiktok, Database, Google) now use NinjaVan
     let kurier = '';
-    const isShopeeOrTiktokOrder = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
     const isPickup = formData.deliveryMethod === 'PICKUP';
-    if (isShopeeOrTiktokOrder) {
-      kurier = formData.jenisPlatform; // "Shopee" or "Tiktok"
-    } else if (isPickup) {
+    if (isPickup) {
       kurier = 'PICKUP';
     } else {
       kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
@@ -659,18 +656,18 @@ const OrderForm: React.FC = () => {
     try {
       let orderNumber = isEditMode ? editOrder.noTempahan : generateOrderNumber();
       let idSale = isEditMode ? editOrder.idSale : '';
-      let trackingNumber = isShopeeOrTiktokOrder ? formData.trackingNumber : '';
+      let trackingNumber = '';
 
-      // Generate new sale ID for new orders (non-Shopee/TikTok)
-      if (!isEditMode && !isShopeeOrTiktokOrder) {
+      // Generate new sale ID for new orders (all platforms now use NinjaVan)
+      if (!isEditMode) {
         idSale = await generateSaleId();
         console.log('Generated Sale ID:', idSale);
       }
 
       // Handle edit mode
       if (isEditMode) {
-        const wasNinjavanOrder = editOrder.jenisPlatform !== 'Shopee' && editOrder.jenisPlatform !== 'Tiktok' && editOrder.kurier !== 'PICKUP';
-        const isNowNinjavanOrder = !isShopeeOrTiktokOrder && !isPickup;
+        const wasNinjavanOrder = editOrder.kurier !== 'PICKUP';
+        const isNowNinjavanOrder = !isPickup;
 
         // If it was a Ninjavan order, cancel the old tracking first
         if (wasNinjavanOrder && editOrder.noTracking) {
@@ -787,24 +784,8 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        // Handle waybill upload/replacement for edit mode (Shopee/Tiktok)
-        let newWaybillUrl = editOrder.waybillUrl || '';
-        if (waybillFile && isShopeeOrTiktokOrder) {
-          // Delete old waybill if exists
-          if (editOrder.waybillUrl) {
-            await deleteFromBlob(editOrder.waybillUrl);
-          }
-          try {
-            newWaybillUrl = await uploadToVercelBlob(waybillFile, 'waybills');
-          } catch (uploadError) {
-            console.error('Waybill upload error:', uploadError);
-            toast({
-              title: 'Amaran',
-              description: 'Gagal memuat naik waybill baru.',
-              variant: 'destructive',
-            });
-          }
-        }
+        // Waybill no longer used - all platforms now use NinjaVan
+        let newWaybillUrl = '';
 
         // Get units from selected bundle for edit mode
         const editBundleUnits = activeBundles.find(b => b.name === formData.produk)?.units || 1;
@@ -854,8 +835,8 @@ const OrderForm: React.FC = () => {
         // Get selected bundle for SKU (needed for NinjaVan)
         const selectedBundle = activeBundles.find(b => b.name === formData.produk);
 
-        // Skip NinjaVan for Shopee/Tiktok and PICKUP
-        const shouldCallNinjavan = !isShopeeOrTiktokOrder && !isPickup;
+        // All platforms now use NinjaVan (only skip for PICKUP)
+        const shouldCallNinjavan = !isPickup;
 
         if (shouldCallNinjavan) {
           try {
@@ -941,20 +922,8 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        // Upload waybill PDF if provided (for Shopee/Tiktok)
+        // Waybill no longer used - all platforms now use NinjaVan
         let waybillUrl = '';
-        if (waybillFile && isShopeeOrTiktokOrder) {
-          try {
-            waybillUrl = await uploadToVercelBlob(waybillFile, 'waybills');
-          } catch (uploadError) {
-            console.error('Waybill upload error:', uploadError);
-            toast({
-              title: 'Amaran',
-              description: 'Gagal memuat naik waybill. Order tetap disimpan.',
-              variant: 'destructive',
-            });
-          }
-        }
 
         // Get units from selected bundle (selectedBundle already defined above)
         const bundleUnits = selectedBundle?.units || 1;
@@ -1165,9 +1134,10 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  const isShopeeOrTiktok = formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok';
+  // All platforms now use same flow (NinjaVan) - no special handling for Shopee/Tiktok
+  const isShopeeOrTiktok = false; // Disabled - all platforms now use NinjaVan flow
   const isPickup = formData.deliveryMethod === 'PICKUP';
-  const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickup) && !isShopeeOrTiktok;
+  const showPaymentDetails = formData.caraBayaran === 'CASH' || isPickup;
 
   return (
     <div className="space-y-6 animate-fade-in">
