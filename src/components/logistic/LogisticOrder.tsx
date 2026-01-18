@@ -121,20 +121,21 @@ const LogisticOrder = () => {
     }
   };
 
-  // Fetch all profiles for marketer name lookup
+  // Fetch all profiles for marketer name and whatsapp lookup
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-lookup"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, full_name");
+        .select("username, full_name, whatsapp_number");
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Create a map for quick lookup of marketer name by username (marketer_id_staff)
+  // Create maps for quick lookup by username (marketer_id_staff)
   const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
+  const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
   // Fetch pending orders - using new schema field names
   const { data: orders = [], isLoading } = useQuery({
@@ -1000,9 +1001,9 @@ const LogisticOrder = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {order.phone_customer && (
+                            {whatsappMap.get(order.marketer_id_staff) && (
                               <a
-                                href={`https://wa.me/6${(order.phone_customer || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(whatsappMap.get(order.marketer_id_staff) || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
