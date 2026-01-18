@@ -182,10 +182,10 @@ const AccountReportProfit: React.FC = () => {
     });
   }, [spends, startDate, endDate]);
 
-  // Filter expenses by date range
-  const filteredExpenses = useMemo(() => {
+  // Filter VAR expenses by date range (one-time expenses)
+  const filteredVarExpenses = useMemo(() => {
     return expenses.filter(expense => {
-      if (!expense.date) return false;
+      if (!expense.date || expense.type !== 'VAR') return false;
       try {
         const expenseDate = parseISO(expense.date);
         return isWithinInterval(expenseDate, {
@@ -198,26 +198,77 @@ const AccountReportProfit: React.FC = () => {
     });
   }, [expenses, startDate, endDate]);
 
+  // Calculate FIX expenses (monthly recurring) - multiply by months in range
+  const calculateFixExpenseTotal = useMemo(() => {
+    const fixExpenses = expenses.filter(e => e.type === 'FIX');
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    let companyFixTotal = 0;
+    const personalFixMap: Record<string, number> = {};
+
+    fixExpenses.forEach(expense => {
+      const expenseDate = new Date(expense.date);
+
+      // Only count if expense date is before or within the range
+      if (expenseDate <= end) {
+        // Start counting from the later of: expense date or start date
+        const countStart = expenseDate > start ? expenseDate : start;
+
+        // Calculate months between countStart and end
+        const startYear = countStart.getFullYear();
+        const startMonth = countStart.getMonth();
+        const endYear = end.getFullYear();
+        const endMonth = end.getMonth();
+
+        const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+
+        if (monthsDiff > 0) {
+          const totalForPeriod = (Number(expense.total) || 0) * monthsDiff;
+
+          if (!expense.role || expense.role === 'company') {
+            companyFixTotal += totalForPeriod;
+          } else if (expense.role === 'personal' && expense.marketer_id_staff) {
+            personalFixMap[expense.marketer_id_staff] = (personalFixMap[expense.marketer_id_staff] || 0) + totalForPeriod;
+          }
+        }
+      }
+    });
+
+    return { companyFixTotal, personalFixMap };
+  }, [expenses, startDate, endDate]);
+
   // Calculate total expenses (VAR and FIX) - COMPANY ONLY
   const totalExpenses = useMemo(() => {
-    // Only count company expenses (role is 'company' or null/undefined for backward compatibility)
-    const companyExpenses = filteredExpenses.filter(e => !e.role || e.role === 'company');
-    const varExpenses = companyExpenses.filter(e => e.type === 'VAR').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
-    const fixExpenses = companyExpenses.filter(e => e.type === 'FIX').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
-    return { var: varExpenses, fix: fixExpenses, total: varExpenses + fixExpenses };
-  }, [filteredExpenses]);
+    // VAR expenses (one-time) - company only
+    const companyVarExpenses = filteredVarExpenses.filter(e => !e.role || e.role === 'company');
+    const varTotal = companyVarExpenses.reduce((sum, e) => sum + (Number(e.total) || 0), 0);
+
+    // FIX expenses (monthly) - already calculated with months multiplier
+    const fixTotal = calculateFixExpenseTotal.companyFixTotal;
+
+    return { var: varTotal, fix: fixTotal, total: varTotal + fixTotal };
+  }, [filteredVarExpenses, calculateFixExpenseTotal]);
 
   // Calculate personal expenses by marketer
   const personalExpensesByMarketer = useMemo(() => {
     const expenseMap: Record<string, number> = {};
-    filteredExpenses
+
+    // Add VAR expenses (one-time)
+    filteredVarExpenses
       .filter(e => e.role === 'personal' && e.marketer_id_staff)
       .forEach(e => {
         const idStaff = e.marketer_id_staff!;
         expenseMap[idStaff] = (expenseMap[idStaff] || 0) + (Number(e.total) || 0);
       });
+
+    // Add FIX expenses (monthly - already calculated with months multiplier)
+    Object.entries(calculateFixExpenseTotal.personalFixMap).forEach(([idStaff, total]) => {
+      expenseMap[idStaff] = (expenseMap[idStaff] || 0) + total;
+    });
+
     return expenseMap;
-  }, [filteredExpenses]);
+  }, [filteredVarExpenses, calculateFixExpenseTotal]);
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {
