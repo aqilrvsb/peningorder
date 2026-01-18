@@ -411,19 +411,19 @@ const LogisticProductTransaction = () => {
                   <TableHead className="text-center text-red-600">Stock Out</TableHead>
                   <TableHead className="text-center text-blue-600">Shipped Out</TableHead>
                   <TableHead className="text-center text-orange-600">Return</TableHead>
-                  <TableHead className="text-center bg-pink-50" colSpan={3}>
+                  <TableHead className="text-center bg-pink-50" colSpan={2}>
                     <div className="flex items-center justify-center gap-1">
                       <Play className="w-3 h-3" />
                       Tiktok
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-orange-50" colSpan={3}>
+                  <TableHead className="text-center bg-orange-50" colSpan={2}>
                     <div className="flex items-center justify-center gap-1">
                       <ShoppingBag className="w-3 h-3" />
                       Shopee
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-sky-50" colSpan={3}>
+                  <TableHead className="text-center bg-sky-50" colSpan={2}>
                     <div className="flex items-center justify-center gap-1">
                       <Globe className="w-3 h-3" />
                       Online
@@ -439,15 +439,12 @@ const LogisticProductTransaction = () => {
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
                   {/* Tiktok sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Trans</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">%</TableHead>
                   {/* Shopee sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Trans</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">%</TableHead>
                   {/* Online sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Units</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Trans</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">%</TableHead>
                 </TableRow>
               </TableHeader>
@@ -463,21 +460,18 @@ const LogisticProductTransaction = () => {
                       <TableCell className="text-center font-semibold text-orange-600">{product.returnUnits}</TableCell>
                       {/* Tiktok */}
                       <TableCell className="text-center bg-pink-50/50">{product.tiktok.units}</TableCell>
-                      <TableCell className="text-center bg-pink-50/50">{product.tiktok.transactions}</TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatPercent(product.tiktok.pct)}</TableCell>
                       {/* Shopee */}
                       <TableCell className="text-center bg-orange-50/50">{product.shopee.units}</TableCell>
-                      <TableCell className="text-center bg-orange-50/50">{product.shopee.transactions}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(product.shopee.pct)}</TableCell>
                       {/* Online */}
                       <TableCell className="text-center bg-sky-50/50">{product.online.units}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50">{product.online.transactions}</TableCell>
                       <TableCell className="text-center bg-sky-50/50 text-xs">{formatPercent(product.online.pct)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No product transactions found.
                     </TableCell>
                   </TableRow>
@@ -492,13 +486,10 @@ const LogisticProductTransaction = () => {
                     <TableCell className="text-center text-blue-600">{summaryStats.totalShipped}</TableCell>
                     <TableCell className="text-center text-orange-600">{summaryStats.totalReturn}</TableCell>
                     <TableCell className="text-center bg-pink-100/50">{summaryStats.totalTiktok}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50">{productTransactions.reduce((sum, p) => sum + p.tiktok.transactions, 0)}</TableCell>
                     <TableCell className="text-center bg-pink-100/50">-</TableCell>
                     <TableCell className="text-center bg-orange-100/50">{summaryStats.totalShopee}</TableCell>
-                    <TableCell className="text-center bg-orange-100/50">{productTransactions.reduce((sum, p) => sum + p.shopee.transactions, 0)}</TableCell>
                     <TableCell className="text-center bg-orange-100/50">-</TableCell>
                     <TableCell className="text-center bg-sky-100/50">{summaryStats.totalOnline}</TableCell>
-                    <TableCell className="text-center bg-sky-100/50">{productTransactions.reduce((sum, p) => sum + p.online.transactions, 0)}</TableCell>
                     <TableCell className="text-center bg-sky-100/50">-</TableCell>
                   </TableRow>
                 )}
