@@ -761,11 +761,11 @@ const LogisticCustomers = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Customer HQ</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl font-bold">Customer HQ</h1>
+          <p className="text-muted-foreground text-sm">
             Manage your customer purchases and track sales
           </p>
         </div>
@@ -773,58 +773,59 @@ const LogisticCustomers = () => {
           {selectedOrders.size > 0 && (
             <Button
               variant="destructive"
+              size="sm"
               onClick={handleDeleteSelected}
               disabled={isDeleting}
             >
               {isDeleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-1 h-4 w-4" />
               )}
               Delete ({selectedOrders.size})
             </Button>
           )}
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Customer Purchase
+          <Button size="sm" onClick={() => setIsModalOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            Add Customer
           </Button>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Statistics Cards - Compact */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title}>
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground">{stat.title}</p>
+                  <p className="text-lg font-bold">{stat.value}</p>
                 </div>
-                <stat.icon className={`h-8 w-8 ${stat.color}`} />
+                <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Platform Breakdown Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      {/* Platform Breakdown Stats - Compact */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
         {platformStats.map((platform) => (
           <Card key={platform.title}>
-            <CardContent className="p-4">
-              <div className="mb-3">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${platform.color}`}>
+            <CardContent className="p-3">
+              <div className="mb-2">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${platform.color}`}>
                   {platform.title}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-2 gap-1 text-xs">
                 <div>
-                  <p className="text-muted-foreground">Customers</p>
+                  <p className="text-muted-foreground">Cust</p>
                   <p className="font-bold">{platform.customers}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Transactions</p>
+                  <p className="text-muted-foreground">Trans</p>
                   <p className="font-bold">{platform.transactions}</p>
                 </div>
                 <div>
@@ -833,7 +834,7 @@ const LogisticCustomers = () => {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Revenue</p>
-                  <p className="font-bold text-green-600">RM {platform.revenue.toFixed(2)}</p>
+                  <p className="font-bold text-green-600">RM {platform.revenue.toFixed(0)}</p>
                 </div>
               </div>
             </CardContent>
@@ -843,102 +844,66 @@ const LogisticCustomers = () => {
 
       {/* Main Card with Filters and Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Customer Purchases</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Quick Search */}
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Quick Search</span>
-                </div>
-                <div className="flex flex-1 gap-2 items-center">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Enter name, phone, or tracking number..."
-                      value={quickSearch}
-                      onChange={(e) => {
-                        setQuickSearch(e.target.value);
-                        if (!e.target.value) setIsQuickSearchActive(false);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleQuickSearch();
-                      }}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Button onClick={handleQuickSearch} className="bg-primary hover:bg-primary/90">
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
-                  </Button>
-                  {isQuickSearchActive && (
-                    <Button variant="outline" onClick={clearQuickSearch}>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                {isQuickSearchActive && (
-                  <span className="text-xs text-muted-foreground bg-primary/10 px-2 py-1 rounded">
-                    Showing results for: "{quickSearch}"
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Filters */}
-          <Card className="border-dashed">
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Filters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Start Date</label>
-                    <Input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => {
-                        setStartDate(e.target.value);
-                        setIsQuickSearchActive(false);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">End Date</label>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => {
-                        setEndDate(e.target.value);
-                        setIsQuickSearchActive(false);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Jenis Platform</label>
-                    <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setIsQuickSearchActive(false); }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Jenis Platform" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Jenis Platform</SelectItem>
-                        <SelectItem value="Facebook">Facebook</SelectItem>
-                        <SelectItem value="Tiktok HQ">Tiktok HQ</SelectItem>
-                        <SelectItem value="Shopee HQ">Shopee HQ</SelectItem>
-                        <SelectItem value="Database">Database</SelectItem>
-                        <SelectItem value="Google">Google</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <CardContent className="pt-4 space-y-3">
+          {/* Quick Search & Filters Combined */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search name, phone, tracking..."
+                value={quickSearch}
+                onChange={(e) => {
+                  setQuickSearch(e.target.value);
+                  if (!e.target.value) setIsQuickSearchActive(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleQuickSearch();
+                }}
+                className="pl-10 h-9"
+              />
+            </div>
+            <Button size="sm" onClick={handleQuickSearch}>
+              <Search className="w-4 h-4 mr-1" />
+              Search
+            </Button>
+            {isQuickSearchActive && (
+              <Button variant="outline" size="sm" onClick={clearQuickSearch}>
+                <XCircle className="w-4 h-4 mr-1" />
+                Clear
+              </Button>
+            )}
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setIsQuickSearchActive(false);
+              }}
+              className="w-36 h-9"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setIsQuickSearchActive(false);
+              }}
+              className="w-36 h-9"
+            />
+            <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setIsQuickSearchActive(false); }}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue placeholder="All Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platform</SelectItem>
+                <SelectItem value="Facebook">Facebook</SelectItem>
+                <SelectItem value="Tiktok HQ">Tiktok HQ</SelectItem>
+                <SelectItem value="Shopee HQ">Shopee HQ</SelectItem>
+                <SelectItem value="Database">Database</SelectItem>
+                <SelectItem value="Google">Google</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Table */}
           {isLoading ? (

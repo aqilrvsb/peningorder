@@ -356,200 +356,153 @@ const LogisticPendingTracking = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Pending Tracking</h1>
-        <p className="text-muted-foreground mt-2">
-          Track COD orders awaiting payment confirmation
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-purple-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">Total Pending</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Package className="w-8 h-8 text-orange-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.cod}</p>
-                <p className="text-sm text-muted-foreground">COD Orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground">Pending Collection</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bulk Update Section */}
-      <Card>
-        <CardContent className="pt-6">
-          <h3 className="font-semibold mb-4">Bulk Update by Tracking Number</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <Label>Tracking Numbers (one per line)</Label>
-              <Textarea
-                placeholder="Enter tracking numbers..."
-                value={bulkTrackingList}
-                onChange={(e) => setBulkTrackingList(e.target.value)}
-                rows={4}
-              />
-            </div>
-            <div className="space-y-4">
-              <div>
-                <Label>Status</Label>
-                <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Success">Success</SelectItem>
-                    <SelectItem value="Return">Return</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={bulkDate}
-                  onChange={(e) => setBulkDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} className="w-full">
-                {isBulkUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                Update Orders
-              </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Pending Tracking</h1>
+          <p className="text-muted-foreground text-sm">
+            Track COD orders awaiting payment confirmation
+          </p>
+        </div>
+        {/* Stats inline */}
+        <div className="flex gap-4">
+          <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+            <Clock className="w-5 h-5 text-purple-500" />
+            <div>
+              <p className="text-lg font-bold">{counts.total}</p>
+              <p className="text-xs text-muted-foreground">Pending</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <DollarSign className="w-5 h-5 text-green-500" />
+            <div>
+              <p className="text-lg font-bold">RM {counts.totalSales.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">Collection</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Individual Update by Selection */}
+      {/* Combined Update Section */}
       <Card>
-        <CardContent className="pt-6">
-          <h3 className="font-semibold mb-4">Update by Selection</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Select orders from the table below using checkboxes, then update them here
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex-1 sm:flex-none">
-              <Label>Selected Orders</Label>
-              <div className="text-2xl font-bold text-primary">{selectedOrders.size}</div>
+        <CardContent className="pt-4 pb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Bulk Update by Tracking */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-sm">Bulk Update by Tracking Number</h3>
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Enter tracking numbers (one per line)..."
+                  value={bulkTrackingList}
+                  onChange={(e) => setBulkTrackingList(e.target.value)}
+                  rows={2}
+                  className="flex-1"
+                />
+                <div className="flex flex-col gap-2 w-32">
+                  <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Success">Success</SelectItem>
+                      <SelectItem value="Return">Return</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="date"
+                    value={bulkDate}
+                    onChange={(e) => setBulkDate(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+                <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} size="sm" className="self-end">
+                  {isBulkUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
-            <div className="w-full sm:w-40">
-              <Label>Status</Label>
-              <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Success">Success</SelectItem>
-                  <SelectItem value="Return">Return</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Update by Selection */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-sm">Update by Selection</h3>
+              <div className="flex gap-2 items-end">
+                <div className="flex flex-col gap-2 w-28">
+                  <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Success">Success</SelectItem>
+                      <SelectItem value="Return">Return</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="date"
+                    value={individualDate}
+                    onChange={(e) => setIndividualDate(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+                <Button
+                  onClick={handleIndividualUpdate}
+                  disabled={isIndividualUpdating || selectedOrders.size === 0}
+                  size="sm"
+                >
+                  {isIndividualUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                  Update ({selectedOrders.size})
+                </Button>
+              </div>
             </div>
-            <div className="w-full sm:w-40">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={individualDate}
-                onChange={(e) => setIndividualDate(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={handleIndividualUpdate}
-              disabled={isIndividualUpdating || selectedOrders.size === 0}
-              className="w-full sm:w-auto"
-            >
-              {isIndividualUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              Update Selected ({selectedOrders.size})
-            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search... (use + to combine filters)"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
-                  className="pl-10"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
-                  className="w-40"
-                />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
-                  className="w-40"
-                />
-              </div>
+        <CardContent className="py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search... (use + to combine)"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                className="pl-10 h-9"
+              />
             </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show:</span>
-                <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">entries</span>
-              </div>
-
-              <div className="flex-1" />
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleBulkPrint}
-                  disabled={selectedOrders.size === 0 || isPrinting}
-                >
-                  {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
-                  Print ({selectedOrders.size})
-                </Button>
-              </div>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
+              className="w-36 h-9"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
+              className="w-36 h-9"
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Show:</span>
+              <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-16 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkPrint}
+              disabled={selectedOrders.size === 0 || isPrinting}
+            >
+              {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Printer className="w-4 h-4 mr-1" />}
+              Print ({selectedOrders.size})
+            </Button>
           </div>
         </CardContent>
       </Card>
