@@ -15,17 +15,17 @@ interface MarketerStats {
   totalSales: number;
   returns: number;
   roas: number;
-  // Customer type counts
+  // Customer type sales
   customerNP: number;
   customerEP: number;
   customerEC: number;
-  // Platform counts
+  // Platform sales
   platformFB: number;
   platformTiktok: number;
   platformShopee: number;
   platformGoogle: number;
   platformDatabase: number;
-  // Closing type counts
+  // Closing type sales
   closingManual: number;
   closingWaBot: number;
   closingWebsite: number;
@@ -194,17 +194,17 @@ const Top10: React.FC = () => {
           totalSales: 0,
           returns: 0,
           roas: 0,
-          // Customer type counts
+          // Customer type sales
           customerNP: 0,
           customerEP: 0,
           customerEC: 0,
-          // Platform counts
+          // Platform sales
           platformFB: 0,
           platformTiktok: 0,
           platformShopee: 0,
           platformGoogle: 0,
           platformDatabase: 0,
-          // Closing type counts
+          // Closing type sales
           closingManual: 0,
           closingWaBot: 0,
           closingWebsite: 0,
@@ -222,42 +222,42 @@ const Top10: React.FC = () => {
         stats[idStaff].returns += saleAmount;
       }
 
-      // Count by customer type (NP, EP, EC)
+      // Sum sales by customer type (NP, EP, EC)
       const customerType = order.jenis_customer?.toUpperCase();
       if (customerType === 'NP') {
-        stats[idStaff].customerNP += 1;
+        stats[idStaff].customerNP += saleAmount;
       } else if (customerType === 'EP') {
-        stats[idStaff].customerEP += 1;
+        stats[idStaff].customerEP += saleAmount;
       } else if (customerType === 'EC') {
-        stats[idStaff].customerEC += 1;
+        stats[idStaff].customerEC += saleAmount;
       }
 
-      // Count by platform
+      // Sum sales by platform
       const platform = order.jenis_platform;
       if (platform === 'Facebook') {
-        stats[idStaff].platformFB += 1;
+        stats[idStaff].platformFB += saleAmount;
       } else if (platform === 'Tiktok') {
-        stats[idStaff].platformTiktok += 1;
+        stats[idStaff].platformTiktok += saleAmount;
       } else if (platform === 'Shopee') {
-        stats[idStaff].platformShopee += 1;
+        stats[idStaff].platformShopee += saleAmount;
       } else if (platform === 'Google') {
-        stats[idStaff].platformGoogle += 1;
+        stats[idStaff].platformGoogle += saleAmount;
       } else if (platform === 'Database') {
-        stats[idStaff].platformDatabase += 1;
+        stats[idStaff].platformDatabase += saleAmount;
       }
 
-      // Count by closing type
+      // Sum sales by closing type
       const closingType = order.jenis_closing;
       if (closingType === 'Manual') {
-        stats[idStaff].closingManual += 1;
+        stats[idStaff].closingManual += saleAmount;
       } else if (closingType === 'WhatsappBot') {
-        stats[idStaff].closingWaBot += 1;
+        stats[idStaff].closingWaBot += saleAmount;
       } else if (closingType === 'Website') {
-        stats[idStaff].closingWebsite += 1;
+        stats[idStaff].closingWebsite += saleAmount;
       } else if (closingType === 'Call') {
-        stats[idStaff].closingCall += 1;
+        stats[idStaff].closingCall += saleAmount;
       } else if (closingType === 'Live') {
-        stats[idStaff].closingLive += 1;
+        stats[idStaff].closingLive += saleAmount;
       }
     });
 
@@ -308,6 +308,11 @@ const Top10: React.FC = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
+  };
+
+  const formatSalesWithPercent = (value: number, total: number) => {
+    const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+    return `${formatNumber(value)} (${percent}%)`;
   };
 
   if (isLoading) {
@@ -514,19 +519,19 @@ const Top10: React.FC = () => {
                   <td className="text-right font-semibold text-primary">{formatNumber(stat.totalSales)}</td>
                   <td className="text-right text-destructive">{formatNumber(stat.returns)}</td>
                   <td className="text-right">{formatNumber(stat.roas)}</td>
-                  <td className="text-right text-green-600">{stat.customerNP}</td>
-                  <td className="text-right text-purple-600">{stat.customerEP}</td>
-                  <td className="text-right text-amber-600">{stat.customerEC}</td>
-                  <td className="text-right text-blue-600">{stat.platformFB}</td>
-                  <td className="text-right text-pink-600">{stat.platformTiktok}</td>
-                  <td className="text-right text-orange-600">{stat.platformShopee}</td>
-                  <td className="text-right text-red-600">{stat.platformGoogle}</td>
-                  <td className="text-right text-cyan-600">{stat.platformDatabase}</td>
-                  <td className="text-right text-slate-600">{stat.closingManual}</td>
-                  <td className="text-right text-emerald-600">{stat.closingWaBot}</td>
-                  <td className="text-right text-violet-600">{stat.closingWebsite}</td>
-                  <td className="text-right text-sky-600">{stat.closingCall}</td>
-                  <td className="text-right text-rose-600">{stat.closingLive}</td>
+                  <td className="text-right text-green-600">{formatSalesWithPercent(stat.customerNP, stat.totalSales)}</td>
+                  <td className="text-right text-purple-600">{formatSalesWithPercent(stat.customerEP, stat.totalSales)}</td>
+                  <td className="text-right text-amber-600">{formatSalesWithPercent(stat.customerEC, stat.totalSales)}</td>
+                  <td className="text-right text-blue-600">{formatSalesWithPercent(stat.platformFB, stat.totalSales)}</td>
+                  <td className="text-right text-pink-600">{formatSalesWithPercent(stat.platformTiktok, stat.totalSales)}</td>
+                  <td className="text-right text-orange-600">{formatSalesWithPercent(stat.platformShopee, stat.totalSales)}</td>
+                  <td className="text-right text-red-600">{formatSalesWithPercent(stat.platformGoogle, stat.totalSales)}</td>
+                  <td className="text-right text-cyan-600">{formatSalesWithPercent(stat.platformDatabase, stat.totalSales)}</td>
+                  <td className="text-right text-slate-600">{formatSalesWithPercent(stat.closingManual, stat.totalSales)}</td>
+                  <td className="text-right text-emerald-600">{formatSalesWithPercent(stat.closingWaBot, stat.totalSales)}</td>
+                  <td className="text-right text-violet-600">{formatSalesWithPercent(stat.closingWebsite, stat.totalSales)}</td>
+                  <td className="text-right text-sky-600">{formatSalesWithPercent(stat.closingCall, stat.totalSales)}</td>
+                  <td className="text-right text-rose-600">{formatSalesWithPercent(stat.closingLive, stat.totalSales)}</td>
                 </tr>
               ))}
               {filteredStats.length === 0 && (
