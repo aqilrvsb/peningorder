@@ -14,17 +14,19 @@ import {
 } from "@/components/ui/select";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
+  Package,
   Loader2,
   Search,
   CheckCircle,
+  CreditCard,
   Undo2,
   MessageCircle,
   ExternalLink,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 
-const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
 const AccountApproved = () => {
@@ -34,7 +36,6 @@ const AccountApproved = () => {
   // Filter states - default to today's date for date_approve
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState(today);
-  const [platformFilter, setPlatformFilter] = useState("All");
   const [pageSize, setPageSize] = useState<number | "All">(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -60,7 +61,7 @@ const AccountApproved = () => {
   const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
-  // Fetch approved NinjaVan CASH orders
+  // Fetch approved CASH orders (both NinjaVan CASH and Order Pickup)
   // Criteria: type_payment === 'CASH', seo === 'Successfull Delivery', date_approve matches filter
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-approved", filterDate],
@@ -87,12 +88,6 @@ const AccountApproved = () => {
     },
   });
 
-  // Helper function to get platform display value
-  const getOrderPlatform = (order: any) => {
-    if (order.jenis_platform) return order.jenis_platform;
-    return null;
-  };
-
   // Filter orders
   const filteredOrders = orders.filter((order: any) => {
     // Search filter
@@ -108,13 +103,6 @@ const AccountApproved = () => {
       if (!matchesSearch) return false;
     }
 
-    // Platform filter
-    if (platformFilter !== "All") {
-      if (order.jenis_platform !== platformFilter) {
-        return false;
-      }
-    }
-
     return true;
   });
 
@@ -124,9 +112,13 @@ const AccountApproved = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Counts
+  // Counts - separate NinjaVan CASH and Order Pickup
+  const ninjavanCashCount = orders.filter((o: any) => o.jenis_closing !== "Order Pickup").length;
+  const orderPickupCount = orders.filter((o: any) => o.jenis_closing === "Order Pickup").length;
   const counts = {
     total: orders.length,
+    ninjavanCash: ninjavanCashCount,
+    orderPickup: orderPickupCount,
   };
 
   // Checkbox handlers
@@ -246,14 +238,36 @@ const AccountApproved = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-6 h-6 text-green-500" />
+              <Package className="w-6 h-6 text-blue-500" />
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Approved Today</p>
+                <p className="text-xs text-muted-foreground">Total Order</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-6 h-6 text-green-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.ninjavanCash}</p>
+                <p className="text-xs text-muted-foreground">NinjaVan CASH</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Truck className="w-6 h-6 text-purple-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.orderPickup}</p>
+                <p className="text-xs text-muted-foreground">Order Pickup</p>
               </div>
             </div>
           </CardContent>
@@ -288,20 +302,6 @@ const AccountApproved = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Platform:</span>
-                <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORM_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt === "All" ? "All Platforms" : opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Show:</span>
                 <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
@@ -370,7 +370,6 @@ const AccountApproved = () => {
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Bank</th>
                       <th className="p-2 text-left">Receipt</th>
-                      <th className="p-2 text-left">Jenis Platform</th>
                       <th className="p-2 text-left">WhatsApp</th>
                       <th className="p-2 text-left">Action</th>
                     </tr>
@@ -426,18 +425,6 @@ const AccountApproved = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs font-medium ${
-                              getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
-                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
-                              getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
-                              getOrderPlatform(order) === "Google" ? "text-green-600" :
-                              getOrderPlatform(order) === "Database" ? "text-purple-600" :
-                              "text-gray-600"
-                            }`}>
-                              {getOrderPlatform(order) || "-"}
-                            </span>
-                          </td>
-                          <td className="p-2">
                             {whatsappMap.get(order.marketer_id_staff) && (
                               <a
                                 href={`https://wa.me/6${(whatsappMap.get(order.marketer_id_staff) || "").replace(/^0/, "").replace(/\D/g, "")}`}
@@ -451,20 +438,19 @@ const AccountApproved = () => {
                           </td>
                           <td className="p-2">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleUndoApproveOrder(order.id)}
-                              className="h-7 px-2 text-xs border-amber-300 hover:bg-amber-50 text-amber-600"
+                              className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                             >
-                              <Undo2 className="w-3 h-3 mr-1" />
-                              Undo
+                              <Undo2 className="w-4 h-4" />
                             </Button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={19} className="text-center py-12 text-muted-foreground">
                           No approved orders found for this date.
                         </td>
                       </tr>

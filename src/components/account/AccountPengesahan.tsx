@@ -14,18 +14,18 @@ import {
 } from "@/components/ui/select";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
-  Clock,
+  Package,
   Loader2,
   Search,
   CheckCircle,
   CreditCard,
   MessageCircle,
   ExternalLink,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 
-const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
 const AccountPengesahan = () => {
@@ -35,7 +35,6 @@ const AccountPengesahan = () => {
   // Filter states - default to today's date for date_payment
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState(today);
-  const [platformFilter, setPlatformFilter] = useState("All");
   const [pageSize, setPageSize] = useState<number | "All">(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -61,7 +60,7 @@ const AccountPengesahan = () => {
   const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
-  // Fetch NinjaVan CASH orders for verification
+  // Fetch CASH orders for verification (both NinjaVan CASH and Order Pickup)
   // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo !== 'Successfull Delivery'
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-pengesahan", filterDate],
@@ -89,12 +88,6 @@ const AccountPengesahan = () => {
     },
   });
 
-  // Helper function to get platform display value
-  const getOrderPlatform = (order: any) => {
-    if (order.jenis_platform) return order.jenis_platform;
-    return null;
-  };
-
   // Filter orders
   const filteredOrders = orders.filter((order: any) => {
     // Search filter
@@ -110,13 +103,6 @@ const AccountPengesahan = () => {
       if (!matchesSearch) return false;
     }
 
-    // Platform filter
-    if (platformFilter !== "All") {
-      if (order.jenis_platform !== platformFilter) {
-        return false;
-      }
-    }
-
     return true;
   });
 
@@ -126,10 +112,13 @@ const AccountPengesahan = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Counts
+  // Counts - separate NinjaVan CASH and Order Pickup
+  const ninjavanCashCount = orders.filter((o: any) => o.jenis_closing !== "Order Pickup").length;
+  const orderPickupCount = orders.filter((o: any) => o.jenis_closing === "Order Pickup").length;
   const counts = {
     total: orders.length,
-    pending: orders.filter((o: any) => o.seo !== "Successfull Delivery").length,
+    ninjavanCash: ninjavanCashCount,
+    orderPickup: orderPickupCount,
   };
 
   // Checkbox handlers
@@ -251,14 +240,14 @@ const AccountPengesahan = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Clock className="w-6 h-6 text-orange-500" />
+              <Package className="w-6 h-6 text-blue-500" />
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Pending Verification</p>
+                <p className="text-xs text-muted-foreground">Total Order</p>
               </div>
             </div>
           </CardContent>
@@ -268,8 +257,19 @@ const AccountPengesahan = () => {
             <div className="flex items-center gap-2">
               <CreditCard className="w-6 h-6 text-green-500" />
               <div>
-                <p className="text-xl font-bold">{counts.pending}</p>
+                <p className="text-xl font-bold">{counts.ninjavanCash}</p>
                 <p className="text-xs text-muted-foreground">NinjaVan CASH</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Truck className="w-6 h-6 text-purple-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.orderPickup}</p>
+                <p className="text-xs text-muted-foreground">Order Pickup</p>
               </div>
             </div>
           </CardContent>
@@ -304,20 +304,6 @@ const AccountPengesahan = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Platform:</span>
-                <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORM_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt === "All" ? "All Platforms" : opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Show:</span>
                 <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
@@ -384,7 +370,6 @@ const AccountPengesahan = () => {
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Bank</th>
                       <th className="p-2 text-left">Receipt</th>
-                      <th className="p-2 text-left">Jenis Platform</th>
                       <th className="p-2 text-left">WhatsApp</th>
                       <th className="p-2 text-left">Action</th>
                     </tr>
@@ -437,18 +422,6 @@ const AccountPengesahan = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs font-medium ${
-                              getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
-                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
-                              getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
-                              getOrderPlatform(order) === "Google" ? "text-green-600" :
-                              getOrderPlatform(order) === "Database" ? "text-purple-600" :
-                              "text-gray-600"
-                            }`}>
-                              {getOrderPlatform(order) || "-"}
-                            </span>
-                          </td>
-                          <td className="p-2">
                             {whatsappMap.get(order.marketer_id_staff) && (
                               <a
                                 href={`https://wa.me/6${(whatsappMap.get(order.marketer_id_staff) || "").replace(/^0/, "").replace(/\D/g, "")}`}
@@ -462,20 +435,19 @@ const AccountPengesahan = () => {
                           </td>
                           <td className="p-2">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleApproveOrder(order.id)}
-                              className="h-7 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                              className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                             >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Approve
+                              <CheckCircle className="w-4 h-4" />
                             </Button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={19} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={18} className="text-center py-12 text-muted-foreground">
                           No orders pending verification for this date.
                         </td>
                       </tr>
