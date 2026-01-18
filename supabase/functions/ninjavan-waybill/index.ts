@@ -59,31 +59,72 @@ serve(async (req) => {
       );
     }
 
-    // Get fresh token from NinjaVan OAuth
-    console.log('Requesting fresh token from NinjaVan');
+    // Check for valid token or get new one (same as ninjavan-order)
+    let accessToken: string;
+    const now = new Date();
 
-    const authResponse = await fetch('https://api.ninjavan.co/my/2.0/oauth/access_token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        grant_type: 'client_credentials'
-      })
-    });
+    // First check if we have a valid (non-expired) token (global token)
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('ninjavan_tokens')
+      .select('*')
+      .gt('expires_at', now.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (!authResponse.ok) {
-      const errorText = await authResponse.text();
-      console.error('NinjaVan Auth failed:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to authenticate with NinjaVan API', details: errorText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (tokenError) {
+      console.log('Token query error (may be no tokens yet):', tokenError);
     }
 
-    const authData = await authResponse.json();
-    const accessToken = authData.access_token;
-    console.log('Token obtained successfully');
+    if (tokenData && tokenData.access_token) {
+      // Use existing valid token
+      accessToken = tokenData.access_token;
+      console.log('Using existing valid token, expires at:', tokenData.expires_at);
+    } else {
+      // No valid token found, get new one from NinjaVan OAuth
+      console.log('No valid token found, requesting new token from NinjaVan');
+
+      const authResponse = await fetch('https://api.ninjavan.co/my/2.0/oauth/access_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: config.client_id,
+          client_secret: config.client_secret,
+          grant_type: 'client_credentials'
+        })
+      });
+
+      if (!authResponse.ok) {
+        const errorText = await authResponse.text();
+        console.error('NinjaVan Auth failed:', errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to authenticate with NinjaVan API', details: errorText }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const authData = await authResponse.json();
+      accessToken = authData.access_token;
+      const expiresIn = authData.expires_in || 3600; // default 1 hour if not provided
+
+      // Calculate expiry time (subtract 5 minutes buffer for safety)
+      const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
+
+      console.log('New token obtained, expires in:', expiresIn, 'seconds, stored expiry:', expiresAt.toISOString());
+
+      // Store new token in database (global token)
+      const { error: insertError } = await supabase.from('ninjavan_tokens').insert({
+        access_token: accessToken,
+        expires_at: expiresAt.toISOString()
+      });
+
+      if (insertError) {
+        console.error('Failed to store token:', insertError);
+        // Continue anyway, token is still valid for this request
+      } else {
+        console.log('New token stored successfully');
+      }
+    }
 
     // For single tracking number, fetch directly
     if (validTrackingNumbers.length === 1) {
