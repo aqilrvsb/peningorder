@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Search, Loader2, BarChart3, DollarSign, Users, TrendingUp, Globe, Phone, MessageSquare, FileText, Video, Play, ShoppingBag, Facebook, Database } from 'lucide-react';
+import { Calendar, Search, Loader2, BarChart3, DollarSign, Users, TrendingUp, Globe, Phone, MessageSquare, FileText, Video, Play, ShoppingBag, Facebook, Database, Percent, Gift } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
@@ -27,6 +27,17 @@ interface Spend {
 interface Profile {
   idstaff: string;
   full_name: string;
+}
+
+interface PNLConfig {
+  id: string;
+  role: 'marketer' | 'admin';
+  min_sales: number;
+  max_sales: number | null;
+  roas_min: number;
+  roas_max: number;
+  commission_percent: number;
+  bonus_amount: number;
 }
 
 interface MarketerSpendStats {
@@ -62,6 +73,7 @@ const AccountReportSpend: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [spends, setSpends] = useState<Spend[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [pnlConfigs, setPnlConfigs] = useState<PNLConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Date filter state - default to current month (Malaysia timezone)
@@ -74,7 +86,7 @@ const AccountReportSpend: React.FC = () => {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        const [ordersRes, spendsRes, profilesRes] = await Promise.all([
+        const [ordersRes, spendsRes, profilesRes, pnlConfigRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
             .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing')
@@ -86,6 +98,11 @@ const AccountReportSpend: React.FC = () => {
           (supabase as any)
             .from('profiles')
             .select('idstaff, full_name'),
+          (supabase as any)
+            .from('pnl_config')
+            .select('*')
+            .eq('role', 'marketer')
+            .order('min_sales', { ascending: true }),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;
@@ -94,6 +111,7 @@ const AccountReportSpend: React.FC = () => {
 
         setOrders(ordersRes.data || []);
         setSpends(spendsRes.data || []);
+        setPnlConfigs(pnlConfigRes.data || []);
 
         // Create a mapping of idstaff to full_name
         const profileMap: Record<string, string> = {};
@@ -112,6 +130,28 @@ const AccountReportSpend: React.FC = () => {
 
     fetchAllData();
   }, []);
+
+  // Calculate commission and bonus based on PNL config
+  const calculateCommissionBonus = (totalSales: number, roas: number): { commission: number; bonus: number; commissionPercent: number } => {
+    // Find matching PNL config based on sales and ROAS
+    const matchingConfig = pnlConfigs.find(config => {
+      const salesMatch = totalSales >= config.min_sales &&
+        (config.max_sales === null || totalSales <= config.max_sales);
+      const roasMatch = roas >= config.roas_min && roas <= config.roas_max;
+      return salesMatch && roasMatch;
+    });
+
+    if (matchingConfig) {
+      const commission = (totalSales * matchingConfig.commission_percent) / 100;
+      return {
+        commission,
+        bonus: matchingConfig.bonus_amount,
+        commissionPercent: matchingConfig.commission_percent,
+      };
+    }
+
+    return { commission: 0, bonus: 0, commissionPercent: 0 };
+  };
 
   // Filter orders by date range
   const filteredOrders = useMemo(() => {
@@ -613,7 +653,7 @@ const AccountReportSpend: React.FC = () => {
         </h2>
 
         <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full min-w-[1800px] border-collapse">
+          <table className="w-full min-w-[2000px] border-collapse">
             <thead className="bg-muted">
               <tr>
                 <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
@@ -621,6 +661,8 @@ const AccountReportSpend: React.FC = () => {
                 <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SALES</th>
                 <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SPEND</th>
                 <th rowSpan={2} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
+                <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap border-r bg-green-50 dark:bg-green-950/30">KOMISYEN</th>
+                <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r bg-amber-50 dark:bg-amber-950/30">BONUS</th>
                 <th rowSpan={2} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">LEAD</th>
                 <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap border-r bg-blue-50 dark:bg-blue-950/30">FACEBOOK</th>
                 <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r bg-purple-50 dark:bg-purple-950/30">DATABASE</th>
@@ -652,13 +694,23 @@ const AccountReportSpend: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
-              {filteredStats.map((stat) => (
+              {filteredStats.map((stat) => {
+                const { commission, bonus, commissionPercent } = calculateCommissionBonus(stat.totalSales, stat.roas);
+                return (
                 <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
                   <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
                   <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-success whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-warning whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
                   <td className="px-3 py-2 text-sm text-center font-bold text-primary whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
+                  <td className="px-3 py-2 text-sm text-right font-semibold text-green-600 whitespace-nowrap border-r bg-green-50/50 dark:bg-green-950/20">
+                    {commission > 0 ? (
+                      <span title={`${commissionPercent}% of sales`}>{formatNumber(commission)}</span>
+                    ) : '-'}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-right font-semibold text-amber-600 whitespace-nowrap border-r bg-amber-50/50 dark:bg-amber-950/20">
+                    {bonus > 0 ? formatNumber(bonus) : '-'}
+                  </td>
                   <td className="px-3 py-2 text-sm text-center whitespace-nowrap border-r">{stat.totalLead}</td>
                   {/* Facebook */}
                   <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(stat.salesFB)}</td>
@@ -681,10 +733,11 @@ const AccountReportSpend: React.FC = () => {
                   <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(stat.spendGoogle)}</td>
                   <td className="px-2 py-2 text-xs text-center font-medium text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{stat.roasGoogle.toFixed(2)}x</td>
                 </tr>
-              ))}
+              );
+              })}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={21} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={23} className="px-4 py-8 text-center text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>
@@ -699,6 +752,18 @@ const AccountReportSpend: React.FC = () => {
                   <td className="px-3 py-2 text-sm text-right text-warning whitespace-nowrap border-r">{formatNumber(totals.totalSpend)}</td>
                   <td className="px-3 py-2 text-sm text-center text-primary whitespace-nowrap border-r">
                     {(totals.totalSpend > 0 ? totals.totalSales / totals.totalSpend : 0).toFixed(2)}x
+                  </td>
+                  <td className="px-3 py-2 text-sm text-right text-green-600 whitespace-nowrap border-r bg-green-50/50 dark:bg-green-950/20">
+                    {formatNumber(filteredStats.reduce((sum, stat) => {
+                      const { commission } = calculateCommissionBonus(stat.totalSales, stat.roas);
+                      return sum + commission;
+                    }, 0))}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-right text-amber-600 whitespace-nowrap border-r bg-amber-50/50 dark:bg-amber-950/20">
+                    {formatNumber(filteredStats.reduce((sum, stat) => {
+                      const { bonus } = calculateCommissionBonus(stat.totalSales, stat.roas);
+                      return sum + bonus;
+                    }, 0))}
                   </td>
                   <td className="px-3 py-2 text-sm text-center whitespace-nowrap border-r">{totals.totalLead}</td>
                   {/* Facebook totals */}
