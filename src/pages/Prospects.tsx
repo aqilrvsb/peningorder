@@ -803,7 +803,7 @@ const Prospects: React.FC = () => {
                   <tr className="border-b border-border">
                     <th className="text-left py-2 px-2 font-semibold">Nama</th>
                     <th className="text-left py-2 px-2 font-semibold">Telefon</th>
-                    <th className="text-left py-2 px-2 font-semibold">Niche</th>
+                    <th className="text-left py-2 px-2 font-semibold">SKU</th>
                     <th className="text-left py-2 px-2 font-semibold">Tarikh</th>
                     <th className="text-left py-2 px-2 font-semibold">Admin</th>
                   </tr>
@@ -831,7 +831,7 @@ const Prospects: React.FC = () => {
               <ul className="list-disc pl-4 space-y-1">
                 <li><strong>Nama</strong> - Nama prospek (wajib)</li>
                 <li><strong>Telefon</strong> - No. telefon, mesti bermula dengan 6 (wajib)</li>
-                <li><strong>Niche</strong> - Nama produk dari senarai Product (wajib)</li>
+                <li><strong>SKU</strong> - SKU produk dari senarai Product (wajib)</li>
                 <li><strong>Tarikh</strong> - Format: YYYY-MM-DD (wajib)</li>
                 <li><strong>Admin</strong> - Admin ID Staff (optional)</li>
               </ul>
