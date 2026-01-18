@@ -264,3 +264,14 @@ CREATE TABLE public.webhook_logs (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT webhook_logs_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  date date NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['present'::text, 'absent'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  CONSTRAINT attendance_user_date_unique UNIQUE (user_id, date)
+);

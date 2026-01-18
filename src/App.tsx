@@ -57,6 +57,9 @@ import AccountReportSpend from "./components/account/AccountReportSpend";
 import AccountCustomers from "./components/account/AccountCustomers";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
 import AccountReportProfit from "./components/account/AccountReportProfit";
+// HR components
+import HRUserManagement from "./components/hr/HRUserManagement";
+import HRAttendance from "./components/hr/HRAttendance";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +125,9 @@ const App = () => (
                   <Route path="settings" element={<Settings />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="admin/leads" element={<AdminLeads />} />
+                  {/* HR Role routes */}
+                  <Route path="hr/users" element={<HRUserManagement />} />
+                  <Route path="hr/attendance" element={<HRAttendance />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

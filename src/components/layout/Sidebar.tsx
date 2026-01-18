@@ -282,6 +282,19 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     roles: ['admin'],
   },
+  // ============ HR ROLE ============
+  {
+    label: 'User',
+    path: '/dashboard/hr/users',
+    icon: <Users className="w-5 h-5" />,
+    roles: ['hr'],
+  },
+  {
+    label: 'Attendance',
+    path: '/dashboard/hr/attendance',
+    icon: <ClipboardList className="w-5 h-5" />,
+    roles: ['hr'],
+  },
 ];
 
 const Sidebar: React.FC = () => {
