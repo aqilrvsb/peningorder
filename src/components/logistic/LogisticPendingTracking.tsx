@@ -61,6 +61,21 @@ const LogisticPendingTracking = () => {
   // Loading states
   const [isPrinting, setIsPrinting] = useState(false);
 
+  // Fetch all profiles for marketer name lookup
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, full_name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Create a map for quick lookup of marketer name by username (marketer_id_staff)
+  const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
+
   // Fetch pending tracking orders (Shipped + COD + SEO not successful)
   // Pending tracking only for Ninjavan orders (exclude Tiktok, Shopee)
   const { data: orders = [], isLoading } = useQuery({
@@ -70,8 +85,7 @@ const LogisticPendingTracking = () => {
         .from("customer_purchases")
         .select(`
           *,
-          bundle:logistic_bundles(name, sku),
-          marketer:profiles!customer_purchases_marketer_id_fkey(full_name, whatsapp_number)
+          bundle:logistic_bundles(name, sku)
         `)
         .eq("delivery_status", "Shipped")
         .eq("type_payment", "COD")
@@ -599,7 +613,7 @@ const LogisticPendingTracking = () => {
                           <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
-                          <td className="p-2">{order.marketer?.full_name || order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "-"}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">

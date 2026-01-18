@@ -122,6 +122,21 @@ const LogisticCustomers = () => {
     enabled: !!user?.id,
   });
 
+  // Fetch all profiles for marketer name lookup
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ["profiles-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, full_name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Create a map for quick lookup of marketer name by username (marketer_id_staff)
+  const profilesMap = new Map(allProfiles.map((p: any) => [p.username, p.full_name]));
+
   // Fetch customer purchases - using new schema field names
   const { data: purchases, isLoading } = useQuery({
     queryKey: ["customer_purchases", startDate, endDate, platformFilter, isQuickSearchActive],
@@ -130,8 +145,7 @@ const LogisticCustomers = () => {
         .from("customer_purchases")
         .select(`
           *,
-          bundle:logistic_bundles(name, sku),
-          marketer:profiles!customer_purchases_marketer_id_fkey(full_name, whatsapp_number)
+          bundle:logistic_bundles(name, sku)
         `)
         .order("date_processed", { ascending: false, nullsFirst: false });
 
@@ -980,7 +994,7 @@ const LogisticCustomers = () => {
                         <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
-                        <td className="p-2">{order.marketer?.full_name || order.marketer_id_staff || "-"}</td>
+                        <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "-"}</td>
                         <td className="p-2">{order.name_customer || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                         <td className="p-2">
