@@ -4,12 +4,13 @@ import { Label } from '@/components/ui/label';
 import { Trophy, Medal, Award, Calendar, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { getMalaysiaDate } from '@/lib/utils';
 
 interface MarketerStats {
   rank: number;
   idStaff: string;
   name: string;
+  totalLead: number;
   spend: number;
   totalSales: number;
   returns: number;
@@ -30,7 +31,6 @@ interface MarketerStats {
   closingWebsite: number;
   closingCall: number;
   closingLive: number;
-  closingShop: number;
 }
 
 interface Order {
@@ -45,36 +45,72 @@ interface Order {
   jenis_closing: string;
 }
 
+interface Spend {
+  id: string;
+  marketer_id_staff: string;
+  total_spend: number;
+  tarikh_spend: string;
+}
+
+interface Prospect {
+  id: string;
+  marketer_id_staff: string;
+  tarikh_phone_number: string;
+}
+
 const Top10: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [spends, setSpends] = useState<Spend[]>([]);
+  const [prospects, setProspects] = useState<Prospect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Date filter state - default to current month (Malaysia timezone)
-  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
-  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  // Date filter state - default to today (Malaysia timezone)
+  const today = getMalaysiaDate();
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch ALL orders directly from Supabase (no marketer filter)
+  // Fetch ALL data from Supabase
   useEffect(() => {
-    const fetchAllOrders = async () => {
+    const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        // Fetch orders
+        const { data: ordersData, error: ordersError } = await supabase
           .from('customer_purchases')
           .select('id, marketer_id_staff, marketer_name, date_order, total_price, delivery_status, jenis_customer, jenis_platform, jenis_closing')
           .not('marketer_id_staff', 'is', null)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setOrders(data || []);
+        if (ordersError) throw ordersError;
+        setOrders(ordersData || []);
+
+        // Fetch spends
+        const { data: spendsData, error: spendsError } = await supabase
+          .from('spends')
+          .select('id, marketer_id_staff, total_spend, tarikh_spend')
+          .not('marketer_id_staff', 'is', null);
+
+        if (spendsError) throw spendsError;
+        setSpends(spendsData || []);
+
+        // Fetch prospects (leads)
+        const { data: prospectsData, error: prospectsError } = await supabase
+          .from('prospects')
+          .select('id, marketer_id_staff, tarikh_phone_number')
+          .not('marketer_id_staff', 'is', null);
+
+        if (prospectsError) throw prospectsError;
+        setProspects(prospectsData || []);
+
       } catch (error) {
-        console.error('Error fetching orders:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAllOrders();
+    fetchAllData();
   }, []);
 
   // Calculate marketer statistics
@@ -95,7 +131,35 @@ const Top10: React.FC = () => {
       }
     });
 
-    // Aggregate stats by marketer
+    // Filter spends by date range
+    const filteredSpends = spends.filter(spend => {
+      if (!spend.tarikh_spend) return false;
+      try {
+        const spendDate = parseISO(spend.tarikh_spend);
+        return isWithinInterval(spendDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+
+    // Filter prospects by date range
+    const filteredProspects = prospects.filter(prospect => {
+      if (!prospect.tarikh_phone_number) return false;
+      try {
+        const prospectDate = parseISO(prospect.tarikh_phone_number);
+        return isWithinInterval(prospectDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+
+    // Aggregate stats by marketer from orders
     filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff;
       const name = order.marketer_name;
@@ -105,6 +169,7 @@ const Top10: React.FC = () => {
           rank: 0,
           idStaff,
           name,
+          totalLead: 0,
           spend: 0,
           totalSales: 0,
           returns: 0,
@@ -125,7 +190,6 @@ const Top10: React.FC = () => {
           closingWebsite: 0,
           closingCall: 0,
           closingLive: 0,
-          closingShop: 0,
         };
       }
 
@@ -138,7 +202,7 @@ const Top10: React.FC = () => {
         stats[idStaff].returns += saleAmount;
       }
 
-      // Count by customer type (NP, EP, EC) - count customers, not sales
+      // Count by customer type (NP, EP, EC)
       const customerType = order.jenis_customer?.toUpperCase();
       if (customerType === 'NP') {
         stats[idStaff].customerNP += 1;
@@ -148,7 +212,7 @@ const Top10: React.FC = () => {
         stats[idStaff].customerEC += 1;
       }
 
-      // Count by platform - count orders, not sales
+      // Count by platform
       const platform = order.jenis_platform;
       if (platform === 'Facebook') {
         stats[idStaff].platformFB += 1;
@@ -162,7 +226,7 @@ const Top10: React.FC = () => {
         stats[idStaff].platformDatabase += 1;
       }
 
-      // Count by closing type - count orders, not sales
+      // Count by closing type
       const closingType = order.jenis_closing;
       if (closingType === 'Manual') {
         stats[idStaff].closingManual += 1;
@@ -174,8 +238,22 @@ const Top10: React.FC = () => {
         stats[idStaff].closingCall += 1;
       } else if (closingType === 'Live') {
         stats[idStaff].closingLive += 1;
-      } else if (closingType === 'Shop') {
-        stats[idStaff].closingShop += 1;
+      }
+    });
+
+    // Add spend data
+    filteredSpends.forEach(spend => {
+      const idStaff = spend.marketer_id_staff;
+      if (stats[idStaff]) {
+        stats[idStaff].spend += Number(spend.total_spend) || 0;
+      }
+    });
+
+    // Add lead counts
+    filteredProspects.forEach(prospect => {
+      const idStaff = prospect.marketer_id_staff;
+      if (stats[idStaff]) {
+        stats[idStaff].totalLead += 1;
       }
     });
 
@@ -189,7 +267,7 @@ const Top10: React.FC = () => {
       }));
 
     return sortedStats;
-  }, [orders, startDate, endDate]);
+  }, [orders, spends, prospects, startDate, endDate]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {
@@ -378,6 +456,7 @@ const Top10: React.FC = () => {
                 <th>NO</th>
                 <th>ID STAFF</th>
                 <th>NAME</th>
+                <th className="text-right text-indigo-600">Total Lead</th>
                 <th className="text-right">SPEND</th>
                 <th className="text-right">TOTAL SALES</th>
                 <th className="text-right">RETURN</th>
@@ -395,7 +474,6 @@ const Top10: React.FC = () => {
                 <th className="text-right text-violet-600">Closing WEBSITE</th>
                 <th className="text-right text-sky-600">Closing CALL</th>
                 <th className="text-right text-rose-600">Closing LIVE</th>
-                <th className="text-right text-orange-500">SHOP</th>
               </tr>
             </thead>
             <tbody>
@@ -411,6 +489,7 @@ const Top10: React.FC = () => {
                   </td>
                   <td className="font-medium">{stat.idStaff}</td>
                   <td>{stat.name}</td>
+                  <td className="text-right text-indigo-600 font-medium">{stat.totalLead}</td>
                   <td className="text-right">{formatNumber(stat.spend)}</td>
                   <td className="text-right font-semibold text-primary">{formatNumber(stat.totalSales)}</td>
                   <td className="text-right text-destructive">{formatNumber(stat.returns)}</td>
@@ -428,7 +507,6 @@ const Top10: React.FC = () => {
                   <td className="text-right text-violet-600">{stat.closingWebsite}</td>
                   <td className="text-right text-sky-600">{stat.closingCall}</td>
                   <td className="text-right text-rose-600">{stat.closingLive}</td>
-                  <td className="text-right text-orange-500">{stat.closingShop}</td>
                 </tr>
               ))}
               {filteredStats.length === 0 && (
