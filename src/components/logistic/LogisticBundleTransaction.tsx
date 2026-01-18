@@ -32,7 +32,8 @@ const LogisticBundleTransaction = () => {
     },
   });
 
-  // Fetch customer_purchases with bundle info (filter by date_processed)
+  // Fetch customer_purchases with bundle info (filter by date_order)
+  // All filters use date_order: Shipped, Return, Total Sales, Success
   const { data: purchasesData = [], isLoading: purchasesLoading } = useQuery({
     queryKey: ["bundle-transactions", startDate, endDate],
     queryFn: async () => {
@@ -45,12 +46,12 @@ const LogisticBundleTransaction = () => {
           total_sale,
           delivery_status,
           jenis_platform,
-          date_processed,
+          date_order,
           seo
         `);
 
-      if (startDate) query = query.gte("date_processed", startDate);
-      if (endDate) query = query.lte("date_processed", endDate);
+      if (startDate) query = query.gte("date_order", startDate);
+      if (endDate) query = query.lte("date_order", endDate);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -229,7 +230,7 @@ const LogisticBundleTransaction = () => {
       <div>
         <h1 className="text-2xl font-bold text-primary">Transaction Bundle</h1>
         <p className="text-muted-foreground mt-1">
-          Bundle-level transactions with sales breakdown by date range
+          Bundle-level transactions with sales breakdown by date order
         </p>
       </div>
 
