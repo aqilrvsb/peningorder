@@ -275,3 +275,32 @@ CREATE TABLE public.attendance (
   CONSTRAINT attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
   CONSTRAINT attendance_user_date_unique UNIQUE (user_id, date)
 );
+
+-- ============================================
+-- WOOCOMMERCE WEBHOOK INTEGRATION
+-- ============================================
+
+-- Sequence for generating unique sale IDs
+CREATE SEQUENCE IF NOT EXISTS sale_id_seq START WITH 1 INCREMENT BY 1;
+
+-- Function to generate unique sale ID (format: DFRxxxxxx)
+CREATE OR REPLACE FUNCTION generate_sale_id()
+RETURNS text AS $$
+DECLARE
+  seq_val bigint;
+  sale_id text;
+BEGIN
+  SELECT nextval('sale_id_seq') INTO seq_val;
+  sale_id := 'DFR' || LPAD(seq_val::text, 6, '0');
+  RETURN sale_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Example webhook URL for marketer:
+-- https://[YOUR_SUPABASE_PROJECT].supabase.co/functions/v1/woocommerce-webhook?marketer_id=[MARKETER_IDSTAFF]
+--
+-- WooCommerce Webhook Settings:
+-- - Topic: order.updated
+-- - Delivery URL: [URL above with marketer's idstaff]
+-- - Secret: [marketer's idstaff - e.g., MR-001]
+-- - Status: Active

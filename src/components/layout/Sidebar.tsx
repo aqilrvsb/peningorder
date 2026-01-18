@@ -30,6 +30,7 @@ import {
   CreditCard,
   XCircle,
   FileText,
+  Webhook,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -100,6 +101,12 @@ const navItems: NavItem[] = [
     label: 'Reward',
     path: '/dashboard/reward',
     icon: <Trophy className="w-5 h-5" />,
+    roles: ['marketer'],
+  },
+  {
+    label: 'Webhook Settings',
+    path: '/dashboard/webhook-settings',
+    icon: <Webhook className="w-5 h-5" />,
     roles: ['marketer'],
   },
   // ============ BOD ROLE ============
