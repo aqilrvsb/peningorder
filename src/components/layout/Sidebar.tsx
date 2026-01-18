@@ -29,6 +29,7 @@ import {
   CheckCircle,
   CreditCard,
   XCircle,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -248,6 +249,12 @@ const navItems: NavItem[] = [
     label: 'Customer HQ',
     path: '/dashboard/account/customers',
     icon: <Users className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Invoice Settings',
+    path: '/dashboard/account/invoice-settings',
+    icon: <FileText className="w-5 h-5" />,
     roles: ['account'],
   },
   {

@@ -187,6 +187,42 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_settings: {
+        Row: {
+          id: string
+          company_name: string
+          registration_no: string | null
+          address: string | null
+          phone: string | null
+          email: string | null
+          website: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_name: string
+          registration_no?: string | null
+          address?: string | null
+          phone?: string | null
+          email?: string | null
+          website?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_name?: string
+          registration_no?: string | null
+          address?: string | null
+          phone?: string | null
+          email?: string | null
+          website?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ninjavan_config: {
         Row: {
           client_id: string

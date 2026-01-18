@@ -54,6 +54,7 @@ import AccountRejected from "./components/account/AccountRejected";
 import AccountExpenses from "./components/account/AccountExpenses";
 import AccountReportSpend from "./components/account/AccountReportSpend";
 import AccountCustomers from "./components/account/AccountCustomers";
+import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ const App = () => (
                   <Route path="account/expenses" element={<AccountExpenses />} />
                   <Route path="account/report-spend" element={<AccountReportSpend />} />
                   <Route path="account/customers" element={<AccountCustomers />} />
+                  <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />

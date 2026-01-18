@@ -56,6 +56,16 @@ CREATE TABLE public.device_setting (
   CONSTRAINT device_setting_pkey PRIMARY KEY (id),
   CONSTRAINT device_setting_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.expenses (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  type character varying NOT NULL CHECK (type::text = ANY (ARRAY['VAR'::character varying, 'FIX'::character varying]::text[])),
+  description text NOT NULL,
+  total numeric NOT NULL DEFAULT 0,
+  date date NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT expenses_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.logistic_bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,

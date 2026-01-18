@@ -25,6 +25,24 @@ const Invoice = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch invoice settings for company info
+        const { data: invoiceSettings } = await supabase
+          .from("invoice_settings")
+          .select("*")
+          .limit(1)
+          .single();
+
+        if (invoiceSettings) {
+          setCompanyInfo({
+            name: invoiceSettings.company_name || DEFAULT_COMPANY.name,
+            reg: invoiceSettings.registration_no || "",
+            address: invoiceSettings.address || "",
+            phone: invoiceSettings.phone || "",
+            email: invoiceSettings.email || "",
+            website: invoiceSettings.website || "",
+          });
+        }
+
         if (invoiceType === "customer" && orderId) {
           // Fetch customer purchase by ID
           const { data: purchase, error } = await supabase

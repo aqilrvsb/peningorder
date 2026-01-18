@@ -23,7 +23,6 @@ import {
   MessageCircle,
   ExternalLink,
   Truck,
-  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -117,12 +116,10 @@ const AccountApproved = () => {
   // Counts - separate NinjaVan CASH and Order Pickup
   const ninjavanCashCount = orders.filter((o: any) => o.jenis_closing !== "Order Pickup").length;
   const orderPickupCount = orders.filter((o: any) => o.jenis_closing === "Order Pickup").length;
-  const totalSales = orders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0);
   const counts = {
     total: orders.length,
     ninjavanCash: ninjavanCashCount,
     orderPickup: orderPickupCount,
-    totalSales,
   };
 
   // Checkbox handlers
@@ -244,7 +241,7 @@ const AccountApproved = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -274,17 +271,6 @@ const AccountApproved = () => {
               <div>
                 <p className="text-xl font-bold">{counts.orderPickup}</p>
                 <p className="text-xs text-muted-foreground">Order Pickup</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-green-500" />
-              <div>
-                <p className="text-xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground">Total Sales</p>
               </div>
             </div>
           </CardContent>
