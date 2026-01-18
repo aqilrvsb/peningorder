@@ -69,7 +69,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     bandar: d.city_customer || '', // NEW: city_customer
     negeri: d.state_customer || '', // NEW: state_customer
     sku: '', // Removed - using bundle_id now
-    produk: '', // Will be populated from bundle if needed
+    produk: d.bundle?.name || '', // Get bundle name from joined data
     kuantiti: d.unit || 1, // NEW: unit
     hargaJualanProduk: parseFloat(d.total_sale) || 0, // NEW: total_sale
     hargaJualanSebenar: parseFloat(d.total_sale) || 0, // NEW: total_sale
@@ -115,7 +115,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       // Build queries - filter by marketer's idstaff if user is a marketer
-      let ordersQuery = queryTable('customer_purchases').select('*').order('created_at', { ascending: false });
+      // Join with logistic_bundles to get bundle name
+      let ordersQuery = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false });
       let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false });
 
       // Marketers only see their own data
