@@ -401,24 +401,21 @@ const Dashboard: React.FC = () => {
     const totalProcess = filteredAllOrders.filter(o => o.delivery_status === 'Shipped').length;
     const totalReturn = filteredAllOrders.filter(o => o.delivery_status === 'Return').length;
 
-    // Total Online = Facebook + Database + Google
-    const totalOnline = filteredAllOrders.filter(o =>
-      o.jenis_platform === 'Facebook' || o.jenis_platform === 'Database' || o.jenis_platform === 'Google'
-    ).length;
-
+    // Separate platform counts
+    const totalFacebook = filteredAllOrders.filter(o => o.jenis_platform === 'Facebook').length;
+    const totalDatabase = filteredAllOrders.filter(o => o.jenis_platform === 'Database').length;
+    const totalGoogle = filteredAllOrders.filter(o => o.jenis_platform === 'Google').length;
     const totalShopee = filteredAllOrders.filter(o => o.jenis_platform === 'Shopee').length;
     const totalTiktok = filteredAllOrders.filter(o => o.jenis_platform === 'Tiktok').length;
     const totalCash = filteredAllOrders.filter(o => o.type_payment === 'CASH').length;
     const totalCOD = filteredAllOrders.filter(o => o.type_payment === 'COD').length;
 
     // Total Pending Tracking: Shipped + COD + (SEO is null OR SEO != 'Successfull Delivery')
-    // Exclude Tiktok and Shopee (only NinjaVan orders)
+    // All platforms now use NinjaVan (including Tiktok and Shopee)
     const totalPendingTracking = filteredAllOrders.filter(o =>
       o.delivery_status === 'Shipped' &&
       (!o.seo || o.seo !== 'Successfull Delivery') &&
-      o.type_payment === 'COD' &&
-      o.jenis_platform !== 'Tiktok' &&
-      o.jenis_platform !== 'Shopee'
+      o.type_payment === 'COD'
     ).length;
 
     return {
@@ -426,7 +423,9 @@ const Dashboard: React.FC = () => {
       totalPending,
       totalProcess,
       totalReturn,
-      totalOnline,
+      totalFacebook,
+      totalDatabase,
+      totalGoogle,
       totalShopee,
       totalTiktok,
       totalCash,
@@ -1217,15 +1216,35 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Platform Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Total Online */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {/* Total Facebook */}
           <div className="stat-card">
             <div className="flex items-center gap-2 text-blue-600 mb-2">
-              <Package className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL ONLINE</span>
+              <Facebook className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL FACEBOOK</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalOnline}</p>
-            <p className="text-xs text-muted-foreground mt-1">FB + Database + Google</p>
+            <p className="text-2xl font-bold text-foreground">{logisticStats.totalFacebook}</p>
+            <p className="text-xs text-muted-foreground mt-1">Facebook orders</p>
+          </div>
+
+          {/* Total Database */}
+          <div className="stat-card">
+            <div className="flex items-center gap-2 text-purple-600 mb-2">
+              <Database className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL DATABASE</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{logisticStats.totalDatabase}</p>
+            <p className="text-xs text-muted-foreground mt-1">Database orders</p>
+          </div>
+
+          {/* Total Google */}
+          <div className="stat-card">
+            <div className="flex items-center gap-2 text-green-600 mb-2">
+              <SearchIcon className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL GOOGLE</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{logisticStats.totalGoogle}</p>
+            <p className="text-xs text-muted-foreground mt-1">Google orders</p>
           </div>
 
           {/* Total Shopee */}
