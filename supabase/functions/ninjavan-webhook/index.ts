@@ -72,9 +72,7 @@ function getWhatsAppMessage(
 
   // Picked Up
   if (eventLower.includes('picked up')) {
-    return `Assalamualaikum ${customerName},
-
-Pesanan anda telah dipickup oleh kurier!
+    return `Pesanan anda telah dipickup oleh kurier!
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
@@ -88,9 +86,7 @@ DFR EMPIRE`;
 
   // On Vehicle for Delivery
   if (eventLower.includes('on vehicle') || eventLower.includes('out for delivery')) {
-    return `Assalamualaikum ${customerName},
-
-Pesanan anda sedang dalam penghantaran hari ini!
+    return `Pesanan anda sedang dalam penghantaran hari ini!
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
@@ -106,9 +102,7 @@ DFR EMPIRE`;
 
   // In Transit
   if (eventLower.includes('transit') || eventLower.includes('hub')) {
-    return `Assalamualaikum ${customerName},
-
-Pesanan anda sedang dalam perjalanan!
+    return `Pesanan anda sedang dalam perjalanan!
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
@@ -122,9 +116,7 @@ DFR EMPIRE`;
 
   // Failed Delivery / Exception - need to reschedule
   if (eventLower.includes('exception') || eventLower.includes('failed') || eventLower.includes('pending reschedule')) {
-    return `Assalamualaikum ${customerName},
-
-Maaf, terdapat masalah dengan penghantaran pesanan anda.
+    return `Maaf, terdapat masalah dengan penghantaran pesanan anda.
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
