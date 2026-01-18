@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt
 } from 'lucide-react';
 import {
   Select,
@@ -702,7 +702,6 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Negeri</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Waybill</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SEO</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
@@ -780,21 +779,6 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.alamat}</td>
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.notaStaff || '-'}</td>
                     <td className="px-4 py-3">
-                      {order.waybillUrl && (order.jenisPlatform === "Tiktok" || order.jenisPlatform === "Shopee") ? (
-                        <a
-                          href={order.waybillUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors inline-flex"
-                          title="View Waybill"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         order.seo === 'Successfull Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                         order.seo === 'Shipped' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
@@ -814,30 +798,43 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      {order.deliveryStatus === 'Pending' && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditClick(order)}
-                            className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                            title="Edit Order"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(order)}
-                            className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                            title="Delete Order"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {/* Invoice Icon - always visible */}
+                        <a
+                          href={`/invoice?id=${order.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 transition-colors"
+                          title="View Invoice"
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </a>
+                        {/* Edit & Delete - only for Pending orders */}
+                        {order.deliveryStatus === 'Pending' && (
+                          <>
+                            <button
+                              onClick={() => handleEditClick(order)}
+                              className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                              title="Edit Order"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(order)}
+                              className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                              title="Delete Order"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={22} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={21} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

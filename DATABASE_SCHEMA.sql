@@ -64,6 +64,8 @@ CREATE TABLE public.expenses (
   date date NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  role text DEFAULT 'company'::text CHECK (role = ANY (ARRAY['company'::text, 'personal'::text])),
+  marketer_id_staff text,
   CONSTRAINT expenses_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.invoice_settings (

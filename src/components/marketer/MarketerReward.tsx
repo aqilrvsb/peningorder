@@ -99,7 +99,7 @@ const MarketerReward = () => {
       const { data, error } = await supabase
         .from("spends")
         .select("id, total_spend, tarikh_spend")
-        .eq("id_staff", profile.idstaff)
+        .eq("marketer_id_staff", profile.idstaff)
         .gte("tarikh_spend", dateRange.startDate)
         .lte("tarikh_spend", dateRange.endDate);
 
