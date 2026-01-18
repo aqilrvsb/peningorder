@@ -387,11 +387,6 @@ const AccountReportSpend: React.FC = () => {
     };
   }, [filteredSpends, filteredOrders]);
 
-  // Calculate KPK (Kos Per Klik/Lead)
-  const overallKPK = useMemo(() => {
-    return totals.totalLead > 0 ? totals.totalSpend / totals.totalLead : 0;
-  }, [totals]);
-
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-MY', {
       minimumFractionDigits: 2,
@@ -462,7 +457,7 @@ const AccountReportSpend: React.FC = () => {
       </div>
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="stat-card border-l-4 border-l-green-500">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
             <DollarSign className="w-4 h-4" />
@@ -476,13 +471,6 @@ const AccountReportSpend: React.FC = () => {
             Total Leads
           </div>
           <div className="text-2xl font-bold text-blue-600">{totals.totalLead}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-purple-500">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
-            <BarChart3 className="w-4 h-4" />
-            Overall KPK
-          </div>
-          <div className="text-2xl font-bold text-purple-600">RM {formatNumber(overallKPK)}</div>
         </div>
         <div className="stat-card border-l-4 border-l-orange-500">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
