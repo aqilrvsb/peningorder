@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,6 +73,7 @@ interface Spend {
 const Dashboard: React.FC = () => {
   const { profile } = useAuth();
   const { orders, prospects, isLoading } = useData();
+  const navigate = useNavigate();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [spendsLoading, setSpendsLoading] = useState(true);
 
@@ -83,7 +85,15 @@ const Dashboard: React.FC = () => {
   const isMarketer = profile?.role === 'marketer';
   const isLogistic = profile?.role === 'logistic';
   const isBOD = profile?.role === 'bod';
+  const isAccount = profile?.role === 'account';
   const userIdStaff = profile?.idstaff;
+
+  // Redirect account role to Report Profit page
+  useEffect(() => {
+    if (isAccount) {
+      navigate('/dashboard/account/report-profit', { replace: true });
+    }
+  }, [isAccount, navigate]);
 
   // All orders for logistic and BOD (fetched directly from Supabase)
   const [allOrders, setAllOrders] = useState<any[]>([]);

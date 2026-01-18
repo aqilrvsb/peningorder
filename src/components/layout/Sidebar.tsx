@@ -46,7 +46,7 @@ const navItems: NavItem[] = [
     label: 'Dashboard',
     path: '/dashboard',
     icon: <LayoutDashboard className="w-5 h-5" />,
-    roles: ['marketer', 'bod', 'logistic', 'account'],
+    roles: ['marketer', 'bod', 'logistic'],
   },
   {
     label: 'Order',
@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
     label: 'History',
     path: '/dashboard/orders',
     icon: <History className="w-5 h-5" />,
-    roles: ['marketer', 'account'],
+    roles: ['marketer'],
   },
   {
     label: 'Leads',
@@ -222,6 +222,18 @@ const navItems: NavItem[] = [
   },
   // ============ ACCOUNT ROLE ============
   {
+    label: 'Report Profit',
+    path: '/dashboard/account/report-profit',
+    icon: <TrendingUp className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Report Spend',
+    path: '/dashboard/account/report-spend',
+    icon: <Wallet className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'Pengesahan',
     path: '/dashboard/account/pengesahan',
     icon: <ClipboardList className="w-5 h-5" />,
@@ -246,18 +258,6 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
-    label: 'Report Spend',
-    path: '/dashboard/account/report-spend',
-    icon: <Wallet className="w-5 h-5" />,
-    roles: ['account'],
-  },
-  {
-    label: 'Report Profit',
-    path: '/dashboard/account/report-profit',
-    icon: <TrendingUp className="w-5 h-5" />,
-    roles: ['account'],
-  },
-  {
     label: 'Customer HQ',
     path: '/dashboard/account/customers',
     icon: <Users className="w-5 h-5" />,
@@ -273,18 +273,6 @@ const navItems: NavItem[] = [
     label: 'PNL Config',
     path: '/dashboard/account/pnl-config',
     icon: <Receipt className="w-5 h-5" />,
-    roles: ['account'],
-  },
-  {
-    label: 'Finance',
-    path: '/dashboard/finance',
-    icon: <DollarSign className="w-5 h-5" />,
-    roles: ['account'],
-  },
-  {
-    label: 'Reports',
-    path: '/dashboard/reports',
-    icon: <BarChart3 className="w-5 h-5" />,
     roles: ['account'],
   },
   // ============ ADMIN ROLE ============
