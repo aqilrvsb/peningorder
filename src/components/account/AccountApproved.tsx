@@ -62,7 +62,7 @@ const AccountApproved = () => {
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
   // Fetch approved CASH orders (both NinjaVan CASH and Order Pickup)
-  // Criteria: type_payment === 'CASH', seo === 'Successfull Delivery', date_approve matches filter
+  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo === 'Successfull Delivery', date_approve matches filter
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-approved", filterDate],
     queryFn: async () => {
@@ -73,6 +73,7 @@ const AccountApproved = () => {
           bundle:logistic_bundles(name, sku)
         `)
         .eq("type_payment", "CASH")
+        .eq("delivery_status", "Shipped")
         .eq("seo", "Successfull Delivery")
         .order("created_at", { ascending: false });
 

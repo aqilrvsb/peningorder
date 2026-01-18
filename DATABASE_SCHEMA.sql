@@ -36,6 +36,7 @@ CREATE TABLE public.customer_purchases (
   woo_order_id integer,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  date_approve date,
   CONSTRAINT customer_purchases_pkey PRIMARY KEY (id),
   CONSTRAINT customer_purchases_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.logistic_bundles(id)
 );
