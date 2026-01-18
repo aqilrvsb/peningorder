@@ -82,12 +82,6 @@ const OrderForm: React.FC = () => {
           price_online_np,
           price_online_ep,
           price_online_ec,
-          price_tiktok_np,
-          price_tiktok_ep,
-          price_tiktok_ec,
-          price_shopee_np,
-          price_shopee_ep,
-          price_shopee_ec,
           is_active
         `)
         .eq('is_active', true)
@@ -110,16 +104,10 @@ const OrderForm: React.FC = () => {
       kosPostageSs: Number(lb.kos_postage_ss) || 0,
       postageCod: Number(lb.postage_cod) || 0,
       weight: Number(lb.weight) || 0.5,
-      // Use platform-specific pricing
+      // Single price set for all platforms (using price_online_* as the standard)
       priceNormalNp: Number(lb.price_online_np) || 0,
       priceNormalEp: Number(lb.price_online_ep) || 0,
       priceNormalEc: Number(lb.price_online_ec) || 0,
-      priceShopeeNp: Number(lb.price_shopee_np) || 0,
-      priceShopeeEp: Number(lb.price_shopee_ep) || 0,
-      priceShopeeEc: Number(lb.price_shopee_ec) || 0,
-      priceTiktokNp: Number(lb.price_tiktok_np) || 0,
-      priceTiktokEp: Number(lb.price_tiktok_ep) || 0,
-      priceTiktokEc: Number(lb.price_tiktok_ec) || 0,
       productName: lb.name,
     };
   });
@@ -401,7 +389,8 @@ const OrderForm: React.FC = () => {
     return data?.id || null;
   };
 
-  // Get minimum price based on platform, customer type and selected bundle
+  // Get minimum price based on customer type and selected bundle
+  // All platforms now use the same price (priceNormal* which maps to price_online_*)
   const getMinimumPrice = (bundleName: string, platform: string, customerType: string): number => {
     const bundle = activeBundles.find(b => b.name === bundleName);
     if (!bundle) return 0;
@@ -409,24 +398,11 @@ const OrderForm: React.FC = () => {
     // Use the customer type directly (NP/EP/EC)
     const effectiveType = customerType || determinedCustomerType || 'NP';
 
-    // Determine price based on platform and customer type
-    if (platform === 'Shopee') {
-      if (effectiveType === 'NP') return bundle.priceShopeeNp;
-      if (effectiveType === 'EP') return bundle.priceShopeeEp;
-      if (effectiveType === 'EC') return bundle.priceShopeeEc;
-      return bundle.priceShopeeNp; // Default to NP
-    } else if (platform === 'Tiktok') {
-      if (effectiveType === 'NP') return bundle.priceTiktokNp;
-      if (effectiveType === 'EP') return bundle.priceTiktokEp;
-      if (effectiveType === 'EC') return bundle.priceTiktokEc;
-      return bundle.priceTiktokNp; // Default to NP
-    } else {
-      // Normal price (Facebook, Database, Google)
-      if (effectiveType === 'NP') return bundle.priceNormalNp;
-      if (effectiveType === 'EP') return bundle.priceNormalEp;
-      if (effectiveType === 'EC') return bundle.priceNormalEc;
-      return bundle.priceNormalNp; // Default to NP
-    }
+    // All platforms now use the same price (no platform differentiation)
+    if (effectiveType === 'NP') return bundle.priceNormalNp;
+    if (effectiveType === 'EP') return bundle.priceNormalEp;
+    if (effectiveType === 'EC') return bundle.priceNormalEc;
+    return bundle.priceNormalNp; // Default to NP
   };
 
   // Get effective customer type for price calculation (multiply by quantity)
