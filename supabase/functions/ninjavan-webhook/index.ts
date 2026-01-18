@@ -351,11 +351,11 @@ serve(async (req) => {
       nota_staff: comments || order.nota_staff  // Update nota_staff with comments if available
     };
 
-    // Handle Successful Delivery
+    // Handle Successful Delivery - only update seo, don't change delivery_status or date_processed
+    // date_processed is set by logistic when they process the order
     if (newDeliveryStatus === 'Processed') {
-      updateData.delivery_status = 'Processed';
-      updateData.date_processed = todayDate;
-      console.log('Setting as Processed with date_processed:', todayDate);
+      // Only update seo to 'Successful Delivery', keep delivery_status as is
+      console.log('Successful Delivery - updating seo only');
     }
     // Handle Return
     else if (newDeliveryStatus === 'Return') {
