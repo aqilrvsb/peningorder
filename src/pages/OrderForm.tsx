@@ -1362,19 +1362,6 @@ const OrderForm: React.FC = () => {
               </Select>
             </div>
 
-            {/* Kuantiti */}
-            <div>
-              <FormLabel required>Kuantiti (Unit)</FormLabel>
-              <Input
-                type="number"
-                min="1"
-                placeholder="1"
-                value={formData.quantity}
-                onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 1)}
-                className="bg-background"
-              />
-            </div>
-
             {/* Harga Jualan */}
             <div>
               <FormLabel required>Harga Jualan (RM)</FormLabel>
