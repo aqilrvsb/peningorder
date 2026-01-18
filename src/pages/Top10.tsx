@@ -36,9 +36,8 @@ interface MarketerStats {
 interface Order {
   id: string;
   marketer_id_staff: string;
-  marketer_name: string;
   date_order: string;
-  total_price: number;
+  total_sale: number;
   delivery_status: string;
   jenis_customer: string;
   jenis_platform: string;
@@ -58,10 +57,16 @@ interface Prospect {
   tarikh_phone_number: string;
 }
 
+interface Profile {
+  username: string;
+  full_name: string;
+}
+
 const Top10: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [spends, setSpends] = useState<Spend[]>([]);
   const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   // Date filter state - default to today (Malaysia timezone)
@@ -75,10 +80,10 @@ const Top10: React.FC = () => {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        // Fetch orders
+        // Fetch orders (using total_sale instead of total_price, no marketer_name)
         const { data: ordersData, error: ordersError } = await supabase
           .from('customer_purchases')
-          .select('id, marketer_id_staff, marketer_name, date_order, total_price, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+          .select('id, marketer_id_staff, date_order, total_sale, delivery_status, jenis_customer, jenis_platform, jenis_closing')
           .not('marketer_id_staff', 'is', null)
           .order('created_at', { ascending: false });
 
@@ -102,6 +107,20 @@ const Top10: React.FC = () => {
 
         if (prospectsError) throw prospectsError;
         setProspects(prospectsData || []);
+
+        // Fetch profiles to get marketer names (username -> full_name mapping)
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('username, full_name');
+
+        if (profilesError) throw profilesError;
+
+        // Create a mapping of username to full_name
+        const profileMap: Record<string, string> = {};
+        (profilesData || []).forEach((p: Profile) => {
+          profileMap[p.username] = p.full_name || p.username;
+        });
+        setProfiles(profileMap);
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -162,7 +181,8 @@ const Top10: React.FC = () => {
     // Aggregate stats by marketer from orders
     filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff;
-      const name = order.marketer_name;
+      // Get name from profiles mapping, fallback to idStaff if not found
+      const name = profiles[idStaff] || idStaff;
 
       if (!stats[idStaff]) {
         stats[idStaff] = {
@@ -193,8 +213,8 @@ const Top10: React.FC = () => {
         };
       }
 
-      // Count sales amount
-      const saleAmount = Number(order.total_price) || 0;
+      // Count sales amount (using total_sale from database)
+      const saleAmount = Number(order.total_sale) || 0;
       stats[idStaff].totalSales += saleAmount;
 
       // Count returns
@@ -267,7 +287,7 @@ const Top10: React.FC = () => {
       }));
 
     return sortedStats;
-  }, [orders, spends, prospects, startDate, endDate]);
+  }, [orders, spends, prospects, profiles, startDate, endDate]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {
