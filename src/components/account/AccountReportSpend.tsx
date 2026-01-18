@@ -743,62 +743,6 @@ const AccountReportSpend: React.FC = () => {
                 </tr>
               )}
             </tbody>
-            {filteredStats.length > 0 && (
-              <tfoot className="bg-muted/70">
-                <tr className="font-semibold">
-                  <td className="px-3 py-2 text-sm whitespace-nowrap border-r">TOTAL</td>
-                  <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{filteredStats.length} marketers</td>
-                  <td className="px-3 py-2 text-sm text-right text-success whitespace-nowrap border-r">{formatNumber(totals.totalSales)}</td>
-                  <td className="px-3 py-2 text-sm text-right text-warning whitespace-nowrap border-r">{formatNumber(totals.totalSpend)}</td>
-                  <td className="px-3 py-2 text-sm text-center text-primary whitespace-nowrap border-r">
-                    {(totals.totalSpend > 0 ? totals.totalSales / totals.totalSpend : 0).toFixed(2)}x
-                  </td>
-                  <td className="px-3 py-2 text-sm text-right text-green-600 whitespace-nowrap border-r bg-green-50/50 dark:bg-green-950/20">
-                    {formatNumber(filteredStats.reduce((sum, stat) => {
-                      const { commission } = calculateCommissionBonus(stat.totalSales, stat.roas);
-                      return sum + commission;
-                    }, 0))}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-right text-amber-600 whitespace-nowrap border-r bg-amber-50/50 dark:bg-amber-950/20">
-                    {formatNumber(filteredStats.reduce((sum, stat) => {
-                      const { bonus } = calculateCommissionBonus(stat.totalSales, stat.roas);
-                      return sum + bonus;
-                    }, 0))}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-center whitespace-nowrap border-r">{totals.totalLead}</td>
-                  {/* Facebook totals */}
-                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(totals.salesFB)}</td>
-                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(totals.spendFB)}</td>
-                  <td className="px-2 py-2 text-xs text-center font-medium text-blue-600 whitespace-nowrap border-r bg-blue-50/50 dark:bg-blue-950/20">
-                    {(totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0).toFixed(2)}x
-                  </td>
-                  {/* Database totals */}
-                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(totals.salesDatabase)}</td>
-                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(totals.spendDatabase)}</td>
-                  <td className="px-2 py-2 text-xs text-center font-medium text-purple-600 whitespace-nowrap border-r bg-purple-50/50 dark:bg-purple-950/20">
-                    {(totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0).toFixed(2)}x
-                  </td>
-                  {/* Shopee totals */}
-                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(totals.salesShopee)}</td>
-                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(totals.spendShopee)}</td>
-                  <td className="px-2 py-2 text-xs text-center font-medium text-orange-600 whitespace-nowrap border-r bg-orange-50/50 dark:bg-orange-950/20">
-                    {(totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0).toFixed(2)}x
-                  </td>
-                  {/* Tiktok totals */}
-                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(totals.salesTiktok)}</td>
-                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(totals.spendTiktok)}</td>
-                  <td className="px-2 py-2 text-xs text-center font-medium text-pink-600 whitespace-nowrap border-r bg-pink-50/50 dark:bg-pink-950/20">
-                    {(totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0).toFixed(2)}x
-                  </td>
-                  {/* Google totals */}
-                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(totals.salesGoogle)}</td>
-                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(totals.spendGoogle)}</td>
-                  <td className="px-2 py-2 text-xs text-center font-medium text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">
-                    {(totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0).toFixed(2)}x
-                  </td>
-                </tr>
-              </tfoot>
-            )}
           </table>
         </div>
       </div>
