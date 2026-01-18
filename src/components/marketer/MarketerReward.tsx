@@ -55,7 +55,7 @@ const MarketerReward = () => {
     return { startDate, endDate };
   }, [selectedYear, selectedMonth]);
 
-  // Fetch PNL configs for marketer role
+  // Fetch PNL configs for marketer role - sorted by bonus_amount ascending (lower to top)
   const { data: pnlConfigs = [], isLoading: configsLoading } = useQuery({
     queryKey: ["pnl-configs-marketer"],
     queryFn: async () => {
@@ -63,7 +63,7 @@ const MarketerReward = () => {
         .from("pnl_config")
         .select("*")
         .eq("role", "marketer")
-        .order("min_sales", { ascending: true });
+        .order("bonus_amount", { ascending: true });
 
       if (error) throw error;
       return (data || []) as PNLConfig[];
@@ -97,8 +97,8 @@ const MarketerReward = () => {
       if (!profile?.idstaff) return [];
 
       const { data, error } = await supabase
-        .from("marketer_spends")
-        .select("id, nilai_spend, tarikh_spend")
+        .from("spends")
+        .select("id, total_spend, tarikh_spend")
         .eq("id_staff", profile.idstaff)
         .gte("tarikh_spend", dateRange.startDate)
         .lte("tarikh_spend", dateRange.endDate);
@@ -112,7 +112,7 @@ const MarketerReward = () => {
   // Calculate totals
   const stats = useMemo(() => {
     const totalSales = ordersData.reduce((sum, order: any) => sum + (Number(order.total_sale) || 0), 0);
-    const totalSpend = spendsData.reduce((sum, spend: any) => sum + (Number(spend.nilai_spend) || 0), 0);
+    const totalSpend = spendsData.reduce((sum, spend: any) => sum + (Number(spend.total_spend) || 0), 0);
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
 
     return { totalSales, totalSpend, roas };
