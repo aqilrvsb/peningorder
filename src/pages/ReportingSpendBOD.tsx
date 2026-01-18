@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Search, Loader2, BarChart3 } from 'lucide-react';
+import { Calendar, Search, Loader2, BarChart3, DollarSign, Users, TrendingUp, Globe, Phone, MessageSquare, FileText, Video, Play, ShoppingBag, Facebook, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
@@ -12,12 +12,14 @@ interface Order {
   date_order: string;
   total_sale: number;
   jenis_platform: string;
+  jenis_closing: string;
 }
 
 interface Spend {
   id: string;
   marketer_id_staff: string;
   jenis_platform: string;
+  jenis_closing: string;
   total_spend: number;
   tarikh_spend: string;
 }
@@ -75,11 +77,11 @@ const ReportingSpendBOD: React.FC = () => {
         const [ordersRes, spendsRes, profilesRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('profiles')
@@ -291,6 +293,65 @@ const ReportingSpendBOD: React.FC = () => {
     );
   }, [filteredStats]);
 
+  // Calculate overall summary stats
+  const summaryStats = useMemo(() => {
+    // By Jenis Closing from spends
+    const spendByClosing = {
+      website: 0,
+      waBot: 0,
+      manual: 0,
+      call: 0,
+      live: 0,
+      begLead: 0,
+    };
+
+    // Calculate total spend by jenis_closing from filtered spends
+    filteredSpends.forEach(spend => {
+      const closing = spend.jenis_closing?.toLowerCase();
+      const amount = Number(spend.total_spend) || 0;
+      if (closing === 'website') spendByClosing.website += amount;
+      else if (closing === 'wa bot') spendByClosing.waBot += amount;
+      else if (closing === 'manual') spendByClosing.manual += amount;
+      else if (closing === 'call') spendByClosing.call += amount;
+      else if (closing === 'live') spendByClosing.live += amount;
+      else if (closing === 'beg lead') spendByClosing.begLead += amount;
+    });
+
+    // Sales by jenis_closing from orders
+    const salesByClosing = {
+      website: 0,
+      waBot: 0,
+      manual: 0,
+      call: 0,
+      live: 0,
+      begLead: 0,
+    };
+
+    filteredOrders.forEach(order => {
+      const closing = order.jenis_closing?.toLowerCase();
+      const amount = Number(order.total_sale) || 0;
+      if (closing === 'website') salesByClosing.website += amount;
+      else if (closing === 'wa bot') salesByClosing.waBot += amount;
+      else if (closing === 'manual') salesByClosing.manual += amount;
+      else if (closing === 'call') salesByClosing.call += amount;
+      else if (closing === 'live') salesByClosing.live += amount;
+      else if (closing === 'beg lead') salesByClosing.begLead += amount;
+    });
+
+    const totalSpendByClosing = spendByClosing.website + spendByClosing.waBot + spendByClosing.manual + spendByClosing.call + spendByClosing.live + spendByClosing.begLead;
+
+    return {
+      spendByClosing,
+      salesByClosing,
+      totalSpendByClosing,
+    };
+  }, [filteredSpends, filteredOrders]);
+
+  // Calculate KPK (Kos Per Klik/Lead)
+  const overallKPK = useMemo(() => {
+    return totals.totalLead > 0 ? totals.totalSpend / totals.totalLead : 0;
+  }, [totals]);
+
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-MY', {
       minimumFractionDigits: 2,
@@ -356,6 +417,258 @@ const ReportingSpendBOD: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="stat-card border-l-4 border-l-green-500">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
+            <DollarSign className="w-4 h-4" />
+            Total Spend
+          </div>
+          <div className="text-2xl font-bold text-green-600">RM {formatNumber(totals.totalSpend)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-blue-500">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
+            <Users className="w-4 h-4" />
+            Total Leads
+          </div>
+          <div className="text-2xl font-bold text-blue-600">{totals.totalLead}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-purple-500">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
+            <BarChart3 className="w-4 h-4" />
+            Overall KPK
+          </div>
+          <div className="text-2xl font-bold text-purple-600">RM {formatNumber(overallKPK)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-orange-500">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase mb-1">
+            <TrendingUp className="w-4 h-4" />
+            ROAS
+          </div>
+          <div className="text-2xl font-bold text-orange-600">
+            {(totals.totalSpend > 0 ? totals.totalSales / totals.totalSpend : 0).toFixed(2)}x
+          </div>
+        </div>
+      </div>
+
+      {/* Spend By Jenis Closing */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Spend By Jenis Closing</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="stat-card border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20">
+            <div className="flex items-center gap-2 text-green-600 text-xs uppercase mb-1">
+              <Globe className="w-4 h-4" />
+              Website
+            </div>
+            <div className="text-xl font-bold text-green-600">RM {formatNumber(summaryStats.spendByClosing.website)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.website / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="stat-card border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20">
+            <div className="flex items-center gap-2 text-yellow-600 text-xs uppercase mb-1">
+              <MessageSquare className="w-4 h-4" />
+              WA Bot
+            </div>
+            <div className="text-xl font-bold text-yellow-600">RM {formatNumber(summaryStats.spendByClosing.waBot)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.waBot / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="stat-card border-l-4 border-l-gray-500 bg-gray-50/50 dark:bg-gray-950/20">
+            <div className="flex items-center gap-2 text-gray-600 text-xs uppercase mb-1">
+              <FileText className="w-4 h-4" />
+              Manual
+            </div>
+            <div className="text-xl font-bold text-gray-600">RM {formatNumber(summaryStats.spendByClosing.manual)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.manual / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="stat-card border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20">
+            <div className="flex items-center gap-2 text-blue-600 text-xs uppercase mb-1">
+              <Phone className="w-4 h-4" />
+              Call
+            </div>
+            <div className="text-xl font-bold text-blue-600">RM {formatNumber(summaryStats.spendByClosing.call)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.call / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="stat-card border-l-4 border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20">
+            <div className="flex items-center gap-2 text-purple-600 text-xs uppercase mb-1">
+              <Play className="w-4 h-4" />
+              Live
+            </div>
+            <div className="text-xl font-bold text-purple-600">RM {formatNumber(summaryStats.spendByClosing.live)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.live / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="stat-card border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 text-amber-600 text-xs uppercase mb-1">
+              <ShoppingBag className="w-4 h-4" />
+              Beg Lead
+            </div>
+            <div className="text-xl font-bold text-amber-600">RM {formatNumber(summaryStats.spendByClosing.begLead)}</div>
+            <div className="text-xs text-muted-foreground">
+              {summaryStats.totalSpendByClosing > 0 ? ((summaryStats.spendByClosing.begLead / summaryStats.totalSpendByClosing) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Spend By Platform */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Spend By Platform</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Facebook */}
+          <div className="stat-card bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 text-blue-600 font-semibold mb-3">
+              <Facebook className="w-5 h-5" />
+              FACEBOOK
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Spend:</span>
+                <span className="font-semibold text-blue-600">RM {formatNumber(totals.spendFB)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(totals.salesFB)}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">JENIS CLOSING</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-green-600">Website</span><span>RM {formatNumber(summaryStats.salesByClosing.website)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.website / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-yellow-600">WA Bot</span><span>RM {formatNumber(summaryStats.salesByClosing.waBot)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.waBot / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM {formatNumber(summaryStats.salesByClosing.manual)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.manual / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM {formatNumber(summaryStats.salesByClosing.call)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.call / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM {formatNumber(summaryStats.salesByClosing.live)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.live / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM {formatNumber(summaryStats.salesByClosing.begLead)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.begLead / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tiktok */}
+          <div className="stat-card bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800">
+            <div className="flex items-center gap-2 text-pink-600 font-semibold mb-3">
+              <Video className="w-5 h-5" />
+              TIKTOK
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Spend:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(totals.spendTiktok)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(totals.salesTiktok)}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-pink-200 dark:border-pink-800">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">JENIS CLOSING</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-green-600">Website</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-yellow-600">WA Bot</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Shopee */}
+          <div className="stat-card bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center gap-2 text-orange-600 font-semibold mb-3">
+              <ShoppingBag className="w-5 h-5" />
+              SHOPEE
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Spend:</span>
+                <span className="font-semibold text-orange-600">RM {formatNumber(totals.spendShopee)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(totals.salesShopee)}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">JENIS CLOSING</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-green-600">Website</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-yellow-600">WA Bot</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Database */}
+          <div className="stat-card bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center gap-2 text-purple-600 font-semibold mb-3">
+              <Database className="w-5 h-5" />
+              DATABASE
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Spend:</span>
+                <span className="font-semibold text-purple-600">RM {formatNumber(totals.spendDatabase)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(totals.salesDatabase)}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">JENIS CLOSING</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-green-600">Website</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-yellow-600">WA Bot</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Google */}
+          <div className="stat-card bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2 text-red-600 font-semibold mb-3">
+              <Globe className="w-5 h-5" />
+              GOOGLE
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(totals.spendGoogle)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(totals.salesGoogle)}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">JENIS CLOSING</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-green-600">Website</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-yellow-600">WA Bot</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
