@@ -660,8 +660,8 @@ const OrderForm: React.FC = () => {
 
       // Handle edit mode
       if (isEditMode) {
-        const wasNinjavanOrder = editOrder.jenisPlatform !== 'Shopee' && editOrder.jenisPlatform !== 'Tiktok';
-        const isNowNinjavanOrder = !isShopeeOrTiktokOrder;
+        const wasNinjavanOrder = editOrder.jenisPlatform !== 'Shopee' && editOrder.jenisPlatform !== 'Tiktok' && editOrder.kurier !== 'PICKUP';
+        const isNowNinjavanOrder = !isShopeeOrTiktokOrder && !isPickup;
 
         // If it was a Ninjavan order, cancel the old tracking first
         if (wasNinjavanOrder && editOrder.noTracking) {
