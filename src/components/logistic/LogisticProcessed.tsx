@@ -15,14 +15,10 @@ import {
 } from "@/components/ui/select";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
-  Package,
-  Truck,
   Clock,
   Loader2,
   Printer,
   Search,
-  ShoppingBag,
-  Music2,
   DollarSign,
   CreditCard,
   Trash2,
@@ -33,7 +29,7 @@ import { toast } from "sonner";
 import Swal from "sweetalert2";
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
-const PLATFORM_OPTIONS = ["All", "Ninjavan", "Tiktok", "Shopee"];
+const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
 const LogisticProcessed = () => {
@@ -107,19 +103,8 @@ const LogisticProcessed = () => {
     return null;
   };
 
-  // Helper function to determine order platform category
-  const getOrderPlatformCategory = (order: any) => {
-    const platform = getOrderPlatform(order)?.toLowerCase() || "";
-    if (platform === "tiktok") return "Tiktok";
-    if (platform === "shopee") return "Shopee";
-    return "Ninjavan";
-  };
-
-  // Check if order is NinjaVan platform
-  const isNinjavanPlatform = (order: any) => {
-    const platform = getOrderPlatform(order)?.toLowerCase() || "";
-    return platform !== "tiktok" && platform !== "shopee";
-  };
+  // All platforms now use NinjaVan
+  const isNinjavanPlatform = () => true;
 
   // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
@@ -141,10 +126,9 @@ const LogisticProcessed = () => {
       return false;
     }
 
-    // Platform filter
+    // Platform filter - filter by exact platform name
     if (platformFilter !== "All") {
-      const orderCategory = getOrderPlatformCategory(order);
-      if (orderCategory !== platformFilter) {
+      if (order.jenis_platform !== platformFilter) {
         return false;
       }
     }
@@ -158,19 +142,11 @@ const LogisticProcessed = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Counts
-  const ninjavanOrders = orders.filter((o: any) => {
-    const platform = getOrderPlatform(o)?.toLowerCase() || "";
-    return platform !== "tiktok" && platform !== "shopee";
-  });
-
+  // Counts - all platforms now use NinjaVan
   const counts = {
     total: orders.length,
-    tiktok: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "tiktok").length,
-    shopee: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "shopee").length,
-    ninjavan: ninjavanOrders.length,
-    ninjavanCod: ninjavanOrders.filter((o: any) => o.type_payment === "COD").length,
-    ninjavanCash: ninjavanOrders.filter((o: any) => o.type_payment !== "COD").length,
+    ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
+    ninjavanCash: orders.filter((o: any) => o.type_payment === "CASH").length,
   };
 
   // Checkbox handlers
@@ -339,7 +315,7 @@ const LogisticProcessed = () => {
 
       // Cancel NinjaVan tracking for orders that have tracking numbers (NinjaVan platform only)
       for (const order of selectedOrdersList) {
-        if (order.tracking_number && isNinjavanPlatform(order)) {
+        if (order.tracking_number && isNinjavanPlatform()) {
           try {
             await supabase.functions.invoke("ninjavan-cancel", {
               body: { trackingNumber: order.tracking_number, profileId: user?.id },
@@ -378,7 +354,7 @@ const LogisticProcessed = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -386,39 +362,6 @@ const LogisticProcessed = () => {
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
                 <p className="text-xs text-muted-foreground">Total Processed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("Tiktok")}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Music2 className="w-6 h-6 text-pink-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.tiktok}</p>
-                <p className="text-xs text-muted-foreground">Tiktok</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("Shopee")}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="w-6 h-6 text-orange-600" />
-              <div>
-                <p className="text-xl font-bold">{counts.shopee}</p>
-                <p className="text-xs text-muted-foreground">Shopee</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("Ninjavan")}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Truck className="w-6 h-6 text-red-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.ninjavan}</p>
-                <p className="text-xs text-muted-foreground">Ninjavan</p>
               </div>
             </div>
           </CardContent>

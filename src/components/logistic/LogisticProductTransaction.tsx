@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Loader2, TrendingUp, TrendingDown, RotateCcw, Truck, Play, ShoppingBag, Globe } from "lucide-react";
+import { Package, Loader2, TrendingUp, TrendingDown, RotateCcw, Truck, Play, ShoppingBag, Facebook, Database, Search } from "lucide-react";
 import { getMalaysiaDate } from "@/lib/utils";
 
 // Transaction tab - Product-level inventory (based on products table)
@@ -163,7 +163,9 @@ const LogisticProductTransaction = () => {
       returnUnits: number;
       tiktok: { shipped: number; returnUnits: number };
       shopee: { shipped: number; returnUnits: number };
-      online: { shipped: number; returnUnits: number };
+      facebook: { shipped: number; returnUnits: number };
+      database: { shipped: number; returnUnits: number };
+      google: { shipped: number; returnUnits: number };
     }>();
 
     // Initialize with all products
@@ -178,7 +180,9 @@ const LogisticProductTransaction = () => {
         returnUnits: 0,
         tiktok: { shipped: 0, returnUnits: 0 },
         shopee: { shipped: 0, returnUnits: 0 },
-        online: { shipped: 0, returnUnits: 0 },
+        facebook: { shipped: 0, returnUnits: 0 },
+        database: { shipped: 0, returnUnits: 0 },
+        google: { shipped: 0, returnUnits: 0 },
       });
     });
 
@@ -223,8 +227,12 @@ const LogisticProductTransaction = () => {
             entry.tiktok.shipped += totalQty;
           } else if (p.jenis_platform === "Shopee") {
             entry.shopee.shipped += totalQty;
-          } else if (p.jenis_platform) {
-            entry.online.shipped += totalQty;
+          } else if (p.jenis_platform === "Facebook") {
+            entry.facebook.shipped += totalQty;
+          } else if (p.jenis_platform === "Database") {
+            entry.database.shipped += totalQty;
+          } else if (p.jenis_platform === "Google") {
+            entry.google.shipped += totalQty;
           }
         }
       });
@@ -247,8 +255,12 @@ const LogisticProductTransaction = () => {
             entry.tiktok.returnUnits += totalQty;
           } else if (p.jenis_platform === "Shopee") {
             entry.shopee.returnUnits += totalQty;
-          } else if (p.jenis_platform) {
-            entry.online.returnUnits += totalQty;
+          } else if (p.jenis_platform === "Facebook") {
+            entry.facebook.returnUnits += totalQty;
+          } else if (p.jenis_platform === "Database") {
+            entry.database.returnUnits += totalQty;
+          } else if (p.jenis_platform === "Google") {
+            entry.google.returnUnits += totalQty;
           }
         }
       });
@@ -257,16 +269,20 @@ const LogisticProductTransaction = () => {
     // Convert to array and calculate percentages
     return Array.from(productMap.values())
       .map((product) => {
-        const totalPlatformShipped = product.tiktok.shipped + product.shopee.shipped + product.online.shipped;
+        const totalPlatformShipped = product.tiktok.shipped + product.shopee.shipped + product.facebook.shipped + product.database.shipped + product.google.shipped;
         const tiktokPct = totalPlatformShipped > 0 ? (product.tiktok.shipped / totalPlatformShipped) * 100 : 0;
         const shopeePct = totalPlatformShipped > 0 ? (product.shopee.shipped / totalPlatformShipped) * 100 : 0;
-        const onlinePct = totalPlatformShipped > 0 ? (product.online.shipped / totalPlatformShipped) * 100 : 0;
+        const facebookPct = totalPlatformShipped > 0 ? (product.facebook.shipped / totalPlatformShipped) * 100 : 0;
+        const databasePct = totalPlatformShipped > 0 ? (product.database.shipped / totalPlatformShipped) * 100 : 0;
+        const googlePct = totalPlatformShipped > 0 ? (product.google.shipped / totalPlatformShipped) * 100 : 0;
 
         return {
           ...product,
           tiktok: { ...product.tiktok, pct: tiktokPct },
           shopee: { ...product.shopee, pct: shopeePct },
-          online: { ...product.online, pct: onlinePct },
+          facebook: { ...product.facebook, pct: facebookPct },
+          database: { ...product.database, pct: databasePct },
+          google: { ...product.google, pct: googlePct },
         };
       })
       .filter((p) => p.stockIn > 0 || p.stockOut > 0 || p.shippedUnits > 0 || p.returnUnits > 0);
@@ -282,8 +298,12 @@ const LogisticProductTransaction = () => {
     const totalTiktokReturn = productTransactions.reduce((sum, p) => sum + p.tiktok.returnUnits, 0);
     const totalShopeeShipped = productTransactions.reduce((sum, p) => sum + p.shopee.shipped, 0);
     const totalShopeeReturn = productTransactions.reduce((sum, p) => sum + p.shopee.returnUnits, 0);
-    const totalOnlineShipped = productTransactions.reduce((sum, p) => sum + p.online.shipped, 0);
-    const totalOnlineReturn = productTransactions.reduce((sum, p) => sum + p.online.returnUnits, 0);
+    const totalFacebookShipped = productTransactions.reduce((sum, p) => sum + p.facebook.shipped, 0);
+    const totalFacebookReturn = productTransactions.reduce((sum, p) => sum + p.facebook.returnUnits, 0);
+    const totalDatabaseShipped = productTransactions.reduce((sum, p) => sum + p.database.shipped, 0);
+    const totalDatabaseReturn = productTransactions.reduce((sum, p) => sum + p.database.returnUnits, 0);
+    const totalGoogleShipped = productTransactions.reduce((sum, p) => sum + p.google.shipped, 0);
+    const totalGoogleReturn = productTransactions.reduce((sum, p) => sum + p.google.returnUnits, 0);
 
     return {
       totalStockIn,
@@ -294,8 +314,12 @@ const LogisticProductTransaction = () => {
       totalTiktokReturn,
       totalShopeeShipped,
       totalShopeeReturn,
-      totalOnlineShipped,
-      totalOnlineReturn,
+      totalFacebookShipped,
+      totalFacebookReturn,
+      totalDatabaseShipped,
+      totalDatabaseReturn,
+      totalGoogleShipped,
+      totalGoogleReturn,
     };
   }, [productTransactions]);
 
@@ -356,7 +380,7 @@ const LogisticProductTransaction = () => {
       </Card>
 
       {/* Summary Stats Cards - NO Total Sales */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
         <Card className="border-l-4 border-l-emerald-500">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-emerald-600 mb-1">
@@ -439,19 +463,57 @@ const LogisticProductTransaction = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-sky-500">
+        <Card className="border-l-4 border-l-blue-600">
           <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-sky-600 mb-1">
-              <Globe className="w-4 h-4" />
-              <span className="text-xs font-medium">Online</span>
+            <div className="flex items-center gap-2 text-blue-600 mb-1">
+              <Facebook className="w-4 h-4" />
+              <span className="text-xs font-medium">Facebook</span>
             </div>
             <div className="flex gap-3">
               <div>
-                <p className="text-lg font-bold text-blue-600">{summaryStats.totalOnlineShipped}</p>
+                <p className="text-lg font-bold text-blue-600">{summaryStats.totalFacebookShipped}</p>
                 <div className="text-xs text-muted-foreground">Shipped</div>
               </div>
               <div>
-                <p className="text-lg font-bold text-orange-600">{summaryStats.totalOnlineReturn}</p>
+                <p className="text-lg font-bold text-orange-600">{summaryStats.totalFacebookReturn}</p>
+                <div className="text-xs text-muted-foreground">Return</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-purple-600 mb-1">
+              <Database className="w-4 h-4" />
+              <span className="text-xs font-medium">Database</span>
+            </div>
+            <div className="flex gap-3">
+              <div>
+                <p className="text-lg font-bold text-blue-600">{summaryStats.totalDatabaseShipped}</p>
+                <div className="text-xs text-muted-foreground">Shipped</div>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-orange-600">{summaryStats.totalDatabaseReturn}</p>
+                <div className="text-xs text-muted-foreground">Return</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-green-600 mb-1">
+              <Search className="w-4 h-4" />
+              <span className="text-xs font-medium">Google</span>
+            </div>
+            <div className="flex gap-3">
+              <div>
+                <p className="text-lg font-bold text-blue-600">{summaryStats.totalGoogleShipped}</p>
+                <div className="text-xs text-muted-foreground">Shipped</div>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-orange-600">{summaryStats.totalGoogleReturn}</p>
                 <div className="text-xs text-muted-foreground">Return</div>
               </div>
             </div>
@@ -484,10 +546,22 @@ const LogisticProductTransaction = () => {
                       Shopee
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-sky-50" colSpan={3}>
+                  <TableHead className="text-center bg-blue-50" colSpan={3}>
                     <div className="flex items-center justify-center gap-1">
-                      <Globe className="w-3 h-3" />
-                      Online
+                      <Facebook className="w-3 h-3" />
+                      Facebook
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center bg-purple-50" colSpan={3}>
+                    <div className="flex items-center justify-center gap-1">
+                      <Database className="w-3 h-3" />
+                      Database
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center bg-green-50" colSpan={3}>
+                    <div className="flex items-center justify-center gap-1">
+                      <Search className="w-3 h-3" />
+                      Google
                     </div>
                   </TableHead>
                 </TableRow>
@@ -506,10 +580,18 @@ const LogisticProductTransaction = () => {
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Shipped</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Return</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">%</TableHead>
-                  {/* Online sub-headers */}
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Shipped</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Return</TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">%</TableHead>
+                  {/* Facebook sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Shipped</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-blue-50">%</TableHead>
+                  {/* Database sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-purple-50">Shipped</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-purple-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-purple-50">%</TableHead>
+                  {/* Google sub-headers */}
+                  <TableHead className="text-center text-xs text-muted-foreground bg-green-50">Shipped</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-green-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-green-50">%</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -530,15 +612,23 @@ const LogisticProductTransaction = () => {
                       <TableCell className="text-center bg-orange-50/50 text-blue-600">{product.shopee.shipped}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-orange-600">{product.shopee.returnUnits}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(product.shopee.pct)}</TableCell>
-                      {/* Online */}
-                      <TableCell className="text-center bg-sky-50/50 text-blue-600">{product.online.shipped}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-orange-600">{product.online.returnUnits}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-xs">{formatPercent(product.online.pct)}</TableCell>
+                      {/* Facebook */}
+                      <TableCell className="text-center bg-blue-50/50 text-blue-600">{product.facebook.shipped}</TableCell>
+                      <TableCell className="text-center bg-blue-50/50 text-orange-600">{product.facebook.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-blue-50/50 text-xs">{formatPercent(product.facebook.pct)}</TableCell>
+                      {/* Database */}
+                      <TableCell className="text-center bg-purple-50/50 text-blue-600">{product.database.shipped}</TableCell>
+                      <TableCell className="text-center bg-purple-50/50 text-orange-600">{product.database.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-purple-50/50 text-xs">{formatPercent(product.database.pct)}</TableCell>
+                      {/* Google */}
+                      <TableCell className="text-center bg-green-50/50 text-blue-600">{product.google.shipped}</TableCell>
+                      <TableCell className="text-center bg-green-50/50 text-orange-600">{product.google.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-green-50/50 text-xs">{formatPercent(product.google.pct)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={21} className="text-center py-8 text-muted-foreground">
                       No product transactions found.
                     </TableCell>
                   </TableRow>

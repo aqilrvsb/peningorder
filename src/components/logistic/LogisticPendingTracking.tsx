@@ -76,7 +76,7 @@ const LogisticPendingTracking = () => {
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
   // Fetch pending tracking orders (Shipped + COD + SEO not successful)
-  // Pending tracking only for Ninjavan orders (exclude Tiktok, Shopee)
+  // All platforms now use NinjaVan (including Tiktok, Shopee)
   // Filter by date_order (not date_processed)
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
@@ -89,8 +89,6 @@ const LogisticPendingTracking = () => {
         `)
         .eq("delivery_status", "Shipped")
         .eq("type_payment", "COD")
-        .neq("jenis_platform", "Tiktok")
-        .neq("jenis_platform", "Shopee")
         .or("seo.is.null,seo.neq.Successfull Delivery")
         .order("date_order", { ascending: false });
 
