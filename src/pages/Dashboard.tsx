@@ -289,7 +289,7 @@ const Dashboard: React.FC = () => {
 
     // Sales by Jenis Closing
     const salesManual = filteredOrders.filter(o => o.jenisClosing === 'Manual').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const salesWa Bot = filteredOrders.filter(o => o.jenisClosing === 'Wa Bot').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const salesWaBot = filteredOrders.filter(o => o.jenisClosing === 'Wa Bot').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesWebsite = filteredOrders.filter(o => o.jenisClosing === 'Website').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesCall = filteredOrders.filter(o => o.jenisClosing === 'Call').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesLive = filteredOrders.filter(o => o.jenisClosing === 'Live').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
@@ -320,7 +320,7 @@ const Dashboard: React.FC = () => {
     const epPercent = totalSales > 0 ? (salesEP / totalSales) * 100 : 0;
     const ecPercent = totalSales > 0 ? (salesEC / totalSales) * 100 : 0;
     const manualPercent = totalSales > 0 ? (salesManual / totalSales) * 100 : 0;
-    const whatsappBotPercent = totalSales > 0 ? (salesWa Bot / totalSales) * 100 : 0;
+    const waBotPercent = totalSales > 0 ? (salesWaBot / totalSales) * 100 : 0;
     const websitePercent = totalSales > 0 ? (salesWebsite / totalSales) * 100 : 0;
     const callPercent = totalSales > 0 ? (salesCall / totalSales) * 100 : 0;
     const livePercent = totalSales > 0 ? (salesLive / totalSales) * 100 : 0;
@@ -360,8 +360,8 @@ const Dashboard: React.FC = () => {
       ecPercent,
       salesManual,
       manualPercent,
-      salesWa Bot,
-      whatsappBotPercent,
+      salesWaBot,
+      waBotPercent,
       salesWebsite,
       websitePercent,
       salesCall,
@@ -540,7 +540,7 @@ const Dashboard: React.FC = () => {
 
     // Sales by Jenis Closing
     const salesManual = filteredAllOrders.filter(o => o.jenis_closing === 'Manual').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
-    const salesWa Bot = filteredAllOrders.filter(o => o.jenis_closing === 'Wa Bot').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+    const salesWaBot = filteredAllOrders.filter(o => o.jenis_closing === 'Wa Bot').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
     const salesWebsite = filteredAllOrders.filter(o => o.jenis_closing === 'Website').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
     const salesCall = filteredAllOrders.filter(o => o.jenis_closing === 'Call').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
     const salesLive = filteredAllOrders.filter(o => o.jenis_closing === 'Live').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
@@ -571,7 +571,7 @@ const Dashboard: React.FC = () => {
     const epPercent = totalSales > 0 ? (salesEP / totalSales) * 100 : 0;
     const ecPercent = totalSales > 0 ? (salesEC / totalSales) * 100 : 0;
     const manualPercent = totalSales > 0 ? (salesManual / totalSales) * 100 : 0;
-    const whatsappBotPercent = totalSales > 0 ? (salesWa Bot / totalSales) * 100 : 0;
+    const waBotPercent = totalSales > 0 ? (salesWaBot / totalSales) * 100 : 0;
     const websitePercent = totalSales > 0 ? (salesWebsite / totalSales) * 100 : 0;
     const callPercent = totalSales > 0 ? (salesCall / totalSales) * 100 : 0;
     const livePercent = totalSales > 0 ? (salesLive / totalSales) * 100 : 0;
@@ -611,8 +611,8 @@ const Dashboard: React.FC = () => {
       ecPercent,
       salesManual,
       manualPercent,
-      salesWa Bot,
-      whatsappBotPercent,
+      salesWaBot,
+      waBotPercent,
       salesWebsite,
       websitePercent,
       salesCall,
@@ -985,8 +985,8 @@ const Dashboard: React.FC = () => {
               <Phone className="w-5 h-5" />
               <span className="text-sm font-medium">CLOSING WA BOT</span>
             </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesWa Bot)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.whatsappBotPercent)}</p>
+            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesWaBot)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.waBotPercent)}</p>
           </div>
 
           {/* Closing Website */}
@@ -1512,8 +1512,8 @@ const Dashboard: React.FC = () => {
               <Phone className="w-5 h-5" />
               <span className="text-sm font-medium">CLOSING WA BOT</span>
             </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesWa Bot)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.whatsappBotPercent)}</p>
+            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesWaBot)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.waBotPercent)}</p>
           </div>
 
           {/* Closing Website */}
