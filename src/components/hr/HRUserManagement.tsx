@@ -78,11 +78,13 @@ const HRUserManagement = () => {
       // Create a map of user_id to role
       const rolesMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
 
-      // Merge profiles with roles
-      return (profiles || []).map((profile: any) => ({
-        ...profile,
-        role: rolesMap.get(profile.id) || "unknown",
-      }));
+      // Merge profiles with roles and filter only marketers and admins
+      return (profiles || [])
+        .map((profile: any) => ({
+          ...profile,
+          role: rolesMap.get(profile.id) || "unknown",
+        }))
+        .filter((u: UserProfile) => u.role === "marketer" || u.role === "admin");
     },
   });
 
@@ -395,10 +397,6 @@ const HRUserManagement = () => {
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="marketer">Marketer</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="logistic">Logistic</SelectItem>
-                <SelectItem value="account">Account</SelectItem>
-                <SelectItem value="bod">BOD</SelectItem>
-                <SelectItem value="hr">HR</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -553,10 +551,6 @@ const HRUserManagement = () => {
                   <SelectContent>
                     <SelectItem value="marketer">Marketer</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="logistic">Logistic</SelectItem>
-                    <SelectItem value="account">Account</SelectItem>
-                    <SelectItem value="bod">BOD</SelectItem>
-                    <SelectItem value="hr">HR</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -647,10 +641,6 @@ const HRUserManagement = () => {
                   <SelectContent>
                     <SelectItem value="marketer">Marketer</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="logistic">Logistic</SelectItem>
-                    <SelectItem value="account">Account</SelectItem>
-                    <SelectItem value="bod">BOD</SelectItem>
-                    <SelectItem value="hr">HR</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
