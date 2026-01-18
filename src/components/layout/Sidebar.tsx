@@ -96,6 +96,12 @@ const navItems: NavItem[] = [
     icon: <TrendingUp className="w-5 h-5" />,
     roles: ['marketer'],
   },
+  {
+    label: 'Reward',
+    path: '/dashboard/reward',
+    icon: <Trophy className="w-5 h-5" />,
+    roles: ['marketer'],
+  },
   // ============ BOD ROLE ============
   {
     label: 'Reporting Spend',

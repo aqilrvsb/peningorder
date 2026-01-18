@@ -47,6 +47,7 @@ import LogisticPendingTracking from "./components/logistic/LogisticPendingTracki
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
 // Marketer components
 import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
+import MarketerReward from "./components/marketer/MarketerReward";
 // Account components
 import AccountPengesahan from "./components/account/AccountPengesahan";
 import AccountApproved from "./components/account/AccountApproved";
@@ -83,6 +84,7 @@ const App = () => (
                   <Route path="top10" element={<Top10 />} />
                   <Route path="pnl" element={<PNL />} />
                   <Route path="bundle-date-order" element={<MarketerBundleTransaction />} />
+                  <Route path="reward" element={<MarketerReward />} />
                   <Route path="pnl-config" element={<PNLConfig />} />
                   <Route path="report-sales" element={<ReportSales />} />
                   <Route path="report-leads" element={<ReportLeads />} />
