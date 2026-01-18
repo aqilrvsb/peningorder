@@ -97,7 +97,7 @@ const PAYMENT_METHODS = ["COD", "Online Transfer", "Cash"];
 
 const CLOSING_TYPES = [
   "Website",
-  "WhatsappBot",
+  "Wa Bot",
   "Call",
   "Manual",
   "Live",

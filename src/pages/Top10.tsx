@@ -250,7 +250,7 @@ const Top10: React.FC = () => {
       const closingType = order.jenis_closing;
       if (closingType === 'Manual') {
         stats[idStaff].closingManual += saleAmount;
-      } else if (closingType === 'WhatsappBot') {
+      } else if (closingType === 'Wa Bot') {
         stats[idStaff].closingWaBot += saleAmount;
       } else if (closingType === 'Website') {
         stats[idStaff].closingWebsite += saleAmount;

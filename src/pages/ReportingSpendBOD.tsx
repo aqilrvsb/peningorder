@@ -177,7 +177,7 @@ const ReportingSpendBOD: React.FC = () => {
       // Calculate closing breakdown from SPENDS (not orders)
       const closingBreakdown = {
         website: platformSpends.filter(s => s.jenisClosing === 'Website').reduce((sum, s) => sum + s.totalSpend, 0),
-        whatsappBot: platformSpends.filter(s => s.jenisClosing === 'WhatsappBot').reduce((sum, s) => sum + s.totalSpend, 0),
+        whatsappBot: platformSpends.filter(s => s.jenisClosing === 'Wa Bot').reduce((sum, s) => sum + s.totalSpend, 0),
         manual: platformSpends.filter(s => s.jenisClosing === 'Manual').reduce((sum, s) => sum + s.totalSpend, 0),
         call: platformSpends.filter(s => s.jenisClosing === 'Call').reduce((sum, s) => sum + s.totalSpend, 0),
         live: platformSpends.filter(s => s.jenisClosing === 'Live').reduce((sum, s) => sum + s.totalSpend, 0),
@@ -210,7 +210,7 @@ const ReportingSpendBOD: React.FC = () => {
     const totalSpend = filteredSpends.reduce((sum, s) => sum + s.totalSpend, 0);
     return {
       website: filteredSpends.filter(s => s.jenisClosing === 'Website').reduce((sum, s) => sum + s.totalSpend, 0),
-      whatsappBot: filteredSpends.filter(s => s.jenisClosing === 'WhatsappBot').reduce((sum, s) => sum + s.totalSpend, 0),
+      whatsappBot: filteredSpends.filter(s => s.jenisClosing === 'Wa Bot').reduce((sum, s) => sum + s.totalSpend, 0),
       manual: filteredSpends.filter(s => s.jenisClosing === 'Manual').reduce((sum, s) => sum + s.totalSpend, 0),
       call: filteredSpends.filter(s => s.jenisClosing === 'Call').reduce((sum, s) => sum + s.totalSpend, 0),
       live: filteredSpends.filter(s => s.jenisClosing === 'Live').reduce((sum, s) => sum + s.totalSpend, 0),
@@ -587,14 +587,14 @@ const ReportingSpendBOD: React.FC = () => {
                   <TableCell>
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                       data.jenisClosing === 'Website' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400' :
-                      data.jenisClosing === 'WhatsappBot' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                      data.jenisClosing === 'Wa Bot' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                       data.jenisClosing === 'Manual' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
                       data.jenisClosing === 'Call' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400' :
                       data.jenisClosing === 'Live' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400' :
                       data.jenisClosing === 'Shop' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
                       'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
                     }`}>
-                      {data.jenisClosing === 'WhatsappBot' ? 'WA Bot' : data.jenisClosing}
+                      {data.jenisClosing === 'Wa Bot' ? 'WA Bot' : data.jenisClosing}
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-medium">RM {data.totalSpend.toFixed(2)}</TableCell>
