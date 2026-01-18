@@ -801,7 +801,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                       <div className="flex items-center gap-2">
                         {/* Invoice Icon - always visible */}
                         <a
-                          href={`/invoice?id=${order.id}`}
+                          href={`/invoice?order=${order.id}&type=customer`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 transition-colors"
