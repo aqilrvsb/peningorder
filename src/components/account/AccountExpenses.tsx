@@ -68,6 +68,7 @@ const AccountExpenses = () => {
   const [formDescription, setFormDescription] = useState("");
   const [formTotal, setFormTotal] = useState("");
   const [formDate, setFormDate] = useState(today);
+  const [formMonth, setFormMonth] = useState(today.substring(0, 7)); // YYYY-MM format
 
   // Fetch expenses
   const { data: expenses = [], isLoading } = useQuery({
@@ -155,6 +156,7 @@ const AccountExpenses = () => {
     setFormDescription("");
     setFormTotal("");
     setFormDate(today);
+    setFormMonth(today.substring(0, 7));
     setIsEditing(false);
     setEditingId(null);
   };
@@ -171,6 +173,7 @@ const AccountExpenses = () => {
     setFormDescription(expense.description);
     setFormTotal(expense.total.toString());
     setFormDate(expense.date);
+    setFormMonth(expense.date.substring(0, 7)); // Extract YYYY-MM from date
     setIsEditing(true);
     setEditingId(expense.id);
     setIsDialogOpen(true);
@@ -186,19 +189,26 @@ const AccountExpenses = () => {
       toast.error("Please enter a valid total amount");
       return;
     }
-    if (!formDate) {
+    if (formType === "VAR" && !formDate) {
       toast.error("Please select a date");
+      return;
+    }
+    if (formType === "FIX" && !formMonth) {
+      toast.error("Please select a month");
       return;
     }
 
     setIsSubmitting(true);
+
+    // For FIX, use first day of the selected month; for VAR, use the selected date
+    const expenseDate = formType === "FIX" ? `${formMonth}-01` : formDate;
 
     try {
       const expenseData = {
         type: formType,
         description: formDescription.trim(),
         total: Number(formTotal),
-        date: formDate,
+        date: expenseDate,
         updated_at: new Date().toISOString(),
       };
 
@@ -318,19 +328,31 @@ const AccountExpenses = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                />
-                {formType === "FIX" && (
+              {formType === "VAR" ? (
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    This is the start date - expense will recur monthly from this date
+                    One-time expense for this specific date
                   </p>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Start Month</Label>
+                  <Input
+                    type="month"
+                    value={formMonth}
+                    onChange={(e) => setFormMonth(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Monthly recurring - will be counted for each month from this month onwards
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
                 <Button
@@ -466,7 +488,7 @@ const AccountExpenses = () => {
                       <th className="p-3 text-left">Type</th>
                       <th className="p-3 text-left">Description</th>
                       <th className="p-3 text-right">Total (RM)</th>
-                      <th className="p-3 text-left">Date</th>
+                      <th className="p-3 text-left">Date/Month</th>
                       <th className="p-3 text-center">Action</th>
                     </tr>
                   </thead>
@@ -490,7 +512,12 @@ const AccountExpenses = () => {
                           <td className="p-3 text-right font-medium">
                             RM {Number(expense.total).toFixed(2)}
                           </td>
-                          <td className="p-3 whitespace-nowrap">{expense.date}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            {expense.type === "FIX"
+                              ? expense.date.substring(0, 7) // Show YYYY-MM for FIX
+                              : expense.date // Show full date for VAR
+                            }
+                          </td>
                           <td className="p-3">
                             <div className="flex items-center justify-center gap-1">
                               <Button
