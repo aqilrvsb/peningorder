@@ -179,17 +179,39 @@ const Orders: React.FC = () => {
       phone = "60" + phone;
     }
 
+    // Format date as DD/MM/YYYY, HH:MM am/pm
+    const orderDate = order.dateOrder || order.tarikhTempahan || '';
+    let formattedDate = orderDate;
+    if (orderDate) {
+      try {
+        const date = new Date(orderDate);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours();
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        const hour12 = hours % 12 || 12;
+        formattedDate = `${day}/${month}/${year}, ${String(hour12).padStart(2, '0')}:${minutes} ${ampm}`;
+      } catch {
+        formattedDate = orderDate;
+      }
+    }
+
+    const tracking = order.noTracking || '-';
+
     // Build message with order details
-    const message = `Assalamualaikum ${order.marketerName || ""},
+    const message = `DFR NOTIFICATION ORDER
 
-Maklumat Pesanan:
-- Produk: ${order.produk || "-"}
-- Kuantiti: ${order.kuantiti || 1}
-- Harga: RM ${Number(order.hargaJualanSebenar || 0).toFixed(2)}
-- Cara Bayaran: ${order.caraBayaran || "-"}
-- Tracking No: ${order.noTracking || "-"}
+Nama Pelanggan : ${order.marketerName || "-"}
+Phone : ${order.noPhone || "-"}
+Pakej : ${order.produk || "-"}
+Tarikh Membeli : ${formattedDate}
+Tracking Number : ${tracking}
+Harga Jualan : RM${Number(order.hargaJualanSebenar || 0).toFixed(2)}
+Cara Bayaran : ${order.caraBayaran || "-"}
 
-Terima kasih! 🙏`;
+https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
 
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
