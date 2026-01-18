@@ -26,6 +26,7 @@ import {
   Receipt,
   TrendingUp,
   Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -211,6 +212,18 @@ const navItems: NavItem[] = [
     roles: ['logistic'],
   },
   // ============ ACCOUNT ROLE ============
+  {
+    label: 'Pengesahan',
+    path: '/dashboard/account/pengesahan',
+    icon: <ClipboardList className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Approved',
+    path: '/dashboard/account/approved',
+    icon: <CheckCircle className="w-5 h-5" />,
+    roles: ['account'],
+  },
   {
     label: 'Finance',
     path: '/dashboard/finance',

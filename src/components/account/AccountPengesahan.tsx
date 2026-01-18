@@ -1,0 +1,512 @@
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getMalaysiaDate } from "@/lib/utils";
+import {
+  Clock,
+  Loader2,
+  Search,
+  CheckCircle,
+  CreditCard,
+  MessageCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import Swal from "sweetalert2";
+
+const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
+const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
+
+const AccountPengesahan = () => {
+  const queryClient = useQueryClient();
+  const today = getMalaysiaDate();
+
+  // Filter states - default to today's date for date_payment
+  const [search, setSearch] = useState("");
+  const [filterDate, setFilterDate] = useState(today);
+  const [platformFilter, setPlatformFilter] = useState("All");
+  const [pageSize, setPageSize] = useState<number | "All">(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Selection state
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+
+  // Loading states
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Fetch all profiles for marketer name and whatsapp lookup
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-lookup"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, full_name, whatsapp_number");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Create maps for quick lookup by username (marketer_id_staff)
+  const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
+  const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
+
+  // Fetch NinjaVan CASH orders for verification
+  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo !== 'Successfull Delivery'
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["account-pengesahan", filterDate],
+    queryFn: async () => {
+      let query = supabase
+        .from("customer_purchases")
+        .select(`
+          *,
+          bundle:logistic_bundles(name, sku)
+        `)
+        .eq("type_payment", "CASH")
+        .eq("delivery_status", "Shipped")
+        .neq("seo", "Successfull Delivery")
+        .order("created_at", { ascending: false });
+
+      // Filter by date_payment (receipt date from marketer)
+      if (filterDate) {
+        query = query.eq("date_payment", filterDate);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return data || [];
+    },
+  });
+
+  // Helper function to get platform display value
+  const getOrderPlatform = (order: any) => {
+    if (order.jenis_platform) return order.jenis_platform;
+    return null;
+  };
+
+  // Filter orders
+  const filteredOrders = orders.filter((order: any) => {
+    // Search filter
+    if (search.trim()) {
+      const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
+      const matchesSearch = searchTerms.every((term) =>
+        order.name_customer?.toLowerCase().includes(term) ||
+        order.phone_customer?.toLowerCase().includes(term) ||
+        order.tracking_number?.toLowerCase().includes(term) ||
+        order.bundle?.name?.toLowerCase().includes(term) ||
+        order.address_customer?.toLowerCase().includes(term)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // Platform filter
+    if (platformFilter !== "All") {
+      if (order.jenis_platform !== platformFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Pagination
+  const totalPages = pageSize === "All" ? 1 : Math.ceil(filteredOrders.length / pageSize);
+  const paginatedOrders = pageSize === "All"
+    ? filteredOrders
+    : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Counts
+  const counts = {
+    total: orders.length,
+    pending: orders.filter((o: any) => o.seo !== "Successfull Delivery").length,
+  };
+
+  // Checkbox handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(new Set(paginatedOrders.map((o: any) => o.id)));
+    } else {
+      setSelectedOrders(new Set());
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    const newSelection = new Set(selectedOrders);
+    if (checked) {
+      newSelection.add(orderId);
+    } else {
+      newSelection.delete(orderId);
+    }
+    setSelectedOrders(newSelection);
+  };
+
+  const isAllSelected = paginatedOrders.length > 0 && paginatedOrders.every((o: any) => selectedOrders.has(o.id));
+
+  // Bulk Approve action
+  const handleBulkApprove = async () => {
+    if (selectedOrders.size === 0) {
+      toast.error("Please select orders to approve");
+      return;
+    }
+
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Approve Orders?",
+      text: `Are you sure you want to approve ${selectedOrders.size} order(s)?`,
+      showCancelButton: true,
+      confirmButtonColor: "#22c55e",
+      confirmButtonText: "Yes, Approve",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    setIsApproving(true);
+    const approveDate = getMalaysiaDate();
+
+    try {
+      // Update SEO and date_approve for all selected orders
+      const updatePromises = Array.from(selectedOrders).map((orderId) =>
+        supabase
+          .from("customer_purchases")
+          .update({
+            seo: "Successfull Delivery",
+            date_approve: approveDate,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", orderId)
+      );
+
+      await Promise.all(updatePromises);
+
+      toast.success(`${selectedOrders.size} order(s) approved successfully`);
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
+      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+      setSelectedOrders(new Set());
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve orders");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Single order approve
+  const handleApproveOrder = async (orderId: string) => {
+    const result = await Swal.fire({
+      icon: "question",
+      title: "Approve Order?",
+      text: "Are you sure you want to approve this order?",
+      showCancelButton: true,
+      confirmButtonColor: "#22c55e",
+      confirmButtonText: "Yes, Approve",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const approveDate = getMalaysiaDate();
+      const { error } = await supabase
+        .from("customer_purchases")
+        .update({
+          seo: "Successfull Delivery",
+          date_approve: approveDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast.success("Order approved successfully");
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
+      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve order");
+    }
+  };
+
+  const handleFilterChange = () => {
+    setCurrentPage(1);
+    setSelectedOrders(new Set());
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Pengesahan (Verification)</h1>
+        <p className="text-muted-foreground mt-2">
+          Verify NinjaVan CASH orders - approve when payment confirmed
+        </p>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Clock className="w-6 h-6 text-orange-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.total}</p>
+                <p className="text-xs text-muted-foreground">Total Pending Verification</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-6 h-6 text-green-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.pending}</p>
+                <p className="text-xs text-muted-foreground">NinjaVan CASH</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1 flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search customer name, phone, or tracking..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 items-center">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Date Payment:</span>
+                <Input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => { setFilterDate(e.target.value); handleFilterChange(); }}
+                  className="w-40"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Platform:</span>
+                <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLATFORM_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>{opt === "All" ? "All Platforms" : opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Show:</span>
+                <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size.toString()} value={size.toString()}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">entries</span>
+              </div>
+
+              <div className="flex-1" />
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleBulkApprove}
+                  disabled={selectedOrders.size === 0 || isApproving}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isApproving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                  Approve ({selectedOrders.size})
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-2 text-left w-10">
+                        <Checkbox
+                          checked={isAllSelected}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </th>
+                      <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left">Id Sales</th>
+                      <th className="p-2 text-left">Date Payment</th>
+                      <th className="p-2 text-left">Date Order</th>
+                      <th className="p-2 text-left">Id Staff</th>
+                      <th className="p-2 text-left">Sales Name</th>
+                      <th className="p-2 text-left">Nama Pelanggan</th>
+                      <th className="p-2 text-left">Phone</th>
+                      <th className="p-2 text-left">Produk</th>
+                      <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Tracking</th>
+                      <th className="p-2 text-left">Total Sales</th>
+                      <th className="p-2 text-left">Cara Bayaran</th>
+                      <th className="p-2 text-left">Jenis Platform</th>
+                      <th className="p-2 text-left">Negeri</th>
+                      <th className="p-2 text-left">SEO</th>
+                      <th className="p-2 text-left">WhatsApp</th>
+                      <th className="p-2 text-left">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedOrders.length > 0 ? (
+                      paginatedOrders.map((order: any, index: number) => (
+                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                          <td className="p-2">
+                            <Checkbox
+                              checked={selectedOrders.has(order.id)}
+                              onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                            />
+                          </td>
+                          <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_payment || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
+                          <td className="p-2">
+                            <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
+                          </td>
+                          <td className="p-2 text-center">{order.unit || 1}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            {order.tracking_number ? (
+                              <span className="font-mono text-xs">{order.tracking_number}</span>
+                            ) : "-"}
+                          </td>
+                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                          <td className="p-2">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                              {order.type_payment || "-"}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <span className={`text-xs font-medium ${
+                              getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
+                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
+                              getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
+                              getOrderPlatform(order) === "Google" ? "text-green-600" :
+                              getOrderPlatform(order) === "Database" ? "text-purple-600" :
+                              "text-gray-600"
+                            }`}>
+                              {getOrderPlatform(order) || "-"}
+                            </span>
+                          </td>
+                          <td className="p-2 text-xs">{order.state_customer || "-"}</td>
+                          <td className="p-2">
+                            <span className={`text-xs ${order.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                              {order.seo || "-"}
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            {whatsappMap.get(order.marketer_id_staff) && (
+                              <a
+                                href={`https://wa.me/6${(whatsappMap.get(order.marketer_id_staff) || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </a>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApproveOrder(order.id)}
+                              className="h-7 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Approve
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={19} className="text-center py-12 text-muted-foreground">
+                          No orders pending verification for this date.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * (pageSize as number) + 1} to {Math.min(currentPage * (pageSize as number), filteredOrders.length)} of {filteredOrders.length} entries
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default AccountPengesahan;

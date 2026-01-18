@@ -47,6 +47,9 @@ import LogisticPendingTracking from "./components/logistic/LogisticPendingTracki
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
 // Marketer components
 import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
+// Account components
+import AccountPengesahan from "./components/account/AccountPengesahan";
+import AccountApproved from "./components/account/AccountApproved";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +99,9 @@ const App = () => (
                   {/* New Logistic Role routes - Customer HQ */}
                   <Route path="logistics/customers" element={<LogisticCustomers />} />
                   <Route path="logistics/ninjavan-settings" element={<NinjavanSettings />} />
+                  {/* Account Role routes */}
+                  <Route path="account/pengesahan" element={<AccountPengesahan />} />
+                  <Route path="account/approved" element={<AccountApproved />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
