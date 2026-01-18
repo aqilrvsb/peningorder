@@ -343,14 +343,23 @@ const LogisticReturn = () => {
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search... (use + to combine filters)"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
-                  className="pl-10"
-                />
+              <div className="relative flex-1 flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search... (use + to combine filters)"
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  onClick={() => { setStartDate(""); setEndDate(""); }}
+                  className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search
+                </Button>
               </div>
               <div className="flex gap-2">
                 <Input

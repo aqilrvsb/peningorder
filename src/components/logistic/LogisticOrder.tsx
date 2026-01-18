@@ -749,9 +749,8 @@ const LogisticOrder = () => {
                   />
                 </div>
                 <Button
-                  variant="default"
-                  onClick={() => { setStartDate(""); setEndDate(""); handleFilterChange(); }}
-                  className="shrink-0"
+                  onClick={() => { setStartDate(""); setEndDate(""); }}
+                  className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
                 >
                   <Search className="w-4 h-4 mr-2" />
                   Search

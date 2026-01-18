@@ -111,14 +111,31 @@ const Orders: React.FC = () => {
   const stats = useMemo(() => {
     const totalCustomer = orders.length;
     const totalSales = orders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const totalReturn = orders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return').length;
     const totalUnit = orders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
-    const totalPending = orders.filter(o => o.deliveryStatus === 'Pending').length;
-    const totalShipped = orders.filter(o => o.deliveryStatus === 'Shipped' || o.deliveryStatus === 'Success').length;
     const totalCash = orders.filter(o => o.caraBayaran === 'CASH').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalCOD = orders.filter(o => o.caraBayaran === 'COD').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalPending = orders.filter(o => o.deliveryStatus === 'Pending').length;
+    const totalShipped = orders.filter(o => o.deliveryStatus === 'Shipped').length;
 
-    return { totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD };
+    // Remaining = Shipped but seo !== 'Successfull Delivery'
+    const remainingOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successfull Delivery');
+    const totalRemaining = remainingOrders.length;
+    const totalSalesRemaining = remainingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
+    // Success = Shipped and seo === 'Successfull Delivery'
+    const successOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successfull Delivery');
+    const totalSuccess = successOrders.length;
+    const totalSalesSuccess = successOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
+    // Return
+    const returnOrders = orders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return');
+    const totalReturn = returnOrders.length;
+    const totalSalesReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
+    return {
+      totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
+      totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn
+    };
   }, [orders]);
 
   const resetFilters = () => {
@@ -157,10 +174,12 @@ Terima kasih! 🙏`;
   };
 
   const exportCSV = () => {
-    const headers = ['No', 'Tarikh Order', 'Nama Pelanggan', 'Phone', 'Produk', 'Tracking No', 'Total Sales', 'Jenis Platform', 'Jenis Customer', 'Negeri', 'Alamat', 'Cara Bayaran', 'Delivery Status'];
+    const headers = ['No', 'Id Sales', 'Tarikh Order', 'Tarikh Process', 'Nama Pelanggan', 'Phone', 'Produk', 'Tracking No', 'Total Sales', 'Jenis Platform', 'Jenis Customer', 'Negeri', 'Alamat', 'Cara Bayaran', 'Delivery Status'];
     const rows = filteredOrders.map((order, idx) => [
       idx + 1,
+      order.idSale || '-',
       order.dateOrder || order.tarikhTempahan,
+      order.dateProcessed || '-',
       order.marketerName,
       order.noPhone,
       order.produk,
@@ -423,7 +442,7 @@ Terima kasih! 🙏`;
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4 text-blue-500" />
@@ -480,100 +499,124 @@ Terima kasih! 🙏`;
           <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
         </div>
 
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+            <Clock className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Remaining</span>
+          </div>
+          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
+          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {stats.totalSalesRemaining.toLocaleString()}</p>
+        </div>
+
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+            <Package className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Success</span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalSuccess}</p>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {stats.totalSalesSuccess.toLocaleString()}</p>
+        </div>
+
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
             <RotateCw className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Return</span>
           </div>
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {stats.totalSalesReturn.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Start Date</span>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-40"
-          />
-        </div>
+      {/* Filters - like image 2 layout */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Date filters */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Start Date</span>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-40"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">End Date</span>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-40"
-          />
-        </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">End Date</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-40"
+            />
+          </div>
 
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Name, phone, product..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="pl-10"
-          />
-        </div>
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Name, phone, tracking..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Truck className="w-4 h-4 text-muted-foreground" />
+          {/* Delivery status dropdown */}
+          <div className="flex items-center gap-2">
+            <Truck className="w-4 h-4 text-muted-foreground" />
+            <Select
+              value={deliveryStatusFilter}
+              onValueChange={(v) => {
+                setDeliveryStatusFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DELIVERY_STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Page size */}
           <Select
-            value={deliveryStatusFilter}
+            value={pageSize.toString()}
             onValueChange={(v) => {
-              setDeliveryStatusFilter(v);
+              setPageSize(Number(v));
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DELIVERY_STATUS_OPTIONS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
 
-        <Select
-          value={pageSize.toString()}
-          onValueChange={(v) => {
-            setPageSize(Number(v));
-            setCurrentPage(1);
-          }}
-        >
-          <SelectTrigger className="w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={size} value={size.toString()}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex gap-2">
+          {/* Reset Filters & Export CSV */}
           <Button variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Reset Filters
@@ -592,7 +635,9 @@ Terima kasih! 🙏`;
             <thead className="bg-muted/50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Id Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Process</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
@@ -618,7 +663,9 @@ Terima kasih! 🙏`;
                 paginatedOrders.map((order, idx) => (
                   <tr key={order.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 text-sm text-foreground">{(currentPage - 1) * pageSize + idx + 1}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{order.dateProcessed || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
@@ -740,7 +787,7 @@ Terima kasih! 🙏`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={20} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={22} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

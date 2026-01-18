@@ -856,7 +856,7 @@ const LogisticCustomers = () => {
                 className="pl-10 h-9"
               />
             </div>
-            <Button size="sm" onClick={handleQuickSearch}>
+            <Button size="sm" onClick={() => { setStartDate(""); setEndDate(""); handleQuickSearch(); }} className="bg-blue-500 hover:bg-blue-600 text-white">
               <Search className="w-4 h-4 mr-1" />
               Search
             </Button>
