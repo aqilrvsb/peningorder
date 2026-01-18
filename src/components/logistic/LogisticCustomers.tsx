@@ -95,7 +95,7 @@ const LogisticCustomers = () => {
     },
   });
 
-  // Fetch bundles (with items and product info)
+  // Fetch bundles (without items - logistic_bundle_items table no longer exists)
   const { data: bundles } = useQuery({
     queryKey: ["bundles-for-customer", user?.id],
     queryFn: async () => {
@@ -107,17 +107,7 @@ const LogisticCustomers = () => {
           description,
           sku,
           total_price,
-          is_active,
-          logistic_bundle_items (
-            id,
-            product_id,
-            quantity,
-            products:product_id (
-              id,
-              name,
-              sku
-            )
-          )
+          is_active
         `)
         .eq("logistic_id", user?.id)
         .eq("is_active", true);
@@ -126,11 +116,7 @@ const LogisticCustomers = () => {
 
       return (data || []).map((bundle: any) => ({
         ...bundle,
-        items: (bundle.logistic_bundle_items || []).map((item: any) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          product: item.products,
-        })),
+        items: [], // No items relation - bundles are standalone now
       }));
     },
     enabled: !!user?.id,

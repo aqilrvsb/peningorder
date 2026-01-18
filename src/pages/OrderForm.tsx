@@ -74,14 +74,16 @@ const OrderForm: React.FC = () => {
           name,
           sku,
           description,
-          price_np,
-          price_ep,
-          price_ec,
-          is_active,
-          items:logistic_bundle_items(
-            quantity,
-            product:products(id, name, sku)
-          )
+          price_online_np,
+          price_online_ep,
+          price_online_ec,
+          price_tiktok_np,
+          price_tiktok_ep,
+          price_tiktok_ec,
+          price_shopee_np,
+          price_shopee_ep,
+          price_shopee_ec,
+          is_active
         `)
         .eq('is_active', true)
         .order('name');
@@ -92,22 +94,20 @@ const OrderForm: React.FC = () => {
 
   // Map logistic bundles to the format expected by the order form
   const activeBundles = logisticBundles.map((lb: any) => {
-    // Calculate total units from items
-    const totalUnits = lb.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 1;
     return {
       id: lb.id,
       name: lb.name,
-      units: totalUnits,
-      // Use same price for all platforms (NP, EP, EC)
-      priceNormalNp: Number(lb.price_np) || 0,
-      priceNormalEp: Number(lb.price_ep) || 0,
-      priceNormalEc: Number(lb.price_ec) || 0,
-      priceShopeeNp: Number(lb.price_np) || 0,
-      priceShopeeEp: Number(lb.price_ep) || 0,
-      priceShopeeEc: Number(lb.price_ec) || 0,
-      priceTiktokNp: Number(lb.price_np) || 0,
-      priceTiktokEp: Number(lb.price_ep) || 0,
-      priceTiktokEc: Number(lb.price_ec) || 0,
+      units: 1, // Default to 1 unit per bundle
+      // Use platform-specific pricing
+      priceNormalNp: Number(lb.price_online_np) || 0,
+      priceNormalEp: Number(lb.price_online_ep) || 0,
+      priceNormalEc: Number(lb.price_online_ec) || 0,
+      priceShopeeNp: Number(lb.price_shopee_np) || 0,
+      priceShopeeEp: Number(lb.price_shopee_ep) || 0,
+      priceShopeeEc: Number(lb.price_shopee_ec) || 0,
+      priceTiktokNp: Number(lb.price_tiktok_np) || 0,
+      priceTiktokEp: Number(lb.price_tiktok_ep) || 0,
+      priceTiktokEc: Number(lb.price_tiktok_ec) || 0,
       productName: lb.name,
     };
   });
