@@ -6,10 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Loader2, TrendingUp, TrendingDown, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign } from "lucide-react";
-import { format, parseISO, isWithinInterval } from "date-fns";
+import { Package, Loader2, TrendingUp, TrendingDown, RotateCcw, Truck, Play, ShoppingBag, Globe } from "lucide-react";
+import { parseISO, isWithinInterval } from "date-fns";
 import { getMalaysiaDate } from "@/lib/utils";
 
+// Transaction tab - Product-level inventory (based on products table)
+// NO Total Sales - focused on inventory movement
+// Bundle SKU format: "SKU-qty + SKU-qty" (e.g., "GSI-1 + SBN-2")
 const LogisticProductTransaction = () => {
   const { user } = useAuth();
 
@@ -18,8 +21,8 @@ const LogisticProductTransaction = () => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
 
-  // Fetch all products
-  const { data: products, isLoading: productsLoading } = useQuery({
+  // Fetch all products from products table
+  const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["all-products"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,7 +37,7 @@ const LogisticProductTransaction = () => {
   });
 
   // Fetch stock_in_logistic for this logistic user
-  const { data: stockInData, isLoading: stockInLoading } = useQuery({
+  const { data: stockInData = [], isLoading: stockInLoading } = useQuery({
     queryKey: ["logistic-stock-in-transactions", user?.id, startDate, endDate],
     queryFn: async () => {
       let query = supabase
@@ -53,7 +56,7 @@ const LogisticProductTransaction = () => {
   });
 
   // Fetch stock_out_logistic for this logistic user
-  const { data: stockOutData, isLoading: stockOutLoading } = useQuery({
+  const { data: stockOutData = [], isLoading: stockOutLoading } = useQuery({
     queryKey: ["logistic-stock-out-transactions", user?.id, startDate, endDate],
     queryFn: async () => {
       let query = supabase
@@ -71,11 +74,9 @@ const LogisticProductTransaction = () => {
     enabled: !!user?.id,
   });
 
-  // Fetch ALL marketer orders from customer_purchases (for Total Sales, Shipped, Return, Tiktok, Shopee, Online)
-  // Stock In/Out comes from Logistic tables only
-  // Filter by date_processed as requested
+  // Fetch customer_purchases with bundle info (filter by date_processed)
   const { data: purchasesData = [], isLoading: purchasesLoading } = useQuery({
-    queryKey: ["marketer-orders-transactions", startDate, endDate],
+    queryKey: ["product-transactions", startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -85,11 +86,7 @@ const LogisticProductTransaction = () => {
           unit,
           delivery_status,
           jenis_platform,
-          date_order,
           date_processed,
-          date_return,
-          marketer_id_staff,
-          total_sale,
           bundle:logistic_bundles(id, name, sku)
         `);
 
@@ -102,7 +99,23 @@ const LogisticProductTransaction = () => {
     },
   });
 
-  // Filter helper function - uses date_processed
+  // Helper: Parse bundle SKU to get individual product SKUs with quantities
+  // Format: "GSI-1 + SBN-2" -> [{sku: "GSI", qty: 1}, {sku: "SBN", qty: 2}]
+  const parseBundleSku = (bundleSku: string | null): { sku: string; qty: number }[] => {
+    if (!bundleSku) return [];
+
+    const parts = bundleSku.split(" + ");
+    return parts.map(part => {
+      const match = part.trim().match(/^([A-Za-z0-9]+)-(\d+)$/);
+      if (match) {
+        return { sku: match[1].toUpperCase(), qty: parseInt(match[2], 10) };
+      }
+      // Handle single SKU without quantity
+      return { sku: part.trim().toUpperCase(), qty: 1 };
+    }).filter(p => p.sku);
+  };
+
+  // Filter helper function
   const isInDateRange = (dateStr: string | null | undefined): boolean => {
     if (!dateStr) return false;
     try {
@@ -116,161 +129,129 @@ const LogisticProductTransaction = () => {
     }
   };
 
-  // Calculate product transaction data - group by bundle
+  // Calculate product transaction data - group by product SKU
   const productTransactions = useMemo(() => {
-    // Group purchases by bundle
-    const bundleMap = new Map<string, {
+    if (!products || products.length === 0) return [];
+
+    // Create product map for quick lookup
+    const productMap = new Map<string, {
       id: string;
       sku: string;
       name: string;
-      totalSales: number;
       stockIn: number;
       stockOut: number;
       shippedUnits: number;
-      shippedTransactions: number;
       returnUnits: number;
-      returnTransactions: number;
       tiktok: { units: number; transactions: number };
       shopee: { units: number; transactions: number };
       online: { units: number; transactions: number };
     }>();
 
-    // Process all purchases (already filtered by date_processed in query)
-    purchasesData?.forEach((p: any) => {
-      const bundleId = p.bundle?.id || "unknown";
-      const bundleSku = p.bundle?.sku || "N/A";
-      const bundleName = p.bundle?.name || "Unknown Bundle";
-      const qty = Number(p.unit) || 1;
+    // Initialize with all products
+    products.forEach((product: any) => {
+      productMap.set(product.sku?.toUpperCase() || product.id, {
+        id: product.id,
+        sku: product.sku || "N/A",
+        name: product.name,
+        stockIn: 0,
+        stockOut: 0,
+        shippedUnits: 0,
+        returnUnits: 0,
+        tiktok: { units: 0, transactions: 0 },
+        shopee: { units: 0, transactions: 0 },
+        online: { units: 0, transactions: 0 },
+      });
+    });
 
-      // Get or create bundle entry
-      if (!bundleMap.has(bundleId)) {
-        bundleMap.set(bundleId, {
-          id: bundleId,
-          sku: bundleSku,
-          name: bundleName,
-          totalSales: 0,
-          stockIn: 0,
-          stockOut: 0,
-          shippedUnits: 0,
-          shippedTransactions: 0,
-          returnUnits: 0,
-          returnTransactions: 0,
-          tiktok: { units: 0, transactions: 0 },
-          shopee: { units: 0, transactions: 0 },
-          online: { units: 0, transactions: 0 },
-        });
-      }
-
-      const bundle = bundleMap.get(bundleId)!;
-
-      // Total Sales
-      bundle.totalSales += Number(p.total_sale) || 0;
-
-      // Shipped Out
-      if (p.delivery_status === "Shipped") {
-        bundle.shippedUnits += qty;
-        bundle.shippedTransactions += 1;
-      }
-
-      // Return
-      if (p.delivery_status === "Return") {
-        bundle.returnUnits += qty;
-        bundle.returnTransactions += 1;
-      }
-
-      // Platform breakdown
-      if (p.jenis_platform === "Tiktok") {
-        bundle.tiktok.units += qty;
-        bundle.tiktok.transactions += 1;
-      } else if (p.jenis_platform === "Shopee") {
-        bundle.shopee.units += qty;
-        bundle.shopee.transactions += 1;
-      } else if (p.jenis_platform) {
-        bundle.online.units += qty;
-        bundle.online.transactions += 1;
+    // Add Stock In from logistic tables
+    stockInData.forEach((s: any) => {
+      const product = products.find((p: any) => p.id === s.product_id);
+      if (product && isInDateRange(s.date)) {
+        const key = product.sku?.toUpperCase() || product.id;
+        const entry = productMap.get(key);
+        if (entry) {
+          entry.stockIn += s.quantity || 0;
+        }
       }
     });
 
-    // Add Stock In/Out from logistic tables (match by product)
-    products?.forEach((product: any) => {
-      const stockIn = stockInData
-        ?.filter((s: any) => s.product_id === product.id && isInDateRange(s.date))
-        ?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+    // Add Stock Out from logistic tables
+    stockOutData.forEach((s: any) => {
+      const product = products.find((p: any) => p.id === s.product_id);
+      if (product && isInDateRange(s.date)) {
+        const key = product.sku?.toUpperCase() || product.id;
+        const entry = productMap.get(key);
+        if (entry) {
+          entry.stockOut += s.quantity || 0;
+        }
+      }
+    });
 
-      const stockOut = stockOutData
-        ?.filter((s: any) => s.product_id === product.id && isInDateRange(s.date))
-        ?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+    // Process purchases - break down bundle SKU to individual products
+    purchasesData.forEach((p: any) => {
+      const bundleSku = p.bundle?.sku;
+      const orderUnit = Number(p.unit) || 1;
+      const parsedProducts = parseBundleSku(bundleSku);
 
-      // Find matching bundle by SKU or create entry for product
-      let found = false;
-      bundleMap.forEach((bundle) => {
-        if (bundle.sku.toUpperCase() === product.sku?.toUpperCase()) {
-          bundle.stockIn += stockIn;
-          bundle.stockOut += stockOut;
-          found = true;
+      parsedProducts.forEach(({ sku, qty }) => {
+        const entry = productMap.get(sku);
+        if (entry) {
+          const totalQty = qty * orderUnit;
+
+          // Shipped
+          if (p.delivery_status === "Shipped") {
+            entry.shippedUnits += totalQty;
+          }
+
+          // Return
+          if (p.delivery_status === "Return") {
+            entry.returnUnits += totalQty;
+          }
+
+          // Platform breakdown
+          if (p.jenis_platform === "Tiktok") {
+            entry.tiktok.units += totalQty;
+            entry.tiktok.transactions += 1;
+          } else if (p.jenis_platform === "Shopee") {
+            entry.shopee.units += totalQty;
+            entry.shopee.transactions += 1;
+          } else if (p.jenis_platform) {
+            entry.online.units += totalQty;
+            entry.online.transactions += 1;
+          }
         }
       });
-
-      // If no matching bundle, add product as separate entry (only if has stock movement)
-      if (!found && (stockIn > 0 || stockOut > 0)) {
-        bundleMap.set(`product-${product.id}`, {
-          id: `product-${product.id}`,
-          sku: product.sku || "N/A",
-          name: product.name,
-          totalSales: 0,
-          stockIn,
-          stockOut,
-          shippedUnits: 0,
-          shippedTransactions: 0,
-          returnUnits: 0,
-          returnTransactions: 0,
-          tiktok: { units: 0, transactions: 0 },
-          shopee: { units: 0, transactions: 0 },
-          online: { units: 0, transactions: 0 },
-        });
-      }
     });
 
     // Convert to array and calculate percentages
-    return Array.from(bundleMap.values()).map((bundle) => {
-      const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.online.units;
-      const tiktokPct = totalPlatformUnits > 0 ? (bundle.tiktok.units / totalPlatformUnits) * 100 : 0;
-      const shopeePct = totalPlatformUnits > 0 ? (bundle.shopee.units / totalPlatformUnits) * 100 : 0;
-      const onlinePct = totalPlatformUnits > 0 ? (bundle.online.units / totalPlatformUnits) * 100 : 0;
+    return Array.from(productMap.values())
+      .map((product) => {
+        const totalPlatformUnits = product.tiktok.units + product.shopee.units + product.online.units;
+        const tiktokPct = totalPlatformUnits > 0 ? (product.tiktok.units / totalPlatformUnits) * 100 : 0;
+        const shopeePct = totalPlatformUnits > 0 ? (product.shopee.units / totalPlatformUnits) * 100 : 0;
+        const onlinePct = totalPlatformUnits > 0 ? (product.online.units / totalPlatformUnits) * 100 : 0;
 
-      return {
-        ...bundle,
-        tiktok: { ...bundle.tiktok, pct: tiktokPct },
-        shopee: { ...bundle.shopee, pct: shopeePct },
-        online: { ...bundle.online, pct: onlinePct },
-      };
-    }).filter((b) => b.totalSales > 0 || b.stockIn > 0 || b.stockOut > 0 || b.shippedUnits > 0 || b.returnUnits > 0);
+        return {
+          ...product,
+          tiktok: { ...product.tiktok, pct: tiktokPct },
+          shopee: { ...product.shopee, pct: shopeePct },
+          online: { ...product.online, pct: onlinePct },
+        };
+      })
+      .filter((p) => p.stockIn > 0 || p.stockOut > 0 || p.shippedUnits > 0 || p.returnUnits > 0);
   }, [products, stockInData, stockOutData, purchasesData, startDate, endDate]);
 
-  // Summary stats - data already filtered by date_processed in query
+  // Summary stats
   const summaryStats = useMemo(() => {
-    // Calculate Grand Total Sales
-    const grandTotalSales = purchasesData?.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0) || 0;
-
-    // Calculate Shipped
-    const shippedOrders = purchasesData?.filter((p: any) => p.delivery_status === "Shipped") || [];
-    const totalShipped = shippedOrders.reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0);
-
-    // Calculate Return
-    const returnOrders = purchasesData?.filter((p: any) => p.delivery_status === "Return") || [];
-    const totalReturn = returnOrders.reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0);
-
-    // Platform breakdown
-    const totalTiktok = purchasesData?.filter((p: any) => p.jenis_platform === "Tiktok").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
-    const totalShopee = purchasesData?.filter((p: any) => p.jenis_platform === "Shopee").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
-    const totalOnline = purchasesData?.filter((p: any) => p.jenis_platform && p.jenis_platform !== "Tiktok" && p.jenis_platform !== "Shopee").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
-
-    // Stock In/Out (only from Logistic tables)
     const totalStockIn = productTransactions.reduce((sum, p) => sum + p.stockIn, 0);
     const totalStockOut = productTransactions.reduce((sum, p) => sum + p.stockOut, 0);
+    const totalShipped = productTransactions.reduce((sum, p) => sum + p.shippedUnits, 0);
+    const totalReturn = productTransactions.reduce((sum, p) => sum + p.returnUnits, 0);
+    const totalTiktok = productTransactions.reduce((sum, p) => sum + p.tiktok.units, 0);
+    const totalShopee = productTransactions.reduce((sum, p) => sum + p.shopee.units, 0);
+    const totalOnline = productTransactions.reduce((sum, p) => sum + p.online.units, 0);
 
     return {
-      grandTotalSales,
       totalStockIn,
       totalStockOut,
       totalShipped,
@@ -279,7 +260,7 @@ const LogisticProductTransaction = () => {
       totalShopee,
       totalOnline,
     };
-  }, [productTransactions, purchasesData]);
+  }, [productTransactions]);
 
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
@@ -297,11 +278,9 @@ const LogisticProductTransaction = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-          Product Transaction Report
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          View product transactions breakdown by date range
+        <h1 className="text-2xl font-bold text-primary">Transaction</h1>
+        <p className="text-muted-foreground mt-1">
+          Product inventory transactions breakdown by date range
         </p>
       </div>
 
@@ -339,19 +318,8 @@ const LogisticProductTransaction = () => {
         </CardContent>
       </Card>
 
-      {/* Summary Stats Cards - Stock In/Out from Logistic, others from Marketer */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-yellow-600 mb-1">
-              <DollarSign className="w-4 h-4" />
-              <span className="text-xs font-medium">Total Sales</span>
-            </div>
-            <p className="text-xl font-bold">RM {summaryStats.grandTotalSales.toFixed(2)}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
-          </CardContent>
-        </Card>
-
+      {/* Summary Stats Cards - NO Total Sales */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className="border-l-4 border-l-emerald-500">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-emerald-600 mb-1">
@@ -381,7 +349,7 @@ const LogisticProductTransaction = () => {
               <span className="text-xs font-medium">Shipped</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalShipped}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
 
@@ -392,7 +360,7 @@ const LogisticProductTransaction = () => {
               <span className="text-xs font-medium">Return</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalReturn}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
 
@@ -403,7 +371,7 @@ const LogisticProductTransaction = () => {
               <span className="text-xs font-medium">Tiktok</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalTiktok}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
 
@@ -414,7 +382,7 @@ const LogisticProductTransaction = () => {
               <span className="text-xs font-medium">Shopee</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalShopee}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
 
@@ -425,12 +393,12 @@ const LogisticProductTransaction = () => {
               <span className="text-xs font-medium">Online</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalOnline}</p>
-            <div className="text-xs text-muted-foreground mt-1">Marketer</div>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Transaction Table */}
+      {/* Transaction Table - NO Total Sales column */}
       <Card>
         <CardContent className="p-4">
           <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -438,8 +406,7 @@ const LogisticProductTransaction = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 bg-background z-10">SKU</TableHead>
-                  <TableHead className="sticky left-16 bg-background z-10">Product Name</TableHead>
-                  <TableHead className="text-center text-yellow-600">Total Sales</TableHead>
+                  <TableHead>Product Name</TableHead>
                   <TableHead className="text-center text-emerald-600">Stock In</TableHead>
                   <TableHead className="text-center text-red-600">Stock Out</TableHead>
                   <TableHead className="text-center text-blue-600">Shipped Out</TableHead>
@@ -465,8 +432,7 @@ const LogisticProductTransaction = () => {
                 </TableRow>
                 <TableRow>
                   <TableHead className="sticky left-0 bg-background z-10"></TableHead>
-                  <TableHead className="sticky left-16 bg-background z-10"></TableHead>
-                  <TableHead className="text-center text-xs text-muted-foreground">RM</TableHead>
+                  <TableHead></TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
@@ -490,8 +456,7 @@ const LogisticProductTransaction = () => {
                   productTransactions.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-medium sticky left-0 bg-background z-10">{product.sku}</TableCell>
-                      <TableCell className="sticky left-16 bg-background z-10">{product.name}</TableCell>
-                      <TableCell className="text-center font-semibold text-yellow-600">{product.totalSales.toFixed(2)}</TableCell>
+                      <TableCell>{product.name}</TableCell>
                       <TableCell className="text-center font-semibold text-emerald-600">{product.stockIn}</TableCell>
                       <TableCell className="text-center font-semibold text-red-600">{product.stockOut}</TableCell>
                       <TableCell className="text-center font-semibold text-blue-600">{product.shippedUnits}</TableCell>
@@ -512,8 +477,8 @@ const LogisticProductTransaction = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
-                      No products available.
+                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                      No product transactions found.
                     </TableCell>
                   </TableRow>
                 )}
@@ -521,8 +486,7 @@ const LogisticProductTransaction = () => {
                 {productTransactions && productTransactions.length > 0 && (
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell className="sticky left-0 bg-muted/50 z-10">TOTAL</TableCell>
-                    <TableCell className="sticky left-16 bg-muted/50 z-10"></TableCell>
-                    <TableCell className="text-center text-yellow-600">{summaryStats.grandTotalSales.toFixed(2)}</TableCell>
+                    <TableCell></TableCell>
                     <TableCell className="text-center text-emerald-600">{summaryStats.totalStockIn}</TableCell>
                     <TableCell className="text-center text-red-600">{summaryStats.totalStockOut}</TableCell>
                     <TableCell className="text-center text-blue-600">{summaryStats.totalShipped}</TableCell>

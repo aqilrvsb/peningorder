@@ -143,6 +143,12 @@ const navItems: NavItem[] = [
     roles: ['logistic'],
   },
   {
+    label: 'Transaction Bundle',
+    path: '/dashboard/logistics/inventory-transaction-bundle',
+    icon: <TrendingUp className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
     label: 'Stock In',
     path: '/dashboard/logistics/stock-in',
     icon: <ArrowDownToLine className="w-5 h-5" />,
