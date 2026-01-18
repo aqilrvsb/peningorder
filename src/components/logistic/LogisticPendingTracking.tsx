@@ -423,7 +423,7 @@ const LogisticPendingTracking = () => {
             {/* Update by Selection */}
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">Update by Selection</h3>
-              <div className="flex gap-3 items-end">
+              <div className="flex gap-3 items-center">
                 <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
                   <SelectTrigger className="h-10 w-32">
                     <SelectValue />
@@ -437,7 +437,8 @@ const LogisticPendingTracking = () => {
                   type="date"
                   value={individualDate}
                   onChange={(e) => setIndividualDate(e.target.value)}
-                  className="h-10 w-40 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+                  style={{ minWidth: '180px' }}
+                  className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <Button
                   onClick={handleIndividualUpdate}
