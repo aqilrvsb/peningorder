@@ -6,46 +6,54 @@ import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 
+interface Order {
+  id: string;
+  marketer_id_staff: string;
+  marketer_name: string;
+  date_order: string;
+  total_price: number;
+  jenis_platform: string;
+}
+
 interface Spend {
   id: string;
   marketer_id_staff: string;
-  product: string;
   jenis_platform: string;
-  jenis_closing: string;
   total_spend: number;
   tarikh_spend: string;
 }
 
 interface MarketerSpendStats {
   idStaff: string;
+  name: string;
+  totalSales: number;
   totalSpend: number;
-  // By Platform
+  roas: number;
+  totalLead: number;
+  // Facebook
+  salesFB: number;
   spendFB: number;
-  spendFBPercent: number;
+  roasFB: number;
+  // Database
+  salesDatabase: number;
   spendDatabase: number;
-  spendDatabasePercent: number;
+  roasDatabase: number;
+  // Shopee
+  salesShopee: number;
   spendShopee: number;
-  spendShopeePercent: number;
+  roasShopee: number;
+  // Tiktok
+  salesTiktok: number;
   spendTiktok: number;
-  spendTiktokPercent: number;
+  roasTiktok: number;
+  // Google
+  salesGoogle: number;
   spendGoogle: number;
-  spendGooglePercent: number;
-  // By Jenis Closing
-  closingManual: number;
-  closingManualPercent: number;
-  closingWaBot: number;
-  closingWaBotPercent: number;
-  closingWebsite: number;
-  closingWebsitePercent: number;
-  closingCall: number;
-  closingCallPercent: number;
-  closingLive: number;
-  closingLivePercent: number;
-  closingBegLead: number;
-  closingBegLeadPercent: number;
+  roasGoogle: number;
 }
 
 const ReportingSpendBOD: React.FC = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [spends, setSpends] = useState<Spend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -54,20 +62,29 @@ const ReportingSpendBOD: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch all spends data
+  // Fetch all data
   useEffect(() => {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await (supabase as any)
-          .from('spends')
-          .select('id, marketer_id_staff, product, jenis_platform, jenis_closing, total_spend, tarikh_spend')
-          .order('created_at', { ascending: false });
+        const [ordersRes, spendsRes] = await Promise.all([
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, marketer_name, date_order, total_price, jenis_platform')
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+            .order('created_at', { ascending: false }),
+        ]);
 
-        if (error) throw error;
-        setSpends(data || []);
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+
+        setOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
       } catch (error) {
-        console.error('Error fetching spends:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -75,6 +92,22 @@ const ReportingSpendBOD: React.FC = () => {
 
     fetchAllData();
   }, []);
+
+  // Filter orders by date range
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      if (!order.date_order) return false;
+      try {
+        const orderDate = parseISO(order.date_order);
+        return isWithinInterval(orderDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+  }, [orders, startDate, endDate]);
 
   // Filter spends by date range
   const filteredSpends = useMemo(() => {
@@ -96,134 +129,143 @@ const ReportingSpendBOD: React.FC = () => {
   const marketerStats = useMemo(() => {
     const stats: Record<string, MarketerSpendStats> = {};
 
-    // Process spends
-    filteredSpends.forEach(spend => {
-      const idStaff = spend.marketer_id_staff;
-      const amount = Number(spend.total_spend) || 0;
+    // Process orders (sales)
+    filteredOrders.forEach(order => {
+      const idStaff = order.marketer_id_staff;
+      const name = order.marketer_name || idStaff;
+      const amount = Number(order.total_price) || 0;
 
       if (!stats[idStaff]) {
         stats[idStaff] = {
           idStaff,
+          name,
+          totalSales: 0,
           totalSpend: 0,
-          // By Platform
-          spendFB: 0,
-          spendFBPercent: 0,
-          spendDatabase: 0,
-          spendDatabasePercent: 0,
-          spendShopee: 0,
-          spendShopeePercent: 0,
-          spendTiktok: 0,
-          spendTiktokPercent: 0,
-          spendGoogle: 0,
-          spendGooglePercent: 0,
-          // By Jenis Closing
-          closingManual: 0,
-          closingManualPercent: 0,
-          closingWaBot: 0,
-          closingWaBotPercent: 0,
-          closingWebsite: 0,
-          closingWebsitePercent: 0,
-          closingCall: 0,
-          closingCallPercent: 0,
-          closingLive: 0,
-          closingLivePercent: 0,
-          closingBegLead: 0,
-          closingBegLeadPercent: 0,
+          roas: 0,
+          totalLead: 0,
+          salesFB: 0, spendFB: 0, roasFB: 0,
+          salesDatabase: 0, spendDatabase: 0, roasDatabase: 0,
+          salesShopee: 0, spendShopee: 0, roasShopee: 0,
+          salesTiktok: 0, spendTiktok: 0, roasTiktok: 0,
+          salesGoogle: 0, spendGoogle: 0, roasGoogle: 0,
+        };
+      }
+
+      stats[idStaff].totalSales += amount;
+      stats[idStaff].totalLead += 1;
+
+      // Count sales by platform
+      const platform = order.jenis_platform;
+      if (platform === 'Facebook') {
+        stats[idStaff].salesFB += amount;
+      } else if (platform === 'Database') {
+        stats[idStaff].salesDatabase += amount;
+      } else if (platform === 'Shopee') {
+        stats[idStaff].salesShopee += amount;
+      } else if (platform === 'Tiktok') {
+        stats[idStaff].salesTiktok += amount;
+      } else if (platform === 'Google') {
+        stats[idStaff].salesGoogle += amount;
+      }
+    });
+
+    // Process spends
+    filteredSpends.forEach(spend => {
+      const idStaff = spend.marketer_id_staff;
+      if (!idStaff) return;
+
+      const amount = Number(spend.total_spend) || 0;
+
+      // Initialize if not exists (marketer has spend but no sales)
+      if (!stats[idStaff]) {
+        stats[idStaff] = {
+          idStaff,
+          name: idStaff,
+          totalSales: 0,
+          totalSpend: 0,
+          roas: 0,
+          totalLead: 0,
+          salesFB: 0, spendFB: 0, roasFB: 0,
+          salesDatabase: 0, spendDatabase: 0, roasDatabase: 0,
+          salesShopee: 0, spendShopee: 0, roasShopee: 0,
+          salesTiktok: 0, spendTiktok: 0, roasTiktok: 0,
+          salesGoogle: 0, spendGoogle: 0, roasGoogle: 0,
         };
       }
 
       stats[idStaff].totalSpend += amount;
 
-      // Count by platform
-      const platform = spend.jenis_platform?.toLowerCase();
-      if (platform === 'facebook') {
+      // Count spend by platform
+      const platform = spend.jenis_platform;
+      if (platform === 'Facebook') {
         stats[idStaff].spendFB += amount;
-      } else if (platform === 'database') {
+      } else if (platform === 'Database') {
         stats[idStaff].spendDatabase += amount;
-      } else if (platform === 'shopee') {
+      } else if (platform === 'Shopee') {
         stats[idStaff].spendShopee += amount;
-      } else if (platform === 'tiktok') {
+      } else if (platform === 'Tiktok') {
         stats[idStaff].spendTiktok += amount;
-      } else if (platform === 'google') {
+      } else if (platform === 'Google') {
         stats[idStaff].spendGoogle += amount;
       }
-
-      // Count by jenis closing
-      const closing = spend.jenis_closing?.toLowerCase();
-      if (closing === 'manual') {
-        stats[idStaff].closingManual += amount;
-      } else if (closing === 'wa bot') {
-        stats[idStaff].closingWaBot += amount;
-      } else if (closing === 'website') {
-        stats[idStaff].closingWebsite += amount;
-      } else if (closing === 'call') {
-        stats[idStaff].closingCall += amount;
-      } else if (closing === 'live') {
-        stats[idStaff].closingLive += amount;
-      } else if (closing === 'beg lead') {
-        stats[idStaff].closingBegLead += amount;
-      }
     });
 
-    // Calculate percentages
+    // Calculate ROAS
     Object.values(stats).forEach(stat => {
-      const total = stat.totalSpend;
-      // Platform percentages
-      stat.spendFBPercent = total > 0 ? (stat.spendFB / total) * 100 : 0;
-      stat.spendDatabasePercent = total > 0 ? (stat.spendDatabase / total) * 100 : 0;
-      stat.spendShopeePercent = total > 0 ? (stat.spendShopee / total) * 100 : 0;
-      stat.spendTiktokPercent = total > 0 ? (stat.spendTiktok / total) * 100 : 0;
-      stat.spendGooglePercent = total > 0 ? (stat.spendGoogle / total) * 100 : 0;
-      // Closing percentages
-      stat.closingManualPercent = total > 0 ? (stat.closingManual / total) * 100 : 0;
-      stat.closingWaBotPercent = total > 0 ? (stat.closingWaBot / total) * 100 : 0;
-      stat.closingWebsitePercent = total > 0 ? (stat.closingWebsite / total) * 100 : 0;
-      stat.closingCallPercent = total > 0 ? (stat.closingCall / total) * 100 : 0;
-      stat.closingLivePercent = total > 0 ? (stat.closingLive / total) * 100 : 0;
-      stat.closingBegLeadPercent = total > 0 ? (stat.closingBegLead / total) * 100 : 0;
+      stat.roas = stat.totalSpend > 0 ? stat.totalSales / stat.totalSpend : 0;
+      stat.roasFB = stat.spendFB > 0 ? stat.salesFB / stat.spendFB : 0;
+      stat.roasDatabase = stat.spendDatabase > 0 ? stat.salesDatabase / stat.spendDatabase : 0;
+      stat.roasShopee = stat.spendShopee > 0 ? stat.salesShopee / stat.spendShopee : 0;
+      stat.roasTiktok = stat.spendTiktok > 0 ? stat.salesTiktok / stat.spendTiktok : 0;
+      stat.roasGoogle = stat.spendGoogle > 0 ? stat.salesGoogle / stat.spendGoogle : 0;
     });
 
-    // Convert to array and sort by total spend (highest first)
-    return Object.values(stats).sort((a, b) => b.totalSpend - a.totalSpend);
-  }, [filteredSpends]);
+    // Convert to array and sort by total sales (highest first)
+    return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
+  }, [filteredOrders, filteredSpends]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {
     if (!searchTerm) return marketerStats;
     const term = searchTerm.toLowerCase();
-    return marketerStats.filter(stat => stat.idStaff.toLowerCase().includes(term));
+    return marketerStats.filter(stat =>
+      stat.idStaff.toLowerCase().includes(term) ||
+      stat.name.toLowerCase().includes(term)
+    );
   }, [marketerStats, searchTerm]);
 
   // Calculate totals
   const totals = useMemo(() => {
     return filteredStats.reduce(
       (acc, stat) => ({
+        totalSales: acc.totalSales + stat.totalSales,
         totalSpend: acc.totalSpend + stat.totalSpend,
+        totalLead: acc.totalLead + stat.totalLead,
+        salesFB: acc.salesFB + stat.salesFB,
         spendFB: acc.spendFB + stat.spendFB,
+        salesDatabase: acc.salesDatabase + stat.salesDatabase,
         spendDatabase: acc.spendDatabase + stat.spendDatabase,
+        salesShopee: acc.salesShopee + stat.salesShopee,
         spendShopee: acc.spendShopee + stat.spendShopee,
+        salesTiktok: acc.salesTiktok + stat.salesTiktok,
         spendTiktok: acc.spendTiktok + stat.spendTiktok,
+        salesGoogle: acc.salesGoogle + stat.salesGoogle,
         spendGoogle: acc.spendGoogle + stat.spendGoogle,
-        closingManual: acc.closingManual + stat.closingManual,
-        closingWaBot: acc.closingWaBot + stat.closingWaBot,
-        closingWebsite: acc.closingWebsite + stat.closingWebsite,
-        closingCall: acc.closingCall + stat.closingCall,
-        closingLive: acc.closingLive + stat.closingLive,
-        closingBegLead: acc.closingBegLead + stat.closingBegLead,
       }),
       {
+        totalSales: 0,
         totalSpend: 0,
+        totalLead: 0,
+        salesFB: 0,
         spendFB: 0,
+        salesDatabase: 0,
         spendDatabase: 0,
+        salesShopee: 0,
         spendShopee: 0,
+        salesTiktok: 0,
         spendTiktok: 0,
+        salesGoogle: 0,
         spendGoogle: 0,
-        closingManual: 0,
-        closingWaBot: 0,
-        closingWebsite: 0,
-        closingCall: 0,
-        closingLive: 0,
-        closingBegLead: 0,
       }
     );
   }, [filteredStats]);
@@ -233,10 +275,6 @@ const ReportingSpendBOD: React.FC = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
-  };
-
-  const formatPercent = (value: number) => {
-    return `${value.toFixed(1)}%`;
   };
 
   if (isLoading) {
@@ -256,7 +294,7 @@ const ReportingSpendBOD: React.FC = () => {
             <BarChart3 className="w-6 h-6" />
             Reporting Spend
           </h1>
-          <p className="text-muted-foreground mt-1">Spend summary by marketer</p>
+          <p className="text-muted-foreground mt-1">Spend & Sales summary by marketer</p>
         </div>
       </div>
 
@@ -308,80 +346,78 @@ const ReportingSpendBOD: React.FC = () => {
         </h2>
 
         <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full min-w-[1600px] border-collapse">
+          <table className="w-full min-w-[1800px] border-collapse">
             <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px]">ID STAFF</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[120px]">TOTAL SPEND</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-blue-50 dark:bg-blue-950/30">FACEBOOK</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-purple-50 dark:bg-purple-950/30">DATABASE</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-orange-50 dark:bg-orange-950/30">SHOPEE</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-pink-50 dark:bg-pink-950/30">TIKTOK</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-red-50 dark:bg-red-950/30">GOOGLE</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-slate-50 dark:bg-slate-950/30">MANUAL</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-green-50 dark:bg-green-950/30">WA BOT</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-violet-50 dark:bg-violet-950/30">WEBSITE</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-sky-50 dark:bg-sky-950/30">CALL</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-rose-50 dark:bg-rose-950/30">LIVE</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[100px] bg-amber-50 dark:bg-amber-950/30">BEG LEAD</th>
+                <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
+                <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">NAME</th>
+                <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SALES</th>
+                <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SPEND</th>
+                <th rowSpan={2} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
+                <th rowSpan={2} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">LEAD</th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap border-r bg-blue-50 dark:bg-blue-950/30">FACEBOOK</th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r bg-purple-50 dark:bg-purple-950/30">DATABASE</th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r bg-orange-50 dark:bg-orange-950/30">SHOPEE</th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-pink-600 uppercase tracking-wider whitespace-nowrap border-r bg-pink-50 dark:bg-pink-950/30">TIKTOK</th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-semibold text-red-600 uppercase tracking-wider whitespace-nowrap bg-red-50 dark:bg-red-950/30">GOOGLE</th>
+              </tr>
+              <tr>
+                {/* Facebook */}
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-blue-600 whitespace-nowrap bg-blue-50 dark:bg-blue-950/30">Sales</th>
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-blue-600 whitespace-nowrap bg-blue-50 dark:bg-blue-950/30">Spend</th>
+                <th className="px-2 py-1 text-center text-[10px] font-medium text-blue-600 whitespace-nowrap border-r bg-blue-50 dark:bg-blue-950/30">ROAS</th>
+                {/* Database */}
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-purple-600 whitespace-nowrap bg-purple-50 dark:bg-purple-950/30">Sales</th>
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-purple-600 whitespace-nowrap bg-purple-50 dark:bg-purple-950/30">Spend</th>
+                <th className="px-2 py-1 text-center text-[10px] font-medium text-purple-600 whitespace-nowrap border-r bg-purple-50 dark:bg-purple-950/30">ROAS</th>
+                {/* Shopee */}
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-orange-600 whitespace-nowrap bg-orange-50 dark:bg-orange-950/30">Sales</th>
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-orange-600 whitespace-nowrap bg-orange-50 dark:bg-orange-950/30">Spend</th>
+                <th className="px-2 py-1 text-center text-[10px] font-medium text-orange-600 whitespace-nowrap border-r bg-orange-50 dark:bg-orange-950/30">ROAS</th>
+                {/* Tiktok */}
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-pink-600 whitespace-nowrap bg-pink-50 dark:bg-pink-950/30">Sales</th>
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-pink-600 whitespace-nowrap bg-pink-50 dark:bg-pink-950/30">Spend</th>
+                <th className="px-2 py-1 text-center text-[10px] font-medium text-pink-600 whitespace-nowrap border-r bg-pink-50 dark:bg-pink-950/30">ROAS</th>
+                {/* Google */}
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-red-600 whitespace-nowrap bg-red-50 dark:bg-red-950/30">Sales</th>
+                <th className="px-2 py-1 text-right text-[10px] font-medium text-red-600 whitespace-nowrap bg-red-50 dark:bg-red-950/30">Spend</th>
+                <th className="px-2 py-1 text-center text-[10px] font-medium text-red-600 whitespace-nowrap bg-red-50 dark:bg-red-950/30">ROAS</th>
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
               {filteredStats.map((stat) => (
                 <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium whitespace-nowrap">{stat.idStaff}</td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-primary whitespace-nowrap">RM {formatNumber(stat.totalSpend)}</td>
-                  {/* Platform columns */}
-                  <td className="px-4 py-3 text-sm text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">
-                    <div>RM {formatNumber(stat.spendFB)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.spendFBPercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">
-                    <div>RM {formatNumber(stat.spendDatabase)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.spendDatabasePercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">
-                    <div>RM {formatNumber(stat.spendShopee)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.spendShopeePercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">
-                    <div>RM {formatNumber(stat.spendTiktok)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.spendTiktokPercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">
-                    <div>RM {formatNumber(stat.spendGoogle)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.spendGooglePercent)}</div>
-                  </td>
-                  {/* Closing columns */}
-                  <td className="px-4 py-3 text-sm text-right text-slate-600 whitespace-nowrap bg-slate-50/50 dark:bg-slate-950/20">
-                    <div>RM {formatNumber(stat.closingManual)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingManualPercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-green-600 whitespace-nowrap bg-green-50/50 dark:bg-green-950/20">
-                    <div>RM {formatNumber(stat.closingWaBot)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingWaBotPercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-violet-600 whitespace-nowrap bg-violet-50/50 dark:bg-violet-950/20">
-                    <div>RM {formatNumber(stat.closingWebsite)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingWebsitePercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-sky-600 whitespace-nowrap bg-sky-50/50 dark:bg-sky-950/20">
-                    <div>RM {formatNumber(stat.closingCall)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingCallPercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-rose-600 whitespace-nowrap bg-rose-50/50 dark:bg-rose-950/20">
-                    <div>RM {formatNumber(stat.closingLive)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingLivePercent)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-amber-600 whitespace-nowrap bg-amber-50/50 dark:bg-amber-950/20">
-                    <div>RM {formatNumber(stat.closingBegLead)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(stat.closingBegLeadPercent)}</div>
-                  </td>
+                  <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
+                  <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
+                  <td className="px-3 py-2 text-sm text-right font-semibold text-success whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
+                  <td className="px-3 py-2 text-sm text-right font-semibold text-warning whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
+                  <td className="px-3 py-2 text-sm text-center font-bold text-primary whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
+                  <td className="px-3 py-2 text-sm text-center whitespace-nowrap border-r">{stat.totalLead}</td>
+                  {/* Facebook */}
+                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(stat.salesFB)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(stat.spendFB)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-blue-600 whitespace-nowrap border-r bg-blue-50/50 dark:bg-blue-950/20">{stat.roasFB.toFixed(2)}x</td>
+                  {/* Database */}
+                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(stat.salesDatabase)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(stat.spendDatabase)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-purple-600 whitespace-nowrap border-r bg-purple-50/50 dark:bg-purple-950/20">{stat.roasDatabase.toFixed(2)}x</td>
+                  {/* Shopee */}
+                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(stat.salesShopee)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(stat.spendShopee)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-orange-600 whitespace-nowrap border-r bg-orange-50/50 dark:bg-orange-950/20">{stat.roasShopee.toFixed(2)}x</td>
+                  {/* Tiktok */}
+                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(stat.salesTiktok)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(stat.spendTiktok)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-pink-600 whitespace-nowrap border-r bg-pink-50/50 dark:bg-pink-950/20">{stat.roasTiktok.toFixed(2)}x</td>
+                  {/* Google */}
+                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(stat.salesGoogle)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(stat.spendGoogle)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{stat.roasGoogle.toFixed(2)}x</td>
                 </tr>
               ))}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={21} className="px-4 py-8 text-center text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>
@@ -390,53 +426,43 @@ const ReportingSpendBOD: React.FC = () => {
             {filteredStats.length > 0 && (
               <tfoot className="bg-muted/70">
                 <tr className="font-semibold">
-                  <td className="px-4 py-3 text-sm whitespace-nowrap">TOTAL ({filteredStats.length} marketers)</td>
-                  <td className="px-4 py-3 text-sm text-right text-primary whitespace-nowrap">RM {formatNumber(totals.totalSpend)}</td>
-                  {/* Platform totals */}
-                  <td className="px-4 py-3 text-sm text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">
-                    <div>RM {formatNumber(totals.spendFB)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.spendFB / totals.totalSpend) * 100 : 0)}</div>
+                  <td className="px-3 py-2 text-sm whitespace-nowrap border-r">TOTAL</td>
+                  <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{filteredStats.length} marketers</td>
+                  <td className="px-3 py-2 text-sm text-right text-success whitespace-nowrap border-r">{formatNumber(totals.totalSales)}</td>
+                  <td className="px-3 py-2 text-sm text-right text-warning whitespace-nowrap border-r">{formatNumber(totals.totalSpend)}</td>
+                  <td className="px-3 py-2 text-sm text-center text-primary whitespace-nowrap border-r">
+                    {(totals.totalSpend > 0 ? totals.totalSales / totals.totalSpend : 0).toFixed(2)}x
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">
-                    <div>RM {formatNumber(totals.spendDatabase)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.spendDatabase / totals.totalSpend) * 100 : 0)}</div>
+                  <td className="px-3 py-2 text-sm text-center whitespace-nowrap border-r">{totals.totalLead}</td>
+                  {/* Facebook totals */}
+                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(totals.salesFB)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-blue-600 whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/20">{formatNumber(totals.spendFB)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-blue-600 whitespace-nowrap border-r bg-blue-50/50 dark:bg-blue-950/20">
+                    {(totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0).toFixed(2)}x
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">
-                    <div>RM {formatNumber(totals.spendShopee)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.spendShopee / totals.totalSpend) * 100 : 0)}</div>
+                  {/* Database totals */}
+                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(totals.salesDatabase)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-purple-600 whitespace-nowrap bg-purple-50/50 dark:bg-purple-950/20">{formatNumber(totals.spendDatabase)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-purple-600 whitespace-nowrap border-r bg-purple-50/50 dark:bg-purple-950/20">
+                    {(totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0).toFixed(2)}x
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">
-                    <div>RM {formatNumber(totals.spendTiktok)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.spendTiktok / totals.totalSpend) * 100 : 0)}</div>
+                  {/* Shopee totals */}
+                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(totals.salesShopee)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-orange-600 whitespace-nowrap bg-orange-50/50 dark:bg-orange-950/20">{formatNumber(totals.spendShopee)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-orange-600 whitespace-nowrap border-r bg-orange-50/50 dark:bg-orange-950/20">
+                    {(totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0).toFixed(2)}x
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">
-                    <div>RM {formatNumber(totals.spendGoogle)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.spendGoogle / totals.totalSpend) * 100 : 0)}</div>
+                  {/* Tiktok totals */}
+                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(totals.salesTiktok)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-pink-600 whitespace-nowrap bg-pink-50/50 dark:bg-pink-950/20">{formatNumber(totals.spendTiktok)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-pink-600 whitespace-nowrap border-r bg-pink-50/50 dark:bg-pink-950/20">
+                    {(totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0).toFixed(2)}x
                   </td>
-                  {/* Closing totals */}
-                  <td className="px-4 py-3 text-sm text-right text-slate-600 whitespace-nowrap bg-slate-50/50 dark:bg-slate-950/20">
-                    <div>RM {formatNumber(totals.closingManual)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingManual / totals.totalSpend) * 100 : 0)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-green-600 whitespace-nowrap bg-green-50/50 dark:bg-green-950/20">
-                    <div>RM {formatNumber(totals.closingWaBot)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingWaBot / totals.totalSpend) * 100 : 0)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-violet-600 whitespace-nowrap bg-violet-50/50 dark:bg-violet-950/20">
-                    <div>RM {formatNumber(totals.closingWebsite)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingWebsite / totals.totalSpend) * 100 : 0)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-sky-600 whitespace-nowrap bg-sky-50/50 dark:bg-sky-950/20">
-                    <div>RM {formatNumber(totals.closingCall)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingCall / totals.totalSpend) * 100 : 0)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-rose-600 whitespace-nowrap bg-rose-50/50 dark:bg-rose-950/20">
-                    <div>RM {formatNumber(totals.closingLive)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingLive / totals.totalSpend) * 100 : 0)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right text-amber-600 whitespace-nowrap bg-amber-50/50 dark:bg-amber-950/20">
-                    <div>RM {formatNumber(totals.closingBegLead)}</div>
-                    <div className="text-xs text-muted-foreground">{formatPercent(totals.totalSpend > 0 ? (totals.closingBegLead / totals.totalSpend) * 100 : 0)}</div>
+                  {/* Google totals */}
+                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(totals.salesGoogle)}</td>
+                  <td className="px-2 py-2 text-xs text-right text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">{formatNumber(totals.spendGoogle)}</td>
+                  <td className="px-2 py-2 text-xs text-center font-medium text-red-600 whitespace-nowrap bg-red-50/50 dark:bg-red-950/20">
+                    {(totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0).toFixed(2)}x
                   </td>
                 </tr>
               </tfoot>
