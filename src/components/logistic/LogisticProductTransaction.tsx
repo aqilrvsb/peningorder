@@ -73,15 +73,28 @@ const LogisticProductTransaction = () => {
 
   // Fetch ALL marketer orders from customer_purchases (for Total Sales, Shipped, Return, Tiktok, Shopee, Online)
   // Stock In/Out comes from Logistic tables only
+  // Filter by date_processed as requested
   const { data: purchasesData = [], isLoading: purchasesLoading } = useQuery({
     queryKey: ["marketer-orders-transactions", startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
-        .select("id, product_id, sku, quantity, delivery_status, platform, jenis_platform, date_order, date_processed, date_return, marketer_id, total_price, produk");
+        .select(`
+          id,
+          bundle_id,
+          unit,
+          delivery_status,
+          jenis_platform,
+          date_order,
+          date_processed,
+          date_return,
+          marketer_id_staff,
+          total_sale,
+          bundle:logistic_bundles(id, name, sku)
+        `);
 
-      if (startDate) query = query.gte("date_order", startDate);
-      if (endDate) query = query.lte("date_order", endDate);
+      if (startDate) query = query.gte("date_processed", startDate);
+      if (endDate) query = query.lte("date_processed", endDate);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -89,7 +102,7 @@ const LogisticProductTransaction = () => {
     },
   });
 
-  // Filter helper function
+  // Filter helper function - uses date_processed
   const isInDateRange = (dateStr: string | null | undefined): boolean => {
     if (!dateStr) return false;
     try {
@@ -103,128 +116,16 @@ const LogisticProductTransaction = () => {
     }
   };
 
-  // Helper function to check if SKU/name is a combo (contains " + ")
-  const isCombo = (text: string | null | undefined): boolean => {
-    return text ? text.includes(' + ') : false;
-  };
-
-  // Calculate product transaction data
+  // Calculate product transaction data - group by bundle
   const productTransactions = useMemo(() => {
-    if (!products) return [];
-
-    // First, get regular products
-    const regularProducts = products.map((product) => {
-      // Stock In - filter by date
-      const stockIn = stockInData
-        ?.filter((s) => s.product_id === product.id && isInDateRange(s.date))
-        ?.reduce((sum, s) => sum + (s.quantity || 0), 0) || 0;
-
-      // Stock Out - filter by date
-      const stockOut = stockOutData
-        ?.filter((s) => s.product_id === product.id && isInDateRange(s.date))
-        ?.reduce((sum, s) => sum + (s.quantity || 0), 0) || 0;
-
-      // Get purchases for this product
-      // Match by: 1) product_id, 2) SKU, 3) product name in produk field
-      // This ensures orders without product_id linked are still counted for the correct product
-      const productPurchases = purchasesData?.filter((p) => {
-        // Direct match by product_id
-        if (p.product_id === product.id) return true;
-
-        // Skip combos (contain " + ") - they're handled separately
-        const purchaseProductName = (p.produk || "").toLowerCase();
-        if (purchaseProductName.includes(' + ')) return false;
-
-        // Match by SKU (sku field may contain "SKU-qty" format like "ZP250-2")
-        if (p.sku && product.sku) {
-          const purchaseSku = p.sku.split('-')[0].toUpperCase(); // Get base SKU without quantity
-          const productSku = product.sku.toUpperCase();
-          if (purchaseSku === productSku) return true;
-        }
-
-        // Match by product name (when product_id is NULL)
-        if (!p.product_id) {
-          const productName = product.name.toLowerCase();
-          // Check if the purchase product name contains the product name or vice versa
-          if (purchaseProductName && productName) {
-            return purchaseProductName.includes(productName) || productName.includes(purchaseProductName);
-          }
-        }
-        return false;
-      }) || [];
-
-      // Total Sales - use total_price for per-product calculation (Marketer data only)
-      const allOrdersByDateOrder = productPurchases.filter(
-        (p) => isInDateRange(p.date_order)
-      );
-      const totalSales = allOrdersByDateOrder.reduce((sum, p) => sum + (Number(p.total_price) || 0), 0);
-
-      // Shipped Out - delivery_status = 'Shipped', filter by date_order (Marketer data only)
-      const shippedPurchases = productPurchases.filter(
-        (p) => p.delivery_status === "Shipped" && isInDateRange(p.date_order)
-      );
-      const shippedUnits = shippedPurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const shippedTransactions = shippedPurchases.length;
-
-      // Return - delivery_status = 'Return', filter by date_order (Marketer data only)
-      const returnPurchases = productPurchases.filter(
-        (p) => p.delivery_status === "Return" && isInDateRange(p.date_order)
-      );
-      const returnUnits = returnPurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const returnTransactions = returnPurchases.length;
-
-      // Platform breakdown - Marketer uses 'jenis_platform' (Marketer data only)
-      // Tiktok
-      const tiktokPurchases = allOrdersByDateOrder.filter((p) => p.jenis_platform === "Tiktok");
-      const tiktokUnits = tiktokPurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const tiktokTransactions = tiktokPurchases.length;
-
-      // Shopee
-      const shopeePurchases = allOrdersByDateOrder.filter((p) => p.jenis_platform === "Shopee");
-      const shopeeUnits = shopeePurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const shopeeTransactions = shopeePurchases.length;
-
-      // Online (Facebook, Database, Google, etc. - anything not Tiktok/Shopee)
-      const onlinePurchases = allOrdersByDateOrder.filter(
-        (p) => p.jenis_platform && p.jenis_platform !== "Tiktok" && p.jenis_platform !== "Shopee"
-      );
-      const onlineUnits = onlinePurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const onlineTransactions = onlinePurchases.length;
-
-      // Calculate percentages based on total platform units
-      const totalPlatformUnits = tiktokUnits + shopeeUnits + onlineUnits;
-      const tiktokPct = totalPlatformUnits > 0 ? (tiktokUnits / totalPlatformUnits) * 100 : 0;
-      const shopeePct = totalPlatformUnits > 0 ? (shopeeUnits / totalPlatformUnits) * 100 : 0;
-      const onlinePct = totalPlatformUnits > 0 ? (onlineUnits / totalPlatformUnits) * 100 : 0;
-
-      return {
-        ...product,
-        totalSales,
-        stockIn,
-        stockOut,
-        shippedUnits,
-        shippedTransactions,
-        returnUnits,
-        returnTransactions,
-        tiktok: { units: tiktokUnits, transactions: tiktokTransactions, pct: tiktokPct },
-        shopee: { units: shopeeUnits, transactions: shopeeTransactions, pct: shopeePct },
-        online: { units: onlineUnits, transactions: onlineTransactions, pct: onlinePct },
-        isCombo: false,
-      };
-    });
-
-    // Now get combo products from purchases (where product_id is NULL and produk contains " + ")
-    // This ensures no double counting - combos are only counted when product_id is NULL
-    const allComboPurchases = purchasesData?.filter((p: any) => {
-      const productName = p.produk || "";
-      // Only count as combo if product_id is NULL (not linked to a specific product)
-      return !p.product_id && isCombo(productName);
-    }) || [];
-
-    // Group combo purchases by product name (Marketer data only)
-    const comboMap = new Map<string, {
+    // Group purchases by bundle
+    const bundleMap = new Map<string, {
+      id: string;
+      sku: string;
       name: string;
       totalSales: number;
+      stockIn: number;
+      stockOut: number;
       shippedUnits: number;
       shippedTransactions: number;
       returnUnits: number;
@@ -234,14 +135,22 @@ const LogisticProductTransaction = () => {
       online: { units: number; transactions: number };
     }>();
 
-    allComboPurchases.forEach((p: any) => {
-      const comboName = p.produk || "Unknown Combo";
+    // Process all purchases (already filtered by date_processed in query)
+    purchasesData?.forEach((p: any) => {
+      const bundleId = p.bundle?.id || "unknown";
+      const bundleSku = p.bundle?.sku || "N/A";
+      const bundleName = p.bundle?.name || "Unknown Bundle";
+      const qty = Number(p.unit) || 1;
 
-      // Get or create combo entry
-      if (!comboMap.has(comboName)) {
-        comboMap.set(comboName, {
-          name: comboName,
+      // Get or create bundle entry
+      if (!bundleMap.has(bundleId)) {
+        bundleMap.set(bundleId, {
+          id: bundleId,
+          sku: bundleSku,
+          name: bundleName,
           totalSales: 0,
+          stockIn: 0,
+          stockOut: 0,
           shippedUnits: 0,
           shippedTransactions: 0,
           returnUnits: 0,
@@ -252,92 +161,109 @@ const LogisticProductTransaction = () => {
         });
       }
 
-      const combo = comboMap.get(comboName)!;
-      const qty = Number(p.quantity) || 0;
+      const bundle = bundleMap.get(bundleId)!;
 
-      // Total Sales - filter by date_order
-      if (isInDateRange(p.date_order)) {
-        const price = Number(p.total_price) || 0;
-        combo.totalSales += price;
+      // Total Sales
+      bundle.totalSales += Number(p.total_sale) || 0;
+
+      // Shipped Out
+      if (p.delivery_status === "Shipped") {
+        bundle.shippedUnits += qty;
+        bundle.shippedTransactions += 1;
       }
 
-      // Shipped Out - delivery_status = 'Shipped', filter by date_order
-      if (p.delivery_status === "Shipped" && isInDateRange(p.date_order)) {
-        combo.shippedUnits += qty;
-        combo.shippedTransactions += 1;
+      // Return
+      if (p.delivery_status === "Return") {
+        bundle.returnUnits += qty;
+        bundle.returnTransactions += 1;
       }
 
-      // Platform breakdown - Marketer uses 'jenis_platform'
-      if (isInDateRange(p.date_order)) {
-        if (p.jenis_platform === "Tiktok") {
-          combo.tiktok.units += qty;
-          combo.tiktok.transactions += 1;
-        } else if (p.jenis_platform === "Shopee") {
-          combo.shopee.units += qty;
-          combo.shopee.transactions += 1;
-        } else if (p.jenis_platform) {
-          combo.online.units += qty;
-          combo.online.transactions += 1;
-        }
-      }
-
-      // Return - delivery_status = 'Return', filter by date_order
-      if (p.delivery_status === "Return" && isInDateRange(p.date_order)) {
-        combo.returnUnits += qty;
-        combo.returnTransactions += 1;
+      // Platform breakdown
+      if (p.jenis_platform === "Tiktok") {
+        bundle.tiktok.units += qty;
+        bundle.tiktok.transactions += 1;
+      } else if (p.jenis_platform === "Shopee") {
+        bundle.shopee.units += qty;
+        bundle.shopee.transactions += 1;
+      } else if (p.jenis_platform) {
+        bundle.online.units += qty;
+        bundle.online.transactions += 1;
       }
     });
 
-    // Convert combo map to array with same structure as regular products
-    const comboProducts = Array.from(comboMap.values()).map((combo, index) => {
-      // Calculate percentages based on total platform units
-      const totalPlatformUnits = combo.tiktok.units + combo.shopee.units + combo.online.units;
-      const tiktokPct = totalPlatformUnits > 0 ? (combo.tiktok.units / totalPlatformUnits) * 100 : 0;
-      const shopeePct = totalPlatformUnits > 0 ? (combo.shopee.units / totalPlatformUnits) * 100 : 0;
-      const onlinePct = totalPlatformUnits > 0 ? (combo.online.units / totalPlatformUnits) * 100 : 0;
+    // Add Stock In/Out from logistic tables (match by product)
+    products?.forEach((product: any) => {
+      const stockIn = stockInData
+        ?.filter((s: any) => s.product_id === product.id && isInDateRange(s.date))
+        ?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+
+      const stockOut = stockOutData
+        ?.filter((s: any) => s.product_id === product.id && isInDateRange(s.date))
+        ?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
+
+      // Find matching bundle by SKU or create entry for product
+      let found = false;
+      bundleMap.forEach((bundle) => {
+        if (bundle.sku.toUpperCase() === product.sku?.toUpperCase()) {
+          bundle.stockIn += stockIn;
+          bundle.stockOut += stockOut;
+          found = true;
+        }
+      });
+
+      // If no matching bundle, add product as separate entry (only if has stock movement)
+      if (!found && (stockIn > 0 || stockOut > 0)) {
+        bundleMap.set(`product-${product.id}`, {
+          id: `product-${product.id}`,
+          sku: product.sku || "N/A",
+          name: product.name,
+          totalSales: 0,
+          stockIn,
+          stockOut,
+          shippedUnits: 0,
+          shippedTransactions: 0,
+          returnUnits: 0,
+          returnTransactions: 0,
+          tiktok: { units: 0, transactions: 0 },
+          shopee: { units: 0, transactions: 0 },
+          online: { units: 0, transactions: 0 },
+        });
+      }
+    });
+
+    // Convert to array and calculate percentages
+    return Array.from(bundleMap.values()).map((bundle) => {
+      const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.online.units;
+      const tiktokPct = totalPlatformUnits > 0 ? (bundle.tiktok.units / totalPlatformUnits) * 100 : 0;
+      const shopeePct = totalPlatformUnits > 0 ? (bundle.shopee.units / totalPlatformUnits) * 100 : 0;
+      const onlinePct = totalPlatformUnits > 0 ? (bundle.online.units / totalPlatformUnits) * 100 : 0;
 
       return {
-        id: `combo-${index}`,
-        sku: `COMBO - ${combo.name}`, // Prefix with COMBO
-        name: combo.name,
-        totalSales: combo.totalSales,
-        stockIn: 0,
-        stockOut: 0,
-        shippedUnits: combo.shippedUnits,
-        shippedTransactions: combo.shippedTransactions,
-        returnUnits: combo.returnUnits,
-        returnTransactions: combo.returnTransactions,
-        tiktok: { units: combo.tiktok.units, transactions: combo.tiktok.transactions, pct: tiktokPct },
-        shopee: { units: combo.shopee.units, transactions: combo.shopee.transactions, pct: shopeePct },
-        online: { units: combo.online.units, transactions: combo.online.transactions, pct: onlinePct },
-        isCombo: true,
+        ...bundle,
+        tiktok: { ...bundle.tiktok, pct: tiktokPct },
+        shopee: { ...bundle.shopee, pct: shopeePct },
+        online: { ...bundle.online, pct: onlinePct },
       };
-    });
-
-    // Filter out combos with no activity (no sales, shipped, or returns) and combine with regular products
-    const filteredCombos = comboProducts.filter((c) => c.totalSales > 0 || c.shippedUnits > 0 || c.returnUnits > 0);
-
-    return [...regularProducts, ...filteredCombos];
+    }).filter((b) => b.totalSales > 0 || b.stockIn > 0 || b.stockOut > 0 || b.shippedUnits > 0 || b.returnUnits > 0);
   }, [products, stockInData, stockOutData, purchasesData, startDate, endDate]);
 
-  // Summary stats - Marketer data only (except Stock In/Out from Logistic)
+  // Summary stats - data already filtered by date_processed in query
   const summaryStats = useMemo(() => {
-    // Calculate Grand Total Sales using total_price (Marketer data only)
-    const allOrdersInRange = purchasesData?.filter((p: any) => isInDateRange(p.date_order)) || [];
-    const grandTotalSales = allOrdersInRange.reduce((sum: number, o: any) => sum + (Number(o.total_price) || 0), 0);
+    // Calculate Grand Total Sales
+    const grandTotalSales = purchasesData?.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0) || 0;
 
-    // Calculate Shipped (Marketer data only)
-    const shippedOrders = purchasesData?.filter((p: any) => p.delivery_status === "Shipped" && isInDateRange(p.date_order)) || [];
-    const totalShipped = shippedOrders.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
+    // Calculate Shipped
+    const shippedOrders = purchasesData?.filter((p: any) => p.delivery_status === "Shipped") || [];
+    const totalShipped = shippedOrders.reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0);
 
-    // Calculate Return (Marketer data only)
-    const returnOrders = purchasesData?.filter((p: any) => p.delivery_status === "Return" && isInDateRange(p.date_order)) || [];
-    const totalReturn = returnOrders.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
+    // Calculate Return
+    const returnOrders = purchasesData?.filter((p: any) => p.delivery_status === "Return") || [];
+    const totalReturn = returnOrders.reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0);
 
-    // Platform breakdown (Marketer data only - uses jenis_platform)
-    const totalTiktok = allOrdersInRange.filter((p: any) => p.jenis_platform === "Tiktok").reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
-    const totalShopee = allOrdersInRange.filter((p: any) => p.jenis_platform === "Shopee").reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
-    const totalOnline = allOrdersInRange.filter((p: any) => p.jenis_platform && p.jenis_platform !== "Tiktok" && p.jenis_platform !== "Shopee").reduce((sum: number, p: any) => sum + (p.quantity || 0), 0);
+    // Platform breakdown
+    const totalTiktok = purchasesData?.filter((p: any) => p.jenis_platform === "Tiktok").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
+    const totalShopee = purchasesData?.filter((p: any) => p.jenis_platform === "Shopee").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
+    const totalOnline = purchasesData?.filter((p: any) => p.jenis_platform && p.jenis_platform !== "Tiktok" && p.jenis_platform !== "Shopee").reduce((sum: number, p: any) => sum + (Number(p.unit) || 1), 0) || 0;
 
     // Stock In/Out (only from Logistic tables)
     const totalStockIn = productTransactions.reduce((sum, p) => sum + p.stockIn, 0);
@@ -353,7 +279,7 @@ const LogisticProductTransaction = () => {
       totalShopee,
       totalOnline,
     };
-  }, [productTransactions, purchasesData, startDate, endDate]);
+  }, [productTransactions, purchasesData]);
 
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 
