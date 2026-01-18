@@ -86,43 +86,31 @@ const LogisticStockIn = () => {
 
       if (stockInError) throw stockInError;
 
-      // Check if inventory exists for this user and product
-      const { data: existing, error: fetchError } = await supabase
-        .from("inventory")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("product_id", selectedProduct)
+      // Get current product quantity
+      const { data: product, error: fetchError } = await supabase
+        .from("products")
+        .select("quantity, stock_in")
+        .eq("id", selectedProduct)
         .single();
 
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 = no rows returned, which is OK
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
 
-      if (existing) {
-        // Update inventory (increase)
-        const { error: invError } = await supabase
-          .from("inventory")
-          .update({ quantity: existing.quantity + quantityToAdd })
-          .eq("id", existing.id);
+      // Update product quantity and stock_in
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          quantity: (product.quantity || 0) + quantityToAdd,
+          stock_in: (product.stock_in || 0) + quantityToAdd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedProduct);
 
-        if (invError) throw invError;
-      } else {
-        // Create new inventory record
-        const { error: insertError } = await supabase
-          .from("inventory")
-          .insert({
-            user_id: user?.id,
-            product_id: selectedProduct,
-            quantity: quantityToAdd,
-          });
-
-        if (insertError) throw insertError;
-      }
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-in-logistic"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Stock in recorded successfully");
       setIsDialogOpen(false);
       resetForm();

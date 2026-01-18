@@ -72,24 +72,21 @@ const LogisticStockOut = () => {
     mutationFn: async () => {
       const quantityToRemove = parseInt(quantity);
 
-      // Check if sufficient inventory exists
-      const { data: existing, error: fetchError } = await supabase
-        .from("inventory")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("product_id", selectedProduct)
+      // Get current product quantity
+      const { data: product, error: fetchError } = await supabase
+        .from("products")
+        .select("quantity, stock_out")
+        .eq("id", selectedProduct)
         .single();
 
-      if (fetchError && fetchError.code !== "PGRST116") {
-        throw fetchError;
+      if (fetchError) throw fetchError;
+
+      if (!product) {
+        throw new Error("Product not found");
       }
 
-      if (!existing) {
-        throw new Error("No inventory found for this product");
-      }
-
-      if (existing.quantity < quantityToRemove) {
-        throw new Error(`Insufficient inventory. Available: ${existing.quantity}, Requested: ${quantityToRemove}`);
+      if ((product.quantity || 0) < quantityToRemove) {
+        throw new Error(`Insufficient inventory. Available: ${product.quantity || 0}, Requested: ${quantityToRemove}`);
       }
 
       // Insert stock out record
@@ -105,17 +102,22 @@ const LogisticStockOut = () => {
 
       if (stockOutError) throw stockOutError;
 
-      // Update inventory (decrease)
-      const { error: invError } = await supabase
-        .from("inventory")
-        .update({ quantity: existing.quantity - quantityToRemove })
-        .eq("id", existing.id);
+      // Update product quantity and stock_out
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          quantity: (product.quantity || 0) - quantityToRemove,
+          stock_out: (product.stock_out || 0) + quantityToRemove,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedProduct);
 
-      if (invError) throw invError;
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-out-logistic"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Stock out recorded successfully");
       setIsDialogOpen(false);
       resetForm();
@@ -231,7 +233,7 @@ const LogisticStockOut = () => {
                   <SelectContent>
                     {products?.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.sku})
+                        {product.name} ({product.sku}) - Qty: {product.quantity || 0}
                       </SelectItem>
                     ))}
                   </SelectContent>

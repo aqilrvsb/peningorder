@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,6 @@ import { Package, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const LogisticProductManagement = () => {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Add product dialog state
@@ -40,6 +38,8 @@ const LogisticProductManagement = () => {
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editSku, setEditSku] = useState("");
   const [editQuantity, setEditQuantity] = useState("");
   const [editBaseCost, setEditBaseCost] = useState("");
 
@@ -47,34 +47,19 @@ const LogisticProductManagement = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Fetch all products
-  const { data: products, isLoading: productsLoading } = useQuery({
+  // Fetch all products from products table
+  const { data: products, isLoading } = useQuery({
     queryKey: ["all-products"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, sku, base_cost, is_active")
+        .select("*")
         .eq("is_active", true)
         .order("name", { ascending: true });
 
       if (error) throw error;
       return data || [];
     },
-  });
-
-  // Fetch inventory for this logistic user (user_id = logistic user id)
-  const { data: inventory, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["logistic-inventory", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory")
-        .select("id, product_id, quantity, updated_at")
-        .eq("user_id", user?.id);
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
   });
 
   // Add product mutation
@@ -103,13 +88,16 @@ const LogisticProductManagement = () => {
         throw new Error(`SKU "${sku}" already exists. Please use a different SKU.`);
       }
 
-      // Insert new product
+      // Insert new product with quantity
       const { data: newProduct, error: productError } = await supabase
         .from("products")
         .insert({
           name,
           sku,
           base_cost: baseCost,
+          quantity: quantity,
+          stock_in: quantity,
+          stock_out: 0,
           is_active: true,
         })
         .select()
@@ -117,25 +105,11 @@ const LogisticProductManagement = () => {
 
       if (productError) throw productError;
 
-      // Insert inventory record for this logistic user
-      if (quantity > 0) {
-        const { error: inventoryError } = await supabase
-          .from("inventory")
-          .insert({
-            user_id: user?.id,
-            product_id: newProduct.id,
-            quantity,
-          });
-
-        if (inventoryError) throw inventoryError;
-      }
-
       return newProduct;
     },
     onSuccess: () => {
       toast.success("Product added successfully");
       queryClient.invalidateQueries({ queryKey: ["all-products"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
       setIsAddDialogOpen(false);
       setNewProductName("");
       setNewProductSku("");
@@ -147,55 +121,60 @@ const LogisticProductManagement = () => {
     },
   });
 
-  // Update product and inventory mutation
+  // Update product mutation
   const updateProductMutation = useMutation({
     mutationFn: async ({
       productId,
+      name,
+      sku,
       baseCost,
       quantity,
+      originalSku,
     }: {
       productId: string;
+      name: string;
+      sku: string;
       baseCost: number;
       quantity: number;
+      originalSku: string;
     }) => {
-      // Update product base cost
+      // Check for duplicate SKU if SKU changed
+      if (sku !== originalSku) {
+        const { data: existingProduct, error: checkError } = await supabase
+          .from("products")
+          .select("id, sku")
+          .eq("sku", sku)
+          .neq("id", productId)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existingProduct) {
+          throw new Error(`SKU "${sku}" already exists. Please use a different SKU.`);
+        }
+      }
+
+      // Update product
       const { error: productError } = await supabase
         .from("products")
-        .update({ base_cost: baseCost, updated_at: new Date().toISOString() })
+        .update({
+          name,
+          sku,
+          base_cost: baseCost,
+          quantity: quantity,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", productId);
 
       if (productError) throw productError;
-
-      // Check if inventory record exists
-      const existingInventory = inventory?.find(inv => inv.product_id === productId);
-
-      if (existingInventory) {
-        // Update existing record
-        const { error } = await supabase
-          .from("inventory")
-          .update({ quantity, updated_at: new Date().toISOString() })
-          .eq("id", existingInventory.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new record
-        const { error } = await supabase
-          .from("inventory")
-          .insert({
-            user_id: user?.id,
-            product_id: productId,
-            quantity,
-          });
-
-        if (error) throw error;
-      }
     },
     onSuccess: () => {
       toast.success("Product updated successfully");
       queryClient.invalidateQueries({ queryKey: ["all-products"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
+      setEditName("");
+      setEditSku("");
       setEditQuantity("");
       setEditBaseCost("");
     },
@@ -207,16 +186,7 @@ const LogisticProductManagement = () => {
   // Delete product mutation
   const deleteProductMutation = useMutation({
     mutationFn: async (productId: string) => {
-      // First delete inventory records for this product (for this user)
-      const { error: inventoryError } = await supabase
-        .from("inventory")
-        .delete()
-        .eq("product_id", productId)
-        .eq("user_id", user?.id);
-
-      if (inventoryError) throw inventoryError;
-
-      // Then set product as inactive (soft delete)
+      // Soft delete - set product as inactive
       const { error: productError } = await supabase
         .from("products")
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -227,7 +197,6 @@ const LogisticProductManagement = () => {
     onSuccess: () => {
       toast.success("Product deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["all-products"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     },
@@ -249,16 +218,12 @@ const LogisticProductManagement = () => {
     }
   };
 
-  // Get quantity for a product
-  const getQuantity = (productId: string) => {
-    const inv = inventory?.find(i => i.product_id === productId);
-    return inv?.quantity || 0;
-  };
-
   // Open edit dialog
   const openEditDialog = (product: any) => {
     setEditingProduct(product);
-    setEditQuantity(String(getQuantity(product.id)));
+    setEditName(product.name || "");
+    setEditSku(product.sku || "");
+    setEditQuantity(String(product.quantity || 0));
     setEditBaseCost(String(product.base_cost || 0));
     setIsEditDialogOpen(true);
   };
@@ -295,6 +260,14 @@ const LogisticProductManagement = () => {
   // Handle edit submit
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editName.trim()) {
+      toast.error("Please enter product name");
+      return;
+    }
+    if (!editSku.trim()) {
+      toast.error("Please enter product SKU");
+      return;
+    }
     const qty = parseInt(editQuantity, 10);
     const baseCost = parseFloat(editBaseCost);
     if (isNaN(qty) || qty < 0) {
@@ -308,17 +281,18 @@ const LogisticProductManagement = () => {
     if (!editingProduct) return;
     updateProductMutation.mutate({
       productId: editingProduct.id,
+      name: editName.trim(),
+      sku: editSku.trim().toUpperCase(),
       baseCost,
       quantity: qty,
+      originalSku: editingProduct.sku,
     });
   };
 
   // Stats calculation
   const totalProducts = products?.length || 0;
-  const totalQuantity = products?.reduce((sum, p) => sum + getQuantity(p.id), 0) || 0;
-  const productsWithStock = products?.filter(p => getQuantity(p.id) > 0).length || 0;
-
-  const isLoading = productsLoading || inventoryLoading;
+  const totalQuantity = products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0;
+  const productsWithStock = products?.filter(p => (p.quantity || 0) > 0).length || 0;
 
   if (isLoading) {
     return (
@@ -411,7 +385,7 @@ const LogisticProductManagement = () => {
                       <TableCell>{product.name}</TableCell>
                       <TableCell>RM {(product.base_cost || 0).toFixed(2)}</TableCell>
                       <TableCell className="font-bold text-lg">
-                        {getQuantity(product.id).toLocaleString()}
+                        {(product.quantity || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -527,11 +501,21 @@ const LogisticProductManagement = () => {
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label>Product</Label>
+              <Label htmlFor="editName">Product Name *</Label>
               <Input
-                value={editingProduct ? `${editingProduct.sku} - ${editingProduct.name}` : ""}
-                disabled
-                className="bg-muted"
+                id="editName"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Enter product name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editSku">SKU *</Label>
+              <Input
+                id="editSku"
+                value={editSku}
+                onChange={(e) => setEditSku(e.target.value.toUpperCase())}
+                placeholder="Enter SKU"
               />
             </div>
             <div className="space-y-2">

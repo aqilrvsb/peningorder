@@ -310,19 +310,18 @@ const LogisticCustomers = () => {
         const quantity = order.total_quantity || 0;
 
         if (productId && quantity > 0) {
-          const { data: inventoryData } = await supabase
-            .from("inventory")
+          const { data: productData } = await supabase
+            .from("products")
             .select("id, quantity")
-            .eq("user_id", user?.id)
-            .eq("product_id", productId)
+            .eq("id", productId)
             .single();
 
-          if (inventoryData) {
-            const newQuantity = inventoryData.quantity + quantity;
+          if (productData) {
+            const newQuantity = (productData.quantity || 0) + quantity;
             await supabase
-              .from("inventory")
-              .update({ quantity: newQuantity })
-              .eq("id", inventoryData.id);
+              .from("products")
+              .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+              .eq("id", productId);
           }
         }
       }
@@ -335,8 +334,8 @@ const LogisticCustomers = () => {
 
       toast.success(`${selectedOrders.size} order(s) deleted. Inventory restored.`);
       queryClient.invalidateQueries({ queryKey: ["customer_purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setSelectedOrders(new Set());
     } catch (error: any) {
       toast.error(error.message || "Failed to delete orders");
@@ -371,39 +370,37 @@ const LogisticCustomers = () => {
 
       if (isBundle) {
         for (const bundleItem of data.bundleItems!) {
-          const { data: inventoryData, error: inventoryError } = await supabase
-            .from('inventory')
-            .select('quantity')
-            .eq('user_id', user?.id)
-            .eq('product_id', bundleItem.product_id)
+          const { data: productData, error: productError } = await supabase
+            .from('products')
+            .select('quantity, name')
+            .eq('id', bundleItem.product_id)
             .single();
 
-          if (inventoryError || !inventoryData) {
+          if (productError || !productData) {
             const itemProduct = bundleItem.product?.name || bundleItem.product_id;
-            throw new Error(`Inventory not found for product: ${itemProduct}`);
+            throw new Error(`Product not found: ${itemProduct}`);
           }
 
           const requiredQty = bundleItem.quantity * data.quantity;
-          if (inventoryData.quantity < requiredQty) {
-            const itemProduct = bundleItem.product?.name || bundleItem.product_id;
-            throw new Error(`Insufficient inventory for ${itemProduct}. Available: ${inventoryData.quantity}, Required: ${requiredQty}`);
+          if ((productData.quantity || 0) < requiredQty) {
+            const itemProduct = productData.name || bundleItem.product_id;
+            throw new Error(`Insufficient inventory for ${itemProduct}. Available: ${productData.quantity || 0}, Required: ${requiredQty}`);
           }
         }
         productName = data.bundleName || "Bundle";
       } else {
-        const { data: inventoryData, error: inventoryError } = await supabase
-          .from('inventory')
-          .select('quantity')
-          .eq('user_id', user?.id)
-          .eq('product_id', data.productId)
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('quantity, name, sku')
+          .eq('id', data.productId)
           .single();
 
-        if (inventoryError || !inventoryData) {
-          throw new Error('Inventory not found for this product');
+        if (productError || !productData) {
+          throw new Error('Product not found');
         }
 
-        if (inventoryData.quantity < data.quantity) {
-          throw new Error(`Insufficient inventory. Available: ${inventoryData.quantity}, Required: ${data.quantity}`);
+        if ((productData.quantity || 0) < data.quantity) {
+          throw new Error(`Insufficient inventory. Available: ${productData.quantity || 0}, Required: ${data.quantity}`);
         }
 
         selectedProduct = products?.find(p => p.id === data.productId);
@@ -598,19 +595,21 @@ const LogisticCustomers = () => {
           for (const bundleItem of data.bundleItems!) {
             const totalItemQty = bundleItem.quantity * data.quantity;
 
-            const { data: invData } = await supabase
-              .from('inventory')
-              .select('quantity')
-              .eq('user_id', user?.id)
-              .eq('product_id', bundleItem.product_id)
+            const { data: prodData } = await supabase
+              .from('products')
+              .select('quantity, stock_out')
+              .eq('id', bundleItem.product_id)
               .single();
 
-            if (invData) {
+            if (prodData) {
               await supabase
-                .from('inventory')
-                .update({ quantity: invData.quantity - totalItemQty })
-                .eq('user_id', user?.id)
-                .eq('product_id', bundleItem.product_id);
+                .from('products')
+                .update({
+                  quantity: (prodData.quantity || 0) - totalItemQty,
+                  stock_out: (prodData.stock_out || 0) + totalItemQty,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', bundleItem.product_id);
             }
           }
         }
@@ -651,19 +650,21 @@ const LogisticCustomers = () => {
         if (purchaseError) throw purchaseError;
 
         if (isDirectShipped) {
-          const { data: invData } = await supabase
-            .from('inventory')
-            .select('quantity')
-            .eq('user_id', user?.id)
-            .eq('product_id', data.productId)
+          const { data: prodData } = await supabase
+            .from('products')
+            .select('quantity, stock_out')
+            .eq('id', data.productId)
             .single();
 
-          if (invData) {
+          if (prodData) {
             await supabase
-              .from('inventory')
-              .update({ quantity: invData.quantity - data.quantity })
-              .eq('user_id', user?.id)
-              .eq('product_id', data.productId);
+              .from('products')
+              .update({
+                quantity: (prodData.quantity || 0) - data.quantity,
+                stock_out: (prodData.stock_out || 0) + data.quantity,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', data.productId);
           }
         }
       }
@@ -672,8 +673,8 @@ const LogisticCustomers = () => {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["customer_purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       setIsModalOpen(false);
 
       let msg = "Customer purchase recorded successfully. Inventory has been updated.";
