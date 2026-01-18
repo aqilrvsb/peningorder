@@ -796,35 +796,30 @@ const OrderForm: React.FC = () => {
         // Determine final customer type to save for edit mode
         const editFinalCustomerType = formData.jenisCustomer === 'Prospect' ? determinedCustomerType : formData.jenisCustomer;
 
-        // Update existing order in database
+        // Update existing order in database - using new schema field names
         const { error: updateError } = await supabase
           .from('customer_purchases')
           .update({
-            marketer_name: formData.namaPelanggan,
-            no_phone: formData.noPhone,
-            alamat: formData.alamat,
-            poskod: formData.poskod,
-            bandar: formData.daerah,
-            negeri: formData.negeri,
-            produk: formData.produk,
-            sku: formData.produk,
-            quantity: editBundleUnits,
-            harga_jualan_produk: formData.hargaJualan,
-            total_price: formData.hargaJualan,
-            profit: formData.hargaJualan,
+            name_customer: formData.namaPelanggan, // NEW: name_customer
+            phone_customer: formData.noPhone, // NEW: phone_customer
+            address_customer: formData.alamat, // NEW: address_customer
+            postcode_customer: formData.poskod, // NEW: postcode_customer
+            city_customer: formData.daerah, // NEW: city_customer
+            state_customer: formData.negeri, // NEW: state_customer
+            unit: editBundleUnits, // NEW: unit
+            total_sale: formData.hargaJualan, // NEW: total_sale
             kurier,
-            no_tracking: trackingNumber,
+            tracking_number: trackingNumber,
             jenis_platform: formData.jenisPlatform,
-            jenis_customer: editFinalCustomerType, // Save as NP/EP/EC, not "Prospect"
+            jenis_customer: editFinalCustomerType,
             jenis_closing: formData.jenisClosing,
-            cara_bayaran: formData.caraBayaran,
+            type_payment: formData.caraBayaran, // NEW: type_payment
             nota_staff: formData.nota,
-            // Payment details
-            tarikh_bayaran: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null,
-            jenis_bayaran: showPaymentDetails ? formData.jenisBayaran : null,
-            bank: showPaymentDetails ? formData.pilihBank : null,
-            receipt_image_url: newReceiptUrl || null,
+            date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
+            bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
+            receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
             waybill_url: newWaybillUrl || null,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', editOrder.id);
 
@@ -946,41 +941,35 @@ const OrderForm: React.FC = () => {
         // Customer type is already NP/EP/EC from the Check button
         const finalCustomerType = formData.jenisCustomer;
 
-        // For admin lead orders, insert directly to include admin-specific fields
+        // For admin lead orders, insert directly using new schema field names
         if (isAdminLeadOrder && adminLeadData) {
           const { error: insertError } = await (supabase as any)
             .from('customer_purchases')
             .insert({
               id_sale: idSale,
-              marketer_id: null, // No marketer_id for admin orders
-              marketer_id_staff: profile?.username || '', // Admin's ID as order creator
-              marketer_name: formData.namaPelanggan,
-              no_phone: formData.noPhone,
-              alamat: formData.alamat,
-              poskod: formData.poskod,
-              bandar: formData.daerah,
-              negeri: formData.negeri,
-              sku: formData.produk,
-              produk: formData.produk,
-              quantity: bundleUnits,
-              harga_jualan_produk: formData.hargaJualan,
-              total_price: formData.hargaJualan,
-              kos_pos: 0,
-              kos_produk: 0,
-              profit: formData.hargaJualan,
+              marketer_id_staff: profile?.username || '',
+              name_customer: formData.namaPelanggan, // NEW: name_customer
+              phone_customer: formData.noPhone, // NEW: phone_customer
+              address_customer: formData.alamat, // NEW: address_customer
+              postcode_customer: formData.poskod, // NEW: postcode_customer
+              city_customer: formData.daerah, // NEW: city_customer
+              state_customer: formData.negeri, // NEW: state_customer
+              unit: bundleUnits, // NEW: unit
+              total_sale: formData.hargaJualan, // NEW: total_sale
+              cost_postage: 0, // NEW: cost_postage
+              cost_baseproduct: 0, // NEW: cost_baseproduct
               kurier,
-              no_tracking: trackingNumber,
+              tracking_number: trackingNumber,
               delivery_status: 'Pending',
               date_order: dateOrder,
               jenis_platform: formData.jenisPlatform,
               jenis_customer: finalCustomerType,
               jenis_closing: formData.jenisClosing,
-              cara_bayaran: formData.caraBayaran,
+              type_payment: formData.caraBayaran, // NEW: type_payment
               nota_staff: formData.nota,
-              tarikh_bayaran: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null,
-              jenis_bayaran: showPaymentDetails ? formData.jenisBayaran : null,
-              bank: showPaymentDetails ? formData.pilihBank : null,
-              receipt_image_url: receiptUrl || null,
+              date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
+              bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
+              receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
               waybill_url: waybillUrl || null,
             });
 

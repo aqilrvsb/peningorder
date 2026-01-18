@@ -54,32 +54,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const userIdStaff = profile?.idstaff;
 
   // Map customer_purchases table to CustomerOrder interface
+  // New schema field mapping:
+  // name_customer, phone_customer, address_customer, city_customer, postcode_customer, state_customer
+  // total_sale, unit, type_payment, date_payment, bank_payment, receipt_payment_url
   const mapOrder = (d: any): CustomerOrder => ({
     id: d.id,
-    noTempahan: d.id_sale || d.id?.substring(0, 8) || '', // Use id_sale as order number
+    noTempahan: d.id_sale || d.id?.substring(0, 8) || '',
     idSale: d.id_sale || '',
     marketerIdStaff: d.marketer_id_staff || '',
-    marketerName: d.marketer_name || '',
-    noPhone: d.no_phone || '',
-    alamat: d.alamat || '',
-    poskod: d.poskod || '',
-    bandar: d.bandar || '',
-    negeri: d.negeri || '',
-    sku: d.sku || '',
-    produk: d.produk || '',
-    kuantiti: d.quantity || 1, // customer_purchases uses 'quantity' not 'kuantiti'
-    hargaJualanProduk: parseFloat(d.harga_jualan_produk) || 0,
-    hargaJualanSebenar: parseFloat(d.total_price) || 0, // customer_purchases uses 'total_price'
-    kosPos: parseFloat(d.kos_pos) || 0,
-    kosProduk: parseFloat(d.kos_produk) || 0,
-    profit: parseFloat(d.profit) || 0,
-    hargaJualanAgen: parseFloat(d.harga_jualan_agen) || 0,
-    tarikhTempahan: d.date_order || '', // customer_purchases uses 'date_order' (date type)
+    marketerName: d.name_customer || '', // NEW: name_customer
+    noPhone: d.phone_customer || '', // NEW: phone_customer
+    alamat: d.address_customer || '', // NEW: address_customer
+    poskod: d.postcode_customer || '', // NEW: postcode_customer
+    bandar: d.city_customer || '', // NEW: city_customer
+    negeri: d.state_customer || '', // NEW: state_customer
+    sku: '', // Removed - using bundle_id now
+    produk: '', // Will be populated from bundle if needed
+    kuantiti: d.unit || 1, // NEW: unit
+    hargaJualanProduk: parseFloat(d.total_sale) || 0, // NEW: total_sale
+    hargaJualanSebenar: parseFloat(d.total_sale) || 0, // NEW: total_sale
+    kosPos: parseFloat(d.cost_postage) || 0, // NEW: cost_postage
+    kosProduk: parseFloat(d.cost_baseproduct) || 0, // NEW: cost_baseproduct
+    profit: (parseFloat(d.total_sale) || 0) - (parseFloat(d.cost_postage) || 0) - (parseFloat(d.cost_baseproduct) || 0),
+    hargaJualanAgen: 0,
+    tarikhTempahan: d.date_order || '',
     kurier: d.kurier || '',
-    noTracking: d.no_tracking || '',
-    statusParcel: d.delivery_status || 'Pending', // Use delivery_status
+    noTracking: d.tracking_number || '', // Field name unchanged
+    statusParcel: d.delivery_status || 'Pending',
     notaStaff: d.nota_staff || '',
-    beratParcel: 0, // Not in customer_purchases
+    beratParcel: 0,
     createdAt: d.created_at,
     deliveryStatus: d.delivery_status || 'Pending',
     dateOrder: d.date_order || '',
@@ -88,11 +91,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     jenisPlatform: d.jenis_platform || '',
     jenisCustomer: d.jenis_customer || '',
     jenisClosing: d.jenis_closing || '',
-    caraBayaran: d.cara_bayaran || '',
-    tarikhBayaran: d.tarikh_bayaran || '',
-    jenisBayaran: d.jenis_bayaran || '',
-    bank: d.bank || '',
-    receiptImageUrl: d.receipt_image_url || '',
+    caraBayaran: d.type_payment || '', // NEW: type_payment
+    tarikhBayaran: d.date_payment || '', // NEW: date_payment
+    jenisBayaran: d.type_payment || '', // NEW: type_payment (same as caraBayaran)
+    bank: d.bank_payment || '', // NEW: bank_payment
+    receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
     waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
   });
@@ -130,19 +133,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => { refreshData(); }, [isAuthenticated, isMarketer, userIdStaff]);
 
   const addOrder = async (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => {
+    // New schema field mapping for insert
     const { error } = await queryTable('customer_purchases').insert({
-      id_sale: order.idSale, marketer_id: user?.id, marketer_id_staff: order.marketerIdStaff,
-      marketer_name: order.marketerName, no_phone: order.noPhone, alamat: order.alamat,
-      poskod: order.poskod, bandar: order.bandar, negeri: order.negeri, sku: order.sku,
-      produk: order.produk, quantity: order.kuantiti, harga_jualan_produk: order.hargaJualanProduk,
-      total_price: order.hargaJualanSebenar, kos_pos: order.kosPos, kos_produk: order.kosProduk,
-      profit: order.profit,
-      kurier: order.kurier, no_tracking: order.noTracking,
+      id_sale: order.idSale,
+      marketer_id_staff: order.marketerIdStaff,
+      name_customer: order.marketerName, // NEW: name_customer
+      phone_customer: order.noPhone, // NEW: phone_customer
+      address_customer: order.alamat, // NEW: address_customer
+      postcode_customer: order.poskod, // NEW: postcode_customer
+      city_customer: order.bandar, // NEW: city_customer
+      state_customer: order.negeri, // NEW: state_customer
+      unit: order.kuantiti, // NEW: unit
+      total_sale: order.hargaJualanSebenar, // NEW: total_sale
+      cost_postage: order.kosPos, // NEW: cost_postage
+      cost_baseproduct: order.kosProduk, // NEW: cost_baseproduct
+      kurier: order.kurier,
+      tracking_number: order.noTracking,
       nota_staff: order.notaStaff,
-      delivery_status: order.deliveryStatus, date_order: order.dateOrder,
-      jenis_platform: order.jenisPlatform, jenis_customer: order.jenisCustomer, jenis_closing: order.jenisClosing, cara_bayaran: order.caraBayaran,
-      tarikh_bayaran: order.tarikhBayaran || null, jenis_bayaran: order.jenisBayaran || null,
-      bank: order.bank || null, receipt_image_url: order.receiptImageUrl || null, waybill_url: order.waybillUrl || null,
+      delivery_status: order.deliveryStatus,
+      date_order: order.dateOrder,
+      jenis_platform: order.jenisPlatform,
+      jenis_customer: order.jenisCustomer,
+      jenis_closing: order.jenisClosing,
+      type_payment: order.caraBayaran, // NEW: type_payment
+      date_payment: order.tarikhBayaran || null, // NEW: date_payment
+      bank_payment: order.bank || null, // NEW: bank_payment
+      receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
+      waybill_url: order.waybillUrl || null,
     });
     if (error) { toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' }); throw error; }
     await refreshData();
@@ -151,9 +168,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateOrder = async (id: string, data: Partial<CustomerOrder>) => {
     const upd: any = {};
     if (data.statusParcel !== undefined) upd.delivery_status = data.statusParcel;
-    if (data.noTracking !== undefined) upd.no_tracking = data.noTracking;
+    if (data.noTracking !== undefined) upd.tracking_number = data.noTracking;
     if (data.deliveryStatus !== undefined) upd.delivery_status = data.deliveryStatus;
     if (data.dateProcessed !== undefined) upd.date_processed = data.dateProcessed;
+    if (data.dateReturn !== undefined) upd.date_return = data.dateReturn;
+    upd.updated_at = new Date().toISOString();
     const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;
     await refreshData();

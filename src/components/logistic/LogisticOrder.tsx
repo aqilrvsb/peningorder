@@ -90,12 +90,12 @@ const LogisticOrder = () => {
     productId: "",
   });
 
-  // Fetch all products for dropdown
+  // Fetch all bundles for dropdown - using logistic_bundles table
   const { data: allProducts = [] } = useQuery({
-    queryKey: ["all-products-dropdown"],
+    queryKey: ["all-bundles-dropdown"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("products")
+        .from("logistic_bundles")
         .select("id, name, sku")
         .eq("is_active", true)
         .order("name", { ascending: true });
@@ -104,24 +104,24 @@ const LogisticOrder = () => {
     },
   });
 
-  // Update product for an order
-  const handleUpdateProduct = async (orderId: string, productId: string) => {
+  // Update bundle for an order - using new schema field names
+  const handleUpdateProduct = async (orderId: string, bundleId: string) => {
     try {
       const { error } = await supabase
         .from("customer_purchases")
-        .update({ product_id: productId })
+        .update({ bundle_id: bundleId, updated_at: new Date().toISOString() })
         .eq("id", orderId);
 
       if (error) throw error;
 
-      toast.success("Product updated successfully");
+      toast.success("Bundle updated successfully");
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
     } catch (error: any) {
-      toast.error(error.message || "Failed to update product");
+      toast.error(error.message || "Failed to update bundle");
     }
   };
 
-  // Fetch pending orders
+  // Fetch pending orders - using new schema field names
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-order", startDate, endDate],
     queryFn: async () => {
@@ -129,8 +129,7 @@ const LogisticOrder = () => {
         .from("customer_purchases")
         .select(`
           *,
-          product:products(name, sku),
-          marketer:profiles!customer_purchases_marketer_id_fkey(whatsapp_number)
+          bundle:logistic_bundles(name, sku, base_cost, kos_postage_sm, kos_postage_ss)
         `)
         .eq("delivery_status", "Pending")
         .order("created_at", { ascending: false });
@@ -170,23 +169,23 @@ const LogisticOrder = () => {
     return platform !== "tiktok" && platform !== "shopee";
   };
 
-  // Filter orders
+  // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
       const matchesSearch = searchTerms.every((term) =>
-        order.customer?.name?.toLowerCase().includes(term) ||
-        order.customer?.phone?.toLowerCase().includes(term) ||
+        order.name_customer?.toLowerCase().includes(term) ||
+        order.phone_customer?.toLowerCase().includes(term) ||
         order.tracking_number?.toLowerCase().includes(term) ||
-        order.product?.name?.toLowerCase().includes(term) ||
-        order.customer?.address?.toLowerCase().includes(term)
+        order.bundle?.name?.toLowerCase().includes(term) ||
+        order.address_customer?.toLowerCase().includes(term)
       );
       if (!matchesSearch) return false;
     }
 
-    // Payment filter
-    if (paymentFilter !== "All" && order.cara_bayaran !== paymentFilter) {
+    // Payment filter - using new type_payment field
+    if (paymentFilter !== "All" && order.type_payment !== paymentFilter) {
       return false;
     }
 
@@ -219,8 +218,8 @@ const LogisticOrder = () => {
     tiktok: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "tiktok").length,
     shopee: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "shopee").length,
     ninjavan: ninjavanOrders.length,
-    ninjavanCod: ninjavanOrders.filter((o: any) => o.cara_bayaran === "COD").length,
-    ninjavanCash: ninjavanOrders.filter((o: any) => o.cara_bayaran !== "COD").length,
+    ninjavanCod: ninjavanOrders.filter((o: any) => o.type_payment === "COD").length,
+    ninjavanCash: ninjavanOrders.filter((o: any) => o.type_payment !== "COD").length,
   };
 
   // Checkbox handlers
@@ -413,13 +412,13 @@ const LogisticOrder = () => {
     }
   };
 
-  // Generate NinjaVan tracking for an order
+  // Generate NinjaVan tracking for an order - using new schema field names
   const handleGenerateTracking = async (order: any) => {
     const { value: postcode, isConfirmed } = await Swal.fire({
       title: "Generate Tracking",
       text: "Enter or confirm postcode for shipping:",
       input: "text",
-      inputValue: order.customer?.postcode || order.poskod || "",
+      inputValue: order.postcode_customer || "",
       inputPlaceholder: "Enter postcode (e.g., 15100)",
       showCancelButton: true,
       confirmButtonText: "Generate Tracking",
@@ -441,17 +440,17 @@ const LogisticOrder = () => {
 
       const orderData = {
         profileId: user?.id,
-        customerName: order.customer?.name || "Customer",
-        phone: order.customer?.phone || order.no_phone || "",
-        address: order.alamat || order.customer?.address || "",
+        customerName: order.name_customer || "Customer",
+        phone: order.phone_customer || "",
+        address: order.address_customer || "",
         postcode: postcode.trim(),
-        city: order.customer?.city || order.bandar || "",
-        state: order.customer?.state || order.negeri || "",
-        price: Number(order.total_price || 0),
-        paymentMethod: order.cara_bayaran || "CASH",
-        productName: order.product?.name || order.produk || "Product",
-        productSku: order.product?.sku || "",
-        quantity: order.quantity || 1,
+        city: order.city_customer || "",
+        state: order.state_customer || "",
+        price: Number(order.total_sale || 0),
+        paymentMethod: order.type_payment || "CASH",
+        productName: order.bundle?.name || "Product",
+        productSku: order.bundle?.sku || "",
+        quantity: order.unit || 1,
         nota: order.nota_staff || "",
       };
 
@@ -478,12 +477,12 @@ const LogisticOrder = () => {
 
       if (updateError) throw updateError;
 
-      // Update customer postcode if changed
-      if (order.customer_id && postcode !== order.customer?.postcode) {
+      // Update customer postcode if changed - now stored directly in customer_purchases
+      if (postcode !== order.postcode_customer) {
         await supabase
-          .from("customers")
-          .update({ postcode: postcode.trim() })
-          .eq("id", order.customer_id);
+          .from("customer_purchases")
+          .update({ postcode_customer: postcode.trim() })
+          .eq("id", order.id);
       }
 
       toast.success(`Tracking generated: ${result.trackingNumber}`);
@@ -501,21 +500,21 @@ const LogisticOrder = () => {
     return isNinjavanPlatform(order) && !order.tracking_number;
   };
 
-  // Open edit dialog
+  // Open edit dialog - using new schema field names
   const handleOpenEdit = (order: any) => {
     setEditingOrder(order);
     setEditForm({
-      customerName: order.customer?.name || "",
-      phone: order.customer?.phone || order.no_phone || "",
-      address: order.alamat || order.customer?.address || "",
-      postcode: order.customer?.postcode || order.poskod || "",
-      city: order.customer?.city || order.bandar || "",
-      state: order.customer?.state || order.negeri || "",
-      quantity: order.quantity || 1,
-      totalPrice: Number(order.total_price || 0),
-      paymentMethod: order.cara_bayaran || "CASH",
+      customerName: order.name_customer || "",
+      phone: order.phone_customer || "",
+      address: order.address_customer || "",
+      postcode: order.postcode_customer || "",
+      city: order.city_customer || "",
+      state: order.state_customer || "",
+      quantity: order.unit || 1,
+      totalPrice: Number(order.total_sale || 0),
+      paymentMethod: order.type_payment || "CASH",
       notaStaff: order.nota_staff || "",
-      productId: order.product_id || "",
+      productId: order.bundle_id || "",
     });
     setEditDialogOpen(true);
   };
@@ -546,22 +545,24 @@ const LogisticOrder = () => {
         }
       }
 
-      // Step 2: Update order details in database
+      // Step 2: Update order details in database - using new schema field names
       const updateData: any = {
-        quantity: editForm.quantity,
-        total_price: editForm.totalPrice,
-        cara_bayaran: editForm.paymentMethod,
+        unit: editForm.quantity,
+        total_sale: editForm.totalPrice,
+        type_payment: editForm.paymentMethod,
         nota_staff: editForm.notaStaff,
-        alamat: editForm.address,
-        negeri: editForm.state,
-        poskod: editForm.postcode,
-        bandar: editForm.city,
-        no_phone: editForm.phone,
+        address_customer: editForm.address,
+        state_customer: editForm.state,
+        postcode_customer: editForm.postcode,
+        city_customer: editForm.city,
+        phone_customer: editForm.phone,
+        name_customer: editForm.customerName,
+        updated_at: new Date().toISOString(),
       };
 
-      // If product changed
-      if (editForm.productId && editForm.productId !== editingOrder.product_id) {
-        updateData.product_id = editForm.productId;
+      // If bundle changed
+      if (editForm.productId && editForm.productId !== editingOrder.bundle_id) {
+        updateData.bundle_id = editForm.productId;
       }
 
       // Clear tracking number if it was cancelled
@@ -576,26 +577,11 @@ const LogisticOrder = () => {
 
       if (updateError) throw updateError;
 
-      // Also update customer record if exists
-      if (editingOrder.customer_id) {
-        await supabase
-          .from("customers")
-          .update({
-            name: editForm.customerName,
-            phone: editForm.phone,
-            address: editForm.address,
-            postcode: editForm.postcode,
-            city: editForm.city,
-            state: editForm.state,
-          })
-          .eq("id", editingOrder.customer_id);
-      }
-
       // Step 3: Generate new tracking for NinjaVan platforms
       if (isNinjavan) {
         toast.info("Generating new tracking...");
 
-        const product = allProducts.find((p: any) => p.id === editForm.productId) || editingOrder.product;
+        const bundle = allProducts.find((p: any) => p.id === editForm.productId) || editingOrder.bundle;
 
         const orderData = {
           profileId: user?.id,
@@ -607,8 +593,8 @@ const LogisticOrder = () => {
           state: editForm.state,
           price: editForm.totalPrice,
           paymentMethod: editForm.paymentMethod,
-          productName: product?.name || editingOrder.produk || "Product",
-          productSku: product?.sku || "",
+          productName: bundle?.name || "Product",
+          productSku: bundle?.sku || "",
           quantity: editForm.quantity,
           nota: editForm.notaStaff,
         };
@@ -910,12 +896,12 @@ const LogisticOrder = () => {
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
-                          <td className="p-2">{order.marketer_name || "-"}</td>
-                          <td className="p-2">{order.nama_pelanggan || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.no_phone || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            {order.product?.name || order.produk ? (
-                              <span className="truncate max-w-[150px] block">{order.product?.name || order.produk}</span>
+                            {order.bundle?.name ? (
+                              <span className="truncate max-w-[150px] block">{order.bundle?.name}</span>
                             ) : (
                               <Select onValueChange={(v) => handleUpdateProduct(order.id, v)}>
                                 <SelectTrigger className="w-[140px] h-7 text-xs">
@@ -931,10 +917,10 @@ const LogisticOrder = () => {
                               </Select>
                             )}
                           </td>
-                          <td className="p-2 text-center">{order.quantity || 1}</td>
+                          <td className="p-2 text-center">{order.unit || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            {order.no_tracking ? (
-                              <span className="font-mono text-xs">{order.no_tracking}</span>
+                            {order.tracking_number ? (
+                              <span className="font-mono text-xs">{order.tracking_number}</span>
                             ) : needsTrackingGeneration(order) ? (
                               <Button
                                 variant="outline"
@@ -953,10 +939,10 @@ const LogisticOrder = () => {
                               "-"
                             )}
                           </td>
-                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.cara_bayaran === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
-                              {order.cara_bayaran || "-"}
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                              {order.type_payment || "-"}
                             </span>
                           </td>
                           <td className="p-2">
@@ -978,12 +964,12 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
-                          <td className="p-2 text-xs">{order.negeri || "-"}</td>
+                          <td className="p-2 text-xs">{order.state_customer || "-"}</td>
                           <td className="p-2">
                             <div className="max-w-[150px]">
-                              <p className="text-xs truncate">{order.alamat || "-"}</p>
+                              <p className="text-xs truncate">{order.address_customer || "-"}</p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {order.poskod} {order.bandar}
+                                {order.postcode_customer} {order.city_customer}
                               </p>
                             </div>
                           </td>

@@ -136,14 +136,13 @@ const LogisticCustomers = () => {
     enabled: !!user?.id,
   });
 
-  // Fetch customer purchases - Logistic sees ALL HQ orders (where marketer_id is null)
+  // Fetch customer purchases - using new schema field names
   const { data: purchases, isLoading } = useQuery({
     queryKey: ["customer_purchases", startDate, endDate, platformFilter, isQuickSearchActive],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
         .select("*")
-        .is("marketer_id", null)
         .order("date_order", { ascending: false, nullsFirst: false });
 
       if (!isQuickSearchActive) {
@@ -164,46 +163,39 @@ const LogisticCustomers = () => {
     },
   });
 
-  // Calculate statistics
-  const filteredPurchases = purchases?.filter(p => {
-    const productName = p.produk || "";
-    return !productName.toUpperCase().includes("COD");
-  }) || [];
-  const totalCustomers = new Set(filteredPurchases.map(p => p.customer_id)).size || 0;
-  const totalUnitsPurchased = filteredPurchases.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0;
-  const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_price) || 0), 0);
+  // Calculate statistics - using new schema field names
+  const filteredPurchases = purchases || [];
+  const totalCustomers = new Set(filteredPurchases.map(p => p.phone_customer)).size || 0;
+  const totalUnitsPurchased = filteredPurchases.reduce((sum, p) => sum + (p.unit || 0), 0) || 0;
+  const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_sale) || 0), 0);
 
-  // Group purchases by id for display
+  // Group purchases by id for display - using new schema field names
   const groupedPurchases = (() => {
     const grouped = new Map<string, any>();
 
     (purchases || []).forEach((p: any) => {
-      const productName = p.produk || "";
-      if (productName.toUpperCase().includes("COD")) return;
-
       grouped.set(p.id, {
         id: p.id,
         created_at: p.created_at,
         date_order: p.date_order,
         date_processed: p.date_processed,
-        customerName: p.marketer_name || "-",
-        customerPhone: p.no_phone || "-",
-        customerAddress: p.alamat || "-",
-        customerState: p.negeri || "-",
-        payment_method: p.cara_bayaran || p.payment_method,
-        closing_type: p.jenis_closing || p.closing_type,
+        customerName: p.name_customer || "-", // NEW: name_customer
+        customerPhone: p.phone_customer || "-", // NEW: phone_customer
+        customerAddress: p.address_customer || "-", // NEW: address_customer
+        customerState: p.state_customer || "-", // NEW: state_customer
+        payment_method: p.type_payment, // NEW: type_payment
+        closing_type: p.jenis_closing,
         tracking_number: p.tracking_number,
-        platform: p.platform || "Manual",
-        total_price: p.total_price,
-        products: [productName],
-        total_quantity: p.quantity || 0,
-        tarikh_bayaran: p.tarikh_bayaran,
-        jenis_bayaran: p.jenis_bayaran,
-        bank: p.bank,
-        receipt_image_url: p.receipt_image_url,
+        platform: p.jenis_platform || "Manual",
+        total_price: p.total_sale, // NEW: total_sale
+        products: [p.bundle_id ? "Bundle" : "Product"],
+        total_quantity: p.unit || 0, // NEW: unit
+        tarikh_bayaran: p.date_payment, // NEW: date_payment
+        jenis_bayaran: p.type_payment, // NEW: type_payment
+        bank: p.bank_payment, // NEW: bank_payment
+        receipt_image_url: p.receipt_payment_url, // NEW: receipt_payment_url
         delivery_status: p.delivery_status,
-        product_id: p.product_id,
-        sku: p.sku,
+        bundle_id: p.bundle_id,
       });
     });
 
@@ -545,47 +537,28 @@ const LogisticCustomers = () => {
       const dateProcessed = isDirectShipped ? (data.dateOrder || getMalaysiaDate()) : null;
 
       if (isBundle) {
-        const multipliedBundleSku = data.bundleItems
-          ? data.bundleItems
-              .map((item) => {
-                const itemSku = item.product?.sku || '';
-                const totalQty = item.quantity * data.quantity;
-                return `${itemSku}-${totalQty}`;
-              })
-              .join(' + ')
-          : data.bundleSku;
-
+        // NEW SCHEMA: Insert using new field names
         const { error: purchaseError } = await supabase
           .from('customer_purchases')
           .insert({
-            customer_id: customerId,
-            seller_id: user?.id,
-            product_id: null,
-            logistic_bundle_id: data.bundleId,
-            quantity: data.quantity,
-            unit_price: data.price / data.quantity,
-            total_price: data.price,
-            payment_method: data.paymentMethod,
-            closing_type: data.closingType,
+            bundle_id: data.bundleId,
+            unit: data.quantity, // NEW: unit
+            total_sale: data.price, // NEW: total_sale
             tracking_number: trackingNumber,
-            remarks: `Bundle: ${data.bundleName}`,
-            platform: platform,
             jenis_platform: jenisPlatform,
-            ninjavan_order_id: ninjavanOrderId,
-            order_from: data.orderFrom || null,
             attachment_url: attachmentUrl,
             delivery_status: deliveryStatus,
             date_processed: dateProcessed,
-            marketer_name: data.customerName,
-            no_phone: data.customerPhone,
-            alamat: data.customerAddress,
-            poskod: data.customerPostcode || null,
-            bandar: data.customerCity || null,
-            negeri: data.customerState,
-            produk: data.bundleName,
-            sku: multipliedBundleSku || null,
-            cara_bayaran: data.paymentMethod,
+            name_customer: data.customerName, // NEW: name_customer
+            phone_customer: data.customerPhone, // NEW: phone_customer
+            address_customer: data.customerAddress, // NEW: address_customer
+            postcode_customer: data.customerPostcode || null, // NEW: postcode_customer
+            city_customer: data.customerCity || null, // NEW: city_customer
+            state_customer: data.customerState, // NEW: state_customer
+            type_payment: data.paymentMethod, // NEW: type_payment
             jenis_closing: data.closingType,
+            jenis_customer: "NP", // Default customer type
+            kurier: "Ninjavan",
             date_order: data.dateOrder || getMalaysiaDate(),
           } as any);
 
@@ -614,36 +587,28 @@ const LogisticCustomers = () => {
           }
         }
       } else {
+        // NEW SCHEMA: Insert using new field names for non-bundle purchases
         const { error: purchaseError } = await supabase
           .from('customer_purchases')
           .insert({
-            customer_id: customerId,
-            seller_id: user?.id,
-            product_id: data.productId,
-            quantity: data.quantity,
-            unit_price: data.price / data.quantity,
-            total_price: data.price,
-            payment_method: data.paymentMethod,
-            closing_type: data.closingType,
+            bundle_id: null, // No bundle for single product
+            unit: data.quantity, // NEW: unit
+            total_sale: data.price, // NEW: total_sale
             tracking_number: trackingNumber,
-            remarks: 'Customer purchase',
-            platform: platform,
             jenis_platform: jenisPlatform,
-            ninjavan_order_id: ninjavanOrderId,
-            order_from: data.orderFrom || null,
             attachment_url: attachmentUrl,
             delivery_status: deliveryStatus,
             date_processed: dateProcessed,
-            marketer_name: data.customerName,
-            no_phone: data.customerPhone,
-            alamat: data.customerAddress,
-            poskod: data.customerPostcode || null,
-            bandar: data.customerCity || null,
-            negeri: data.customerState,
-            produk: productName,
-            sku: selectedProduct?.sku || null,
-            cara_bayaran: data.paymentMethod,
+            name_customer: data.customerName, // NEW: name_customer
+            phone_customer: data.customerPhone, // NEW: phone_customer
+            address_customer: data.customerAddress, // NEW: address_customer
+            postcode_customer: data.customerPostcode || null, // NEW: postcode_customer
+            city_customer: data.customerCity || null, // NEW: city_customer
+            state_customer: data.customerState, // NEW: state_customer
+            type_payment: data.paymentMethod, // NEW: type_payment
             jenis_closing: data.closingType,
+            jenis_customer: "NP", // Default customer type
+            kurier: "Ninjavan",
             date_order: data.dateOrder || getMalaysiaDate(),
           } as any);
 
@@ -697,7 +662,7 @@ const LogisticCustomers = () => {
     setPaymentMethodModalOpen(true);
   };
 
-  // Save payment method from modal
+  // Save payment method from modal - using new schema field names
   const savePaymentMethod = async () => {
     if (!selectedPurchaseForPayment) return;
 
@@ -706,8 +671,8 @@ const LogisticCustomers = () => {
       const { error } = await supabase
         .from("customer_purchases")
         .update({
-          payment_method: selectedPaymentMethod,
-          cara_bayaran: selectedPaymentMethod
+          type_payment: selectedPaymentMethod, // NEW: type_payment
+          updated_at: new Date().toISOString(),
         } as any)
         .eq("id", selectedPurchaseForPayment.id);
 
@@ -730,7 +695,7 @@ const LogisticCustomers = () => {
     setPriceModalOpen(true);
   };
 
-  // Save new price from modal
+  // Save new price from modal - using new schema field names
   const savePrice = async () => {
     if (!selectedPurchaseForPrice) return;
 
@@ -743,7 +708,10 @@ const LogisticCustomers = () => {
     try {
       const { error } = await supabase
         .from("customer_purchases")
-        .update({ total_price: priceValue })
+        .update({
+          total_sale: priceValue, // NEW: total_sale
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", selectedPurchaseForPrice.id);
 
       if (error) throw error;

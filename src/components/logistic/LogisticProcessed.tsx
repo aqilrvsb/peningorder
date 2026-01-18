@@ -60,7 +60,7 @@ const LogisticProcessed = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch processed orders (Shipped)
+  // Fetch processed orders (Shipped) - using new schema field names
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-processed", startDate, endDate],
     queryFn: async () => {
@@ -68,8 +68,7 @@ const LogisticProcessed = () => {
         .from("customer_purchases")
         .select(`
           *,
-          product:products(name, sku),
-          marketer:profiles!customer_purchases_marketer_id_fkey(whatsapp_number)
+          bundle:logistic_bundles(name, sku)
         `)
         .eq("delivery_status", "Shipped")
         .order("date_processed", { ascending: false });
@@ -108,24 +107,23 @@ const LogisticProcessed = () => {
     return platform !== "tiktok" && platform !== "shopee";
   };
 
-  // Filter orders
+  // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
       const matchesSearch = searchTerms.every((term) =>
-        order.nama_pelanggan?.toLowerCase().includes(term) ||
-        order.no_phone?.toLowerCase().includes(term) ||
-        order.no_tracking?.toLowerCase().includes(term) ||
-        order.product?.name?.toLowerCase().includes(term) ||
-        order.produk?.toLowerCase().includes(term) ||
-        order.alamat?.toLowerCase().includes(term)
+        order.name_customer?.toLowerCase().includes(term) ||
+        order.phone_customer?.toLowerCase().includes(term) ||
+        order.tracking_number?.toLowerCase().includes(term) ||
+        order.bundle?.name?.toLowerCase().includes(term) ||
+        order.address_customer?.toLowerCase().includes(term)
       );
       if (!matchesSearch) return false;
     }
 
-    // Payment filter
-    if (paymentFilter !== "All" && order.cara_bayaran !== paymentFilter) {
+    // Payment filter - using new type_payment field
+    if (paymentFilter !== "All" && order.type_payment !== paymentFilter) {
       return false;
     }
 
@@ -157,8 +155,8 @@ const LogisticProcessed = () => {
     tiktok: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "tiktok").length,
     shopee: orders.filter((o: any) => getOrderPlatform(o)?.toLowerCase() === "shopee").length,
     ninjavan: ninjavanOrders.length,
-    ninjavanCod: ninjavanOrders.filter((o: any) => o.cara_bayaran === "COD").length,
-    ninjavanCash: ninjavanOrders.filter((o: any) => o.cara_bayaran !== "COD").length,
+    ninjavanCod: ninjavanOrders.filter((o: any) => o.type_payment === "COD").length,
+    ninjavanCash: ninjavanOrders.filter((o: any) => o.type_payment !== "COD").length,
   };
 
   // Checkbox handlers
@@ -603,20 +601,20 @@ const LogisticProcessed = () => {
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_processed || order.date_order || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
-                          <td className="p-2">{order.marketer_name || "-"}</td>
-                          <td className="p-2">{order.nama_pelanggan || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.no_phone || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            <span className="truncate max-w-[150px] block">{order.product?.name || order.produk || "-"}</span>
+                            <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
-                          <td className="p-2 text-center">{order.quantity || 1}</td>
+                          <td className="p-2 text-center">{order.unit || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.no_tracking || "-"}</span>
+                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
-                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.cara_bayaran === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
-                              {order.cara_bayaran || "-"}
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                              {order.type_payment || "-"}
                             </span>
                           </td>
                           <td className="p-2">
@@ -638,12 +636,12 @@ const LogisticProcessed = () => {
                           </td>
                           <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
-                          <td className="p-2 text-xs">{order.negeri || "-"}</td>
+                          <td className="p-2 text-xs">{order.state_customer || "-"}</td>
                           <td className="p-2">
                             <div className="max-w-[150px]">
-                              <p className="text-xs truncate">{order.alamat || "-"}</p>
+                              <p className="text-xs truncate">{order.address_customer || "-"}</p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {order.poskod} {order.bandar}
+                                {order.postcode_customer} {order.city_customer}
                               </p>
                             </div>
                           </td>
@@ -663,9 +661,9 @@ const LogisticProcessed = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {order.no_phone && (
+                            {order.phone_customer && (
                               <a
-                                href={`https://wa.me/6${(order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(order.phone_customer || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"

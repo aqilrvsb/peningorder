@@ -78,14 +78,14 @@ const DashboardLogistic: React.FC = () => {
 
     const totalShopee = filteredAllOrders.filter(o => o.jenis_platform === 'Shopee').length;
     const totalTiktok = filteredAllOrders.filter(o => o.jenis_platform === 'Tiktok').length;
-    const totalCash = filteredAllOrders.filter(o => o.cara_bayaran === 'CASH').length;
-    const totalCOD = filteredAllOrders.filter(o => o.cara_bayaran === 'COD').length;
+    const totalCash = filteredAllOrders.filter(o => o.type_payment === 'CASH').length;
+    const totalCOD = filteredAllOrders.filter(o => o.type_payment === 'COD').length;
 
     // Total Pending Tracking: Shipped AND (SEO is null OR SEO != 'Successfull Delivery')
     const totalPendingTracking = filteredAllOrders.filter(o =>
       o.delivery_status === 'Shipped' &&
       (!o.seo || o.seo !== 'Successfull Delivery') &&
-      o.cara_bayaran === 'COD'
+      o.type_payment === 'COD'
     ).length;
 
     return {
