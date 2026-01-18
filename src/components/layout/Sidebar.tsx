@@ -27,6 +27,7 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -222,6 +223,12 @@ const navItems: NavItem[] = [
     label: 'Approved',
     path: '/dashboard/account/approved',
     icon: <CheckCircle className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Expenses',
+    path: '/dashboard/account/expenses',
+    icon: <CreditCard className="w-5 h-5" />,
     roles: ['account'],
   },
   {
