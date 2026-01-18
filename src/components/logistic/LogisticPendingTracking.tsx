@@ -437,7 +437,7 @@ const LogisticPendingTracking = () => {
                   type="date"
                   value={individualDate}
                   onChange={(e) => setIndividualDate(e.target.value)}
-                  className="h-10 w-44 cursor-pointer"
+                  className="h-10 w-52 cursor-pointer"
                 />
                 <Button
                   onClick={handleIndividualUpdate}
