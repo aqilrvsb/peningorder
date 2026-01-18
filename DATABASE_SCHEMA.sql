@@ -66,6 +66,18 @@ CREATE TABLE public.expenses (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT expenses_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.invoice_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  company_name text NOT NULL,
+  registration_no text,
+  address text,
+  phone text,
+  email text,
+  website text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoice_settings_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.logistic_bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,

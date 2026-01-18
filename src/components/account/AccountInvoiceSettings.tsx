@@ -141,162 +141,165 @@ const AccountInvoiceSettings = () => {
         </p>
       </div>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="w-5 h-5" />
-            Company Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Company Name */}
-            <div className="space-y-2">
-              <Label htmlFor="company_name" className="flex items-center gap-2">
-                <Building2 className="w-4 h-4" />
-                Company Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="company_name"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-                placeholder="Enter company name"
-                required
-              />
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Form Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Company Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Company Name */}
+              <div className="space-y-2">
+                <Label htmlFor="company_name" className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Company Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="company_name"
+                  name="company_name"
+                  value={formData.company_name}
+                  onChange={handleChange}
+                  placeholder="Enter company name"
+                  required
+                />
+              </div>
 
-            {/* Registration No */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="registration_no"
-                className="flex items-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                Company Registration No.
-              </Label>
-              <Input
-                id="registration_no"
-                name="registration_no"
-                value={formData.registration_no || ""}
-                onChange={handleChange}
-                placeholder="e.g., 123456-X"
-              />
-            </div>
+              {/* Registration No */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="registration_no"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Company Registration No.
+                </Label>
+                <Input
+                  id="registration_no"
+                  name="registration_no"
+                  value={formData.registration_no || ""}
+                  onChange={handleChange}
+                  placeholder="e.g., 123456-X"
+                />
+              </div>
 
-            {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="address" className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Business Address
-              </Label>
-              <Textarea
-                id="address"
-                name="address"
-                value={formData.address || ""}
-                onChange={handleChange}
-                placeholder="Enter full business address"
-                rows={3}
-              />
-            </div>
+              {/* Address */}
+              <div className="space-y-2">
+                <Label htmlFor="address" className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Business Address
+                </Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  value={formData.address || ""}
+                  onChange={handleChange}
+                  placeholder="Enter full business address"
+                  rows={3}
+                />
+              </div>
 
-            {/* Phone */}
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                Business Phone
-              </Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={formData.phone || ""}
-                onChange={handleChange}
-                placeholder="e.g., +60 12-345 6789"
-              />
-            </div>
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  Business Phone
+                </Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={formData.phone || ""}
+                  onChange={handleChange}
+                  placeholder="e.g., +60 12-345 6789"
+                />
+              </div>
 
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                Business Email
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email || ""}
-                onChange={handleChange}
-                placeholder="e.g., info@company.com"
-              />
-            </div>
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Business Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email || ""}
+                  onChange={handleChange}
+                  placeholder="e.g., info@company.com"
+                />
+              </div>
 
-            {/* Website */}
-            <div className="space-y-2">
-              <Label htmlFor="website" className="flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                Website
-              </Label>
-              <Input
-                id="website"
-                name="website"
-                value={formData.website || ""}
-                onChange={handleChange}
-                placeholder="e.g., www.company.com"
-              />
-            </div>
+              {/* Website */}
+              <div className="space-y-2">
+                <Label htmlFor="website" className="flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Website
+                </Label>
+                <Input
+                  id="website"
+                  name="website"
+                  value={formData.website || ""}
+                  onChange={handleChange}
+                  placeholder="e.g., www.company.com"
+                />
+              </div>
 
-            {/* Submit Button */}
-            <div className="pt-4">
-              <Button
-                type="submit"
-                disabled={saveMutation.isPending}
-                className="w-full sm:w-auto"
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save Settings
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              {/* Submit Button */}
+              <div className="pt-4">
+                <Button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="w-full"
+                >
+                  {saveMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Settings
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-      {/* Preview Card */}
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Invoice Preview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gray-50 p-6 rounded-lg border">
-            <h2 className="text-xl font-bold text-gray-900">
-              {formData.company_name || "Company Name"}{" "}
-              {formData.registration_no && `(${formData.registration_no})`}
-            </h2>
-            {formData.address && (
-              <p className="text-sm text-gray-700 mt-2 whitespace-pre-line">
-                {formData.address}
-              </p>
-            )}
-            {formData.phone && (
-              <p className="text-sm text-gray-700 mt-1">
-                Tel: {formData.phone}
-              </p>
-            )}
-            {formData.email && (
-              <p className="text-sm text-gray-700">Email: {formData.email}</p>
-            )}
-            {formData.website && (
-              <p className="text-sm text-gray-700">
-                Website: {formData.website}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Preview Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-50 p-6 rounded-lg border">
+              <h2 className="text-xl font-bold text-gray-900">
+                {formData.company_name || "Company Name"}{" "}
+                {formData.registration_no && `(${formData.registration_no})`}
+              </h2>
+              {formData.address && (
+                <p className="text-sm text-gray-700 mt-2 whitespace-pre-line">
+                  {formData.address}
+                </p>
+              )}
+              {formData.phone && (
+                <p className="text-sm text-gray-700 mt-1">
+                  Tel: {formData.phone}
+                </p>
+              )}
+              {formData.email && (
+                <p className="text-sm text-gray-700">Email: {formData.email}</p>
+              )}
+              {formData.website && (
+                <p className="text-sm text-gray-700">
+                  Website: {formData.website}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
