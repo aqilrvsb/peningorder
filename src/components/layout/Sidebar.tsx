@@ -232,6 +232,18 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
+    label: 'Report Spend',
+    path: '/dashboard/account/report-spend',
+    icon: <Wallet className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Customer HQ',
+    path: '/dashboard/account/customers',
+    icon: <Users className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'Finance',
     path: '/dashboard/finance',
     icon: <DollarSign className="w-5 h-5" />,

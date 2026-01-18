@@ -51,6 +51,8 @@ import MarketerBundleTransaction from "./components/marketer/MarketerBundleTrans
 import AccountPengesahan from "./components/account/AccountPengesahan";
 import AccountApproved from "./components/account/AccountApproved";
 import AccountExpenses from "./components/account/AccountExpenses";
+import AccountReportSpend from "./components/account/AccountReportSpend";
+import AccountCustomers from "./components/account/AccountCustomers";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +106,8 @@ const App = () => (
                   <Route path="account/pengesahan" element={<AccountPengesahan />} />
                   <Route path="account/approved" element={<AccountApproved />} />
                   <Route path="account/expenses" element={<AccountExpenses />} />
+                  <Route path="account/report-spend" element={<AccountReportSpend />} />
+                  <Route path="account/customers" element={<AccountCustomers />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
