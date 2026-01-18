@@ -20,6 +20,7 @@ import {
   CheckCircle,
   CreditCard,
   MessageCircle,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -381,9 +382,9 @@ const AccountPengesahan = () => {
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
+                      <th className="p-2 text-left">Bank</th>
+                      <th className="p-2 text-left">Receipt</th>
                       <th className="p-2 text-left">Jenis Platform</th>
-                      <th className="p-2 text-left">Negeri</th>
-                      <th className="p-2 text-left">SEO</th>
                       <th className="p-2 text-left">WhatsApp</th>
                       <th className="p-2 text-left">Action</th>
                     </tr>
@@ -421,6 +422,20 @@ const AccountPengesahan = () => {
                               {order.type_payment || "-"}
                             </span>
                           </td>
+                          <td className="p-2 text-xs">{order.bank_payment || "-"}</td>
+                          <td className="p-2">
+                            {order.receipt_payment_url ? (
+                              <a
+                                href={order.receipt_payment_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                View
+                              </a>
+                            ) : "-"}
+                          </td>
                           <td className="p-2">
                             <span className={`text-xs font-medium ${
                               getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
@@ -431,12 +446,6 @@ const AccountPengesahan = () => {
                               "text-gray-600"
                             }`}>
                               {getOrderPlatform(order) || "-"}
-                            </span>
-                          </td>
-                          <td className="p-2 text-xs">{order.state_customer || "-"}</td>
-                          <td className="p-2">
-                            <span className={`text-xs ${order.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seo || "-"}
                             </span>
                           </td>
                           <td className="p-2">
