@@ -17,56 +17,41 @@ interface NinjaVanWebhook {
   timestamp?: string;
   shipper_id?: string;
   comments?: string;
-  // Additional fields that might be sent
-  to_name?: string;
-  to_address1?: string;
-  to_postcode?: string;
 }
 
-// Map NinjaVan status to delivery_status in our database
-function mapDeliveryStatus(ninjaStatus: string): string {
-  const statusLower = ninjaStatus.toLowerCase();
-
-  // Delivered statuses
-  if (statusLower.includes('delivered') || statusLower.includes('completed')) {
-    return 'Delivered';
+// Process NinjaVan status - matching your PHP logic exactly
+function processNinjavanStatus(eventName: string): { status: string; seo: string } {
+  // Successful Delivery
+  if (
+    eventName.includes('Successful Delivery') ||
+    eventName.includes('Completed') ||
+    eventName.includes('Delivered')
+  ) {
+    return { status: 'Processed', seo: 'Successful Delivery' };
   }
 
-  // Out for delivery
-  if (statusLower.includes('on vehicle') || statusLower.includes('out for delivery')) {
-    return 'Out for Delivery';
+  // Return
+  if (
+    eventName.includes('Returned to Sender') ||
+    eventName.includes('Cancelled') ||
+    eventName.includes('Return') ||
+    eventName.includes('Return Success') ||
+    eventName.includes('Return Assigned') ||
+    eventName.includes('Order Cancelled')
+  ) {
+    return { status: 'Return', seo: 'Returned to Sender' };
   }
 
-  // In transit
-  if (statusLower.includes('transit') || statusLower.includes('arrived') || statusLower.includes('hub')) {
-    return 'In Transit';
+  // Pending Reschedule - keep as Pending but update SEO
+  if (eventName.includes('Pending Reschedule')) {
+    return { status: 'Pending', seo: 'Pending Reschedule' };
   }
 
-  // Picked up
-  if (statusLower.includes('picked up') || statusLower.includes('pickup')) {
-    return 'Picked Up';
-  }
-
-  // Return / Failed
-  if (statusLower.includes('return') || statusLower.includes('rts') || statusLower.includes('returned')) {
-    return 'Returned';
-  }
-
-  // Cancelled
-  if (statusLower.includes('cancel')) {
-    return 'Cancelled';
-  }
-
-  // Exception / Problem
-  if (statusLower.includes('exception') || statusLower.includes('failed') || statusLower.includes('lost')) {
-    return 'Exception';
-  }
-
-  // Pending (default)
-  return 'Pending';
+  // Other events - keep Pending status, update SEO with event name
+  return { status: 'Pending', seo: eventName };
 }
 
-// Get WhatsApp message template based on event
+// Get WhatsApp message template based on event (only for non-final events)
 function getWhatsAppMessage(
   eventName: string,
   customerName: string,
@@ -74,6 +59,16 @@ function getWhatsAppMessage(
   idSale: string
 ): string | null {
   const eventLower = eventName.toLowerCase();
+
+  // Don't send WhatsApp for Successful Delivery or Return - those are final statuses
+  if (
+    eventLower.includes('successful delivery') ||
+    eventLower.includes('completed') ||
+    eventLower.includes('delivered') ||
+    eventLower.includes('return')
+  ) {
+    return null;
+  }
 
   // Picked Up
   if (eventLower.includes('picked up')) {
@@ -95,7 +90,7 @@ DFR EMPIRE`;
   if (eventLower.includes('on vehicle') || eventLower.includes('out for delivery')) {
     return `Assalamualaikum ${customerName},
 
-Pesanan anda sedang dalam penghantaran!
+Pesanan anda sedang dalam penghantaran hari ini!
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
@@ -109,22 +104,24 @@ Terima kasih!
 DFR EMPIRE`;
   }
 
-  // Delivered
-  if (eventLower.includes('delivered') && !eventLower.includes('exception')) {
+  // In Transit
+  if (eventLower.includes('transit') || eventLower.includes('hub')) {
     return `Assalamualaikum ${customerName},
 
-Pesanan anda telah berjaya dihantar!
+Pesanan anda sedang dalam perjalanan!
 
 No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
 
-Terima kasih kerana membeli dari kami. Jika ada sebarang masalah, sila hubungi kami.
+Track di sini:
+https://www.ninjavan.co/en-my/tracking?id=${trackingNumber}
 
+Terima kasih!
 DFR EMPIRE`;
   }
 
-  // Failed Delivery / Exception
-  if (eventLower.includes('exception') || eventLower.includes('failed')) {
+  // Failed Delivery / Exception - need to reschedule
+  if (eventLower.includes('exception') || eventLower.includes('failed') || eventLower.includes('pending reschedule')) {
     return `Assalamualaikum ${customerName},
 
 Maaf, terdapat masalah dengan penghantaran pesanan anda.
@@ -133,26 +130,12 @@ No. Pesanan: ${idSale}
 No. Tracking: ${trackingNumber}
 Status: ${eventName}
 
-Sila hubungi kami untuk maklumat lanjut.
+Kurier akan cuba hantar semula. Sila pastikan anda ada di rumah.
 
 DFR EMPIRE`;
   }
 
-  // Return to Sender
-  if (eventLower.includes('return') || eventLower.includes('rts')) {
-    return `Assalamualaikum ${customerName},
-
-Pesanan anda sedang dikembalikan kepada pengirim.
-
-No. Pesanan: ${idSale}
-No. Tracking: ${trackingNumber}
-
-Sila hubungi kami untuk aturkan penghantaran semula.
-
-DFR EMPIRE`;
-  }
-
-  // Don't send for other events
+  // For other events, don't send WhatsApp
   return null;
 }
 
@@ -213,6 +196,13 @@ async function sendWhatsAppMessage(
   }
 }
 
+// Get Malaysia date (UTC+8)
+function getMalaysiaDate(): string {
+  const now = new Date();
+  const malaysiaTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  return malaysiaTime.toISOString().split('T')[0];
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -231,6 +221,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const startTime = Date.now();
+  const todayDate = getMalaysiaDate();
 
   try {
     const rawBody = await req.text();
@@ -262,15 +253,17 @@ serve(async (req) => {
     // Extract event/status (NinjaVan sends either status or event_name)
     const eventName = webhookData.status || webhookData.event_name;
 
+    // Extract comments/reason
+    const comments = webhookData.comments || null;
+
     console.log('=== NinjaVan Webhook Received ===');
     console.log('Tracking:', trackingNumber);
     console.log('Event:', eventName);
-    console.log('Raw data:', JSON.stringify(webhookData).substring(0, 500));
+    console.log('Comments:', comments);
 
     if (!trackingNumber) {
       console.log('No tracking number in webhook');
 
-      // Log webhook even without tracking
       await supabase.from('webhook_logs').insert({
         webhook_type: 'ninjavan',
         request_method: 'POST',
@@ -297,7 +290,7 @@ serve(async (req) => {
     // Find the order by tracking number
     const { data: order, error: orderError } = await supabase
       .from('customer_purchases')
-      .select('id, id_sale, marketer_id_staff, name_customer, phone_customer, delivery_status')
+      .select('id, id_sale, marketer_id_staff, name_customer, phone_customer, delivery_status, seo')
       .eq('tracking_number', trackingNumber)
       .maybeSingle();
 
@@ -342,32 +335,54 @@ serve(async (req) => {
       id: order.id,
       id_sale: order.id_sale,
       marketer: order.marketer_id_staff,
-      customer: order.name_customer
+      customer: order.name_customer,
+      currentStatus: order.delivery_status,
+      currentSeo: order.seo
     });
 
-    // Map NinjaVan status to our delivery_status
-    const newDeliveryStatus = mapDeliveryStatus(eventName);
+    // Process NinjaVan status using your PHP logic
+    const { status: newDeliveryStatus, seo: newSeo } = processNinjavanStatus(eventName);
     const previousStatus = order.delivery_status;
+    const previousSeo = order.seo;
 
-    // Update order delivery status
+    // Build update object
+    const updateData: any = {
+      seo: newSeo,  // Always update SEO with event
+      nota_staff: comments || order.nota_staff  // Update nota_staff with comments if available
+    };
+
+    // Handle Successful Delivery
+    if (newDeliveryStatus === 'Processed') {
+      updateData.delivery_status = 'Processed';
+      updateData.date_processed = todayDate;
+      console.log('Setting as Processed with date_processed:', todayDate);
+    }
+    // Handle Return
+    else if (newDeliveryStatus === 'Return') {
+      updateData.delivery_status = 'Return';
+      updateData.date_return = todayDate;
+      console.log('Setting as Return with date_return:', todayDate);
+    }
+    // Other events - don't change delivery_status, just update SEO
+
+    // Update order
     const { error: updateError } = await supabase
       .from('customer_purchases')
-      .update({
-        delivery_status: newDeliveryStatus,
-        // If delivered, set date_processed
-        ...(newDeliveryStatus === 'Delivered' ? { date_processed: new Date().toISOString().split('T')[0] } : {}),
-        // If returned, set date_return
-        ...(newDeliveryStatus === 'Returned' ? { date_return: new Date().toISOString().split('T')[0] } : {})
-      })
+      .update(updateData)
       .eq('id', order.id);
 
     if (updateError) {
       console.error('Error updating order:', updateError);
     } else {
-      console.log('Order status updated:', previousStatus, '->', newDeliveryStatus);
+      console.log('Order updated:', {
+        previousStatus,
+        newStatus: updateData.delivery_status || previousStatus,
+        previousSeo,
+        newSeo
+      });
     }
 
-    // Send WhatsApp notification to customer
+    // Send WhatsApp notification for non-final events only
     let whatsappSent = false;
     let whatsappError = '';
 
@@ -380,7 +395,7 @@ serve(async (req) => {
       );
 
       if (message) {
-        console.log('Sending WhatsApp notification...');
+        console.log('Sending WhatsApp notification for event:', eventName);
         const whatsappResult = await sendWhatsAppMessage(
           supabase,
           order.marketer_id_staff,
@@ -392,7 +407,7 @@ serve(async (req) => {
         whatsappError = whatsappResult.error || '';
         console.log('WhatsApp result:', whatsappResult.success ? 'sent' : whatsappResult.error);
       } else {
-        console.log('No WhatsApp message template for event:', eventName);
+        console.log('No WhatsApp for this event (final status):', eventName);
       }
     }
 
@@ -404,13 +419,16 @@ serve(async (req) => {
       parsed_data: {
         trackingNumber,
         eventName,
+        comments,
         orderId: order.id,
         idSale: order.id_sale,
         marketerIdStaff: order.marketer_id_staff,
         customerName: order.name_customer,
         customerPhone: order.phone_customer,
         previousStatus,
-        newStatus: newDeliveryStatus,
+        newStatus: updateData.delivery_status || previousStatus,
+        previousSeo,
+        newSeo,
         whatsappSent,
         whatsappError
       },
@@ -427,8 +445,8 @@ serve(async (req) => {
         id_sale: order.id_sale,
         tracking_number: trackingNumber,
         event: eventName,
-        previous_status: previousStatus,
-        new_status: newDeliveryStatus,
+        seo: newSeo,
+        delivery_status: updateData.delivery_status || previousStatus,
         whatsapp_sent: whatsappSent
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -437,7 +455,6 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('NinjaVan webhook error:', error);
 
-    // Log error
     await supabase.from('webhook_logs').insert({
       webhook_type: 'ninjavan',
       request_method: 'POST',
