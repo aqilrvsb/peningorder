@@ -527,104 +527,109 @@ Terima kasih! 🙏`;
         </div>
       </div>
 
-      {/* Filters - like image 2 layout */}
+      {/* Filters - like logistic Order layout */}
       <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Date filters */}
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Start Date</span>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-40"
-            />
+        <div className="flex flex-col gap-4">
+          {/* Row 1: Search + Blue Search Button + Dates */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Name, phone, tracking..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-40"
+              />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-40"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">End Date</span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-40"
-            />
-          </div>
+          {/* Row 2: Dropdowns and buttons */}
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Delivery status dropdown */}
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-muted-foreground" />
+              <Select
+                value={deliveryStatusFilter}
+                onValueChange={(v) => {
+                  setDeliveryStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Name, phone, tracking..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Delivery status dropdown */}
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-muted-foreground" />
+            {/* Page size */}
             <Select
-              value={deliveryStatusFilter}
+              value={pageSize.toString()}
               onValueChange={(v) => {
-                setDeliveryStatusFilter(v);
+                setPageSize(Number(v));
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DELIVERY_STATUS_OPTIONS.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Reset Filters & Export CSV */}
+            <Button variant="outline" onClick={resetFilters}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset Filters
+            </Button>
+            <Button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white">
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
           </div>
-
-          {/* Page size */}
-          <Select
-            value={pageSize.toString()}
-            onValueChange={(v) => {
-              setPageSize(Number(v));
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <SelectItem key={size} value={size.toString()}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Reset Filters & Export CSV */}
-          <Button variant="outline" onClick={resetFilters}>
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Reset Filters
-          </Button>
-          <Button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white">
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
         </div>
       </div>
 
