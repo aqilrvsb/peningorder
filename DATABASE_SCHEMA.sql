@@ -1,29 +1,6 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
-CREATE TABLE public.bundles (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  units integer NOT NULL DEFAULT 1,
-  price_normal numeric NOT NULL DEFAULT 0,
-  price_shopee numeric NOT NULL DEFAULT 0,
-  price_tiktok numeric NOT NULL DEFAULT 0,
-  product_id uuid,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  price_normal_np numeric NOT NULL DEFAULT 0,
-  price_normal_ep numeric NOT NULL DEFAULT 0,
-  price_normal_ec numeric NOT NULL DEFAULT 0,
-  price_shopee_np numeric NOT NULL DEFAULT 0,
-  price_shopee_ep numeric NOT NULL DEFAULT 0,
-  price_shopee_ec numeric NOT NULL DEFAULT 0,
-  price_tiktok_np numeric NOT NULL DEFAULT 0,
-  price_tiktok_ep numeric NOT NULL DEFAULT 0,
-  price_tiktok_ec numeric NOT NULL DEFAULT 0,
-  CONSTRAINT bundles_pkey PRIMARY KEY (id),
-  CONSTRAINT bundles_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
 CREATE TABLE public.customer_purchases (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   customer_id uuid,
@@ -68,7 +45,6 @@ CREATE TABLE public.customer_purchases (
   poskod text,
   negeri text,
   no_phone text,
-  nama_pelanggan text,
   produk text,
   sku text,
   kurier text,
@@ -78,9 +54,9 @@ CREATE TABLE public.customer_purchases (
   id_sale text,
   woo_order_id integer,
   logistic_bundle_id uuid,
+  nama_pelanggan text,
   CONSTRAINT customer_purchases_pkey PRIMARY KEY (id),
   CONSTRAINT customer_purchases_seller_id_fkey FOREIGN KEY (seller_id) REFERENCES public.profiles(id),
-  CONSTRAINT customer_purchases_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.bundles(id),
   CONSTRAINT customer_purchases_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
   CONSTRAINT customer_purchases_marketer_id_fkey FOREIGN KEY (marketer_id) REFERENCES public.profiles(id),
   CONSTRAINT customer_purchases_logistic_bundle_id_fkey FOREIGN KEY (logistic_bundle_id) REFERENCES public.logistic_bundles(id)
@@ -111,16 +87,6 @@ CREATE TABLE public.inventory (
   CONSTRAINT inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
   CONSTRAINT inventory_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
-CREATE TABLE public.logistic_bundle_items (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bundle_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL DEFAULT 1 CHECK (quantity > 0),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT logistic_bundle_items_pkey PRIMARY KEY (id),
-  CONSTRAINT logistic_bundle_items_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.logistic_bundles(id),
-  CONSTRAINT logistic_bundle_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
 CREATE TABLE public.logistic_bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,
@@ -128,12 +94,12 @@ CREATE TABLE public.logistic_bundles (
   description text,
   sku text,
   total_price numeric NOT NULL DEFAULT 0,
-  base_cost numeric NOT NULL DEFAULT 0,
-  kos_postage_sm numeric NOT NULL DEFAULT 0,
-  kos_postage_ss numeric NOT NULL DEFAULT 0,
   is_active boolean DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  base_cost numeric NOT NULL DEFAULT 0,
+  kos_postage_sm numeric NOT NULL DEFAULT 0,
+  kos_postage_ss numeric NOT NULL DEFAULT 0,
   price_online_np numeric NOT NULL DEFAULT 0,
   price_online_ep numeric NOT NULL DEFAULT 0,
   price_online_ec numeric NOT NULL DEFAULT 0,
@@ -145,23 +111,6 @@ CREATE TABLE public.logistic_bundles (
   price_shopee_ec numeric NOT NULL DEFAULT 0,
   CONSTRAINT logistic_bundles_pkey PRIMARY KEY (id),
   CONSTRAINT logistic_bundles_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id)
-);
-CREATE TABLE public.logistic_stock_requests (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  logistic_id uuid NOT NULL,
-  product_id uuid NOT NULL,
-  quantity integer NOT NULL CHECK (quantity > 0),
-  description text,
-  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
-  requested_at timestamp with time zone NOT NULL DEFAULT now(),
-  processed_at timestamp with time zone,
-  processed_by uuid,
-  rejection_reason text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT logistic_stock_requests_pkey PRIMARY KEY (id),
-  CONSTRAINT logistic_stock_requests_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
-  CONSTRAINT logistic_stock_requests_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-  CONSTRAINT logistic_stock_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.ninjavan_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -266,19 +215,6 @@ CREATE TABLE public.stock_in_logistic (
   CONSTRAINT stock_in_logistic_pkey PRIMARY KEY (id),
   CONSTRAINT stock_in_logistic_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id),
   CONSTRAINT stock_in_logistic_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
-);
-CREATE TABLE public.stock_movements (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  product_id uuid NOT NULL,
-  type text NOT NULL,
-  quantity integer NOT NULL,
-  date date NOT NULL DEFAULT CURRENT_DATE,
-  description text,
-  master_agent_id text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT stock_movements_pkey PRIMARY KEY (id),
-  CONSTRAINT stock_movements_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
 CREATE TABLE public.stock_out_logistic (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

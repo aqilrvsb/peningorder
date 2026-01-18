@@ -118,15 +118,7 @@ const LogisticBundleManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select(`
-          *,
-          items:logistic_bundle_items(
-            id,
-            product_id,
-            quantity,
-            product:products(id, name, sku)
-          )
-        `)
+        .select("*")
         .eq("logistic_id", user?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -185,15 +177,27 @@ const LogisticBundleManagement = () => {
     setPriceShopeeNp(Number(bundle.price_shopee_np) || 0);
     setPriceShopeeEp(Number(bundle.price_shopee_ep) || 0);
     setPriceShopeeEc(Number(bundle.price_shopee_ec) || 0);
-    setBundleItems(
-      bundle.items.map((item: any) => ({
-        productId: item.product_id,
-        productName: item.product?.name || "Unknown",
-        productSku: item.product?.sku || "",
-        quantity: item.quantity,
-        baseCost: Number(item.product?.base_cost) || 0,
-      }))
-    );
+    // Parse SKU to reconstruct bundle items for editing
+    const skuParts = (bundle.sku || "").split(" + ");
+    const reconstructedItems: BundleItem[] = [];
+    skuParts.forEach((part: string) => {
+      const match = part.match(/^(.+)-(\d+)$/);
+      if (match) {
+        const sku = match[1];
+        const qty = parseInt(match[2]) || 1;
+        const product = products.find((p: any) => p.sku === sku);
+        if (product) {
+          reconstructedItems.push({
+            productId: product.id,
+            productName: product.name,
+            productSku: product.sku,
+            quantity: qty,
+            baseCost: Number(product.base_cost) || 0,
+          });
+        }
+      }
+    });
+    setBundleItems(reconstructedItems);
     setDialogOpen(true);
   };
 
@@ -300,28 +304,10 @@ const LogisticBundleManagement = () => {
 
         if (updateError) throw updateError;
 
-        // Delete existing items and re-insert
-        await supabase
-          .from("logistic_bundle_items")
-          .delete()
-          .eq("bundle_id", editingBundleId);
-
-        const itemsToInsert = bundleItems.map((item) => ({
-          bundle_id: editingBundleId,
-          product_id: item.productId,
-          quantity: item.quantity,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("logistic_bundle_items")
-          .insert(itemsToInsert);
-
-        if (itemsError) throw itemsError;
-
         toast.success("Bundle updated successfully");
       } else {
         // Create new bundle
-        const { data: newBundle, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from("logistic_bundles")
           .insert({
             logistic_id: user?.id,
@@ -340,24 +326,9 @@ const LogisticBundleManagement = () => {
             price_shopee_np: priceShopeeNp,
             price_shopee_ep: priceShopeeEp,
             price_shopee_ec: priceShopeeEc,
-          })
-          .select()
-          .single();
+          });
 
         if (insertError) throw insertError;
-
-        // Insert bundle items
-        const itemsToInsert = bundleItems.map((item) => ({
-          bundle_id: newBundle.id,
-          product_id: item.productId,
-          quantity: item.quantity,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from("logistic_bundle_items")
-          .insert(itemsToInsert);
-
-        if (itemsError) throw itemsError;
 
         toast.success("Bundle created successfully");
       }
@@ -457,8 +428,7 @@ const LogisticBundleManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Bundle Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Products</TableHead>
+                  <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Base Cost</TableHead>
                   <TableHead className="text-center">Postage SM</TableHead>
                   <TableHead className="text-center">Postage SS</TableHead>
@@ -466,9 +436,9 @@ const LogisticBundleManagement = () => {
                   <TableHead className="text-center bg-pink-50" colSpan={3}>Tiktok Platform</TableHead>
                   <TableHead className="text-center bg-orange-50" colSpan={3}>Shopee Platform</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
                 <TableRow>
-                  <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
@@ -484,7 +454,7 @@ const LogisticBundleManagement = () => {
                   <TableHead className="text-center text-xs bg-orange-50">EP</TableHead>
                   <TableHead className="text-center text-xs bg-orange-50">EC</TableHead>
                   <TableHead></TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -501,18 +471,9 @@ const LogisticBundleManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
+                      <code className="text-xs bg-muted px-2 py-1 rounded break-all">
                         {bundle.sku || "-"}
                       </code>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {bundle.items?.map((item: any) => (
-                          <Badge key={item.id} variant="secondary" className="text-xs">
-                            {item.product?.name} x{item.quantity}
-                          </Badge>
-                        ))}
-                      </div>
                     </TableCell>
                     <TableCell className="text-center font-medium text-red-600">
                       RM {Number(bundle.base_cost || 0).toFixed(2)}
