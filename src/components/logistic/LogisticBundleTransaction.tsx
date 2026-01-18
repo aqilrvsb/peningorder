@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -691,6 +692,9 @@ const LogisticBundleTransaction = () => {
             <DialogTitle className={getModalTitleColor()}>
               {getModalTitle()}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Order details for {modalBundleName}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto">
             <Table>
