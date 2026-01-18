@@ -5,8 +5,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock, X } from "lucide-react";
 import { getMalaysiaDate } from "@/lib/utils";
+
+// Detail modal type
+type DetailModalType = "success" | "return" | "remaining" | null;
 
 // Transaction Bundle tab - Bundle-level based on logistic_bundles table
 // WITH Total Sales
@@ -15,6 +25,12 @@ const LogisticBundleTransaction = () => {
   const today = getMalaysiaDate();
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<DetailModalType>(null);
+  const [modalBundleId, setModalBundleId] = useState<string | null>(null);
+  const [modalBundleName, setModalBundleName] = useState<string>("");
 
   // Fetch all bundles from logistic_bundles table
   const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
@@ -32,7 +48,7 @@ const LogisticBundleTransaction = () => {
   });
 
   // Fetch customer_purchases with bundle info (filter by date_order)
-  // All filters use date_order: Shipped, Return, Total Sales, Success
+  // Include all needed fields for modal display
   const { data: purchasesData = [], isLoading: purchasesLoading } = useQuery({
     queryKey: ["bundle-transactions", startDate, endDate],
     queryFn: async () => {
@@ -46,7 +62,12 @@ const LogisticBundleTransaction = () => {
           delivery_status,
           jenis_platform,
           date_order,
-          seo
+          date_processed,
+          seo,
+          tracking_number,
+          name_customer,
+          phone_customer,
+          type_payment
         `);
 
       if (startDate) query = query.gte("date_order", startDate);
@@ -57,13 +78,6 @@ const LogisticBundleTransaction = () => {
       return data || [];
     },
   });
-
-  // Filter helper function (simple string comparison for YYYY-MM-DD format)
-  const isInDateRange = (dateStr: string | null | undefined): boolean => {
-    if (!dateStr) return false;
-    const date = dateStr.substring(0, 10); // Get YYYY-MM-DD part
-    return date >= startDate && date <= endDate;
-  };
 
   // Calculate bundle transaction data - group by bundle
   const bundleTransactions = useMemo(() => {
@@ -172,7 +186,34 @@ const LogisticBundleTransaction = () => {
         };
       })
       .filter((b) => b.shippedUnits > 0 || b.returnUnits > 0);
-  }, [bundles, purchasesData, startDate, endDate]);
+  }, [bundles, purchasesData]);
+
+  // Get filtered orders for modal
+  const getModalOrders = useMemo(() => {
+    if (!modalBundleId || !modalType) return [];
+
+    return purchasesData.filter((p: any) => {
+      if (p.bundle_id !== modalBundleId) return false;
+
+      if (modalType === "success") {
+        return p.delivery_status === "Shipped" && p.seo === "Successfull Delivery";
+      } else if (modalType === "return") {
+        return p.delivery_status === "Return";
+      } else if (modalType === "remaining") {
+        // Remaining = Shipped but NOT success and NOT return
+        return p.delivery_status === "Shipped" && p.seo !== "Successfull Delivery";
+      }
+      return false;
+    });
+  }, [purchasesData, modalBundleId, modalType]);
+
+  // Handle opening modal
+  const openModal = (bundleId: string, bundleName: string, type: DetailModalType) => {
+    setModalBundleId(bundleId);
+    setModalBundleName(bundleName);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   // Summary stats
   const summaryStats = useMemo(() => {
@@ -206,6 +247,20 @@ const LogisticBundleTransaction = () => {
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
   const formatCurrency = (value: number) => `RM ${value.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const getModalTitle = () => {
+    if (modalType === "success") return `Success Orders - ${modalBundleName}`;
+    if (modalType === "return") return `Return Orders - ${modalBundleName}`;
+    if (modalType === "remaining") return `Remaining Orders - ${modalBundleName}`;
+    return "";
+  };
+
+  const getModalTitleColor = () => {
+    if (modalType === "success") return "text-green-600";
+    if (modalType === "return") return "text-orange-600";
+    if (modalType === "remaining") return "text-amber-600";
+    return "";
+  };
+
   const isLoading = bundlesLoading || purchasesLoading;
 
   if (isLoading) {
@@ -220,7 +275,7 @@ const LogisticBundleTransaction = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-primary">Transaction Bundle</h1>
+        <h1 className="text-2xl font-bold text-primary">Bundle Date Order</h1>
         <p className="text-muted-foreground mt-1">
           Bundle-level transactions with sales breakdown by date order
         </p>
@@ -437,9 +492,42 @@ const LogisticBundleTransaction = () => {
                       <TableCell className="font-medium sticky left-0 bg-background z-10">{bundle.sku}</TableCell>
                       <TableCell>{bundle.name}</TableCell>
                       <TableCell className="text-center font-semibold text-blue-600">{bundle.shippedUnits}</TableCell>
-                      <TableCell className="text-center font-semibold text-green-600">{bundle.successUnits}</TableCell>
-                      <TableCell className="text-center font-semibold text-orange-600">{bundle.returnUnits}</TableCell>
-                      <TableCell className="text-center font-semibold text-amber-600">{bundle.remaining}</TableCell>
+                      <TableCell className="text-center font-semibold text-green-600">
+                        {bundle.successUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.successUnits}
+                          </button>
+                        ) : (
+                          bundle.successUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-orange-600">
+                        {bundle.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-amber-600">
+                        {bundle.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.remaining}
+                          </button>
+                        ) : (
+                          bundle.remaining
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-semibold text-emerald-600">{formatCurrency(bundle.totalSales)}</TableCell>
                       {/* Tiktok */}
                       <TableCell className="text-center bg-pink-50/50">{bundle.tiktok.units}</TableCell>
@@ -476,6 +564,70 @@ const LogisticBundleTransaction = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Detail Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className={getModalTitleColor()}>
+              {getModalTitle()}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-center">#</TableHead>
+                  <TableHead>Tracking Number</TableHead>
+                  <TableHead>Customer Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead className="text-center">Payment</TableHead>
+                  <TableHead className="text-center">Date Order</TableHead>
+                  <TableHead className="text-center">Date Processed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getModalOrders.length > 0 ? (
+                  getModalOrders.map((order: any, index: number) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="text-center">{index + 1}</TableCell>
+                      <TableCell className="font-mono text-xs">{order.tracking_number || "-"}</TableCell>
+                      <TableCell>{order.name_customer || "-"}</TableCell>
+                      <TableCell>{order.phone_customer || "-"}</TableCell>
+                      <TableCell className="text-center">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          order.type_payment === "COD"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}>
+                          {order.type_payment || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center text-xs">{order.date_order || "-"}</TableCell>
+                      <TableCell className="text-center text-xs">{order.date_processed || "-"}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No orders found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex justify-between items-center pt-4 border-t">
+            <span className="text-sm text-muted-foreground">
+              Total: {getModalOrders.length} order(s)
+            </span>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              <X className="w-4 h-4 mr-2" />
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
