@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign } from "lucide-react";
+import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { parseISO, isWithinInterval } from "date-fns";
 import { getMalaysiaDate } from "@/lib/utils";
 
@@ -45,7 +45,8 @@ const LogisticBundleTransaction = () => {
           total_sale,
           delivery_status,
           jenis_platform,
-          date_processed
+          date_processed,
+          seo
         `);
 
       if (startDate) query = query.gte("date_processed", startDate);
@@ -81,11 +82,12 @@ const LogisticBundleTransaction = () => {
       sku: string;
       name: string;
       shippedUnits: number;
+      successUnits: number;
       returnUnits: number;
       totalSales: number;
-      tiktok: { units: number; sales: number };
-      shopee: { units: number; sales: number };
-      online: { units: number; sales: number };
+      tiktok: { units: number; success: number; returnUnits: number; sales: number };
+      shopee: { units: number; success: number; returnUnits: number; sales: number };
+      online: { units: number; success: number; returnUnits: number; sales: number };
     }>();
 
     // Initialize with all bundles
@@ -95,11 +97,12 @@ const LogisticBundleTransaction = () => {
         sku: bundle.sku || "N/A",
         name: bundle.name,
         shippedUnits: 0,
+        successUnits: 0,
         returnUnits: 0,
         totalSales: 0,
-        tiktok: { units: 0, sales: 0 },
-        shopee: { units: 0, sales: 0 },
-        online: { units: 0, sales: 0 },
+        tiktok: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        shopee: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        online: { units: 0, success: 0, returnUnits: 0, sales: 0 },
       });
     });
 
@@ -112,11 +115,17 @@ const LogisticBundleTransaction = () => {
 
       const orderUnit = Number(p.unit) || 1;
       const orderSale = Number(p.total_sale) || 0;
+      const isSuccess = p.seo === "Successfull Delivery";
 
       // Shipped
       if (p.delivery_status === "Shipped") {
         entry.shippedUnits += orderUnit;
         entry.totalSales += orderSale;
+
+        // Success (SEO = Successfull Delivery)
+        if (isSuccess) {
+          entry.successUnits += orderUnit;
+        }
       }
 
       // Return
@@ -124,22 +133,30 @@ const LogisticBundleTransaction = () => {
         entry.returnUnits += orderUnit;
       }
 
-      // Platform breakdown (only for Shipped orders)
-      if (p.delivery_status === "Shipped") {
-        if (p.jenis_platform === "Tiktok") {
-          entry.tiktok.units += orderUnit;
-          entry.tiktok.sales += orderSale;
-        } else if (p.jenis_platform === "Shopee") {
-          entry.shopee.units += orderUnit;
-          entry.shopee.sales += orderSale;
-        } else if (p.jenis_platform) {
-          entry.online.units += orderUnit;
-          entry.online.sales += orderSale;
+      // Platform breakdown
+      const getPlatformEntry = () => {
+        if (p.jenis_platform === "Tiktok") return entry.tiktok;
+        if (p.jenis_platform === "Shopee") return entry.shopee;
+        if (p.jenis_platform) return entry.online;
+        return null;
+      };
+
+      const platformEntry = getPlatformEntry();
+      if (platformEntry) {
+        if (p.delivery_status === "Shipped") {
+          platformEntry.units += orderUnit;
+          platformEntry.sales += orderSale;
+          if (isSuccess) {
+            platformEntry.success += orderUnit;
+          }
+        }
+        if (p.delivery_status === "Return") {
+          platformEntry.returnUnits += orderUnit;
         }
       }
     });
 
-    // Convert to array and calculate percentages
+    // Convert to array and calculate percentages and remaining
     return Array.from(bundleMap.values())
       .map((bundle) => {
         const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.online.units;
@@ -147,11 +164,18 @@ const LogisticBundleTransaction = () => {
         const shopeePct = totalPlatformUnits > 0 ? (bundle.shopee.units / totalPlatformUnits) * 100 : 0;
         const onlinePct = totalPlatformUnits > 0 ? (bundle.online.units / totalPlatformUnits) * 100 : 0;
 
+        // Remaining = Shipped - Success - Return
+        const remaining = bundle.shippedUnits - bundle.successUnits - bundle.returnUnits;
+        const tiktokRemaining = bundle.tiktok.units - bundle.tiktok.success - bundle.tiktok.returnUnits;
+        const shopeeRemaining = bundle.shopee.units - bundle.shopee.success - bundle.shopee.returnUnits;
+        const onlineRemaining = bundle.online.units - bundle.online.success - bundle.online.returnUnits;
+
         return {
           ...bundle,
-          tiktok: { ...bundle.tiktok, pct: tiktokPct },
-          shopee: { ...bundle.shopee, pct: shopeePct },
-          online: { ...bundle.online, pct: onlinePct },
+          remaining,
+          tiktok: { ...bundle.tiktok, pct: tiktokPct, remaining: tiktokRemaining },
+          shopee: { ...bundle.shopee, pct: shopeePct, remaining: shopeeRemaining },
+          online: { ...bundle.online, pct: onlinePct, remaining: onlineRemaining },
         };
       })
       .filter((b) => b.shippedUnits > 0 || b.returnUnits > 0);
@@ -160,7 +184,9 @@ const LogisticBundleTransaction = () => {
   // Summary stats
   const summaryStats = useMemo(() => {
     const totalShipped = bundleTransactions.reduce((sum, b) => sum + b.shippedUnits, 0);
+    const totalSuccess = bundleTransactions.reduce((sum, b) => sum + b.successUnits, 0);
     const totalReturn = bundleTransactions.reduce((sum, b) => sum + b.returnUnits, 0);
+    const totalRemaining = totalShipped - totalSuccess - totalReturn;
     const totalSales = bundleTransactions.reduce((sum, b) => sum + b.totalSales, 0);
     const totalTiktok = bundleTransactions.reduce((sum, b) => sum + b.tiktok.units, 0);
     const totalTiktokSales = bundleTransactions.reduce((sum, b) => sum + b.tiktok.sales, 0);
@@ -171,7 +197,9 @@ const LogisticBundleTransaction = () => {
 
     return {
       totalShipped,
+      totalSuccess,
       totalReturn,
+      totalRemaining,
       totalSales,
       totalTiktok,
       totalTiktokSales,
@@ -240,7 +268,7 @@ const LogisticBundleTransaction = () => {
       </Card>
 
       {/* Summary Stats Cards - WITH Total Sales */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-blue-600 mb-1">
@@ -252,6 +280,17 @@ const LogisticBundleTransaction = () => {
           </CardContent>
         </Card>
 
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-green-600 mb-1">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-xs font-medium">Success</span>
+            </div>
+            <p className="text-xl font-bold">{summaryStats.totalSuccess}</p>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
+          </CardContent>
+        </Card>
+
         <Card className="border-l-4 border-l-orange-500">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-orange-600 mb-1">
@@ -259,6 +298,17 @@ const LogisticBundleTransaction = () => {
               <span className="text-xs font-medium">Return</span>
             </div>
             <p className="text-xl font-bold">{summaryStats.totalReturn}</p>
+            <div className="text-xs text-muted-foreground mt-1">Units</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-amber-600 mb-1">
+              <Clock className="w-4 h-4" />
+              <span className="text-xs font-medium">Remaining</span>
+            </div>
+            <p className="text-xl font-bold">{summaryStats.totalRemaining}</p>
             <div className="text-xs text-muted-foreground mt-1">Units</div>
           </CardContent>
         </Card>
@@ -333,21 +383,23 @@ const LogisticBundleTransaction = () => {
                   <TableHead className="sticky left-0 bg-background z-10">SKU</TableHead>
                   <TableHead>Bundle Name</TableHead>
                   <TableHead className="text-center text-blue-600">Shipped Out</TableHead>
+                  <TableHead className="text-center text-green-600">Success</TableHead>
                   <TableHead className="text-center text-orange-600">Return</TableHead>
+                  <TableHead className="text-center text-amber-600">Remaining</TableHead>
                   <TableHead className="text-right text-emerald-600">Total Sales</TableHead>
-                  <TableHead className="text-center bg-pink-50" colSpan={3}>
+                  <TableHead className="text-center bg-pink-50" colSpan={6}>
                     <div className="flex items-center justify-center gap-1">
                       <Play className="w-3 h-3" />
                       Tiktok
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-orange-50" colSpan={3}>
+                  <TableHead className="text-center bg-orange-50" colSpan={6}>
                     <div className="flex items-center justify-center gap-1">
                       <ShoppingBag className="w-3 h-3" />
                       Shopee
                     </div>
                   </TableHead>
-                  <TableHead className="text-center bg-sky-50" colSpan={3}>
+                  <TableHead className="text-center bg-sky-50" colSpan={6}>
                     <div className="flex items-center justify-center gap-1">
                       <Globe className="w-3 h-3" />
                       Online
@@ -359,17 +411,28 @@ const LogisticBundleTransaction = () => {
                   <TableHead></TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground">Units</TableHead>
                   <TableHead className="text-right text-xs text-muted-foreground">RM</TableHead>
                   {/* Tiktok sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">%</TableHead>
                   {/* Shopee sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">%</TableHead>
                   {/* Online sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Units</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Success</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Return</TableHead>
+                  <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-sky-50">%</TableHead>
                 </TableRow>
@@ -381,25 +444,36 @@ const LogisticBundleTransaction = () => {
                       <TableCell className="font-medium sticky left-0 bg-background z-10">{bundle.sku}</TableCell>
                       <TableCell>{bundle.name}</TableCell>
                       <TableCell className="text-center font-semibold text-blue-600">{bundle.shippedUnits}</TableCell>
+                      <TableCell className="text-center font-semibold text-green-600">{bundle.successUnits}</TableCell>
                       <TableCell className="text-center font-semibold text-orange-600">{bundle.returnUnits}</TableCell>
+                      <TableCell className="text-center font-semibold text-amber-600">{bundle.remaining}</TableCell>
                       <TableCell className="text-right font-semibold text-emerald-600">{formatCurrency(bundle.totalSales)}</TableCell>
                       {/* Tiktok */}
                       <TableCell className="text-center bg-pink-50/50">{bundle.tiktok.units}</TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-green-600">{bundle.tiktok.success}</TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-orange-600">{bundle.tiktok.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-amber-600">{bundle.tiktok.remaining}</TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatCurrency(bundle.tiktok.sales)}</TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatPercent(bundle.tiktok.pct)}</TableCell>
                       {/* Shopee */}
                       <TableCell className="text-center bg-orange-50/50">{bundle.shopee.units}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-green-600">{bundle.shopee.success}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-orange-600">{bundle.shopee.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-amber-600">{bundle.shopee.remaining}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatCurrency(bundle.shopee.sales)}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(bundle.shopee.pct)}</TableCell>
                       {/* Online */}
                       <TableCell className="text-center bg-sky-50/50">{bundle.online.units}</TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-green-600">{bundle.online.success}</TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-orange-600">{bundle.online.returnUnits}</TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-amber-600">{bundle.online.remaining}</TableCell>
                       <TableCell className="text-center bg-sky-50/50 text-xs">{formatCurrency(bundle.online.sales)}</TableCell>
                       <TableCell className="text-center bg-sky-50/50 text-xs">{formatPercent(bundle.online.pct)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={25} className="text-center py-8 text-muted-foreground">
                       No bundle transactions found.
                     </TableCell>
                   </TableRow>
