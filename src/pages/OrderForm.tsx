@@ -841,6 +841,9 @@ const OrderForm: React.FC = () => {
         });
       } else {
         // New order flow
+        // Get selected bundle for SKU (needed for NinjaVan)
+        const selectedBundle = activeBundles.find(b => b.name === formData.produk);
+
         // Skip NinjaVan for Shopee/Tiktok and PICKUP
         const shouldCallNinjavan = !isShopeeOrTiktokOrder && !isPickup;
 
@@ -860,7 +863,7 @@ const OrderForm: React.FC = () => {
                 caraBayaran: formData.caraBayaran,
                 produk: formData.produk,
                 productSku: selectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
-                quantity: formData.quantity || 1,
+                quantity: 1,
                 marketerIdStaff: profile?.username || '',
               }
             });
@@ -942,8 +945,7 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        // Get units from selected bundle
-        const selectedBundle = activeBundles.find(b => b.name === formData.produk);
+        // Get units from selected bundle (selectedBundle already defined above)
         const bundleUnits = selectedBundle?.units || 1;
 
         // Customer type is already NP/EP/EC from the Check button
