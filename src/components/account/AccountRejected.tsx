@@ -17,7 +17,7 @@ import {
   Package,
   Loader2,
   Search,
-  CheckCircle,
+  XCircle,
   CreditCard,
   Undo2,
   MessageCircle,
@@ -30,11 +30,11 @@ import Swal from "sweetalert2";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
-const AccountApproved = () => {
+const AccountRejected = () => {
   const queryClient = useQueryClient();
   const today = getMalaysiaDate();
 
-  // Filter states - default to today's date for date_approve
+  // Filter states - default to today's date
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState(today);
   const [pageSize, setPageSize] = useState<number | "All">(10);
@@ -62,10 +62,10 @@ const AccountApproved = () => {
   const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
-  // Fetch approved CASH orders (both NinjaVan CASH and Order Pickup)
-  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo === 'Successfull Delivery', date_approve matches filter
+  // Fetch rejected CASH orders
+  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo === 'Rejected', date_approve is null
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["account-approved", filterDate],
+    queryKey: ["account-rejected", filterDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -75,12 +75,13 @@ const AccountApproved = () => {
         `)
         .eq("type_payment", "CASH")
         .eq("delivery_status", "Shipped")
-        .eq("seo", "Successfull Delivery")
+        .eq("seo", "Rejected")
+        .is("date_approve", null)
         .order("created_at", { ascending: false });
 
-      // Filter by date_approve
+      // Filter by date_payment
       if (filterDate) {
-        query = query.eq("date_approve", filterDate);
+        query = query.eq("date_payment", filterDate);
       }
 
       const { data, error } = await query;
@@ -146,17 +147,17 @@ const AccountApproved = () => {
 
   const isAllSelected = paginatedOrders.length > 0 && paginatedOrders.every((o: any) => selectedOrders.has(o.id));
 
-  // Bulk Undo Approve action
-  const handleBulkUndoApprove = async () => {
+  // Bulk Undo Reject action - move back to Pengesahan
+  const handleBulkUndoReject = async () => {
     if (selectedOrders.size === 0) {
-      toast.error("Please select orders to undo approval");
+      toast.error("Please select orders to undo rejection");
       return;
     }
 
     const result = await Swal.fire({
       icon: "warning",
-      title: "Undo Approval?",
-      text: `Are you sure you want to undo approval for ${selectedOrders.size} order(s)? They will be moved back to Pengesahan.`,
+      title: "Undo Rejection?",
+      text: `Are you sure you want to undo rejection for ${selectedOrders.size} order(s)? They will be moved back to Pengesahan.`,
       showCancelButton: true,
       confirmButtonColor: "#f59e0b",
       confirmButtonText: "Yes, Undo",
@@ -168,13 +169,12 @@ const AccountApproved = () => {
     setIsUndoing(true);
 
     try {
-      // Reset SEO and date_approve for all selected orders
+      // Reset SEO to null so it goes back to Pengesahan
       const updatePromises = Array.from(selectedOrders).map((orderId) =>
         supabase
           .from("customer_purchases")
           .update({
-            seo: "Shipped",
-            date_approve: null,
+            seo: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", orderId)
@@ -183,22 +183,21 @@ const AccountApproved = () => {
       await Promise.all(updatePromises);
 
       toast.success(`${selectedOrders.size} order(s) moved back to Pengesahan`);
-      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
-      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
       queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
       setSelectedOrders(new Set());
     } catch (error: any) {
-      toast.error(error.message || "Failed to undo approval");
+      toast.error(error.message || "Failed to undo rejection");
     } finally {
       setIsUndoing(false);
     }
   };
 
-  // Single order undo approve
-  const handleUndoApproveOrder = async (orderId: string) => {
+  // Single order undo reject
+  const handleUndoRejectOrder = async (orderId: string) => {
     const result = await Swal.fire({
       icon: "warning",
-      title: "Undo Approval?",
+      title: "Undo Rejection?",
       text: "This order will be moved back to Pengesahan.",
       showCancelButton: true,
       confirmButtonColor: "#f59e0b",
@@ -212,8 +211,7 @@ const AccountApproved = () => {
       const { error } = await supabase
         .from("customer_purchases")
         .update({
-          seo: "Shipped",
-          date_approve: null,
+          seo: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", orderId);
@@ -221,11 +219,10 @@ const AccountApproved = () => {
       if (error) throw error;
 
       toast.success("Order moved back to Pengesahan");
-      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
-      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
       queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
     } catch (error: any) {
-      toast.error(error.message || "Failed to undo approval");
+      toast.error(error.message || "Failed to undo rejection");
     }
   };
 
@@ -237,9 +234,9 @@ const AccountApproved = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Approved Orders</h1>
+        <h1 className="text-3xl font-bold">Rejected Orders</h1>
         <p className="text-muted-foreground mt-2">
-          View approved NinjaVan CASH orders
+          View rejected NinjaVan CASH orders
         </p>
       </div>
 
@@ -259,7 +256,7 @@ const AccountApproved = () => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <CreditCard className="w-6 h-6 text-green-500" />
+              <CreditCard className="w-6 h-6 text-red-500" />
               <div>
                 <p className="text-xl font-bold">{counts.ninjavanCash}</p>
                 <p className="text-xs text-muted-foreground">NinjaVan CASH</p>
@@ -308,7 +305,7 @@ const AccountApproved = () => {
                 </div>
               </div>
               <div className="flex gap-2 items-center">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Date Approved:</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Date Payment:</span>
                 <Input
                   type="date"
                   value={filterDate}
@@ -338,13 +335,13 @@ const AccountApproved = () => {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={handleBulkUndoApprove}
+                  onClick={handleBulkUndoReject}
                   disabled={selectedOrders.size === 0 || isUndoing}
                   variant="outline"
                   className="border-amber-500 text-amber-600 hover:bg-amber-50"
                 >
                   {isUndoing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Undo2 className="w-4 h-4 mr-2" />}
-                  Undo Approve ({selectedOrders.size})
+                  Move to Pengesahan ({selectedOrders.size})
                 </Button>
               </div>
             </div>
@@ -373,7 +370,6 @@ const AccountApproved = () => {
                       </th>
                       <th className="p-2 text-left">No</th>
                       <th className="p-2 text-left">Id Sales</th>
-                      <th className="p-2 text-left">Date Approved</th>
                       <th className="p-2 text-left">Date Payment</th>
                       <th className="p-2 text-left">Date Order</th>
                       <th className="p-2 text-left">Id Staff</th>
@@ -403,9 +399,6 @@ const AccountApproved = () => {
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">
-                            <span className="text-green-600 font-medium">{order.date_approve || "-"}</span>
-                          </td>
                           <td className="p-2 whitespace-nowrap">{order.date_payment || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
@@ -457,8 +450,9 @@ const AccountApproved = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleUndoApproveOrder(order.id)}
+                              onClick={() => handleUndoRejectOrder(order.id)}
                               className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              title="Move back to Pengesahan"
                             >
                               <Undo2 className="w-4 h-4" />
                             </Button>
@@ -467,8 +461,8 @@ const AccountApproved = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={19} className="text-center py-12 text-muted-foreground">
-                          No approved orders found for this date.
+                        <td colSpan={18} className="text-center py-12 text-muted-foreground">
+                          No rejected orders found for this date.
                         </td>
                       </tr>
                     )}
@@ -510,4 +504,4 @@ const AccountApproved = () => {
   );
 };
 
-export default AccountApproved;
+export default AccountRejected;

@@ -28,6 +28,7 @@ import {
   Clock,
   CheckCircle,
   CreditCard,
+  XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -223,6 +224,12 @@ const navItems: NavItem[] = [
     label: 'Approved',
     path: '/dashboard/account/approved',
     icon: <CheckCircle className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Rejected',
+    path: '/dashboard/account/rejected',
+    icon: <XCircle className="w-5 h-5" />,
     roles: ['account'],
   },
   {

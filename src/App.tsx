@@ -50,6 +50,7 @@ import MarketerBundleTransaction from "./components/marketer/MarketerBundleTrans
 // Account components
 import AccountPengesahan from "./components/account/AccountPengesahan";
 import AccountApproved from "./components/account/AccountApproved";
+import AccountRejected from "./components/account/AccountRejected";
 import AccountExpenses from "./components/account/AccountExpenses";
 import AccountReportSpend from "./components/account/AccountReportSpend";
 import AccountCustomers from "./components/account/AccountCustomers";
@@ -105,6 +106,7 @@ const App = () => (
                   {/* Account Role routes */}
                   <Route path="account/pengesahan" element={<AccountPengesahan />} />
                   <Route path="account/approved" element={<AccountApproved />} />
+                  <Route path="account/rejected" element={<AccountRejected />} />
                   <Route path="account/expenses" element={<AccountExpenses />} />
                   <Route path="account/report-spend" element={<AccountReportSpend />} />
                   <Route path="account/customers" element={<AccountCustomers />} />

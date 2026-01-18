@@ -22,6 +22,8 @@ import {
   MessageCircle,
   ExternalLink,
   Truck,
+  XCircle,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -43,6 +45,7 @@ const AccountPengesahan = () => {
 
   // Loading states
   const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Fetch all profiles for marketer name and whatsapp lookup
   const { data: profiles = [] } = useQuery({
@@ -115,10 +118,12 @@ const AccountPengesahan = () => {
   // Counts - separate NinjaVan CASH and Order Pickup
   const ninjavanCashCount = orders.filter((o: any) => o.jenis_closing !== "Order Pickup").length;
   const orderPickupCount = orders.filter((o: any) => o.jenis_closing === "Order Pickup").length;
+  const totalSales = orders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0);
   const counts = {
     total: orders.length,
     ninjavanCash: ninjavanCashCount,
     orderPickup: orderPickupCount,
+    totalSales,
   };
 
   // Checkbox handlers
@@ -182,11 +187,95 @@ const AccountPengesahan = () => {
       toast.success(`${selectedOrders.size} order(s) approved successfully`);
       queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
       queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
       setSelectedOrders(new Set());
     } catch (error: any) {
       toast.error(error.message || "Failed to approve orders");
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  // Bulk Reject action
+  const handleBulkReject = async () => {
+    if (selectedOrders.size === 0) {
+      toast.error("Please select orders to reject");
+      return;
+    }
+
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Reject Orders?",
+      text: `Are you sure you want to reject ${selectedOrders.size} order(s)?`,
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Reject",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    setIsRejecting(true);
+
+    try {
+      // Update SEO to Rejected and set date_approve to null
+      const updatePromises = Array.from(selectedOrders).map((orderId) =>
+        supabase
+          .from("customer_purchases")
+          .update({
+            seo: "Rejected",
+            date_approve: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", orderId)
+      );
+
+      await Promise.all(updatePromises);
+
+      toast.success(`${selectedOrders.size} order(s) rejected`);
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
+      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
+      setSelectedOrders(new Set());
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject orders");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  // Single order reject
+  const handleRejectOrder = async (orderId: string) => {
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "Reject Order?",
+      text: "Are you sure you want to reject this order?",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Reject",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("customer_purchases")
+        .update({
+          seo: "Rejected",
+          date_approve: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      toast.success("Order rejected");
+      queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
+      queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject order");
     }
   };
 
@@ -220,6 +309,7 @@ const AccountPengesahan = () => {
       toast.success("Order approved successfully");
       queryClient.invalidateQueries({ queryKey: ["account-pengesahan"] });
       queryClient.invalidateQueries({ queryKey: ["account-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["account-rejected"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to approve order");
     }
@@ -240,7 +330,7 @@ const AccountPengesahan = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -270,6 +360,17 @@ const AccountPengesahan = () => {
               <div>
                 <p className="text-xl font-bold">{counts.orderPickup}</p>
                 <p className="text-xs text-muted-foreground">Order Pickup</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-green-500" />
+              <div>
+                <p className="text-xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">Total Sales</p>
               </div>
             </div>
           </CardContent>
@@ -322,6 +423,15 @@ const AccountPengesahan = () => {
               <div className="flex-1" />
 
               <div className="flex gap-2">
+                <Button
+                  onClick={handleBulkReject}
+                  disabled={selectedOrders.size === 0 || isRejecting}
+                  variant="outline"
+                  className="border-red-500 text-red-600 hover:bg-red-50"
+                >
+                  {isRejecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Reject ({selectedOrders.size})
+                </Button>
                 <Button
                   onClick={handleBulkApprove}
                   disabled={selectedOrders.size === 0 || isApproving}
@@ -434,14 +544,26 @@ const AccountPengesahan = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleApproveOrder(order.id)}
-                              className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRejectOrder(order.id)}
+                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Reject"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleApproveOrder(order.id)}
+                                className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                title="Approve"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))
