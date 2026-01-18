@@ -74,6 +74,11 @@ const OrderForm: React.FC = () => {
           name,
           sku,
           description,
+          base_cost,
+          kos_postage_sm,
+          kos_postage_ss,
+          postage_cod,
+          weight,
           price_online_np,
           price_online_ep,
           price_online_ec,
@@ -99,6 +104,12 @@ const OrderForm: React.FC = () => {
       name: lb.name,
       sku: lb.sku || '', // Bundle SKU for NinjaVan delivery instructions
       units: 1, // Default to 1 unit per bundle
+      // Cost fields for order calculation
+      baseCost: Number(lb.base_cost) || 0,
+      kosPostageSm: Number(lb.kos_postage_sm) || 0,
+      kosPostageSs: Number(lb.kos_postage_ss) || 0,
+      postageCod: Number(lb.postage_cod) || 0,
+      weight: Number(lb.weight) || 0.5,
       // Use platform-specific pricing
       priceNormalNp: Number(lb.price_online_np) || 0,
       priceNormalEp: Number(lb.price_online_ep) || 0,
@@ -698,7 +709,8 @@ const OrderForm: React.FC = () => {
                 caraBayaran: formData.caraBayaran,
                 produk: formData.produk,
                 productSku: editSelectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
-                quantity: formData.quantity || 1,
+                quantity: 1,
+                weight: editSelectedBundle?.weight || 0.5, // Bundle weight in KG
                 marketerIdStaff: profile?.username || '',
               }
             });
@@ -864,6 +876,7 @@ const OrderForm: React.FC = () => {
                 produk: formData.produk,
                 productSku: selectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
                 quantity: 1,
+                weight: selectedBundle?.weight || 0.5, // Bundle weight in KG
                 marketerIdStaff: profile?.username || '',
               }
             });
@@ -948,6 +961,17 @@ const OrderForm: React.FC = () => {
         // Get units from selected bundle (selectedBundle already defined above)
         const bundleUnits = selectedBundle?.units || 1;
 
+        // Calculate costs from bundle
+        const costBaseproduct = selectedBundle?.baseCost || 0;
+        // Determine postage based on state: Sabah/Sarawak use SS, others use SM
+        const isSabahSarawak = formData.negeri === 'SABAH' || formData.negeri === 'SARAWAK';
+        const basePostage = isSabahSarawak
+          ? (selectedBundle?.kosPostageSs || 0)
+          : (selectedBundle?.kosPostageSm || 0);
+        // Add COD fee if payment method is COD
+        const codFee = formData.caraBayaran === 'COD' ? (selectedBundle?.postageCod || 0) : 0;
+        const costPostage = basePostage + codFee;
+
         // Customer type is already NP/EP/EC from the Check button
         const finalCustomerType = formData.jenisCustomer;
 
@@ -966,8 +990,8 @@ const OrderForm: React.FC = () => {
               state_customer: formData.negeri, // NEW: state_customer
               unit: bundleUnits, // NEW: unit
               total_sale: formData.hargaJualan, // NEW: total_sale
-              cost_postage: 0, // NEW: cost_postage
-              cost_baseproduct: 0, // NEW: cost_baseproduct
+              cost_postage: costPostage, // Calculated from bundle
+              cost_baseproduct: costBaseproduct, // From bundle base_cost
               kurier,
               tracking_number: trackingNumber,
               delivery_status: 'Pending',
@@ -1002,9 +1026,9 @@ const OrderForm: React.FC = () => {
             kuantiti: bundleUnits,
             hargaJualanProduk: formData.hargaJualan,
             hargaJualanSebenar: formData.hargaJualan,
-            kosPos: 0,
-            kosProduk: 0,
-            profit: formData.hargaJualan,
+            kosPos: costPostage,
+            kosProduk: costBaseproduct,
+            profit: formData.hargaJualan - costPostage - costBaseproduct,
             hargaJualanAgen: 0,
             tarikhTempahan,
             kurier,

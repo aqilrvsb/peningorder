@@ -20,6 +20,7 @@ interface OrderData {
   produk?: string; // Alternative field name for product
   productSku?: string; // Product SKU for delivery instructions
   quantity?: number;
+  weight?: number; // Weight in KG for parcel
   nota?: string; // Staff notes for delivery instructions
   idSale?: string; // Optional sale ID for tracking (max 9 chars)
   marketerIdStaff?: string; // Optional marketer ID for delivery instructions
@@ -219,7 +220,7 @@ serve(async (req) => {
         cash_on_delivery: codAmount,
         insured_value: Math.round(orderData.price),
         dimensions: {
-          weight: 0.5
+          weight: orderData.weight || 0.5
         }
       }
     };

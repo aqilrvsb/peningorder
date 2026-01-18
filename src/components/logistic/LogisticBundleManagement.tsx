@@ -82,6 +82,9 @@ const LogisticBundleManagement = () => {
   const [priceShopeeNp, setPriceShopeeNp] = useState<number>(0);
   const [priceShopeeEp, setPriceShopeeEp] = useState<number>(0);
   const [priceShopeeEc, setPriceShopeeEc] = useState<number>(0);
+  // COD postage and weight
+  const [postageCod, setPostageCod] = useState<number>(0);
+  const [weight, setWeight] = useState<number>(0.5);
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -144,6 +147,8 @@ const LogisticBundleManagement = () => {
     setPriceShopeeNp(0);
     setPriceShopeeEp(0);
     setPriceShopeeEc(0);
+    setPostageCod(0);
+    setWeight(0.5);
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -177,6 +182,9 @@ const LogisticBundleManagement = () => {
     setPriceShopeeNp(Number(bundle.price_shopee_np) || 0);
     setPriceShopeeEp(Number(bundle.price_shopee_ep) || 0);
     setPriceShopeeEc(Number(bundle.price_shopee_ec) || 0);
+    // COD postage and weight
+    setPostageCod(Number(bundle.postage_cod) || 0);
+    setWeight(Number(bundle.weight) || 0.5);
     // Parse SKU to reconstruct bundle items for editing
     const skuParts = (bundle.sku || "").split(" + ");
     const reconstructedItems: BundleItem[] = [];
@@ -298,6 +306,8 @@ const LogisticBundleManagement = () => {
             price_shopee_np: priceShopeeNp,
             price_shopee_ep: priceShopeeEp,
             price_shopee_ec: priceShopeeEc,
+            postage_cod: postageCod,
+            weight: weight,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingBundleId);
@@ -326,6 +336,8 @@ const LogisticBundleManagement = () => {
             price_shopee_np: priceShopeeNp,
             price_shopee_ep: priceShopeeEp,
             price_shopee_ec: priceShopeeEc,
+            postage_cod: postageCod,
+            weight: weight,
           });
 
         if (insertError) throw insertError;
@@ -432,6 +444,8 @@ const LogisticBundleManagement = () => {
                   <TableHead className="text-center">Base Cost</TableHead>
                   <TableHead className="text-center">Postage SM</TableHead>
                   <TableHead className="text-center">Postage SS</TableHead>
+                  <TableHead className="text-center">Postage COD</TableHead>
+                  <TableHead className="text-center">Weight (KG)</TableHead>
                   <TableHead className="text-center bg-green-50" colSpan={3}>Online Platform</TableHead>
                   <TableHead className="text-center bg-pink-50" colSpan={3}>Tiktok Platform</TableHead>
                   <TableHead className="text-center bg-orange-50" colSpan={3}>Shopee Platform</TableHead>
@@ -439,6 +453,8 @@ const LogisticBundleManagement = () => {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
                 <TableRow>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
@@ -483,6 +499,12 @@ const LogisticBundleManagement = () => {
                     </TableCell>
                     <TableCell className="text-center font-medium text-orange-600">
                       RM {Number(bundle.kos_postage_ss || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-purple-600">
+                      RM {Number(bundle.postage_cod || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-gray-600">
+                      {Number(bundle.weight || 0.5).toFixed(2)}
                     </TableCell>
                     {/* Online Platform prices */}
                     <TableCell className="text-center text-sm bg-green-50/50">
@@ -721,6 +743,34 @@ const LogisticBundleManagement = () => {
                     className="border-orange-300 focus:border-orange-500"
                   />
                   <p className="text-xs text-muted-foreground">Sabah/Sarawak</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="postageCod" className="text-purple-600 font-medium">Postage COD (RM)</Label>
+                  <Input
+                    id="postageCod"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={postageCod || ""}
+                    onChange={(e) => setPostageCod(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-purple-300 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-muted-foreground">Additional fee for COD</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="weight" className="text-gray-600 font-medium">Weight (KG)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={weight || ""}
+                    onChange={(e) => setWeight(parseFloat(e.target.value) || 0.5)}
+                    placeholder="0.5"
+                    className="border-gray-300 focus:border-gray-500"
+                  />
+                  <p className="text-xs text-muted-foreground">For NinjaVan shipping</p>
                 </div>
               </div>
             </div>

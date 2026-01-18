@@ -77,6 +77,8 @@ CREATE TABLE public.logistic_bundles (
   price_shopee_np numeric NOT NULL DEFAULT 0,
   price_shopee_ep numeric NOT NULL DEFAULT 0,
   price_shopee_ec numeric NOT NULL DEFAULT 0,
+  postage_cod numeric NOT NULL DEFAULT 0,
+  weight numeric NOT NULL DEFAULT 0.5,
   CONSTRAINT logistic_bundles_pkey PRIMARY KEY (id),
   CONSTRAINT logistic_bundles_logistic_id_fkey FOREIGN KEY (logistic_id) REFERENCES public.profiles(id)
 );
