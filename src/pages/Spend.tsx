@@ -285,7 +285,7 @@ const Spend: React.FC = () => {
                     <SelectTrigger><SelectValue placeholder="Pilih product" /></SelectTrigger>
                     <SelectContent>
                       {products.map((product) => (
-                        <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
+                        <SelectItem key={product.id} value={product.sku}>{product.sku} - {product.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

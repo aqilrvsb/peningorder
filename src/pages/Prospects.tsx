@@ -335,9 +335,9 @@ const Prospects: React.FC = () => {
         const tarikh = tarikhIdx >= 0 ? values[tarikhIdx] : '';
         const admin = adminIdx >= 0 ? values[adminIdx]?.toUpperCase() : '';
 
-        // Match niche by product name (case-insensitive)
-        const product = products.find(p => p.name.toUpperCase() === nicheValue);
-        const niche = product ? product.name : nicheValue; // Use product name if found, otherwise use raw value
+        // Match niche by product name or SKU (case-insensitive), save as SKU
+        const product = products.find(p => p.name.toUpperCase() === nicheValue || p.sku.toUpperCase() === nicheValue);
+        const niche = product ? product.sku : nicheValue; // Use product SKU if found, otherwise use raw value
 
         // Validate required fields and phone format
         if (!nama || !phone || !niche || !tarikh) {
@@ -479,8 +479,8 @@ const Prospects: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="niche">Niche (Product) *</Label>
-                    <Select 
-                      value={formData.niche} 
+                    <Select
+                      value={formData.niche}
                       onValueChange={(value) => handleChange('niche', value)}
                     >
                       <SelectTrigger>
@@ -490,7 +490,7 @@ const Prospects: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((product) => (
-                          <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
+                          <SelectItem key={product.id} value={product.sku}>{product.sku} - {product.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

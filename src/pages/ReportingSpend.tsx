@@ -22,13 +22,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Spend {
   id: string;
-  product: string;
+  product: string; // Now stores SKU
   jenisPlatform: string;
   jenisClosing: string;
   totalSpend: number;
   tarikhSpend: string;
   marketerIdStaff: string;
   createdAt: string;
+}
+
+interface LogisticBundle {
+  id: string;
+  sku: string; // Bundle SKU format like "GSI-1 + SBN-2"
+  name: string;
 }
 
 interface AggregatedSpend {
@@ -59,6 +65,7 @@ const ReportingSpend: React.FC = () => {
   const { products } = useBundles();
   const { profile } = useAuth();
   const [spends, setSpends] = useState<Spend[]>([]);
+  const [logisticBundles, setLogisticBundles] = useState<LogisticBundle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -67,22 +74,48 @@ const ReportingSpend: React.FC = () => {
   const isMarketer = profile?.role === 'marketer';
   const userIdStaff = profile?.idstaff;
 
-  // Fetch spends data
-  const fetchSpends = async () => {
+  // Create lookup map for bundle SKU by bundle ID
+  const bundleSkuMap = useMemo(() => {
+    const map = new Map<string, string>();
+    logisticBundles.forEach(bundle => {
+      map.set(bundle.id, bundle.sku);
+    });
+    return map;
+  }, [logisticBundles]);
+
+  // Helper function to check if bundle's FIRST SKU matches product SKU
+  const bundleFirstSkuMatches = (bundleId: string, productSku: string): boolean => {
+    const bundleSku = bundleSkuMap.get(bundleId);
+    if (!bundleSku || !productSku) return false;
+    // Bundle SKU format: "GSI-1 + SBN-2", product SKU: "GSI"
+    // Only check the FIRST part of bundle SKU
+    const firstPart = bundleSku.split('+')[0].trim();
+    return firstPart.startsWith(productSku + '-') || firstPart === productSku;
+  };
+
+  // Fetch spends and logistic bundles data
+  const fetchData = async () => {
     setIsLoading(true);
     try {
-      let query = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
+      // Fetch spends
+      let spendsQuery = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
 
       // Marketers only see their own spends
       if (isMarketer && userIdStaff) {
-        query = query.eq('marketer_id_staff', userIdStaff);
+        spendsQuery = spendsQuery.eq('marketer_id_staff', userIdStaff);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setSpends((data || []).map((d: any) => ({
+      // Fetch logistic bundles for SKU lookup
+      const bundlesQuery = (supabase as any).from('logistic_bundles').select('id, sku, name');
+
+      const [spendsResult, bundlesResult] = await Promise.all([spendsQuery, bundlesQuery]);
+
+      if (spendsResult.error) throw spendsResult.error;
+      if (bundlesResult.error) throw bundlesResult.error;
+
+      setSpends((spendsResult.data || []).map((d: any) => ({
         id: d.id,
-        product: d.product,
+        product: d.product, // Now stores SKU
         jenisPlatform: d.jenis_platform,
         jenisClosing: d.jenis_closing || '',
         totalSpend: parseFloat(d.total_spend) || 0,
@@ -90,15 +123,21 @@ const ReportingSpend: React.FC = () => {
         marketerIdStaff: d.marketer_id_staff || '',
         createdAt: d.created_at,
       })));
+
+      setLogisticBundles((bundlesResult.data || []).map((d: any) => ({
+        id: d.id,
+        sku: d.sku || '',
+        name: d.name || '',
+      })));
     } catch (error) {
-      console.error('Error fetching spends:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   React.useEffect(() => {
-    fetchSpends();
+    fetchData();
   }, [isMarketer, userIdStaff]);
 
   // Filter spends based on date range
@@ -207,8 +246,9 @@ const ReportingSpend: React.FC = () => {
       const key = `${spend.product}|${platform}|${jenisClosing}`;
 
       // Get orders for this product + platform (for sales calculation)
+      // Match by checking if bundle SKU contains the product SKU
       const matchingOrders = filteredOrders.filter(
-        o => o.produk === spend.product && o.jenisPlatform === platform
+        o => bundleFirstSkuMatches(o.bundleId, spend.product) && o.jenisPlatform === platform
       );
       const totalSales = matchingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -241,8 +281,9 @@ const ReportingSpend: React.FC = () => {
         .reduce((sum, d) => sum + d.totalSpend, 0);
 
       // Get total orders for this product+platform
+      // Match by checking if bundle SKU contains the product SKU
       const platformOrders = filteredOrders.filter(
-        o => o.produk === value.product && o.jenisPlatform === value.platform
+        o => bundleFirstSkuMatches(o.bundleId, value.product) && o.jenisPlatform === value.platform
       );
       const totalPlatformSales = platformOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -250,7 +291,7 @@ const ReportingSpend: React.FC = () => {
       const spendRatio = totalPlatformSpend > 0 ? value.totalSpend / totalPlatformSpend : 0;
       value.totalSales = totalPlatformSales * spendRatio;
 
-      // Match prospects to products by niche (product name)
+      // Match prospects to products by niche (both now store SKU)
       const matchingProspects = filteredProspects.filter(p => p.niche === value.product);
 
       // Distribute leads proportionally based on spend ratio within product
@@ -285,7 +326,7 @@ const ReportingSpend: React.FC = () => {
         if (a.platform !== b.platform) return a.platform.localeCompare(b.platform);
         return a.jenisClosing.localeCompare(b.jenisClosing);
       });
-  }, [filteredSpends, filteredOrders, filteredProspects, products]);
+  }, [filteredSpends, filteredOrders, filteredProspects, products, bundleSkuMap]);
 
   // Calculate overall stats
   const stats = useMemo(() => {

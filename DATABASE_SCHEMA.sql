@@ -173,6 +173,19 @@ CREATE TABLE public.spends (
   jenis_closing text,
   CONSTRAINT spends_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.stock_adjustment_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  adjustment_date date NOT NULL,
+  adjustment_type text NOT NULL,
+  product_sku text NOT NULL,
+  previous_qty integer,
+  adjusted_qty integer,
+  new_qty integer,
+  order_id uuid,
+  bundle_sku text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT stock_adjustment_logs_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.stock_in_logistic (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,
