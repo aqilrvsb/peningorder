@@ -55,6 +55,7 @@ import AccountExpenses from "./components/account/AccountExpenses";
 import AccountReportSpend from "./components/account/AccountReportSpend";
 import AccountCustomers from "./components/account/AccountCustomers";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
+import AccountReportProfit from "./components/account/AccountReportProfit";
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ const App = () => (
                   <Route path="account/rejected" element={<AccountRejected />} />
                   <Route path="account/expenses" element={<AccountExpenses />} />
                   <Route path="account/report-spend" element={<AccountReportSpend />} />
+                  <Route path="account/report-profit" element={<AccountReportProfit />} />
                   <Route path="account/customers" element={<AccountCustomers />} />
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
                   <Route path="account/pnl-config" element={<PNLConfig />} />

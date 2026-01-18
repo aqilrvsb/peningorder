@@ -246,6 +246,12 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
+    label: 'Report Profit',
+    path: '/dashboard/account/report-profit',
+    icon: <TrendingUp className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'Customer HQ',
     path: '/dashboard/account/customers',
     icon: <Users className="w-5 h-5" />,

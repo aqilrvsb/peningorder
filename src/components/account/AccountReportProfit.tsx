@@ -1,0 +1,808 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar, Search, Loader2, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+
+interface Order {
+  id: string;
+  marketer_id_staff: string;
+  date_order: string;
+  total_sale: number;
+  jenis_platform: string;
+  delivery_status: string;
+  cost_baseproduct: number;
+  cost_postage: number;
+}
+
+interface Spend {
+  id: string;
+  marketer_id_staff: string;
+  jenis_platform: string;
+  total_spend: number;
+  tarikh_spend: string;
+}
+
+interface Expense {
+  id: string;
+  type: 'VAR' | 'FIX';
+  description: string;
+  total: number;
+  date: string;
+}
+
+interface Profile {
+  idstaff: string;
+  full_name: string;
+}
+
+interface MarketerProfitStats {
+  idStaff: string;
+  name: string;
+  totalSales: number;
+  totalSpend: number;
+  totalCostProduct: number;
+  totalPostage: number;
+  roas: number;
+  profit: number;
+  // Facebook
+  salesFB: number;
+  spendFB: number;
+  costProductFB: number;
+  postageFB: number;
+  profitFB: number;
+  // Database
+  salesDatabase: number;
+  spendDatabase: number;
+  costProductDatabase: number;
+  postageDatabase: number;
+  profitDatabase: number;
+  // Shopee
+  salesShopee: number;
+  spendShopee: number;
+  costProductShopee: number;
+  postageShopee: number;
+  profitShopee: number;
+  // Tiktok
+  salesTiktok: number;
+  spendTiktok: number;
+  costProductTiktok: number;
+  postageTiktok: number;
+  profitTiktok: number;
+  // Google
+  salesGoogle: number;
+  spendGoogle: number;
+  costProductGoogle: number;
+  postageGoogle: number;
+  profitGoogle: number;
+}
+
+const AccountReportProfit: React.FC = () => {
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [spends, setSpends] = useState<Spend[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Date filter state - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch all data
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      try {
+        const [ordersRes, spendsRes, expensesRes, profilesRes] = await Promise.all([
+          // Fetch ALL orders (including Return) - we need Return orders for postage calculation
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, delivery_status, cost_baseproduct, cost_postage')
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('expenses')
+            .select('id, type, description, total, date')
+            .order('date', { ascending: false }),
+          (supabase as any)
+            .from('profiles')
+            .select('idstaff, full_name'),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+        if (expensesRes.error) throw expensesRes.error;
+        if (profilesRes.error) throw profilesRes.error;
+
+        setAllOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
+        setExpenses(expensesRes.data || []);
+
+        // Create a mapping of idstaff to full_name
+        const profileMap: Record<string, string> = {};
+        (profilesRes.data || []).forEach((p: Profile) => {
+          if (p.idstaff) {
+            profileMap[p.idstaff] = p.full_name || p.idstaff;
+          }
+        });
+        setProfiles(profileMap);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  // Filter ALL orders by date range (for postage - includes Return)
+  const allFilteredOrders = useMemo(() => {
+    return allOrders.filter(order => {
+      if (!order.date_order) return false;
+      try {
+        const orderDate = parseISO(order.date_order);
+        return isWithinInterval(orderDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+  }, [allOrders, startDate, endDate]);
+
+  // Filter orders excluding Return (for sales, cost product)
+  const filteredOrders = useMemo(() => {
+    return allFilteredOrders.filter(order => order.delivery_status !== 'Return');
+  }, [allFilteredOrders]);
+
+  // Filter spends by date range (tarikh_spend)
+  const filteredSpends = useMemo(() => {
+    return spends.filter(spend => {
+      if (!spend.tarikh_spend) return false;
+      try {
+        const spendDate = parseISO(spend.tarikh_spend);
+        return isWithinInterval(spendDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+  }, [spends, startDate, endDate]);
+
+  // Filter expenses by date range
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(expense => {
+      if (!expense.date) return false;
+      try {
+        const expenseDate = parseISO(expense.date);
+        return isWithinInterval(expenseDate, {
+          start: parseISO(startDate),
+          end: parseISO(endDate)
+        });
+      } catch {
+        return false;
+      }
+    });
+  }, [expenses, startDate, endDate]);
+
+  // Calculate total expenses (VAR and FIX)
+  const totalExpenses = useMemo(() => {
+    const varExpenses = filteredExpenses.filter(e => e.type === 'VAR').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
+    const fixExpenses = filteredExpenses.filter(e => e.type === 'FIX').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
+    return { var: varExpenses, fix: fixExpenses, total: varExpenses + fixExpenses };
+  }, [filteredExpenses]);
+
+  // Calculate stats by marketer
+  const marketerStats = useMemo(() => {
+    const stats: Record<string, MarketerProfitStats> = {};
+
+    const initStats = (idStaff: string, name: string) => {
+      if (!stats[idStaff]) {
+        stats[idStaff] = {
+          idStaff,
+          name,
+          totalSales: 0,
+          totalSpend: 0,
+          totalCostProduct: 0,
+          totalPostage: 0,
+          roas: 0,
+          profit: 0,
+          salesFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, profitFB: 0,
+          salesDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, profitDatabase: 0,
+          salesShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, profitShopee: 0,
+          salesTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, profitTiktok: 0,
+          salesGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, profitGoogle: 0,
+        };
+      }
+    };
+
+    // Process orders excluding Return (for sales, cost product)
+    filteredOrders.forEach(order => {
+      const idStaff = order.marketer_id_staff;
+      if (!idStaff) return;
+
+      const name = profiles[idStaff] || idStaff;
+      const sale = Number(order.total_sale) || 0;
+      const costProduct = Number(order.cost_baseproduct) || 0;
+
+      initStats(idStaff, name);
+
+      stats[idStaff].totalSales += sale;
+      stats[idStaff].totalCostProduct += costProduct;
+
+      // Count by platform (sales and cost only)
+      const platform = order.jenis_platform;
+      if (platform === 'Facebook') {
+        stats[idStaff].salesFB += sale;
+        stats[idStaff].costProductFB += costProduct;
+      } else if (platform === 'Database') {
+        stats[idStaff].salesDatabase += sale;
+        stats[idStaff].costProductDatabase += costProduct;
+      } else if (platform === 'Shopee') {
+        stats[idStaff].salesShopee += sale;
+        stats[idStaff].costProductShopee += costProduct;
+      } else if (platform === 'Tiktok') {
+        stats[idStaff].salesTiktok += sale;
+        stats[idStaff].costProductTiktok += costProduct;
+      } else if (platform === 'Google') {
+        stats[idStaff].salesGoogle += sale;
+        stats[idStaff].costProductGoogle += costProduct;
+      }
+    });
+
+    // Process ALL orders including Return (for postage only)
+    allFilteredOrders.forEach(order => {
+      const idStaff = order.marketer_id_staff;
+      if (!idStaff) return;
+
+      const name = profiles[idStaff] || idStaff;
+      const postage = Number(order.cost_postage) || 0;
+
+      initStats(idStaff, name);
+
+      stats[idStaff].totalPostage += postage;
+
+      // Count postage by platform
+      const platform = order.jenis_platform;
+      if (platform === 'Facebook') {
+        stats[idStaff].postageFB += postage;
+      } else if (platform === 'Database') {
+        stats[idStaff].postageDatabase += postage;
+      } else if (platform === 'Shopee') {
+        stats[idStaff].postageShopee += postage;
+      } else if (platform === 'Tiktok') {
+        stats[idStaff].postageTiktok += postage;
+      } else if (platform === 'Google') {
+        stats[idStaff].postageGoogle += postage;
+      }
+    });
+
+    // Process spends
+    filteredSpends.forEach(spend => {
+      const idStaff = spend.marketer_id_staff;
+      if (!idStaff) return;
+
+      const amount = Number(spend.total_spend) || 0;
+      const name = profiles[idStaff] || idStaff;
+
+      initStats(idStaff, name);
+
+      stats[idStaff].totalSpend += amount;
+
+      // Count spend by platform
+      const platform = spend.jenis_platform;
+      if (platform === 'Facebook') {
+        stats[idStaff].spendFB += amount;
+      } else if (platform === 'Database') {
+        stats[idStaff].spendDatabase += amount;
+      } else if (platform === 'Shopee') {
+        stats[idStaff].spendShopee += amount;
+      } else if (platform === 'Tiktok') {
+        stats[idStaff].spendTiktok += amount;
+      } else if (platform === 'Google') {
+        stats[idStaff].spendGoogle += amount;
+      }
+    });
+
+    // Calculate ROAS and Profit for each marketer
+    const marketerCount = Object.keys(stats).length;
+    const expensePerMarketer = marketerCount > 0 ? totalExpenses.total / marketerCount : 0;
+
+    Object.values(stats).forEach(stat => {
+      stat.roas = stat.totalSpend > 0 ? stat.totalSales / stat.totalSpend : 0;
+      stat.profit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - expensePerMarketer;
+
+      // Calculate profit by platform (without expenses split - just sales - spend - cost - postage)
+      stat.profitFB = stat.salesFB - stat.spendFB - stat.costProductFB - stat.postageFB;
+      stat.profitDatabase = stat.salesDatabase - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
+      stat.profitShopee = stat.salesShopee - stat.spendShopee - stat.costProductShopee - stat.postageShopee;
+      stat.profitTiktok = stat.salesTiktok - stat.spendTiktok - stat.costProductTiktok - stat.postageTiktok;
+      stat.profitGoogle = stat.salesGoogle - stat.spendGoogle - stat.costProductGoogle - stat.postageGoogle;
+    });
+
+    // Convert to array and sort by total sales (highest first)
+    return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
+  }, [filteredOrders, allFilteredOrders, filteredSpends, profiles, totalExpenses]);
+
+  // Filter by search term
+  const filteredStats = useMemo(() => {
+    if (!searchTerm) return marketerStats;
+    const term = searchTerm.toLowerCase();
+    return marketerStats.filter(stat =>
+      stat.idStaff.toLowerCase().includes(term) ||
+      stat.name.toLowerCase().includes(term)
+    );
+  }, [marketerStats, searchTerm]);
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    const base = filteredStats.reduce(
+      (acc, stat) => ({
+        totalSales: acc.totalSales + stat.totalSales,
+        totalSpend: acc.totalSpend + stat.totalSpend,
+        totalCostProduct: acc.totalCostProduct + stat.totalCostProduct,
+        totalPostage: acc.totalPostage + stat.totalPostage,
+        salesFB: acc.salesFB + stat.salesFB,
+        spendFB: acc.spendFB + stat.spendFB,
+        costProductFB: acc.costProductFB + stat.costProductFB,
+        postageFB: acc.postageFB + stat.postageFB,
+        salesDatabase: acc.salesDatabase + stat.salesDatabase,
+        spendDatabase: acc.spendDatabase + stat.spendDatabase,
+        costProductDatabase: acc.costProductDatabase + stat.costProductDatabase,
+        postageDatabase: acc.postageDatabase + stat.postageDatabase,
+        salesShopee: acc.salesShopee + stat.salesShopee,
+        spendShopee: acc.spendShopee + stat.spendShopee,
+        costProductShopee: acc.costProductShopee + stat.costProductShopee,
+        postageShopee: acc.postageShopee + stat.postageShopee,
+        salesTiktok: acc.salesTiktok + stat.salesTiktok,
+        spendTiktok: acc.spendTiktok + stat.spendTiktok,
+        costProductTiktok: acc.costProductTiktok + stat.costProductTiktok,
+        postageTiktok: acc.postageTiktok + stat.postageTiktok,
+        salesGoogle: acc.salesGoogle + stat.salesGoogle,
+        spendGoogle: acc.spendGoogle + stat.spendGoogle,
+        costProductGoogle: acc.costProductGoogle + stat.costProductGoogle,
+        postageGoogle: acc.postageGoogle + stat.postageGoogle,
+      }),
+      {
+        totalSales: 0,
+        totalSpend: 0,
+        totalCostProduct: 0,
+        totalPostage: 0,
+        salesFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0,
+        salesDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0,
+        salesShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0,
+        salesTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0,
+        salesGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0,
+      }
+    );
+
+    const roas = base.totalSpend > 0 ? base.totalSales / base.totalSpend : 0;
+    const profit = base.totalSales - base.totalSpend - base.totalCostProduct - base.totalPostage - totalExpenses.total;
+
+    return { ...base, roas, profit };
+  }, [filteredStats, totalExpenses]);
+
+  // Platform totals with profit
+  const platformTotals = useMemo(() => {
+    return {
+      facebook: {
+        sales: totals.salesFB,
+        spend: totals.spendFB,
+        costProduct: totals.costProductFB,
+        postage: totals.postageFB,
+        roas: totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0,
+        profit: totals.salesFB - totals.spendFB - totals.costProductFB - totals.postageFB,
+      },
+      database: {
+        sales: totals.salesDatabase,
+        spend: totals.spendDatabase,
+        costProduct: totals.costProductDatabase,
+        postage: totals.postageDatabase,
+        roas: totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0,
+        profit: totals.salesDatabase - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase,
+      },
+      shopee: {
+        sales: totals.salesShopee,
+        spend: totals.spendShopee,
+        costProduct: totals.costProductShopee,
+        postage: totals.postageShopee,
+        roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
+        profit: totals.salesShopee - totals.spendShopee - totals.costProductShopee - totals.postageShopee,
+      },
+      tiktok: {
+        sales: totals.salesTiktok,
+        spend: totals.spendTiktok,
+        costProduct: totals.costProductTiktok,
+        postage: totals.postageTiktok,
+        roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
+        profit: totals.salesTiktok - totals.spendTiktok - totals.costProductTiktok - totals.postageTiktok,
+      },
+      google: {
+        sales: totals.salesGoogle,
+        spend: totals.spendGoogle,
+        costProduct: totals.costProductGoogle,
+        postage: totals.postageGoogle,
+        roas: totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0,
+        profit: totals.salesGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle,
+      },
+    };
+  }, [totals]);
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('en-MY', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+            <TrendingUp className="w-6 h-6" />
+            Report Profit
+          </h1>
+          <p className="text-muted-foreground mt-1">Profit analysis by marketer (excluding Return orders)</p>
+        </div>
+      </div>
+
+      {/* Date Filter */}
+      <div className="stat-card">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="w-5 h-5" />
+            <span className="font-medium text-foreground">Date Range:</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="endDate" className="text-xs text-muted-foreground">To</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+          </div>
+          <div className="relative w-full md:w-64 md:ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search marketer..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="stat-card border-l-4 border-l-blue-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <DollarSign className="w-3 h-3" />
+            Total Sales
+          </div>
+          <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.totalSales)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-red-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <DollarSign className="w-3 h-3" />
+            Total Spend
+          </div>
+          <div className="text-lg font-bold text-red-600">RM {formatNumber(totals.totalSpend)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-purple-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <Package className="w-3 h-3" />
+            Cost Product
+          </div>
+          <div className="text-lg font-bold text-purple-600">RM {formatNumber(totals.totalCostProduct)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-orange-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <Truck className="w-3 h-3" />
+            Postage
+          </div>
+          <div className="text-lg font-bold text-orange-600">RM {formatNumber(totals.totalPostage)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-pink-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <CreditCard className="w-3 h-3" />
+            Expenses
+          </div>
+          <div className="text-lg font-bold text-pink-600">RM {formatNumber(totalExpenses.total)}</div>
+          <div className="text-[10px] text-muted-foreground">VAR: {formatNumber(totalExpenses.var)} | FIX: {formatNumber(totalExpenses.fix)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-amber-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <TrendingUp className="w-3 h-3" />
+            ROAS
+          </div>
+          <div className="text-lg font-bold text-amber-600">{totals.roas.toFixed(2)}x</div>
+        </div>
+        <div className={`stat-card border-l-4 ${totals.profit >= 0 ? 'border-l-green-500' : 'border-l-red-500'}`}>
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <DollarSign className="w-3 h-3" />
+            Profit
+          </div>
+          <div className={`text-lg font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            RM {formatNumber(totals.profit)}
+          </div>
+        </div>
+      </div>
+
+      {/* Profit By Platform */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Profit By Platform</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Facebook */}
+          <div className="stat-card bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 text-blue-600 font-semibold mb-3">
+              <Facebook className="w-5 h-5" />
+              FACEBOOK
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.sales)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.facebook.spend)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost Product:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.costProduct)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Postage:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-800">
+                <span className="font-semibold">Profit:</span>
+                <span className={`font-bold ${platformTotals.facebook.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.facebook.profit)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tiktok */}
+          <div className="stat-card bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800">
+            <div className="flex items-center gap-2 text-pink-600 font-semibold mb-3">
+              <Video className="w-5 h-5" />
+              TIKTOK
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.sales)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.tiktok.spend)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost Product:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.costProduct)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Postage:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.tiktok.roas.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-pink-200 dark:border-pink-800">
+                <span className="font-semibold">Profit:</span>
+                <span className={`font-bold ${platformTotals.tiktok.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.tiktok.profit)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Shopee */}
+          <div className="stat-card bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center gap-2 text-orange-600 font-semibold mb-3">
+              <ShoppingBag className="w-5 h-5" />
+              SHOPEE
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.sales)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.shopee.spend)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost Product:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.costProduct)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Postage:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.shopee.roas.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-orange-200 dark:border-orange-800">
+                <span className="font-semibold">Profit:</span>
+                <span className={`font-bold ${platformTotals.shopee.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.shopee.profit)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Database */}
+          <div className="stat-card bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center gap-2 text-purple-600 font-semibold mb-3">
+              <Database className="w-5 h-5" />
+              DATABASE
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.database.sales)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.database.spend)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost Product:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.database.costProduct)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Postage:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.database.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.database.roas.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-purple-200 dark:border-purple-800">
+                <span className="font-semibold">Profit:</span>
+                <span className={`font-bold ${platformTotals.database.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.database.profit)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Google */}
+          <div className="stat-card bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2 text-red-600 font-semibold mb-3">
+              <Globe className="w-5 h-5" />
+              GOOGLE
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sales:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.google.sales)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Spend:</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.google.spend)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cost Product:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.google.costProduct)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Postage:</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.google.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.google.roas.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-red-200 dark:border-red-800">
+                <span className="font-semibold">Profit:</span>
+                <span className={`font-bold ${platformTotals.google.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.google.profit)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Profit Report Table by Marketer */}
+      <div className="form-section">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          Profit Report by Marketer
+        </h2>
+
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="w-full min-w-[1500px] border-collapse">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">NAME</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap border-r">SALES</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-red-600 uppercase tracking-wider whitespace-nowrap border-r">SPEND</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r">COST PRODUCT</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r">POSTAGE</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap bg-green-50 dark:bg-green-950/30">PROFIT</th>
+              </tr>
+            </thead>
+            <tbody className="bg-background divide-y divide-border">
+              {filteredStats.map((stat) => {
+                const marketerCount = filteredStats.length;
+                const expenseShare = marketerCount > 0 ? totalExpenses.total / marketerCount : 0;
+                const marketerProfit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - expenseShare;
+
+                return (
+                  <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
+                    <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
+                    <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-blue-600 whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-red-600 whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-purple-600 whitespace-nowrap border-r">{formatNumber(stat.totalCostProduct)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600 whitespace-nowrap border-r">{formatNumber(stat.totalPostage)}</td>
+                    <td className="px-3 py-2 text-sm text-center font-bold text-amber-600 whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
+                    <td className={`px-3 py-2 text-sm text-right font-bold whitespace-nowrap bg-green-50/50 dark:bg-green-950/20 ${marketerProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatNumber(marketerProfit)}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredStats.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    No marketers found for the selected date range
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AccountReportProfit;
