@@ -72,24 +72,7 @@ const LogisticStockOut = () => {
     mutationFn: async () => {
       const quantityToRemove = parseInt(quantity);
 
-      // Get current product quantity
-      const { data: product, error: fetchError } = await supabase
-        .from("products")
-        .select("quantity, stock_out")
-        .eq("id", selectedProduct)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (!product) {
-        throw new Error("Product not found");
-      }
-
-      if ((product.quantity || 0) < quantityToRemove) {
-        throw new Error(`Insufficient inventory. Available: ${product.quantity || 0}, Requested: ${quantityToRemove}`);
-      }
-
-      // Insert stock out record
+      // Insert stock out record only (no product quantity update)
       const { error: stockOutError } = await supabase
         .from("stock_out_logistic")
         .insert({
@@ -101,18 +84,6 @@ const LogisticStockOut = () => {
         });
 
       if (stockOutError) throw stockOutError;
-
-      // Update product quantity and stock_out
-      const { error: updateError } = await supabase
-        .from("products")
-        .update({
-          quantity: (product.quantity || 0) - quantityToRemove,
-          stock_out: (product.stock_out || 0) + quantityToRemove,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", selectedProduct);
-
-      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-out-logistic"] });
@@ -154,6 +125,37 @@ const LogisticStockOut = () => {
 
   const deleteStock = useMutation({
     mutationFn: async (id: string) => {
+      // Get the stock out record first to know the quantity and product
+      const { data: stockRecord, error: fetchRecordError } = await supabase
+        .from("stock_out_logistic")
+        .select("product_id, quantity")
+        .eq("id", id)
+        .single();
+
+      if (fetchRecordError) throw fetchRecordError;
+
+      // Get current product quantity
+      const { data: product, error: fetchError } = await supabase
+        .from("products")
+        .select("quantity, stock_out")
+        .eq("id", stockRecord.product_id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Increase the quantity back to product (reverse the stock out)
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({
+          quantity: (product.quantity || 0) + stockRecord.quantity,
+          stock_out: Math.max(0, (product.stock_out || 0) - stockRecord.quantity),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stockRecord.product_id);
+
+      if (updateError) throw updateError;
+
+      // Delete the record
       const { error } = await supabase
         .from("stock_out_logistic")
         .delete()
@@ -163,6 +165,8 @@ const LogisticStockOut = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stock-out-logistic"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Stock out record deleted successfully");
     },
     onError: (error: any) => {
