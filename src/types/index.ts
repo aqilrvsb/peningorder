@@ -90,5 +90,5 @@ export const JENIS_CLOSING_OPTIONS = [
 
 // Additional closing options for Shopee/Tiktok platforms
 export const JENIS_CLOSING_MARKETPLACE_OPTIONS = [
-  'Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Shop'
+  'Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Beg Lead'
 ];

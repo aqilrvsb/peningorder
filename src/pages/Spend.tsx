@@ -44,7 +44,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
-const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Shop'];
+const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Beg Lead'];
 
 interface Spend {
   id: string;
