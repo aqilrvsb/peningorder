@@ -55,7 +55,7 @@ const MarketerReward = () => {
     return { startDate, endDate };
   }, [selectedYear, selectedMonth]);
 
-  // Fetch PNL configs for marketer role - sorted by bonus_amount ascending (lower to top)
+  // Fetch PNL configs for marketer role - sorted by min_sales then bonus_amount (lower first)
   const { data: pnlConfigs = [], isLoading: configsLoading } = useQuery({
     queryKey: ["pnl-configs-marketer"],
     queryFn: async () => {
@@ -63,6 +63,7 @@ const MarketerReward = () => {
         .from("pnl_config")
         .select("*")
         .eq("role", "marketer")
+        .order("min_sales", { ascending: true })
         .order("bonus_amount", { ascending: true });
 
       if (error) throw error;
