@@ -28,6 +28,8 @@ interface Spend {
 interface Expense {
   id: string;
   type: 'VAR' | 'FIX';
+  role: 'company' | 'personal';
+  marketer_id_staff: string | null;
   description: string;
   total: number;
   date: string;
@@ -45,6 +47,7 @@ interface MarketerProfitStats {
   totalSpend: number;
   totalCostProduct: number;
   totalPostage: number;
+  personalExpenses: number;
   roas: number;
   profit: number;
   // Facebook
@@ -195,11 +198,25 @@ const AccountReportProfit: React.FC = () => {
     });
   }, [expenses, startDate, endDate]);
 
-  // Calculate total expenses (VAR and FIX)
+  // Calculate total expenses (VAR and FIX) - COMPANY ONLY
   const totalExpenses = useMemo(() => {
-    const varExpenses = filteredExpenses.filter(e => e.type === 'VAR').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
-    const fixExpenses = filteredExpenses.filter(e => e.type === 'FIX').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
+    // Only count company expenses (role is 'company' or null/undefined for backward compatibility)
+    const companyExpenses = filteredExpenses.filter(e => !e.role || e.role === 'company');
+    const varExpenses = companyExpenses.filter(e => e.type === 'VAR').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
+    const fixExpenses = companyExpenses.filter(e => e.type === 'FIX').reduce((sum, e) => sum + (Number(e.total) || 0), 0);
     return { var: varExpenses, fix: fixExpenses, total: varExpenses + fixExpenses };
+  }, [filteredExpenses]);
+
+  // Calculate personal expenses by marketer
+  const personalExpensesByMarketer = useMemo(() => {
+    const expenseMap: Record<string, number> = {};
+    filteredExpenses
+      .filter(e => e.role === 'personal' && e.marketer_id_staff)
+      .forEach(e => {
+        const idStaff = e.marketer_id_staff!;
+        expenseMap[idStaff] = (expenseMap[idStaff] || 0) + (Number(e.total) || 0);
+      });
+    return expenseMap;
   }, [filteredExpenses]);
 
   // Calculate stats by marketer
@@ -215,6 +232,7 @@ const AccountReportProfit: React.FC = () => {
           totalSpend: 0,
           totalCostProduct: 0,
           totalPostage: 0,
+          personalExpenses: 0,
           roas: 0,
           profit: 0,
           salesFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, profitFB: 0,
@@ -314,15 +332,15 @@ const AccountReportProfit: React.FC = () => {
       }
     });
 
-    // Calculate ROAS and Profit for each marketer
-    const marketerCount = Object.keys(stats).length;
-    const expensePerMarketer = marketerCount > 0 ? totalExpenses.total / marketerCount : 0;
-
+    // Calculate ROAS, Personal Expenses, and Profit for each marketer
     Object.values(stats).forEach(stat => {
       stat.roas = stat.totalSpend > 0 ? stat.totalSales / stat.totalSpend : 0;
-      stat.profit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - expensePerMarketer;
+      // Get personal expenses for this marketer
+      stat.personalExpenses = personalExpensesByMarketer[stat.idStaff] || 0;
+      // Marketer profit = Sales - Spend - Cost Product - Postage - Personal Expenses (NO company expenses)
+      stat.profit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
 
-      // Calculate profit by platform (without expenses split - just sales - spend - cost - postage)
+      // Calculate profit by platform (without expenses - just sales - spend - cost - postage)
       stat.profitFB = stat.salesFB - stat.spendFB - stat.costProductFB - stat.postageFB;
       stat.profitDatabase = stat.salesDatabase - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
       stat.profitShopee = stat.salesShopee - stat.spendShopee - stat.costProductShopee - stat.postageShopee;
@@ -332,7 +350,7 @@ const AccountReportProfit: React.FC = () => {
 
     // Convert to array and sort by total sales (highest first)
     return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
-  }, [filteredOrders, allFilteredOrders, filteredSpends, profiles, totalExpenses]);
+  }, [filteredOrders, allFilteredOrders, filteredSpends, profiles, personalExpensesByMarketer]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {
@@ -540,7 +558,7 @@ const AccountReportProfit: React.FC = () => {
         <div className="stat-card border-l-4 border-l-pink-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
             <CreditCard className="w-3 h-3" />
-            Expenses
+            Expenses (Company)
           </div>
           <div className="text-lg font-bold text-pink-600">RM {formatNumber(totalExpenses.total)}</div>
           <div className="text-[10px] text-muted-foreground">VAR: {formatNumber(totalExpenses.var)} | FIX: {formatNumber(totalExpenses.fix)}</div>
@@ -765,15 +783,15 @@ const AccountReportProfit: React.FC = () => {
                 <th className="px-3 py-2 text-right text-xs font-semibold text-red-600 uppercase tracking-wider whitespace-nowrap border-r">SPEND</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r">COST PRODUCT</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r">POSTAGE</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-pink-600 uppercase tracking-wider whitespace-nowrap border-r">EXPENSES</th>
                 <th className="px-3 py-2 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap bg-green-50 dark:bg-green-950/30">PROFIT</th>
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">
               {filteredStats.map((stat) => {
-                const marketerCount = filteredStats.length;
-                const expenseShare = marketerCount > 0 ? totalExpenses.total / marketerCount : 0;
-                const marketerProfit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - expenseShare;
+                // Marketer profit includes personal expenses: Sales - Spend - Cost Product - Postage - Personal Expenses
+                const marketerProfit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
 
                 return (
                   <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
@@ -783,6 +801,7 @@ const AccountReportProfit: React.FC = () => {
                     <td className="px-3 py-2 text-sm text-right font-semibold text-red-600 whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-purple-600 whitespace-nowrap border-r">{formatNumber(stat.totalCostProduct)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600 whitespace-nowrap border-r">{formatNumber(stat.totalPostage)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-pink-600 whitespace-nowrap border-r">{formatNumber(stat.personalExpenses)}</td>
                     <td className="px-3 py-2 text-sm text-center font-bold text-amber-600 whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
                     <td className={`px-3 py-2 text-sm text-right font-bold whitespace-nowrap bg-green-50/50 dark:bg-green-950/20 ${marketerProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatNumber(marketerProfit)}
@@ -792,7 +811,7 @@ const AccountReportProfit: React.FC = () => {
               })}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>

@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
   Loader2,
@@ -28,6 +29,8 @@ import {
   DollarSign,
   TrendingUp,
   Calendar,
+  Building2,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -37,10 +40,18 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 interface Expense {
   id: string;
   type: "VAR" | "FIX";
+  role: "company" | "personal";
+  marketer_id_staff: string | null;
   description: string;
   total: number;
   date: string;
   created_at: string;
+}
+
+interface Profile {
+  idstaff: string;
+  full_name: string;
+  role: string;
 }
 
 const AccountExpenses = () => {
@@ -65,10 +76,27 @@ const AccountExpenses = () => {
 
   // Form states
   const [formType, setFormType] = useState<"VAR" | "FIX">("VAR");
+  const [formRole, setFormRole] = useState<"company" | "personal">("company");
+  const [formMarketer, setFormMarketer] = useState<string>("");
   const [formDescription, setFormDescription] = useState("");
   const [formTotal, setFormTotal] = useState("");
   const [formDate, setFormDate] = useState(today);
   const [formMonth, setFormMonth] = useState(today.substring(0, 7)); // YYYY-MM format
+
+  // Fetch marketers for dropdown
+  const { data: marketers = [] } = useQuery({
+    queryKey: ["marketers-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("idstaff, full_name, role")
+        .eq("role", "marketer")
+        .order("idstaff", { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as Profile[];
+    },
+  });
 
   // Fetch expenses
   const { data: expenses = [], isLoading } = useQuery({
@@ -153,6 +181,8 @@ const AccountExpenses = () => {
   // Reset form
   const resetForm = () => {
     setFormType("VAR");
+    setFormRole("company");
+    setFormMarketer("");
     setFormDescription("");
     setFormTotal("");
     setFormDate(today);
@@ -170,6 +200,8 @@ const AccountExpenses = () => {
   // Open dialog for editing
   const handleEditClick = (expense: Expense) => {
     setFormType(expense.type);
+    setFormRole(expense.role || "company");
+    setFormMarketer(expense.marketer_id_staff || "");
     setFormDescription(expense.description);
     setFormTotal(expense.total.toString());
     setFormDate(expense.date);
@@ -197,6 +229,10 @@ const AccountExpenses = () => {
       toast.error("Please select a month");
       return;
     }
+    if (formRole === "personal" && !formMarketer) {
+      toast.error("Please select a marketer");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -206,6 +242,8 @@ const AccountExpenses = () => {
     try {
       const expenseData = {
         type: formType,
+        role: formRole,
+        marketer_id_staff: formRole === "personal" ? formMarketer : null,
         description: formDescription.trim(),
         total: Number(formTotal),
         date: expenseDate,
@@ -289,6 +327,58 @@ const AccountExpenses = () => {
               <DialogTitle>{isEditing ? "Edit Expense" : "Add New Expense"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
+              {/* Role Selection - Company or Personal */}
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <RadioGroup
+                  value={formRole}
+                  onValueChange={(v) => {
+                    setFormRole(v as "company" | "personal");
+                    if (v === "company") setFormMarketer("");
+                  }}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="company" id="role-company" />
+                    <Label htmlFor="role-company" className="flex items-center gap-1 cursor-pointer font-normal">
+                      <Building2 className="w-4 h-4" />
+                      Company
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="personal" id="role-personal" />
+                    <Label htmlFor="role-personal" className="flex items-center gap-1 cursor-pointer font-normal">
+                      <User className="w-4 h-4" />
+                      Personal
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground">
+                  {formRole === "company"
+                    ? "Company expense - will be shown in overall profit calculation"
+                    : "Personal expense for a specific marketer"}
+                </p>
+              </div>
+
+              {/* Marketer Dropdown - only show when Personal is selected */}
+              {formRole === "personal" && (
+                <div className="space-y-2">
+                  <Label>Marketer</Label>
+                  <Select value={formMarketer} onValueChange={setFormMarketer}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select marketer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {marketers.map((marketer) => (
+                        <SelectItem key={marketer.idstaff} value={marketer.idstaff}>
+                          {marketer.idstaff} - {marketer.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Type</Label>
                 <Select value={formType} onValueChange={(v) => setFormType(v as "VAR" | "FIX")}>
@@ -485,6 +575,8 @@ const AccountExpenses = () => {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="p-3 text-left">No</th>
+                      <th className="p-3 text-left">Role</th>
+                      <th className="p-3 text-left">Marketer</th>
                       <th className="p-3 text-left">Type</th>
                       <th className="p-3 text-left">Description</th>
                       <th className="p-3 text-right">Total (RM)</th>
@@ -498,6 +590,18 @@ const AccountExpenses = () => {
                         <tr key={expense.id} className="border-b hover:bg-muted/30">
                           <td className="p-3">
                             {pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              (expense.role || "company") === "company"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-green-100 text-green-700"
+                            }`}>
+                              {(expense.role || "company") === "company" ? "Company" : "Personal"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {expense.marketer_id_staff || "-"}
                           </td>
                           <td className="p-3">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -542,7 +646,7 @@ const AccountExpenses = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
                           No expenses found for this date range.
                         </td>
                       </tr>
