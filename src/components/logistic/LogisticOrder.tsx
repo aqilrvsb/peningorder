@@ -1000,9 +1000,9 @@ const LogisticOrder = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {order.marketer?.whatsapp_number && (
+                            {order.phone_customer && (
                               <a
-                                href={`https://wa.me/6${(order.marketer?.whatsapp_number || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(order.phone_customer || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
