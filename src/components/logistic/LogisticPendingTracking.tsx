@@ -79,6 +79,7 @@ const LogisticPendingTracking = () => {
 
   // Fetch pending tracking orders (Shipped + COD + SEO not successful)
   // Pending tracking only for Ninjavan orders (exclude Tiktok, Shopee)
+  // Filter by date_order (not date_processed)
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
     queryFn: async () => {
@@ -93,13 +94,13 @@ const LogisticPendingTracking = () => {
         .neq("jenis_platform", "Tiktok")
         .neq("jenis_platform", "Shopee")
         .or("seo.is.null,seo.neq.Successfull Delivery")
-        .order("date_processed", { ascending: false });
+        .order("date_order", { ascending: false });
 
       if (startDate) {
-        query = query.gte("date_processed", startDate);
+        query = query.gte("date_order", startDate);
       }
       if (endDate) {
-        query = query.lte("date_processed", endDate);
+        query = query.lte("date_order", endDate);
       }
 
       const { data, error } = await query;
