@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Package, Minus, Calendar, Pencil, Trash2 } from "lucide-react";
+import { Package, Minus, Calendar, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { getMalaysiaDate } from "@/lib/utils";
@@ -22,8 +22,6 @@ const LogisticStockOut = () => {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
 
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -98,31 +96,6 @@ const LogisticStockOut = () => {
     },
   });
 
-  const updateStock = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("stock_out_logistic")
-        .update({
-          product_id: selectedProduct,
-          quantity: parseInt(quantity),
-          date: stockDate,
-          description: description || null,
-        })
-        .eq("id", editingItem?.id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stock-out-logistic"] });
-      toast.success("Stock out record updated successfully");
-      setIsEditDialogOpen(false);
-      resetForm();
-    },
-    onError: (error: any) => {
-      toast.error("Failed to update stock: " + error.message);
-    },
-  });
-
   const deleteStock = useMutation({
     mutationFn: async (id: string) => {
       // Get the stock out record first to know the quantity and product
@@ -179,16 +152,6 @@ const LogisticStockOut = () => {
     setQuantity("");
     setStockDate(getMalaysiaDate());
     setDescription("");
-    setEditingItem(null);
-  };
-
-  const handleEdit = (item: any) => {
-    setEditingItem(item);
-    setSelectedProduct(item.product_id);
-    setQuantity(item.quantity.toString());
-    setStockDate(item.date ? format(new Date(item.date), "yyyy-MM-dd") : getMalaysiaDate());
-    setDescription(item.description || "");
-    setIsEditDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -351,22 +314,13 @@ const LogisticStockOut = () => {
                           <TableCell className="font-bold text-red-600">-{item.quantity}</TableCell>
                           <TableCell>{item.description || "-"}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(item)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDelete(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -384,67 +338,6 @@ const LogisticStockOut = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        setIsEditDialogOpen(open);
-        if (!open) resetForm();
-      }}>
-        <DialogContent className="max-w-sm md:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Stock Out Record</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Product</Label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products?.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} ({product.sku})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={stockDate}
-                onChange={(e) => setStockDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Description (Optional)</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add notes about this stock out..."
-              />
-            </div>
-            <Button
-              onClick={() => updateStock.mutate()}
-              className="w-full"
-              disabled={!selectedProduct || !quantity || updateStock.isPending}
-            >
-              {updateStock.isPending ? "Updating..." : "Update Stock Out"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
