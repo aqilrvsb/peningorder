@@ -80,39 +80,10 @@ export const BundleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }));
       setProducts(mappedProducts);
 
-      // Fetch bundles with product info
-      const { data: bundlesData, error: bundlesError } = await supabase
-        .from('bundles' as any)
-        .select(`
-          *,
-          products:product_id (id, name, sku)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (bundlesError) throw bundlesError;
-
-      const mappedBundles: Bundle[] = ((bundlesData as any[]) || []).map((b: any) => ({
-        id: b.id,
-        name: b.name,
-        productId: b.product_id || '',
-        productName: b.products?.name || '',
-        productSku: b.products?.sku || '',
-        units: b.units,
-        // Normal prices by customer type
-        priceNormalNp: Number(b.price_normal_np) || 0,
-        priceNormalEp: Number(b.price_normal_ep) || 0,
-        priceNormalEc: Number(b.price_normal_ec) || 0,
-        // Shopee prices by customer type
-        priceShopeeNp: Number(b.price_shopee_np) || 0,
-        priceShopeeEp: Number(b.price_shopee_ep) || 0,
-        priceShopeeEc: Number(b.price_shopee_ec) || 0,
-        // TikTok prices by customer type
-        priceTiktokNp: Number(b.price_tiktok_np) || 0,
-        priceTiktokEp: Number(b.price_tiktok_ep) || 0,
-        priceTiktokEc: Number(b.price_tiktok_ec) || 0,
-        isActive: b.is_active,
-      }));
-      setBundles(mappedBundles);
+      // Note: The 'bundles' table has been deleted.
+      // Logistic users should use LogisticBundleManagement with 'logistic_bundles' table instead.
+      // Setting empty bundles array since the table no longer exists.
+      setBundles([]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -130,98 +101,27 @@ export const BundleProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   const addBundle = async (bundle: Omit<Bundle, 'id' | 'productName' | 'productSku'>) => {
-    try {
-      const { error } = await supabase.from('bundles' as any).insert({
-        name: bundle.name,
-        product_id: bundle.productId || null,
-        units: bundle.units,
-        // Normal prices by customer type
-        price_normal_np: bundle.priceNormalNp,
-        price_normal_ep: bundle.priceNormalEp,
-        price_normal_ec: bundle.priceNormalEc,
-        // Shopee prices by customer type
-        price_shopee_np: bundle.priceShopeeNp,
-        price_shopee_ep: bundle.priceShopeeEp,
-        price_shopee_ec: bundle.priceShopeeEc,
-        // TikTok prices by customer type
-        price_tiktok_np: bundle.priceTiktokNp,
-        price_tiktok_ep: bundle.priceTiktokEp,
-        price_tiktok_ec: bundle.priceTiktokEc,
-        is_active: bundle.isActive,
-      });
-      if (error) throw error;
-      await refreshData();
-      toast({ title: 'Bundle Created', description: 'New bundle has been added successfully.' });
-    } catch (error) {
-      console.error('Error adding bundle:', error);
-      toast({ title: 'Error', description: 'Failed to add bundle', variant: 'destructive' });
-    }
+    // Note: The 'bundles' table has been deleted.
+    // This function is kept for interface compatibility but does nothing.
+    toast({ title: 'Not Available', description: 'Bundle management has been moved to Logistic Bundle Management.', variant: 'destructive' });
   };
 
   const updateBundle = async (id: string, bundle: Partial<Bundle>) => {
-    try {
-      const updateData: any = {};
-      if (bundle.name !== undefined) updateData.name = bundle.name;
-      if (bundle.productId !== undefined) updateData.product_id = bundle.productId || null;
-      if (bundle.units !== undefined) updateData.units = bundle.units;
-      // Normal prices by customer type
-      if (bundle.priceNormalNp !== undefined) updateData.price_normal_np = bundle.priceNormalNp;
-      if (bundle.priceNormalEp !== undefined) updateData.price_normal_ep = bundle.priceNormalEp;
-      if (bundle.priceNormalEc !== undefined) updateData.price_normal_ec = bundle.priceNormalEc;
-      // Shopee prices by customer type
-      if (bundle.priceShopeeNp !== undefined) updateData.price_shopee_np = bundle.priceShopeeNp;
-      if (bundle.priceShopeeEp !== undefined) updateData.price_shopee_ep = bundle.priceShopeeEp;
-      if (bundle.priceShopeeEc !== undefined) updateData.price_shopee_ec = bundle.priceShopeeEc;
-      // TikTok prices by customer type
-      if (bundle.priceTiktokNp !== undefined) updateData.price_tiktok_np = bundle.priceTiktokNp;
-      if (bundle.priceTiktokEp !== undefined) updateData.price_tiktok_ep = bundle.priceTiktokEp;
-      if (bundle.priceTiktokEc !== undefined) updateData.price_tiktok_ec = bundle.priceTiktokEc;
-      if (bundle.isActive !== undefined) updateData.is_active = bundle.isActive;
-      updateData.updated_at = new Date().toISOString();
-
-      const { error } = await supabase.from('bundles' as any).update(updateData).eq('id', id);
-      if (error) throw error;
-      await refreshData();
-      toast({ title: 'Bundle Updated', description: 'Bundle has been updated successfully.' });
-    } catch (error) {
-      console.error('Error updating bundle:', error);
-      toast({ title: 'Error', description: 'Failed to update bundle', variant: 'destructive' });
-    }
+    // Note: The 'bundles' table has been deleted.
+    // This function is kept for interface compatibility but does nothing.
+    toast({ title: 'Not Available', description: 'Bundle management has been moved to Logistic Bundle Management.', variant: 'destructive' });
   };
 
   const deleteBundle = async (id: string) => {
-    try {
-      const { error } = await supabase.from('bundles' as any).delete().eq('id', id);
-      if (error) throw error;
-      await refreshData();
-      toast({ title: 'Bundle Deleted', description: 'Bundle has been removed.' });
-    } catch (error) {
-      console.error('Error deleting bundle:', error);
-      toast({ title: 'Error', description: 'Failed to delete bundle', variant: 'destructive' });
-    }
+    // Note: The 'bundles' table has been deleted.
+    // This function is kept for interface compatibility but does nothing.
+    toast({ title: 'Not Available', description: 'Bundle management has been moved to Logistic Bundle Management.', variant: 'destructive' });
   };
 
   const toggleBundleActive = async (id: string) => {
-    const bundle = bundles.find(b => b.id === id);
-    if (!bundle) return;
-    
-    try {
-      const { error } = await supabase
-        .from('bundles' as any)
-        .update({ is_active: !bundle.isActive, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-      await refreshData();
-      toast({ 
-        title: bundle.isActive ? 'Bundle Deactivated' : 'Bundle Activated', 
-        description: bundle.isActive 
-          ? 'Bundle will no longer appear in order form.' 
-          : 'Bundle will now appear in order form.'
-      });
-    } catch (error) {
-      console.error('Error toggling bundle:', error);
-      toast({ title: 'Error', description: 'Failed to update bundle status', variant: 'destructive' });
-    }
+    // Note: The 'bundles' table has been deleted.
+    // This function is kept for interface compatibility but does nothing.
+    toast({ title: 'Not Available', description: 'Bundle management has been moved to Logistic Bundle Management.', variant: 'destructive' });
   };
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
