@@ -97,6 +97,7 @@ const OrderForm: React.FC = () => {
     return {
       id: lb.id,
       name: lb.name,
+      sku: lb.sku || '', // Bundle SKU for NinjaVan delivery instructions
       units: 1, // Default to 1 unit per bundle
       // Use platform-specific pricing
       priceNormalNp: Number(lb.price_online_np) || 0,
@@ -678,7 +679,10 @@ const OrderForm: React.FC = () => {
           // Generate new sale ID for edit mode
           idSale = await generateSaleId();
           console.log('Generated new Sale ID for edit:', idSale);
-          
+
+          // Get selected bundle for SKU
+          const editSelectedBundle = activeBundles.find(b => b.name === formData.produk);
+
           try {
             const { data: ninjavanResult, error: ninjavanError } = await supabase.functions.invoke('ninjavan-order', {
               body: {
@@ -693,6 +697,8 @@ const OrderForm: React.FC = () => {
                 price: formData.hargaJualan,
                 caraBayaran: formData.caraBayaran,
                 produk: formData.produk,
+                productSku: editSelectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
+                quantity: formData.quantity || 1,
                 marketerIdStaff: profile?.username || '',
               }
             });
@@ -853,6 +859,8 @@ const OrderForm: React.FC = () => {
                 price: formData.hargaJualan,
                 caraBayaran: formData.caraBayaran,
                 produk: formData.produk,
+                productSku: selectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
+                quantity: formData.quantity || 1,
                 marketerIdStaff: profile?.username || '',
               }
             });
@@ -971,6 +979,7 @@ const OrderForm: React.FC = () => {
               bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
               waybill_url: waybillUrl || null,
+              bundle_id: selectedBundle?.id || null, // NEW: bundle_id
             });
 
           if (insertError) throw insertError;
@@ -1013,6 +1022,8 @@ const OrderForm: React.FC = () => {
             bank: showPaymentDetails ? formData.pilihBank : '',
             receiptImageUrl: receiptUrl,
             waybillUrl: waybillUrl,
+            seo: '',
+            bundleId: selectedBundle?.id || '',
           });
         }
 

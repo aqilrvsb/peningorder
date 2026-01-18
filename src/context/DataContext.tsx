@@ -16,7 +16,7 @@ interface CustomerOrder {
   deliveryStatus: string; dateOrder: string; dateProcessed: string; dateReturn: string;
   jenisPlatform: string; jenisCustomer: string; jenisClosing: string; caraBayaran: string;
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
-  seo: string;
+  seo: string; bundleId: string;
 }
 
 interface Prospect {
@@ -98,6 +98,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
     waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
+    bundleId: d.bundle_id || '',
   });
 
   const mapProspect = (d: any): Prospect => ({
@@ -160,6 +161,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       bank_payment: order.bank || null, // NEW: bank_payment
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
       waybill_url: order.waybillUrl || null,
+      bundle_id: order.bundleId || null, // NEW: bundle_id
     });
     if (error) { toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' }); throw error; }
     await refreshData();

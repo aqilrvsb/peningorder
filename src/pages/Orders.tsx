@@ -621,16 +621,7 @@ Terima kasih! 🙏`;
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {(() => {
-                        // Find bundle by name (produk stores bundle name)
-                        const bundle = bundles.find(b => b.name === order.produk);
-                        if (bundle && bundle.productName) {
-                          return `${bundle.name} + ${bundle.productName}`;
-                        }
-                        return order.produk;
-                      })()}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.kuantiti || 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
