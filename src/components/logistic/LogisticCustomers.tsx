@@ -769,27 +769,21 @@ const LogisticCustomers = () => {
             Manage your customer purchases and track sales
           </p>
         </div>
-        <div className="flex gap-2">
-          {selectedOrders.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeleteSelected}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-1 h-4 w-4" />
-              )}
-              Delete ({selectedOrders.size})
-            </Button>
-          )}
-          <Button size="sm" onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            Add Customer
+        {selectedOrders.size > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteSelected}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-1 h-4 w-4" />
+            )}
+            Delete ({selectedOrders.size})
           </Button>
-        </div>
+        )}
       </div>
 
       {/* Statistics Cards - Compact */}
