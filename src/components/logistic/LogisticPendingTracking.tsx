@@ -433,11 +433,11 @@ const LogisticPendingTracking = () => {
                     <SelectItem value="Return">Return</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input
+                <input
                   type="date"
                   value={individualDate}
                   onChange={(e) => setIndividualDate(e.target.value)}
-                  className="h-10 w-52 cursor-pointer"
+                  className="h-10 w-40 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <Button
                   onClick={handleIndividualUpdate}
