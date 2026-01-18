@@ -476,23 +476,6 @@ const LogisticProductTransaction = () => {
                     </TableCell>
                   </TableRow>
                 )}
-                {/* Summary Row */}
-                {productTransactions && productTransactions.length > 0 && (
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell className="sticky left-0 bg-muted/50 z-10">TOTAL</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-center text-emerald-600">{summaryStats.totalStockIn}</TableCell>
-                    <TableCell className="text-center text-red-600">{summaryStats.totalStockOut}</TableCell>
-                    <TableCell className="text-center text-blue-600">{summaryStats.totalShipped}</TableCell>
-                    <TableCell className="text-center text-orange-600">{summaryStats.totalReturn}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50">{summaryStats.totalTiktok}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50">-</TableCell>
-                    <TableCell className="text-center bg-orange-100/50">{summaryStats.totalShopee}</TableCell>
-                    <TableCell className="text-center bg-orange-100/50">-</TableCell>
-                    <TableCell className="text-center bg-sky-100/50">{summaryStats.totalOnline}</TableCell>
-                    <TableCell className="text-center bg-sky-100/50">-</TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </div>
