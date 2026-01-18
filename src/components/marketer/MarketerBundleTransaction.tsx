@@ -18,6 +18,7 @@ import { getMalaysiaDate } from "@/lib/utils";
 
 // Detail modal type
 type DetailModalType = "success" | "return" | "remaining" | null;
+type PlatformType = "all" | "tiktok" | "shopee" | "online";
 
 // Marketer Bundle Date Order tab - Bundle-level based on their own orders
 // WITH Total Sales
@@ -32,6 +33,7 @@ const MarketerBundleTransaction = () => {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<DetailModalType>(null);
+  const [modalPlatform, setModalPlatform] = useState<PlatformType>("all");
   const [modalBundleId, setModalBundleId] = useState<string | null>(null);
   const [modalBundleName, setModalBundleName] = useState<string>("");
 
@@ -195,12 +197,22 @@ const MarketerBundleTransaction = () => {
       .filter((b) => b.shippedUnits > 0 || b.returnUnits > 0);
   }, [bundles, purchasesData]);
 
+  // Helper to check platform match
+  const matchesPlatform = (order: any, platform: PlatformType): boolean => {
+    if (platform === "all") return true;
+    if (platform === "tiktok") return order.jenis_platform === "Tiktok";
+    if (platform === "shopee") return order.jenis_platform === "Shopee";
+    if (platform === "online") return order.jenis_platform && order.jenis_platform !== "Tiktok" && order.jenis_platform !== "Shopee";
+    return false;
+  };
+
   // Get filtered orders for modal
   const getModalOrders = useMemo(() => {
     if (!modalBundleId || !modalType) return [];
 
     return purchasesData.filter((p: any) => {
       if (p.bundle_id !== modalBundleId) return false;
+      if (!matchesPlatform(p, modalPlatform)) return false;
 
       if (modalType === "success") {
         return p.delivery_status === "Shipped" && p.seo === "Successfull Delivery";
@@ -212,13 +224,14 @@ const MarketerBundleTransaction = () => {
       }
       return false;
     });
-  }, [purchasesData, modalBundleId, modalType]);
+  }, [purchasesData, modalBundleId, modalType, modalPlatform]);
 
   // Handle opening modal
-  const openModal = (bundleId: string, bundleName: string, type: DetailModalType) => {
+  const openModal = (bundleId: string, bundleName: string, type: DetailModalType, platform: PlatformType = "all") => {
     setModalBundleId(bundleId);
     setModalBundleName(bundleName);
     setModalType(type);
+    setModalPlatform(platform);
     setModalOpen(true);
   };
 
@@ -254,10 +267,17 @@ const MarketerBundleTransaction = () => {
   const formatPercent = (value: number) => `${value.toFixed(1)}%`;
   const formatCurrency = (value: number) => `RM ${value.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const getPlatformLabel = () => {
+    if (modalPlatform === "tiktok") return " (Tiktok)";
+    if (modalPlatform === "shopee") return " (Shopee)";
+    if (modalPlatform === "online") return " (Online)";
+    return "";
+  };
+
   const getModalTitle = () => {
-    if (modalType === "success") return `Success Orders - ${modalBundleName}`;
-    if (modalType === "return") return `Return Orders - ${modalBundleName}`;
-    if (modalType === "remaining") return `Remaining Orders - ${modalBundleName}`;
+    if (modalType === "success") return `Success Orders - ${modalBundleName}${getPlatformLabel()}`;
+    if (modalType === "return") return `Return Orders - ${modalBundleName}${getPlatformLabel()}`;
+    if (modalType === "remaining") return `Remaining Orders - ${modalBundleName}${getPlatformLabel()}`;
     return "";
   };
 
@@ -502,7 +522,7 @@ const MarketerBundleTransaction = () => {
                       <TableCell className="text-center font-semibold text-green-600">
                         {bundle.successUnits > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "success")}
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "all")}
                             className="hover:underline cursor-pointer"
                           >
                             {bundle.successUnits}
@@ -514,7 +534,7 @@ const MarketerBundleTransaction = () => {
                       <TableCell className="text-center font-semibold text-orange-600">
                         {bundle.returnUnits > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "return")}
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "all")}
                             className="hover:underline cursor-pointer"
                           >
                             {bundle.returnUnits}
@@ -526,7 +546,7 @@ const MarketerBundleTransaction = () => {
                       <TableCell className="text-center font-semibold text-amber-600">
                         {bundle.remaining > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "remaining")}
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "all")}
                             className="hover:underline cursor-pointer"
                           >
                             {bundle.remaining}
@@ -538,23 +558,122 @@ const MarketerBundleTransaction = () => {
                       <TableCell className="text-right font-semibold text-emerald-600">{formatCurrency(bundle.totalSales)}</TableCell>
                       {/* Tiktok */}
                       <TableCell className="text-center bg-pink-50/50">{bundle.tiktok.units}</TableCell>
-                      <TableCell className="text-center bg-pink-50/50 text-green-600">{bundle.tiktok.success}</TableCell>
-                      <TableCell className="text-center bg-pink-50/50 text-orange-600">{bundle.tiktok.returnUnits}</TableCell>
-                      <TableCell className="text-center bg-pink-50/50 text-amber-600">{bundle.tiktok.remaining}</TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-green-600">
+                        {bundle.tiktok.success > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "tiktok")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.tiktok.success}
+                          </button>
+                        ) : (
+                          bundle.tiktok.success
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-orange-600">
+                        {bundle.tiktok.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "tiktok")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.tiktok.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.tiktok.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-pink-50/50 text-amber-600">
+                        {bundle.tiktok.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "tiktok")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.tiktok.remaining}
+                          </button>
+                        ) : (
+                          bundle.tiktok.remaining
+                        )}
+                      </TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatCurrency(bundle.tiktok.sales)}</TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatPercent(bundle.tiktok.pct)}</TableCell>
                       {/* Shopee */}
                       <TableCell className="text-center bg-orange-50/50">{bundle.shopee.units}</TableCell>
-                      <TableCell className="text-center bg-orange-50/50 text-green-600">{bundle.shopee.success}</TableCell>
-                      <TableCell className="text-center bg-orange-50/50 text-orange-600">{bundle.shopee.returnUnits}</TableCell>
-                      <TableCell className="text-center bg-orange-50/50 text-amber-600">{bundle.shopee.remaining}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-green-600">
+                        {bundle.shopee.success > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "shopee")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.shopee.success}
+                          </button>
+                        ) : (
+                          bundle.shopee.success
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-orange-600">
+                        {bundle.shopee.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "shopee")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.shopee.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.shopee.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-amber-600">
+                        {bundle.shopee.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "shopee")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.shopee.remaining}
+                          </button>
+                        ) : (
+                          bundle.shopee.remaining
+                        )}
+                      </TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatCurrency(bundle.shopee.sales)}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(bundle.shopee.pct)}</TableCell>
                       {/* Online */}
                       <TableCell className="text-center bg-sky-50/50">{bundle.online.units}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-green-600">{bundle.online.success}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-orange-600">{bundle.online.returnUnits}</TableCell>
-                      <TableCell className="text-center bg-sky-50/50 text-amber-600">{bundle.online.remaining}</TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-green-600">
+                        {bundle.online.success > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "online")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.online.success}
+                          </button>
+                        ) : (
+                          bundle.online.success
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-orange-600">
+                        {bundle.online.returnUnits > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "online")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.online.returnUnits}
+                          </button>
+                        ) : (
+                          bundle.online.returnUnits
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center bg-sky-50/50 text-amber-600">
+                        {bundle.online.remaining > 0 ? (
+                          <button
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "online")}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {bundle.online.remaining}
+                          </button>
+                        ) : (
+                          bundle.online.remaining
+                        )}
+                      </TableCell>
                       <TableCell className="text-center bg-sky-50/50 text-xs">{formatCurrency(bundle.online.sales)}</TableCell>
                       <TableCell className="text-center bg-sky-50/50 text-xs">{formatPercent(bundle.online.pct)}</TableCell>
                     </TableRow>
