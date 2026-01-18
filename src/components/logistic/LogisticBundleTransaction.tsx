@@ -404,25 +404,6 @@ const LogisticBundleTransaction = () => {
                     </TableCell>
                   </TableRow>
                 )}
-                {/* Summary Row */}
-                {bundleTransactions && bundleTransactions.length > 0 && (
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell className="sticky left-0 bg-muted/50 z-10">TOTAL</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-center text-blue-600">{summaryStats.totalShipped}</TableCell>
-                    <TableCell className="text-center text-orange-600">{summaryStats.totalReturn}</TableCell>
-                    <TableCell className="text-right text-emerald-600">{formatCurrency(summaryStats.totalSales)}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50">{summaryStats.totalTiktok}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50 text-xs">{formatCurrency(summaryStats.totalTiktokSales)}</TableCell>
-                    <TableCell className="text-center bg-pink-100/50">-</TableCell>
-                    <TableCell className="text-center bg-orange-100/50">{summaryStats.totalShopee}</TableCell>
-                    <TableCell className="text-center bg-orange-100/50 text-xs">{formatCurrency(summaryStats.totalShopeeSales)}</TableCell>
-                    <TableCell className="text-center bg-orange-100/50">-</TableCell>
-                    <TableCell className="text-center bg-sky-100/50">{summaryStats.totalOnline}</TableCell>
-                    <TableCell className="text-center bg-sky-100/50 text-xs">{formatCurrency(summaryStats.totalOnlineSales)}</TableCell>
-                    <TableCell className="text-center bg-sky-100/50">-</TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </div>
