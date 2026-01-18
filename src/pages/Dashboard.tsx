@@ -401,8 +401,8 @@ const Dashboard: React.FC = () => {
     const totalProcess = filteredAllOrders.filter(o => o.delivery_status === 'Shipped').length;
     const totalReturn = filteredAllOrders.filter(o => o.delivery_status === 'Return').length;
 
-    // Total Order Biasa = Facebook + Database + Google
-    const totalOrderBiasa = filteredAllOrders.filter(o =>
+    // Total Online = Facebook + Database + Google
+    const totalOnline = filteredAllOrders.filter(o =>
       o.jenis_platform === 'Facebook' || o.jenis_platform === 'Database' || o.jenis_platform === 'Google'
     ).length;
 
@@ -423,7 +423,7 @@ const Dashboard: React.FC = () => {
       totalPending,
       totalProcess,
       totalReturn,
-      totalOrderBiasa,
+      totalOnline,
       totalShopee,
       totalTiktok,
       totalCash,
@@ -1215,13 +1215,13 @@ const Dashboard: React.FC = () => {
 
         {/* Platform Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Total Order Biasa */}
+          {/* Total Online */}
           <div className="stat-card">
             <div className="flex items-center gap-2 text-blue-600 mb-2">
               <Package className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL ORDER BIASA</span>
+              <span className="text-sm font-medium">TOTAL ONLINE</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalOrderBiasa}</p>
+            <p className="text-2xl font-bold text-foreground">{logisticStats.totalOnline}</p>
             <p className="text-xs text-muted-foreground mt-1">FB + Database + Google</p>
           </div>
 

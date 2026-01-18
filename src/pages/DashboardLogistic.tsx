@@ -71,8 +71,8 @@ const DashboardLogistic: React.FC = () => {
     const totalProcess = filteredAllOrders.filter(o => o.delivery_status === 'Shipped').length;
     const totalReturn = filteredAllOrders.filter(o => o.delivery_status === 'Return').length;
 
-    // Total Order Biasa = Facebook + Database + Google
-    const totalOrderBiasa = filteredAllOrders.filter(o =>
+    // Total Online = Facebook + Database + Google
+    const totalOnline = filteredAllOrders.filter(o =>
       o.jenis_platform === 'Facebook' || o.jenis_platform === 'Database' || o.jenis_platform === 'Google'
     ).length;
 
@@ -93,7 +93,7 @@ const DashboardLogistic: React.FC = () => {
       totalPending,
       totalProcess,
       totalReturn,
-      totalOrderBiasa,
+      totalOnline,
       totalShopee,
       totalTiktok,
       totalCash,
@@ -205,7 +205,7 @@ const DashboardLogistic: React.FC = () => {
             <Package className="w-5 h-5" />
             <span className="text-sm font-medium">TOTAL ONLINE</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{logisticStats.totalOrderBiasa}</p>
+          <p className="text-2xl font-bold text-foreground">{logisticStats.totalOnline}</p>
           <p className="text-xs text-muted-foreground mt-1">FB + Database + Google</p>
         </div>
 
