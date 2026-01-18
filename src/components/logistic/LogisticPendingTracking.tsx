@@ -424,23 +424,21 @@ const LogisticPendingTracking = () => {
             <div className="space-y-2">
               <h3 className="font-semibold text-sm">Update by Selection</h3>
               <div className="flex gap-3 items-end">
-                <div className="flex flex-col gap-2">
-                  <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
-                    <SelectTrigger className="h-10 w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Success">Success</SelectItem>
-                      <SelectItem value="Return">Return</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="date"
-                    value={individualDate}
-                    onChange={(e) => setIndividualDate(e.target.value)}
-                    className="h-10 w-40"
-                  />
-                </div>
+                <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
+                  <SelectTrigger className="h-10 w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Success">Success</SelectItem>
+                    <SelectItem value="Return">Return</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={individualDate}
+                  onChange={(e) => setIndividualDate(e.target.value)}
+                  className="h-10 w-44 cursor-pointer"
+                />
                 <Button
                   onClick={handleIndividualUpdate}
                   disabled={isIndividualUpdating || selectedOrders.size === 0}
