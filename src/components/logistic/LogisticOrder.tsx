@@ -129,7 +129,8 @@ const LogisticOrder = () => {
         .from("customer_purchases")
         .select(`
           *,
-          product:products(name, sku)
+          product:products(name, sku),
+          marketer:profiles!customer_purchases_marketer_id_fkey(whatsapp_number)
         `)
         .eq("delivery_status", "Pending")
         .order("created_at", { ascending: false });
@@ -871,7 +872,10 @@ const LogisticOrder = () => {
                         />
                       </th>
                       <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left">Id Sales</th>
                       <th className="p-2 text-left">Tarikh Order</th>
+                      <th className="p-2 text-left">Id Staff</th>
+                      <th className="p-2 text-left">Name</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
@@ -903,7 +907,10 @@ const LogisticOrder = () => {
                             />
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{order.marketer_name || "-"}</td>
                           <td className="p-2">{order.nama_pelanggan || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.no_phone || "-"}</td>
                           <td className="p-2">
@@ -996,9 +1003,9 @@ const LogisticOrder = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {order.no_phone && (
+                            {order.marketer?.whatsapp_number && (
                               <a
-                                href={`https://wa.me/6${(order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(order.marketer?.whatsapp_number || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
@@ -1021,7 +1028,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>

@@ -48,6 +48,7 @@ interface BundleItem {
   productName: string;
   productSku: string;
   quantity: number;
+  baseCost: number;
 }
 
 const LogisticBundleManagement = () => {
@@ -66,9 +67,21 @@ const LogisticBundleManagement = () => {
   const [bundleName, setBundleName] = useState("");
   const [bundleDescription, setBundleDescription] = useState("");
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
-  const [priceNp, setPriceNp] = useState<number>(0);
-  const [priceEp, setPriceEp] = useState<number>(0);
-  const [priceEc, setPriceEc] = useState<number>(0);
+  const [baseCost, setBaseCost] = useState<number>(0);
+  const [kosPostageSm, setKosPostageSm] = useState<number>(0);
+  const [kosPostageSs, setKosPostageSs] = useState<number>(0);
+  // Online Platform prices
+  const [priceOnlineNp, setPriceOnlineNp] = useState<number>(0);
+  const [priceOnlineEp, setPriceOnlineEp] = useState<number>(0);
+  const [priceOnlineEc, setPriceOnlineEc] = useState<number>(0);
+  // Tiktok Platform prices
+  const [priceTiktokNp, setPriceTiktokNp] = useState<number>(0);
+  const [priceTiktokEp, setPriceTiktokEp] = useState<number>(0);
+  const [priceTiktokEc, setPriceTiktokEc] = useState<number>(0);
+  // Shopee Platform prices
+  const [priceShopeeNp, setPriceShopeeNp] = useState<number>(0);
+  const [priceShopeeEp, setPriceShopeeEp] = useState<number>(0);
+  const [priceShopeeEc, setPriceShopeeEc] = useState<number>(0);
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -127,9 +140,18 @@ const LogisticBundleManagement = () => {
     setBundleName("");
     setBundleDescription("");
     setBundleItems([]);
-    setPriceNp(0);
-    setPriceEp(0);
-    setPriceEc(0);
+    setBaseCost(0);
+    setKosPostageSm(0);
+    setKosPostageSs(0);
+    setPriceOnlineNp(0);
+    setPriceOnlineEp(0);
+    setPriceOnlineEc(0);
+    setPriceTiktokNp(0);
+    setPriceTiktokEp(0);
+    setPriceTiktokEc(0);
+    setPriceShopeeNp(0);
+    setPriceShopeeEp(0);
+    setPriceShopeeEc(0);
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -148,18 +170,36 @@ const LogisticBundleManagement = () => {
     setEditingBundleId(bundle.id);
     setBundleName(bundle.name);
     setBundleDescription(bundle.description || "");
-    setPriceNp(Number(bundle.price_np) || 0);
-    setPriceEp(Number(bundle.price_ep) || 0);
-    setPriceEc(Number(bundle.price_ec) || 0);
+    setBaseCost(Number(bundle.base_cost) || 0);
+    setKosPostageSm(Number(bundle.kos_postage_sm) || 0);
+    setKosPostageSs(Number(bundle.kos_postage_ss) || 0);
+    // Online Platform prices
+    setPriceOnlineNp(Number(bundle.price_online_np) || 0);
+    setPriceOnlineEp(Number(bundle.price_online_ep) || 0);
+    setPriceOnlineEc(Number(bundle.price_online_ec) || 0);
+    // Tiktok Platform prices
+    setPriceTiktokNp(Number(bundle.price_tiktok_np) || 0);
+    setPriceTiktokEp(Number(bundle.price_tiktok_ep) || 0);
+    setPriceTiktokEc(Number(bundle.price_tiktok_ec) || 0);
+    // Shopee Platform prices
+    setPriceShopeeNp(Number(bundle.price_shopee_np) || 0);
+    setPriceShopeeEp(Number(bundle.price_shopee_ep) || 0);
+    setPriceShopeeEc(Number(bundle.price_shopee_ec) || 0);
     setBundleItems(
       bundle.items.map((item: any) => ({
         productId: item.product_id,
         productName: item.product?.name || "Unknown",
         productSku: item.product?.sku || "",
         quantity: item.quantity,
+        baseCost: Number(item.product?.base_cost) || 0,
       }))
     );
     setDialogOpen(true);
+  };
+
+  // Calculate combined base cost from bundle items
+  const calculateCombinedBaseCost = (items: BundleItem[]): number => {
+    return items.reduce((total, item) => total + (item.baseCost * item.quantity), 0);
   };
 
   // Add item to bundle
@@ -178,15 +218,20 @@ const LogisticBundleManagement = () => {
     const product = products.find((p: any) => p.id === selectedProductId);
     if (!product) return;
 
-    setBundleItems([
+    const newItems = [
       ...bundleItems,
       {
         productId: selectedProductId,
         productName: product.name,
         productSku: product.sku || "",
         quantity: itemQuantity,
+        baseCost: Number(product.base_cost) || 0,
       },
-    ]);
+    ];
+
+    setBundleItems(newItems);
+    // Auto-calculate base cost
+    setBaseCost(calculateCombinedBaseCost(newItems));
 
     setSelectedProductId("");
     setItemQuantity(1);
@@ -194,17 +239,21 @@ const LogisticBundleManagement = () => {
 
   // Remove item from bundle
   const handleRemoveItem = (productId: string) => {
-    setBundleItems(bundleItems.filter((item) => item.productId !== productId));
+    const newItems = bundleItems.filter((item) => item.productId !== productId);
+    setBundleItems(newItems);
+    // Recalculate base cost
+    setBaseCost(calculateCombinedBaseCost(newItems));
   };
 
   // Update item quantity
   const handleUpdateItemQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
-    setBundleItems(
-      bundleItems.map((item) =>
-        item.productId === productId ? { ...item, quantity: newQuantity } : item
-      )
+    const newItems = bundleItems.map((item) =>
+      item.productId === productId ? { ...item, quantity: newQuantity } : item
     );
+    setBundleItems(newItems);
+    // Recalculate base cost
+    setBaseCost(calculateCombinedBaseCost(newItems));
   };
 
   // Save bundle
@@ -233,9 +282,18 @@ const LogisticBundleManagement = () => {
             name: bundleName.trim(),
             description: bundleDescription.trim() || null,
             sku: generatedSku,
-            price_np: priceNp,
-            price_ep: priceEp,
-            price_ec: priceEc,
+            base_cost: baseCost,
+            kos_postage_sm: kosPostageSm,
+            kos_postage_ss: kosPostageSs,
+            price_online_np: priceOnlineNp,
+            price_online_ep: priceOnlineEp,
+            price_online_ec: priceOnlineEc,
+            price_tiktok_np: priceTiktokNp,
+            price_tiktok_ep: priceTiktokEp,
+            price_tiktok_ec: priceTiktokEc,
+            price_shopee_np: priceShopeeNp,
+            price_shopee_ep: priceShopeeEp,
+            price_shopee_ec: priceShopeeEc,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingBundleId);
@@ -270,9 +328,18 @@ const LogisticBundleManagement = () => {
             name: bundleName.trim(),
             description: bundleDescription.trim() || null,
             sku: generatedSku,
-            price_np: priceNp,
-            price_ep: priceEp,
-            price_ec: priceEc,
+            base_cost: baseCost,
+            kos_postage_sm: kosPostageSm,
+            kos_postage_ss: kosPostageSs,
+            price_online_np: priceOnlineNp,
+            price_online_ep: priceOnlineEp,
+            price_online_ec: priceOnlineEc,
+            price_tiktok_np: priceTiktokNp,
+            price_tiktok_ep: priceTiktokEp,
+            price_tiktok_ec: priceTiktokEc,
+            price_shopee_np: priceShopeeNp,
+            price_shopee_ep: priceShopeeEp,
+            price_shopee_ec: priceShopeeEc,
           })
           .select()
           .single();
@@ -392,10 +459,31 @@ const LogisticBundleManagement = () => {
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Products</TableHead>
-                  <TableHead className="text-center">NP Price</TableHead>
-                  <TableHead className="text-center">EP Price</TableHead>
-                  <TableHead className="text-center">EC Price</TableHead>
+                  <TableHead className="text-center">Base Cost</TableHead>
+                  <TableHead className="text-center">Postage SM</TableHead>
+                  <TableHead className="text-center">Postage SS</TableHead>
+                  <TableHead className="text-center bg-green-50" colSpan={3}>Online Platform</TableHead>
+                  <TableHead className="text-center bg-pink-50" colSpan={3}>Tiktok Platform</TableHead>
+                  <TableHead className="text-center bg-orange-50" colSpan={3}>Shopee Platform</TableHead>
                   <TableHead>Status</TableHead>
+                </TableRow>
+                <TableRow>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
+                  <TableHead></TableHead>
+                  <TableHead className="text-center text-xs bg-green-50">NP</TableHead>
+                  <TableHead className="text-center text-xs bg-green-50">EP</TableHead>
+                  <TableHead className="text-center text-xs bg-green-50">EC</TableHead>
+                  <TableHead className="text-center text-xs bg-pink-50">NP</TableHead>
+                  <TableHead className="text-center text-xs bg-pink-50">EP</TableHead>
+                  <TableHead className="text-center text-xs bg-pink-50">EC</TableHead>
+                  <TableHead className="text-center text-xs bg-orange-50">NP</TableHead>
+                  <TableHead className="text-center text-xs bg-orange-50">EP</TableHead>
+                  <TableHead className="text-center text-xs bg-orange-50">EC</TableHead>
+                  <TableHead></TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -426,14 +514,44 @@ const LogisticBundleManagement = () => {
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-medium text-green-600">
-                      RM {Number(bundle.price_np || 0).toFixed(2)}
+                    <TableCell className="text-center font-medium text-red-600">
+                      RM {Number(bundle.base_cost || 0).toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-center font-medium text-purple-600">
-                      RM {Number(bundle.price_ep || 0).toFixed(2)}
+                    <TableCell className="text-center font-medium text-blue-600">
+                      RM {Number(bundle.kos_postage_sm || 0).toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-center font-medium text-amber-600">
-                      RM {Number(bundle.price_ec || 0).toFixed(2)}
+                    <TableCell className="text-center font-medium text-orange-600">
+                      RM {Number(bundle.kos_postage_ss || 0).toFixed(2)}
+                    </TableCell>
+                    {/* Online Platform prices */}
+                    <TableCell className="text-center text-sm bg-green-50/50">
+                      {Number(bundle.price_online_np || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-green-50/50">
+                      {Number(bundle.price_online_ep || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-green-50/50">
+                      {Number(bundle.price_online_ec || 0).toFixed(2)}
+                    </TableCell>
+                    {/* Tiktok Platform prices */}
+                    <TableCell className="text-center text-sm bg-pink-50/50">
+                      {Number(bundle.price_tiktok_np || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-pink-50/50">
+                      {Number(bundle.price_tiktok_ep || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-pink-50/50">
+                      {Number(bundle.price_tiktok_ec || 0).toFixed(2)}
+                    </TableCell>
+                    {/* Shopee Platform prices */}
+                    <TableCell className="text-center text-sm bg-orange-50/50">
+                      {Number(bundle.price_shopee_np || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-orange-50/50">
+                      {Number(bundle.price_shopee_ep || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-sm bg-orange-50/50">
+                      {Number(bundle.price_shopee_ec || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -594,54 +712,200 @@ const LogisticBundleManagement = () => {
               )}
             </div>
 
-            {/* Minimum Prices Section */}
+            {/* Cost Settings Section */}
             <div className="border rounded-lg p-4 space-y-4">
-              <h3 className="font-semibold">Minimum Prices (for Marketer)</h3>
+              <h3 className="font-semibold">Cost Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Set minimum selling prices for each customer type. Marketers can sell at or above these prices.
+                Base cost is auto-calculated from product costs. Postage costs are for Semenanjung (SM) and Sabah/Sarawak (SS).
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="priceNp" className="text-green-600 font-medium">NP Price (RM)</Label>
+                  <Label htmlFor="baseCost" className="text-red-600 font-medium">Base Cost (RM)</Label>
                   <Input
-                    id="priceNp"
+                    id="baseCost"
                     type="number"
                     min="0"
                     step="0.01"
-                    value={priceNp || ""}
-                    onChange={(e) => setPriceNp(parseFloat(e.target.value) || 0)}
+                    value={baseCost || ""}
+                    onChange={(e) => setBaseCost(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
-                    className="border-green-300 focus:border-green-500"
+                    className="border-red-300 focus:border-red-500"
                   />
-                  <p className="text-xs text-muted-foreground">New Prospect</p>
+                  <p className="text-xs text-muted-foreground">Combined product cost</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="priceEp" className="text-purple-600 font-medium">EP Price (RM)</Label>
+                  <Label htmlFor="kosPostageSm" className="text-blue-600 font-medium">Kos Postage SM (RM)</Label>
                   <Input
-                    id="priceEp"
+                    id="kosPostageSm"
                     type="number"
                     min="0"
                     step="0.01"
-                    value={priceEp || ""}
-                    onChange={(e) => setPriceEp(parseFloat(e.target.value) || 0)}
+                    value={kosPostageSm || ""}
+                    onChange={(e) => setKosPostageSm(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
-                    className="border-purple-300 focus:border-purple-500"
+                    className="border-blue-300 focus:border-blue-500"
                   />
-                  <p className="text-xs text-muted-foreground">Existing Prospect</p>
+                  <p className="text-xs text-muted-foreground">Semenanjung</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="priceEc" className="text-amber-600 font-medium">EC Price (RM)</Label>
+                  <Label htmlFor="kosPostageSs" className="text-orange-600 font-medium">Kos Postage SS (RM)</Label>
                   <Input
-                    id="priceEc"
+                    id="kosPostageSs"
                     type="number"
                     min="0"
                     step="0.01"
-                    value={priceEc || ""}
-                    onChange={(e) => setPriceEc(parseFloat(e.target.value) || 0)}
+                    value={kosPostageSs || ""}
+                    onChange={(e) => setKosPostageSs(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
-                    className="border-amber-300 focus:border-amber-500"
+                    className="border-orange-300 focus:border-orange-500"
                   />
-                  <p className="text-xs text-muted-foreground">Existing Customer</p>
+                  <p className="text-xs text-muted-foreground">Sabah/Sarawak</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Platform Prices Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold">Minimum Prices (for Marketer)</h3>
+              <p className="text-xs text-muted-foreground">
+                Set minimum selling prices for each platform and customer type. NP = New Prospect, EP = Existing Prospect, EC = Existing Customer.
+              </p>
+
+              {/* Online Platform */}
+              <div className="bg-green-50 rounded-lg p-3 space-y-3">
+                <h4 className="font-medium text-green-800">Online Platform</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="priceOnlineNp" className="text-xs">NP (RM)</Label>
+                    <Input
+                      id="priceOnlineNp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceOnlineNp || ""}
+                      onChange={(e) => setPriceOnlineNp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceOnlineEp" className="text-xs">EP (RM)</Label>
+                    <Input
+                      id="priceOnlineEp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceOnlineEp || ""}
+                      onChange={(e) => setPriceOnlineEp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceOnlineEc" className="text-xs">EC (RM)</Label>
+                    <Input
+                      id="priceOnlineEc"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceOnlineEc || ""}
+                      onChange={(e) => setPriceOnlineEc(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tiktok Platform */}
+              <div className="bg-pink-50 rounded-lg p-3 space-y-3">
+                <h4 className="font-medium text-pink-800">Tiktok Platform</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="priceTiktokNp" className="text-xs">NP (RM)</Label>
+                    <Input
+                      id="priceTiktokNp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceTiktokNp || ""}
+                      onChange={(e) => setPriceTiktokNp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceTiktokEp" className="text-xs">EP (RM)</Label>
+                    <Input
+                      id="priceTiktokEp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceTiktokEp || ""}
+                      onChange={(e) => setPriceTiktokEp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceTiktokEc" className="text-xs">EC (RM)</Label>
+                    <Input
+                      id="priceTiktokEc"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceTiktokEc || ""}
+                      onChange={(e) => setPriceTiktokEc(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Shopee Platform */}
+              <div className="bg-orange-50 rounded-lg p-3 space-y-3">
+                <h4 className="font-medium text-orange-800">Shopee Platform</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="priceShopeeNp" className="text-xs">NP (RM)</Label>
+                    <Input
+                      id="priceShopeeNp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceShopeeNp || ""}
+                      onChange={(e) => setPriceShopeeNp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceShopeeEp" className="text-xs">EP (RM)</Label>
+                    <Input
+                      id="priceShopeeEp"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceShopeeEp || ""}
+                      onChange={(e) => setPriceShopeeEp(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="priceShopeeEc" className="text-xs">EC (RM)</Label>
+                    <Input
+                      id="priceShopeeEc"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={priceShopeeEc || ""}
+                      onChange={(e) => setPriceShopeeEc(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="h-9"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
