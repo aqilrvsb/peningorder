@@ -112,6 +112,7 @@ const App = () => (
                   <Route path="account/report-spend" element={<AccountReportSpend />} />
                   <Route path="account/customers" element={<AccountCustomers />} />
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
+                  <Route path="account/pnl-config" element={<PNLConfig />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
