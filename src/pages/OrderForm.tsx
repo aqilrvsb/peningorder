@@ -1262,22 +1262,24 @@ const OrderForm: React.FC = () => {
             <div>
               <FormLabel required>Jenis Customer</FormLabel>
               <div className="flex gap-2">
-                <Input
-                  value={formData.jenisCustomer ? (
-                    formData.jenisCustomer === 'NP' ? 'New Prospect (NP)' :
-                    formData.jenisCustomer === 'EP' ? 'Existing Prospect (EP)' :
-                    formData.jenisCustomer === 'EC' ? 'Existing Customer (EC)' :
-                    formData.jenisCustomer
-                  ) : ''}
-                  placeholder="Klik Semak untuk menyemak"
-                  readOnly
-                  className={cn(
-                    "bg-muted cursor-not-allowed flex-1",
+                <Select
+                  value={formData.jenisCustomer}
+                  onValueChange={(value) => handleChange('jenisCustomer', value)}
+                >
+                  <SelectTrigger className={cn(
+                    "flex-1",
                     formData.jenisCustomer === 'NP' && "text-green-600 font-medium",
                     formData.jenisCustomer === 'EP' && "text-purple-600 font-medium",
                     formData.jenisCustomer === 'EC' && "text-amber-600 font-medium"
-                  )}
-                />
+                  )}>
+                    <SelectValue placeholder="Pilih atau klik Semak" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NP" className="text-green-600">New Prospect (NP)</SelectItem>
+                    <SelectItem value="EP" className="text-purple-600">Existing Prospect (EP)</SelectItem>
+                    <SelectItem value="EC" className="text-amber-600">Existing Customer (EC)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
                   variant="outline"
