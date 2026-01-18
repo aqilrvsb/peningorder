@@ -23,7 +23,7 @@ const LogisticBundleTransaction = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku, price, is_active")
+        .select("id, name, sku, is_active")
         .eq("is_active", true)
         .order("name", { ascending: true });
 
@@ -80,13 +80,12 @@ const LogisticBundleTransaction = () => {
       id: string;
       sku: string;
       name: string;
-      price: number;
       shippedUnits: number;
       returnUnits: number;
       totalSales: number;
-      tiktok: { units: number; sales: number; transactions: number };
-      shopee: { units: number; sales: number; transactions: number };
-      online: { units: number; sales: number; transactions: number };
+      tiktok: { units: number; sales: number };
+      shopee: { units: number; sales: number };
+      online: { units: number; sales: number };
     }>();
 
     // Initialize with all bundles
@@ -95,13 +94,12 @@ const LogisticBundleTransaction = () => {
         id: bundle.id,
         sku: bundle.sku || "N/A",
         name: bundle.name,
-        price: bundle.price || 0,
         shippedUnits: 0,
         returnUnits: 0,
         totalSales: 0,
-        tiktok: { units: 0, sales: 0, transactions: 0 },
-        shopee: { units: 0, sales: 0, transactions: 0 },
-        online: { units: 0, sales: 0, transactions: 0 },
+        tiktok: { units: 0, sales: 0 },
+        shopee: { units: 0, sales: 0 },
+        online: { units: 0, sales: 0 },
       });
     });
 
@@ -131,15 +129,12 @@ const LogisticBundleTransaction = () => {
         if (p.jenis_platform === "Tiktok") {
           entry.tiktok.units += orderUnit;
           entry.tiktok.sales += orderSale;
-          entry.tiktok.transactions += 1;
         } else if (p.jenis_platform === "Shopee") {
           entry.shopee.units += orderUnit;
           entry.shopee.sales += orderSale;
-          entry.shopee.transactions += 1;
         } else if (p.jenis_platform) {
           entry.online.units += orderUnit;
           entry.online.sales += orderSale;
-          entry.online.transactions += 1;
         }
       }
     });
