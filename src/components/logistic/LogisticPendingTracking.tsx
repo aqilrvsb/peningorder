@@ -397,7 +397,7 @@ const LogisticPendingTracking = () => {
                   rows={2}
                   className="flex-1"
                 />
-                <div className="flex flex-col gap-2 w-32">
+                <div className="flex flex-col gap-2 w-36">
                   <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
                     <SelectTrigger className="h-8">
                       <SelectValue />
@@ -407,11 +407,12 @@ const LogisticPendingTracking = () => {
                       <SelectItem value="Return">Return</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input
+                  <input
                     type="date"
                     value={bulkDate}
                     onChange={(e) => setBulkDate(e.target.value)}
-                    className="h-8"
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker()}
+                    className="h-8 px-2 py-1 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} size="sm" className="self-end">
@@ -437,6 +438,7 @@ const LogisticPendingTracking = () => {
                   type="date"
                   value={individualDate}
                   onChange={(e) => setIndividualDate(e.target.value)}
+                  onClick={(e) => (e.target as HTMLInputElement).showPicker()}
                   style={{ minWidth: '180px' }}
                   className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
                 />
