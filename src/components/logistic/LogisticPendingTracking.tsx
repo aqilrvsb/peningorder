@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
   Package,
@@ -35,7 +34,7 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100];
 const LogisticPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = getMalaysiaDate();
 
   // Filter states
   const [search, setSearch] = useState("");

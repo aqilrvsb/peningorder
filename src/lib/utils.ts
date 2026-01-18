@@ -32,3 +32,28 @@ export function getMalaysiaYesterday(): string {
   const day = yesterday.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur", day: "2-digit" });
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Get start of current month in Malaysia timezone (UTC+8)
+ * Returns date string in YYYY-MM-DD format
+ */
+export function getMalaysiaStartOfMonth(): string {
+  const now = new Date();
+  const year = now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur", year: "numeric" });
+  const month = now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur", month: "2-digit" });
+  return `${year}-${month}-01`;
+}
+
+/**
+ * Get end of current month in Malaysia timezone (UTC+8)
+ * Returns date string in YYYY-MM-DD format
+ */
+export function getMalaysiaEndOfMonth(): string {
+  const now = new Date();
+  const year = parseInt(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur", year: "numeric" }));
+  const month = parseInt(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur", month: "numeric" }));
+  // Get last day of month by going to first day of next month and subtracting 1
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthStr = month.toString().padStart(2, "0");
+  return `${year}-${monthStr}-${lastDay.toString().padStart(2, "0")}`;
+}

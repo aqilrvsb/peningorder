@@ -14,14 +14,13 @@ import {
   ClipboardList,
   Loader2,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 
 const DashboardLogistic: React.FC = () => {
-  // Date filter state - default to current month
-  const today = new Date();
-  const [startDate, setStartDate] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(today), 'yyyy-MM-dd'));
+  // Date filter state - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
 
   // All orders
   const [allOrders, setAllOrders] = useState<any[]>([]);
@@ -48,19 +47,12 @@ const DashboardLogistic: React.FC = () => {
     fetchAllOrders();
   }, []);
 
-  // Filter orders by date range
+  // Filter orders by date range (simple string comparison for YYYY-MM-DD format)
   const filteredAllOrders = useMemo(() => {
     return allOrders.filter(order => {
       if (!order.date_order) return false;
-      try {
-        const orderDate = parseISO(order.date_order);
-        return isWithinInterval(orderDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
+      const orderDate = order.date_order.substring(0, 10); // Get YYYY-MM-DD part
+      return orderDate >= startDate && orderDate <= endDate;
     });
   }, [allOrders, startDate, endDate]);
 

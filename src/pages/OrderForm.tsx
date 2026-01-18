@@ -24,7 +24,7 @@ import { toast } from '@/hooks/use-toast';
 import { NEGERI_OPTIONS } from '@/types';
 import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, getMalaysiaDate, getMalaysiaYesterday } from '@/lib/utils';
 import { put } from '@vercel/blob';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
@@ -266,7 +266,7 @@ const OrderForm: React.FC = () => {
   // - EC: Lead exists and already has jenis_prospek = 'NP' or 'EP' (existing customer who already bought before)
   const checkLeadAndDetermineType = async (phoneNumber: string): Promise<{ type: 'NP' | 'EP' | 'EC'; leadId?: string; isNewLead?: boolean; countOrder?: number }> => {
     const marketerIdStaff = profile?.username || '';
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMalaysiaDate();
 
     // Search for existing lead by phone number for this marketer
     const { data: existingLead } = await (supabase as any)
@@ -375,9 +375,7 @@ const OrderForm: React.FC = () => {
     const mainProductName = selectedBundle?.productName || bundleName;
 
     // Calculate yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayDate = yesterday.toISOString().split('T')[0];
+    const yesterdayDate = getMalaysiaYesterday();
 
     const { data, error } = await (supabase as any)
       .from('prospects')
@@ -655,8 +653,8 @@ const OrderForm: React.FC = () => {
       kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
     }
     
-    // Set date_order to today's date
-    const dateOrder = new Date().toISOString().split('T')[0];
+    // Set date_order to today's date (Malaysia timezone)
+    const dateOrder = getMalaysiaDate();
 
     try {
       let orderNumber = isEditMode ? editOrder.noTempahan : generateOrderNumber();

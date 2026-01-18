@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Package, Loader2, TrendingUp, RotateCcw, Truck, Play, ShoppingBag, Globe, DollarSign, CheckCircle, Clock } from "lucide-react";
-import { parseISO, isWithinInterval } from "date-fns";
 import { getMalaysiaDate } from "@/lib/utils";
 
 // Transaction Bundle tab - Bundle-level based on logistic_bundles table
@@ -59,18 +58,11 @@ const LogisticBundleTransaction = () => {
     },
   });
 
-  // Filter helper function
+  // Filter helper function (simple string comparison for YYYY-MM-DD format)
   const isInDateRange = (dateStr: string | null | undefined): boolean => {
     if (!dateStr) return false;
-    try {
-      const date = parseISO(dateStr.split("T")[0]);
-      return isWithinInterval(date, {
-        start: parseISO(startDate),
-        end: parseISO(endDate),
-      });
-    } catch {
-      return false;
-    }
+    const date = dateStr.substring(0, 10); // Get YYYY-MM-DD part
+    return date >= startDate && date <= endDate;
   };
 
   // Calculate bundle transaction data - group by bundle

@@ -20,6 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import StockInTab from '@/components/logistics/StockInTab';
 import StockOutTab from '@/components/logistics/StockOutTab';
+import { getMalaysiaDate } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['All', 'Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const CARA_BAYARAN_OPTIONS = ['All', 'CASH', 'COD'];
@@ -437,7 +438,7 @@ const Logistics: React.FC = () => {
 
   // Process order - update delivery_status to Shipped and set date_processed
   const handleProcessOrder = async (orderId: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMalaysiaDate();
     try {
       await updateOrder(orderId, {
         deliveryStatus: 'Shipped',
@@ -491,7 +492,7 @@ const Logistics: React.FC = () => {
     }
 
     setIsShipping(true);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMalaysiaDate();
 
     try {
       // Update all selected orders - also set SEO to 'Shipped'

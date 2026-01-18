@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Search, RotateCcw, Download, Calendar, Loader2, ShoppingCart } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -17,10 +17,9 @@ const ReportPembelian: React.FC = () => {
   const { bundles } = useBundles();
   const [search, setSearch] = useState('');
 
-  // Date filter - default to current month
-  const today = new Date();
-  const [startDate, setStartDate] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(today), 'yyyy-MM-dd'));
+  // Date filter - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
 
   // Payment details modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -52,8 +51,8 @@ const ReportPembelian: React.FC = () => {
 
   const resetFilters = () => {
     setSearch('');
-    setStartDate(format(startOfMonth(today), 'yyyy-MM-dd'));
-    setEndDate(format(endOfMonth(today), 'yyyy-MM-dd'));
+    setStartDate(getMalaysiaStartOfMonth());
+    setEndDate(getMalaysiaEndOfMonth());
   };
 
   const exportCSV = () => {

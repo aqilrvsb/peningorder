@@ -33,7 +33,8 @@ import {
   LineChart as LineChartIcon,
   Globe,
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -74,10 +75,9 @@ const Dashboard: React.FC = () => {
   const [spends, setSpends] = useState<Spend[]>([]);
   const [spendsLoading, setSpendsLoading] = useState(true);
 
-  // Date filter state - default to current month
-  const today = new Date();
-  const [startDate, setStartDate] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(today), 'yyyy-MM-dd'));
+  // Date filter state - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
 
   // Check user role
   const isMarketer = profile?.role === 'marketer';

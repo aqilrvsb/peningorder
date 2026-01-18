@@ -13,8 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, startOfMonth } from "date-fns";
-import { getMalaysiaDate } from "@/lib/utils";
+import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
 import {
   Package,
   Truck,
@@ -39,7 +38,7 @@ const LogisticReturn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const today = getMalaysiaDate();
-  const firstDayOfMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const firstDayOfMonth = getMalaysiaStartOfMonth();
 
   // Filter states
   const [search, setSearch] = useState("");

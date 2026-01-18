@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, Search, Loader2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
+import { parseISO, isWithinInterval } from 'date-fns';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 
 interface Prospect {
   id: string;
@@ -72,10 +73,9 @@ const ReportLeads: React.FC = () => {
   const [spends, setSpends] = useState<Spend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Date filter state - default to current month
-  const today = new Date();
-  const [startDate, setStartDate] = useState(format(startOfMonth(today), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(today), 'yyyy-MM-dd'));
+  // Date filter state - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch all data
