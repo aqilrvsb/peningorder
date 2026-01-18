@@ -857,7 +857,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Id Sales</th>
                       <th className="p-2 text-left">Tarikh Order</th>
                       <th className="p-2 text-left">Id Staff</th>
-                      <th className="p-2 text-left">Name</th>
+                      <th className="p-2 text-left">Sales Name</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>

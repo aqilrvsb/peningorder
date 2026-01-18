@@ -128,15 +128,19 @@ const LogisticCustomers = () => {
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
-        .select("*")
-        .order("date_order", { ascending: false, nullsFirst: false });
+        .select(`
+          *,
+          bundle:logistic_bundles(name, sku),
+          marketer:profiles!customer_purchases_marketer_id_fkey(full_name, whatsapp_number)
+        `)
+        .order("date_processed", { ascending: false, nullsFirst: false });
 
       if (!isQuickSearchActive) {
         if (startDate) {
-          query = query.gte("date_order", startDate);
+          query = query.gte("date_processed", startDate);
         }
         if (endDate) {
-          query = query.lte("date_order", endDate);
+          query = query.lte("date_processed", endDate);
         }
       }
       if (platformFilter !== "all") {
@@ -927,145 +931,137 @@ const LogisticCustomers = () => {
             <p>Loading customer purchases...</p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-2 text-left w-10">
                       <Checkbox
                         checked={isAllSelected}
                         onCheckedChange={handleSelectAll}
                       />
-                    </TableHead>
-                    <TableHead>No</TableHead>
-                    <TableHead>Date Order</TableHead>
-                    <TableHead>Date Processed</TableHead>
-                    <TableHead>Platform</TableHead>
-                    <TableHead>Name Customer</TableHead>
-                    <TableHead>Phone Customer</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Payment Method</TableHead>
-                    <TableHead>Jenis Closing</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Tracking No.</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quickSearchFilteredPurchases.map((purchase: any, index) => (
-                    <TableRow key={purchase.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedOrders.has(purchase.id)}
-                          onCheckedChange={(checked) => handleSelectOrder(purchase.id, !!checked)}
-                        />
-                      </TableCell>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <span
-                          onClick={() => openDateModal(purchase, "date_order")}
-                          className="cursor-pointer hover:underline text-blue-600"
-                        >
-                          {purchase.date_order ? format(new Date(purchase.date_order), "dd-MM-yyyy") : "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          onClick={() => openDateModal(purchase, "date_processed")}
-                          className="cursor-pointer hover:underline text-purple-600"
-                        >
-                          {purchase.date_processed ? format(new Date(purchase.date_processed), "dd-MM-yyyy") : "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          purchase.platform === "Facebook"
-                            ? "bg-blue-100 text-blue-800"
-                            : purchase.platform === "Tiktok HQ"
-                            ? "bg-pink-100 text-pink-800"
-                            : purchase.platform === "Shopee HQ"
-                            ? "bg-orange-100 text-orange-800"
-                            : purchase.platform === "Database"
-                            ? "bg-purple-100 text-purple-800"
-                            : purchase.platform === "Google"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}>
-                          {purchase.platform || "Manual"}
-                        </span>
-                      </TableCell>
-                      <TableCell>{purchase.customerName || "-"}</TableCell>
-                      <TableCell>{purchase.customerPhone || "-"}</TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {purchase.customerAddress || "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell>{purchase.customerState || "-"}</TableCell>
-                      <TableCell>
-                        {(purchase.platform === "Tiktok HQ" || purchase.platform === "Shopee HQ") ? (
-                          <span
-                            onClick={() => openPaymentMethodModal(purchase)}
-                            className={`cursor-pointer hover:underline px-2 py-1 rounded text-xs font-medium ${
-                              purchase.payment_method === "COD" ? "text-orange-600 bg-orange-50" :
-                              purchase.payment_method === "Online Transfer" ? "text-blue-600 bg-blue-50" :
-                              "text-green-600 bg-green-50"
-                            }`}
-                          >
-                            {purchase.payment_method || "Cash"}
+                    </th>
+                    <th className="p-2 text-left">No</th>
+                    <th className="p-2 text-left">Id Sales</th>
+                    <th className="p-2 text-left">Tarikh Processed</th>
+                    <th className="p-2 text-left">Tarikh Order</th>
+                    <th className="p-2 text-left">Id Staff</th>
+                    <th className="p-2 text-left">Sales Name</th>
+                    <th className="p-2 text-left">Nama Pelanggan</th>
+                    <th className="p-2 text-left">Phone</th>
+                    <th className="p-2 text-left">Produk</th>
+                    <th className="p-2 text-left">Unit</th>
+                    <th className="p-2 text-left">Tracking</th>
+                    <th className="p-2 text-left">Total Sales</th>
+                    <th className="p-2 text-left">Cara Bayaran</th>
+                    <th className="p-2 text-left">Delivery Status</th>
+                    <th className="p-2 text-left">Jenis Platform</th>
+                    <th className="p-2 text-left">Jenis Closing</th>
+                    <th className="p-2 text-left">Jenis Customer</th>
+                    <th className="p-2 text-left">Negeri</th>
+                    <th className="p-2 text-left">Alamat</th>
+                    <th className="p-2 text-left">Nota</th>
+                    <th className="p-2 text-left">Waybill</th>
+                    <th className="p-2 text-left">SEO</th>
+                    <th className="p-2 text-left">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(purchases || []).length > 0 ? (
+                    (purchases || []).map((order: any, index: number) => (
+                      <tr key={order.id} className="border-b hover:bg-muted/30">
+                        <td className="p-2">
+                          <Checkbox
+                            checked={selectedOrders.has(order.id)}
+                            onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                          />
+                        </td>
+                        <td className="p-2">{index + 1}</td>
+                        <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
+                        <td className="p-2">{order.marketer?.full_name || order.marketer_id_staff || "-"}</td>
+                        <td className="p-2">{order.name_customer || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
+                        <td className="p-2">
+                          <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
+                        </td>
+                        <td className="p-2 text-center">{order.unit || 1}</td>
+                        <td className="p-2 whitespace-nowrap">
+                          <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                        </td>
+                        <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                        <td className="p-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                            {order.type_payment || "-"}
                           </span>
-                        ) : (
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            purchase.payment_method === "COD" ? "text-orange-600 bg-orange-50" :
-                            purchase.payment_method === "Online Transfer" ? "text-blue-600 bg-blue-50" :
-                            "text-green-600 bg-green-50"
+                        </td>
+                        <td className="p-2">
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                            {order.delivery_status || "-"}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          <span className={`text-xs font-medium ${
+                            order.jenis_platform === "Tiktok" ? "text-pink-600" :
+                            order.jenis_platform === "Shopee" ? "text-orange-500" :
+                            order.jenis_platform === "Facebook" ? "text-blue-600" :
+                            order.jenis_platform === "Google" ? "text-green-600" :
+                            order.jenis_platform === "Database" ? "text-purple-600" :
+                            "text-gray-600"
                           }`}>
-                            {purchase.payment_method || "Cash"}
+                            {order.jenis_platform || "-"}
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{purchase.closing_type || "-"}</TableCell>
-                      <TableCell>
-                        <span className="text-sm" title={purchase.products.join(", ")}>
-                          {purchase.products.length > 1
-                            ? `${purchase.products[0]} (+${purchase.products.length - 1} more)`
-                            : purchase.products[0] || "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell>{purchase.total_quantity}</TableCell>
-                      <TableCell>
-                        {(purchase.platform === "Tiktok HQ" || purchase.platform === "Shopee HQ") ? (
-                          <span
-                            onClick={() => openPriceModal(purchase)}
-                            className="cursor-pointer hover:underline text-green-600 font-medium"
+                        </td>
+                        <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
+                        <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
+                        <td className="p-2 text-xs">{order.state_customer || "-"}</td>
+                        <td className="p-2">
+                          <div className="max-w-[150px]">
+                            <p className="text-xs truncate">{order.address_customer || "-"}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {order.postcode_customer} {order.city_customer}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <p className="text-xs truncate max-w-[100px]">{order.nota_staff || "-"}</p>
+                        </td>
+                        <td className="p-2">
+                          {order.waybill_url ? (
+                            <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                              View
+                            </a>
+                          ) : "-"}
+                        </td>
+                        <td className="p-2">
+                          <span className={`text-xs ${order.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                            {order.seo || "-"}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              window.open(`/invoice?order=${order.id}&type=customer`, '_blank');
+                            }}
+                            title="View Invoice"
                           >
-                            RM {Number(purchase.total_price || 0).toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-green-600 font-medium">
-                            RM {Number(purchase.total_price || 0).toFixed(2)}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{purchase.tracking_number || "-"}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            window.open(`/invoice?order=${purchase.id}&type=customer`, '_blank');
-                          }}
-                          title="View Invoice"
-                        >
-                          <FileText className="h-4 w-4 text-blue-600" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            <FileText className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                        No customer purchases found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

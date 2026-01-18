@@ -64,7 +64,8 @@ const LogisticReturn = () => {
         .from("customer_purchases")
         .select(`
           *,
-          bundle:logistic_bundles(name, sku)
+          bundle:logistic_bundles(name, sku),
+          marketer:profiles!customer_purchases_marketer_id_fkey(full_name, whatsapp_number)
         `)
         .eq("delivery_status", "Return")
         .order("date_return", { ascending: false });
@@ -434,7 +435,12 @@ const LogisticReturn = () => {
                         />
                       </th>
                       <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left">Id Sales</th>
+                      <th className="p-2 text-left">Tarikh Return</th>
+                      <th className="p-2 text-left">Tarikh Processed</th>
                       <th className="p-2 text-left">Tarikh Order</th>
+                      <th className="p-2 text-left">Id Staff</th>
+                      <th className="p-2 text-left">Sales Name</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
@@ -465,7 +471,12 @@ const LogisticReturn = () => {
                             />
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_return || order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_return || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{order.marketer?.full_name || order.marketer_id_staff || "-"}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
@@ -540,7 +551,7 @@ const LogisticReturn = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
                           No return orders found.
                         </td>
                       </tr>

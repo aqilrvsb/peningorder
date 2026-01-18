@@ -70,20 +70,21 @@ const LogisticPendingTracking = () => {
         .from("customer_purchases")
         .select(`
           *,
-          product:products(name, sku)
+          bundle:logistic_bundles(name, sku),
+          marketer:profiles!customer_purchases_marketer_id_fkey(full_name, whatsapp_number)
         `)
         .eq("delivery_status", "Shipped")
-        .eq("cara_bayaran", "COD")
+        .eq("type_payment", "COD")
         .neq("jenis_platform", "Tiktok")
         .neq("jenis_platform", "Shopee")
         .or("seo.is.null,seo.neq.Successfull Delivery")
-        .order("created_at", { ascending: false });
+        .order("date_processed", { ascending: false });
 
       if (startDate) {
-        query = query.gte("date_order", startDate);
+        query = query.gte("date_processed", startDate);
       }
       if (endDate) {
-        query = query.lte("date_order", endDate);
+        query = query.lte("date_processed", endDate);
       }
 
       const { data, error } = await query;
@@ -99,12 +100,11 @@ const LogisticPendingTracking = () => {
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
       const matchesSearch = searchTerms.every((term) =>
-        order.nama_pelanggan?.toLowerCase().includes(term) ||
-        order.no_phone?.toLowerCase().includes(term) ||
-        order.no_tracking?.toLowerCase().includes(term) ||
-        order.product?.name?.toLowerCase().includes(term) ||
-        order.produk?.toLowerCase().includes(term) ||
-        order.alamat?.toLowerCase().includes(term)
+        order.name_customer?.toLowerCase().includes(term) ||
+        order.phone_customer?.toLowerCase().includes(term) ||
+        order.tracking_number?.toLowerCase().includes(term) ||
+        order.bundle?.name?.toLowerCase().includes(term) ||
+        order.address_customer?.toLowerCase().includes(term)
       );
       if (!matchesSearch) return false;
     }
@@ -122,8 +122,8 @@ const LogisticPendingTracking = () => {
   // Counts
   const counts = {
     total: filteredOrders.length,
-    cod: filteredOrders.filter((o: any) => o.cara_bayaran === "COD").length,
-    totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_price) || 0), 0),
+    cod: filteredOrders.filter((o: any) => o.type_payment === "COD").length,
+    totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
   };
 
   // Checkbox handlers
@@ -559,7 +559,11 @@ const LogisticPendingTracking = () => {
                         />
                       </th>
                       <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left">Id Sales</th>
+                      <th className="p-2 text-left">Tarikh Processed</th>
                       <th className="p-2 text-left">Tarikh Order</th>
+                      <th className="p-2 text-left">Id Staff</th>
+                      <th className="p-2 text-left">Sales Name</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
@@ -591,20 +595,24 @@ const LogisticPendingTracking = () => {
                             />
                           </td>
                           <td className="p-2">{(currentPage - 1) * pageSize + index + 1}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_order || format(new Date(order.created_at), "yyyy-MM-dd")}</td>
-                          <td className="p-2">{order.nama_pelanggan || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.no_phone || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{order.marketer?.full_name || order.marketer_id_staff || "-"}</td>
+                          <td className="p-2">{order.name_customer || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            <span className="truncate max-w-[150px] block">{order.product?.name || order.produk || "-"}</span>
+                            <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
-                          <td className="p-2 text-center">{order.quantity || 1}</td>
+                          <td className="p-2 text-center">{order.unit || 1}</td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.no_tracking || "-"}</span>
+                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
-                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_price || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2">
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
-                              {order.cara_bayaran || "-"}
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                              {order.type_payment || "-"}
                             </span>
                           </td>
                           <td className="p-2">
@@ -612,15 +620,26 @@ const LogisticPendingTracking = () => {
                               {order.delivery_status || "-"}
                             </span>
                           </td>
-                          <td className="p-2 text-xs">{order.jenis_platform || "-"}</td>
+                          <td className="p-2">
+                            <span className={`text-xs font-medium ${
+                              order.jenis_platform === "Tiktok" ? "text-pink-600" :
+                              order.jenis_platform === "Shopee" ? "text-orange-500" :
+                              order.jenis_platform === "Facebook" ? "text-blue-600" :
+                              order.jenis_platform === "Google" ? "text-green-600" :
+                              order.jenis_platform === "Database" ? "text-purple-600" :
+                              "text-gray-600"
+                            }`}>
+                              {order.jenis_platform || "-"}
+                            </span>
+                          </td>
                           <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
-                          <td className="p-2 text-xs">{order.negeri || "-"}</td>
+                          <td className="p-2 text-xs">{order.state_customer || "-"}</td>
                           <td className="p-2">
                             <div className="max-w-[150px]">
-                              <p className="text-xs truncate">{order.alamat || "-"}</p>
+                              <p className="text-xs truncate">{order.address_customer || "-"}</p>
                               <p className="text-xs text-muted-foreground truncate">
-                                {order.poskod} {order.bandar}
+                                {order.postcode_customer} {order.city_customer}
                               </p>
                             </div>
                           </td>
@@ -640,9 +659,9 @@ const LogisticPendingTracking = () => {
                             </span>
                           </td>
                           <td className="p-2">
-                            {order.no_phone && (
+                            {order.phone_customer && (
                               <a
-                                href={`https://wa.me/6${(order.no_phone || "").replace(/^0/, "").replace(/\D/g, "")}`}
+                                href={`https://wa.me/6${(order.phone_customer || "").replace(/^0/, "").replace(/\D/g, "")}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
@@ -666,7 +685,7 @@ const LogisticPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
                           No pending tracking orders found.
                         </td>
                       </tr>
