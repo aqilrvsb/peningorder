@@ -86,6 +86,12 @@ const navItems: NavItem[] = [
     icon: <Receipt className="w-5 h-5" />,
     roles: ['marketer'],
   },
+  {
+    label: 'Bundle Date Order',
+    path: '/dashboard/bundle-date-order',
+    icon: <TrendingUp className="w-5 h-5" />,
+    roles: ['marketer'],
+  },
   // ============ BOD ROLE ============
   {
     label: 'Reporting Spend',

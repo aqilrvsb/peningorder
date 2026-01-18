@@ -45,6 +45,8 @@ import LogisticProcessed from "./components/logistic/LogisticProcessed";
 import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
+// Marketer components
+import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +73,7 @@ const App = () => (
                   <Route path="reporting-spend-bod" element={<ReportingSpendBOD />} />
                   <Route path="top10" element={<Top10 />} />
                   <Route path="pnl" element={<PNL />} />
+                  <Route path="bundle-date-order" element={<MarketerBundleTransaction />} />
                   <Route path="pnl-config" element={<PNLConfig />} />
                   <Route path="report-sales" element={<ReportSales />} />
                   <Route path="report-leads" element={<ReportLeads />} />
