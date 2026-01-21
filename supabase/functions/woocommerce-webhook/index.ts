@@ -436,7 +436,8 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
   const firstItem = checkout.items?.[0];
   const sku = firstItem?.product?.sku || '';
   const totalQuantity = checkout.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 1;
-  const productNames = checkout.items?.map((item: any) => item.name || item.product?.name || 'Product').join(', ') || 'Product';
+  // Use product.name first (e.g., "SET C GOLDEN SARI") instead of item.name (e.g., "S / Red" which is variant name)
+  const productNames = checkout.items?.map((item: any) => item.product?.name || item.name || 'Product').join(', ') || 'Product';
 
   // Ensure totalPrice is a number
   const totalPrice = Number(checkout.total) || 0;
@@ -778,19 +779,24 @@ serve(async (req) => {
     let postageSsCost = 0;
 
     // Extract SET identifier from product name (case insensitive)
-    // Find "SET", "set", or "Set" and get the next 2 characters (e.g., " A", " B", " C", " D")
-    // Example: "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → finds "SET" → extracts " C" → setIdentifier = "Set C"
+    // Handles: "SET A", "SET B", "SET C", "SET D", "SET BUNDLE"
+    // Example: "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → setIdentifier = "SET C"
+    // Example: "SET BUNDLE GOLDEN SARI" → setIdentifier = "SET BUNDLE"
     const productNameLower = orderData.productNames.toLowerCase();
     const setIndex = productNameLower.indexOf('set');
     let setIdentifier = '';
-    if (setIndex >= 0 && setIndex + 5 <= orderData.productNames.length) {
-      // Get "SET" + next 2 characters (e.g., "SET C" or "SET A")
-      const rawSetPart = orderData.productNames.substring(setIndex, setIndex + 5).trim();
-      // Normalize to "Set X" format (capitalize first letter, lowercase rest except the letter after space)
-      setIdentifier = rawSetPart.charAt(0).toUpperCase() + rawSetPart.slice(1).toLowerCase();
-      // Ensure the letter after "Set " is uppercase (e.g., "Set c" → "Set C")
-      if (setIdentifier.length >= 5 && setIdentifier.charAt(3) === ' ') {
-        setIdentifier = setIdentifier.substring(0, 4) + setIdentifier.charAt(4).toUpperCase();
+
+    if (setIndex >= 0) {
+      // Check for "SET BUNDLE" first (longer match takes priority)
+      if (productNameLower.substring(setIndex).startsWith('set bundle')) {
+        setIdentifier = 'SET BUNDLE';
+      } else if (setIndex + 5 <= orderData.productNames.length) {
+        // Check for single letter sets: "SET A", "SET B", "SET C", "SET D"
+        const afterSet = orderData.productNames.substring(setIndex + 3, setIndex + 5).trim();
+        // Should be a single letter (A, B, C, D, etc.)
+        if (afterSet.length >= 1 && /^[A-Za-z]$/.test(afterSet.charAt(0))) {
+          setIdentifier = 'SET ' + afterSet.charAt(0).toUpperCase();
+        }
       }
     }
     console.log('SET extraction:', { productName: orderData.productNames, setIndex, setIdentifier });
