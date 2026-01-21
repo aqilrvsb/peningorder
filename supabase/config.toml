@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.merge-waybills]
 verify_jwt = false
+
+[functions.woocommerce-webhook]
+verify_jwt = false
+
+[functions.ninjavan-webhook]
+verify_jwt = false
