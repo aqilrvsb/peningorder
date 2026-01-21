@@ -415,7 +415,7 @@ function formatPhoneNumber(phone: string): string {
 }
 
 // Parse Shoppego order to normalized format
-function parseShoppegoOrder(data: ShoppegoOrder): NormalizedOrder {
+function parseShoppegoOrder(data: any): NormalizedOrder {
   const checkout = data.checkout;
   const shipping = checkout.shipping_address || {};
   const customer = checkout.customer || {};
@@ -430,11 +430,20 @@ function parseShoppegoOrder(data: ShoppegoOrder): NormalizedOrder {
   // Get first item SKU and calculate total quantity
   const firstItem = checkout.items?.[0];
   const sku = firstItem?.product?.sku || '';
-  const totalQuantity = checkout.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
-  const productNames = checkout.items?.map(item => item.name || item.product?.name || 'Product').join(', ') || 'Product';
+  const totalQuantity = checkout.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 1;
+  const productNames = checkout.items?.map((item: any) => item.name || item.product?.name || 'Product').join(', ') || 'Product';
 
   // Ensure totalPrice is a number
   const totalPrice = Number(checkout.total) || 0;
+
+  // Detect COD from Shoppego payment method or shipping method
+  // Shoppego uses "shipping_method" or payment info to indicate COD
+  const shippingMethod = data.checkout?.shipping_lines?.[0]?.title || '';
+  const paymentMethod = data.checkout?.payment_method || data.payment_method || '';
+  const isCOD = shippingMethod.toLowerCase().includes('cod') ||
+                paymentMethod.toLowerCase().includes('cod') ||
+                shippingMethod.toLowerCase().includes('cash on delivery') ||
+                paymentMethod.toLowerCase().includes('cash on delivery');
 
   return {
     platformOrderId: String(checkout.id || ''),
@@ -446,7 +455,7 @@ function parseShoppegoOrder(data: ShoppegoOrder): NormalizedOrder {
     state: mapState(shipping.state || ''),
     postcode: shipping.zip || '',
     totalPrice,
-    paymentMethod: 'CASH', // Shoppego orders are prepaid
+    paymentMethod: isCOD ? 'COD' : 'CASH',
     productNames,
     sku,
     quantity: totalQuantity
@@ -744,9 +753,18 @@ serve(async (req) => {
     // This is the default bundle SKU prefix for all website orders
     const skuPrefix = 'GSI';
 
-    // Extract botol count from product name (e.g., "4 Botol" → 4, "Set D (4 Botol)" → 4)
-    const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
-    const botolCount = botolMatch ? parseInt(botolMatch[1], 10) : 0;
+    // Extract botol count by finding "Botol" and getting the number from 2 characters before it
+    // Example: "Set C (3 Botol)" → find "Botol" at index 9 → check chars before = "3 " → extract "3"
+    const productNameLower = orderData.productNames.toLowerCase();
+    const botolIndex = productNameLower.indexOf('botol');
+    let botolCount = 0;
+    if (botolIndex > 0) {
+      // Get up to 2 characters before "botol" and extract any digit
+      const beforeBotol = orderData.productNames.substring(Math.max(0, botolIndex - 2), botolIndex);
+      const digitMatch = beforeBotol.match(/(\d+)/);
+      botolCount = digitMatch ? parseInt(digitMatch[1], 10) : 0;
+    }
+    console.log('Botol extraction:', { productName: orderData.productNames, botolIndex, botolCount });
 
     console.log('Bundle lookup:', { skuPrefix, botolCount, productName: orderData.productNames, originalSku: orderData.sku });
 
@@ -755,14 +773,26 @@ serve(async (req) => {
       const targetSkuPrefix = `${skuPrefix}-${botolCount}`;
       console.log(`Searching for bundle with SKU starting with: ${targetSkuPrefix}`);
 
-      // Find bundle where SKU starts with the target prefix (e.g., "GSI-4")
-      const { data: allBundles } = await supabase
+      // First try logistic_bundles for this marketer
+      let { data: allBundles } = await supabase
         .from('logistic_bundles')
         .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
         .eq('is_active', true)
         .eq('logistic_id', marketerLookup.id);
 
+      // If no bundles found for marketer, try global bundles table
+      if (!allBundles || allBundles.length === 0) {
+        console.log('No logistic_bundles for marketer, trying global bundles table');
+        const { data: globalBundles } = await supabase
+          .from('bundles')
+          .select('id, name, sku, weight')
+          .eq('is_active', true);
+        allBundles = globalBundles;
+      }
+
       if (allBundles && allBundles.length > 0) {
+        console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
+
         // Find bundle where SKU starts with target prefix (case-insensitive)
         const matchingBundle = allBundles.find((b: any) =>
           b.sku && b.sku.toUpperCase().startsWith(targetSkuPrefix.toUpperCase())
@@ -778,7 +808,7 @@ serve(async (req) => {
           postageSsCost = matchingBundle.kos_postage_ss || 0;
           console.log('Bundle found by SKU prefix + Botol:', { bundleId, bundleName, bundleSku, targetSkuPrefix });
         } else {
-          console.warn(`No bundle found with SKU starting with ${targetSkuPrefix} for marketer ${marketerIdStaff}`);
+          console.warn(`No bundle found with SKU starting with ${targetSkuPrefix}`);
         }
       }
     } else {
