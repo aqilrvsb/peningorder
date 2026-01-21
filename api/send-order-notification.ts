@@ -308,14 +308,17 @@ export default async function handler(req: any, res: any) {
     const customerName = orderData.customer_name || orderData.marketer_name || '';
     const phoneCustomer = orderData.phone_customer || orderData.no_phone || '';
     const addressFull = orderData.address_full || '';
-    const productName = orderData.product_name || orderData.produk || '';
     const bundleName = orderData.bundle_name || orderData.produk || '';
     const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
     const paymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
     const idSale = orderData.id_sale || '-';
     const trackingNumber = orderData.tracking_number || orderData.no_tracking || '-';
 
-    const message = `Salam ${customerName}. Kami telah menerima Tempahan Cik berkenaan ${productName}. 😊
+    // Extract botol count from bundle name (e.g., "SET C GOLDEN SARI" with unit 4 -> "SET C GOLDEN SARI (4 BOTOL)")
+    const unit = orderData.unit || orderData.quantity || 0;
+    const productDisplay = unit > 0 ? `${bundleName} (${unit} BOTOL)` : bundleName;
+
+    const message = `Salam ${customerName}. Kami telah menerima Tempahan Cik 😊
 
 Berikut adalah detail tempahan cik ${customerName} ✅
 
@@ -323,7 +326,7 @@ ORDER ID : ${idSale}
 NAMA : ${customerName}
 ALAMAT : ${addressFull}
 NO TELEFON : ${phoneCustomer}
-PRODUK : ${bundleName}
+PRODUK : ${productDisplay}
 HARGA : RM${totalPrice}
 CARA BAYARAN : ${paymentMethod}
 TRACKING : ${trackingNumber}

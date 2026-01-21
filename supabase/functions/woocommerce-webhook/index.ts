@@ -982,7 +982,10 @@ serve(async (req) => {
       orderData.state
     ].filter(Boolean).join(', ');
 
-    const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik berkenaan ${orderData.productNames}. 😊
+    // Format product display: "SET C GOLDEN SARI (4 BOTOL)" using botolCount
+    const productDisplay = botolCount > 0 ? `${bundleName} (${botolCount} BOTOL)` : bundleName;
+
+    const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik 😊
 
 Berikut adalah detail tempahan cik ${orderData.customerName} ✅
 
@@ -990,7 +993,7 @@ ORDER ID : ${idSale}
 NAMA : ${orderData.customerName}
 ALAMAT : ${fullAddress}
 NO TELEFON : ${orderData.customerPhone}
-PRODUK : ${bundleName}
+PRODUK : ${productDisplay}
 HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
 CARA BAYARAN : ${typePayment}
 TRACKING : ${trackingNumber || '-'}
