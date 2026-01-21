@@ -56,6 +56,7 @@ CREATE TABLE public.customer_purchases (
   cost_baseproduct numeric DEFAULT 0,
   waybill_url text,
   woo_order_id integer,
+  shoppego_order_id text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   date_approve date,

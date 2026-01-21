@@ -50,6 +50,65 @@ interface WooOrder {
   date_created: string;
 }
 
+// Shoppego Order interface (based on their webhook docs)
+interface ShoppegoOrder {
+  checkout: {
+    id: string;
+    domain: string;
+    url: string;
+    currency: string;
+    total: number;
+    shipping: number;
+    rate: number;
+    completed_at: string;
+    created_at: string;
+    customer: {
+      first_name: string;
+      last_name: string;
+      phone: string;
+      email: string;
+    };
+    shipping_address: {
+      first_name: string;
+      last_name: string;
+      phone: string;
+      email: string;
+      address1: string;
+      address2: string;
+      zip: string;
+      city: string;
+      state: string;
+    };
+    items: Array<{
+      product: {
+        name: string;
+        sku: string;
+      };
+      name: string;
+      price: number;
+      quantity: number;
+      subtotal: number;
+    }>;
+  };
+}
+
+// Normalized order data (common format for both platforms)
+interface NormalizedOrder {
+  platformOrderId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  address: string;
+  city: string;
+  state: string;
+  postcode: string;
+  totalPrice: number;
+  paymentMethod: string;
+  productNames: string;
+  sku: string;
+  quantity: number;
+}
+
 // Verify WooCommerce webhook signature
 function verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
   try {
@@ -355,6 +414,71 @@ function formatPhoneNumber(phone: string): string {
   return formatted;
 }
 
+// Parse Shoppego order to normalized format
+function parseShoppegoOrder(data: ShoppegoOrder): NormalizedOrder {
+  const checkout = data.checkout;
+  const shipping = checkout.shipping_address;
+  const customer = checkout.customer;
+
+  const customerName = `${shipping.first_name || customer.first_name} ${shipping.last_name || customer.last_name}`.trim();
+  const customerPhone = formatPhoneNumber(shipping.phone || customer.phone);
+  const fullAddress = [shipping.address1, shipping.address2].filter(Boolean).join(', ');
+
+  // Get first item SKU and calculate total quantity
+  const firstItem = checkout.items[0];
+  const sku = firstItem?.product?.sku || '';
+  const totalQuantity = checkout.items.reduce((sum, item) => sum + item.quantity, 0);
+  const productNames = checkout.items.map(item => item.name || item.product?.name).join(', ');
+
+  return {
+    platformOrderId: checkout.id,
+    customerName,
+    customerPhone,
+    customerEmail: shipping.email || customer.email || '',
+    address: fullAddress,
+    city: shipping.city,
+    state: mapState(shipping.state),
+    postcode: shipping.zip,
+    totalPrice: checkout.total,
+    paymentMethod: 'CASH', // Shoppego orders are prepaid
+    productNames,
+    sku,
+    quantity: totalQuantity || 1
+  };
+}
+
+// Parse WooCommerce order to normalized format
+function parseWooCommerceOrder(wooOrder: WooOrder): NormalizedOrder {
+  const shipping = wooOrder.shipping.address_1 ? wooOrder.shipping : wooOrder.billing;
+  const customerName = `${shipping.first_name} ${shipping.last_name}`.trim() ||
+                       `${wooOrder.billing.first_name} ${wooOrder.billing.last_name}`.trim();
+  const customerPhone = formatPhoneNumber(shipping.phone || wooOrder.billing.phone);
+  const fullAddress = [shipping.address_1, shipping.address_2].filter(Boolean).join(', ');
+
+  const firstLineItem = wooOrder.line_items[0];
+  const wooSku = firstLineItem?.sku || '';
+  const { sku, quantity } = parseWooCommerceSku(wooSku);
+  const productNames = wooOrder.line_items.map(item => item.name).join(', ');
+
+  const isCOD = wooOrder.payment_method.toLowerCase() === 'cod';
+
+  return {
+    platformOrderId: String(wooOrder.id),
+    customerName,
+    customerPhone,
+    customerEmail: wooOrder.billing.email || '',
+    address: fullAddress,
+    city: shipping.city,
+    state: mapState(shipping.state),
+    postcode: shipping.postcode,
+    totalPrice: parseFloat(wooOrder.total),
+    paymentMethod: isCOD ? 'COD' : 'CASH',
+    productNames,
+    sku,
+    quantity
+  };
+}
+
 // Parse WooCommerce SKU format: "BUNDLE-SKU-6" -> { sku: "BUNDLE-SKU", quantity: 6 }
 function parseWooCommerceSku(wooSku: string): { sku: string; quantity: number } {
   if (!wooSku) {
@@ -443,13 +567,15 @@ serve(async (req) => {
   const source = req.headers.get('x-wc-webhook-source') || '';
   const topic = req.headers.get('x-wc-webhook-topic') || '';
 
-  // Get marketer_id (idstaff) from URL query parameter
+  // Get query parameters
   const url = new URL(req.url);
   const marketerIdStaff = url.searchParams.get('marketer_id');
+  const platform = url.searchParams.get('platform') || 'woocommerce'; // Default to woocommerce
 
-  console.log('=== WooCommerce Webhook Request ===');
+  console.log('=== Ecommerce Webhook Request ===');
   console.log('Method:', req.method);
   console.log('URL:', req.url);
+  console.log('Platform:', platform);
   console.log('marketer_id:', marketerIdStaff);
 
   try {
@@ -465,10 +591,10 @@ serve(async (req) => {
       );
     }
 
-    let wooOrder: WooOrder;
+    let parsedBody: any;
 
     try {
-      wooOrder = JSON.parse(rawBody);
+      parsedBody = JSON.parse(rawBody);
     } catch {
       console.log('Non-JSON body received, treating as ping test');
       return new Response(
@@ -477,17 +603,18 @@ serve(async (req) => {
       );
     }
 
-    // Handle WooCommerce webhook ping/test
-    const orderAsAny = wooOrder as any;
-    const isPingTest = wooOrder && typeof wooOrder === 'object' && (
-      'webhook_id' in wooOrder ||
-      orderAsAny.action === 'woocommerce_rest_api_test_connection' ||
-      !wooOrder.id ||
-      !wooOrder.status
+    // Handle ping/test for both platforms
+    const isWooPingTest = parsedBody && typeof parsedBody === 'object' && (
+      'webhook_id' in parsedBody ||
+      parsedBody.action === 'woocommerce_rest_api_test_connection' ||
+      (platform === 'woocommerce' && (!parsedBody.id || !parsedBody.status))
     );
 
-    if (isPingTest) {
-      console.log('WooCommerce webhook ping/test received');
+    // Shoppego ping test - no checkout data
+    const isShoppegoPingTest = platform === 'shoppego' && (!parsedBody.checkout || !parsedBody.checkout.id);
+
+    if (isWooPingTest || isShoppegoPingTest) {
+      console.log(`${platform} webhook ping/test received`);
       return new Response(
         JSON.stringify({ success: true, message: 'Webhook test successful' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -518,11 +645,35 @@ serve(async (req) => {
       );
     }
 
-    // Log webhook
-    console.log('=== Processing WooCommerce Order ===');
-    console.log('Topic:', topic);
-    console.log('Order ID:', wooOrder.id);
-    console.log('Order Status:', wooOrder.status);
+    // Parse order based on platform
+    let orderData: NormalizedOrder;
+
+    if (platform === 'shoppego') {
+      // Shoppego format
+      const shoppegoData = parsedBody as ShoppegoOrder;
+      orderData = parseShoppegoOrder(shoppegoData);
+      console.log('=== Processing Shoppego Order ===');
+    } else {
+      // WooCommerce format (default)
+      const wooOrder = parsedBody as WooOrder;
+
+      // Only process orders with status 'processing' (payment confirmed) for WooCommerce
+      if (wooOrder.status !== 'processing') {
+        console.log('Skipping order - status is not processing:', wooOrder.status);
+        return new Response(
+          JSON.stringify({ success: true, message: `Skipped - order status is ${wooOrder.status}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      orderData = parseWooCommerceOrder(wooOrder);
+      console.log('=== Processing WooCommerce Order ===');
+    }
+
+    console.log('Platform:', platform);
+    console.log('Order ID:', orderData.platformOrderId);
+    console.log('Customer:', orderData.customerName);
+    console.log('Phone:', orderData.customerPhone);
     console.log('Marketer:', marketerIdStaff);
 
     // Skip signature verification - not needed for this integration
@@ -530,24 +681,26 @@ serve(async (req) => {
       console.log('Signature provided but skipping verification');
     }
 
-    // Only process orders with status 'processing' (payment confirmed)
-    if (wooOrder.status !== 'processing') {
-      console.log('Skipping order - status is not processing:', wooOrder.status);
-      return new Response(
-        JSON.stringify({ success: true, message: `Skipped - order status is ${wooOrder.status}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Check for duplicate based on platform
+    let existingOrder = null;
+    if (platform === 'shoppego') {
+      const { data } = await supabase
+        .from('customer_purchases')
+        .select('id, id_sale, tracking_number')
+        .eq('shoppego_order_id', orderData.platformOrderId)
+        .maybeSingle();
+      existingOrder = data;
+    } else {
+      const { data } = await supabase
+        .from('customer_purchases')
+        .select('id, id_sale, tracking_number')
+        .eq('woo_order_id', parseInt(orderData.platformOrderId))
+        .maybeSingle();
+      existingOrder = data;
     }
 
-    // Check for duplicate
-    const { data: existingOrder } = await supabase
-      .from('customer_purchases')
-      .select('id, id_sale, tracking_number')
-      .eq('woo_order_id', wooOrder.id)
-      .maybeSingle();
-
     if (existingOrder) {
-      console.log('Duplicate order detected:', wooOrder.id);
+      console.log('Duplicate order detected:', orderData.platformOrderId);
       return new Response(
         JSON.stringify({
           success: true,
@@ -560,41 +713,20 @@ serve(async (req) => {
       );
     }
 
-    // Extract customer info
-    const shipping = wooOrder.shipping.address_1 ? wooOrder.shipping : wooOrder.billing;
-    const customerName = `${shipping.first_name} ${shipping.last_name}`.trim() ||
-                         `${wooOrder.billing.first_name} ${wooOrder.billing.last_name}`.trim();
-    const customerPhone = formatPhoneNumber(shipping.phone || wooOrder.billing.phone);
-    const fullAddress = [shipping.address_1, shipping.address_2].filter(Boolean).join(', ');
-    const city = shipping.city;
-    const state = mapState(shipping.state);
-    const postcode = shipping.postcode;
-
-    // Get product info
-    const wooProductNames = wooOrder.line_items.map(item => item.name).join(', ');
-    const totalPrice = parseFloat(wooOrder.total);
-
-    // Parse WooCommerce SKU
-    const firstLineItem = wooOrder.line_items[0];
-    const wooSku = firstLineItem?.sku || '';
-    const { sku: actualSku, quantity: skuQuantity } = parseWooCommerceSku(wooSku);
-
-    console.log('Parsed WooCommerce SKU:', { wooSku, actualSku, skuQuantity });
-
     // Look up bundle by SKU
     let bundleId: string | null = null;
-    let bundleName = wooProductNames;
-    let bundleSku = actualSku || 'WEBSITE';
+    let bundleName = orderData.productNames;
+    let bundleSku = orderData.sku || 'WEBSITE';
     let bundleWeight = 0.5;
     let baseCost = 0;
     let postageSmCost = 0;
     let postageSsCost = 0;
 
-    if (actualSku) {
+    if (orderData.sku) {
       const { data: bundleData } = await supabase
         .from('logistic_bundles')
         .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
-        .eq('sku', actualSku)
+        .eq('sku', orderData.sku)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -608,13 +740,13 @@ serve(async (req) => {
         postageSsCost = bundleData.kos_postage_ss || 0;
         console.log('Bundle found:', { bundleId, bundleName, bundleSku });
       } else {
-        console.warn('Bundle not found for SKU:', actualSku);
+        console.warn('Bundle not found for SKU:', orderData.sku);
       }
     }
 
     // Determine payment method
-    const isCOD = wooOrder.payment_method.toLowerCase() === 'cod';
-    const typePayment = isCOD ? 'COD' : 'Online Transfer';
+    const isCOD = orderData.paymentMethod === 'COD';
+    const typePayment = isCOD ? 'COD' : 'CASH';
 
     // Generate Sale ID
     const idSale = await generateSaleId(supabase);
@@ -625,9 +757,9 @@ serve(async (req) => {
     const dateOrder = malaysiaTime.toISOString().split('T')[0];
 
     // Calculate costs
-    const isEastMY = isEastMalaysia(state);
+    const isEastMY = isEastMalaysia(orderData.state);
     const postageCost = isEastMY ? postageSsCost : postageSmCost;
-    const totalBaseCost = baseCost * skuQuantity;
+    const totalBaseCost = baseCost * orderData.quantity;
 
     // Get NinjaVan config
     const { data: ninjavanConfig } = await supabase
@@ -644,19 +776,19 @@ serve(async (req) => {
       console.log('Creating NinjaVan order...');
       const ninjavanResult = await createNinjavanOrder(supabase, ninjavanConfig, {
         idSale,
-        customerName,
-        phone: customerPhone,
-        address: fullAddress,
-        postcode,
-        city,
-        state,
-        price: totalPrice,
+        customerName: orderData.customerName,
+        phone: orderData.customerPhone,
+        address: orderData.address,
+        postcode: orderData.postcode,
+        city: orderData.city,
+        state: orderData.state,
+        price: orderData.totalPrice,
         paymentMethod: typePayment,
         bundleSku,
-        quantity: skuQuantity,
-        nota: wooProductNames,
+        quantity: orderData.quantity,
+        nota: orderData.productNames,
         marketerIdStaff,
-        weight: bundleWeight * skuQuantity
+        weight: bundleWeight * orderData.quantity
       });
 
       if (ninjavanResult.success && ninjavanResult.trackingNumber) {
@@ -668,35 +800,44 @@ serve(async (req) => {
       }
     }
 
+    // Build insert data - common fields for both platforms
+    const insertData: any = {
+      id_sale: idSale,
+      date_order: dateOrder,
+      marketer_id_staff: marketerIdStaff,
+      total_sale: orderData.totalPrice,
+      unit: orderData.quantity,
+      tracking_number: trackingNumber,
+      delivery_status: 'Pending',
+      jenis_platform: 'Facebook', // Both WooCommerce and Shoppego are from Facebook ads
+      jenis_customer: 'NP', // New Prospect
+      jenis_closing: 'Website',
+      name_customer: orderData.customerName,
+      phone_customer: orderData.customerPhone,
+      address_customer: orderData.address,
+      city_customer: orderData.city,
+      postcode_customer: orderData.postcode,
+      state_customer: orderData.state,
+      kurier: isCOD ? 'Ninjavan COD' : 'Ninjavan CASH',
+      type_payment: typePayment,
+      date_payment: !isCOD ? dateOrder : null,
+      nota_staff: orderData.productNames,
+      bundle_id: bundleId,
+      cost_postage: postageCost,
+      cost_baseproduct: totalBaseCost
+    };
+
+    // Set platform-specific order ID field
+    if (platform === 'shoppego') {
+      insertData.shoppego_order_id = orderData.platformOrderId;
+    } else {
+      insertData.woo_order_id = parseInt(orderData.platformOrderId);
+    }
+
     // Insert order into customer_purchases
     const { data: newOrder, error: insertError } = await supabase
       .from('customer_purchases')
-      .insert({
-        id_sale: idSale,
-        date_order: dateOrder,
-        marketer_id_staff: marketerIdStaff,
-        total_sale: totalPrice,
-        unit: skuQuantity,
-        tracking_number: trackingNumber,
-        delivery_status: 'Pending',
-        jenis_platform: 'Facebook', // WooCommerce orders from Facebook ads
-        jenis_customer: 'NP', // New Prospect
-        jenis_closing: 'Website',
-        name_customer: customerName,
-        phone_customer: customerPhone,
-        address_customer: fullAddress,
-        city_customer: city,
-        postcode_customer: postcode,
-        state_customer: state,
-        kurier: isCOD ? 'Ninja COD' : 'Ninja CASH',
-        type_payment: typePayment,
-        date_payment: !isCOD ? dateOrder : null,
-        nota_staff: wooProductNames,
-        bundle_id: bundleId,
-        cost_postage: postageCost,
-        cost_baseproduct: totalBaseCost,
-        woo_order_id: wooOrder.id
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -705,11 +846,11 @@ serve(async (req) => {
 
       // Log failed webhook
       await supabase.from('webhook_logs').insert({
-        webhook_type: 'woocommerce',
+        webhook_type: platform,
         request_method: 'POST',
-        request_body: wooOrder,
+        request_body: parsedBody,
         request_headers: { signature, source, topic },
-        parsed_data: { marketerIdStaff, customerName, customerPhone, totalPrice },
+        parsed_data: { marketerIdStaff, ...orderData },
         error_message: insertError.message,
         response_status: 500,
         processing_time_ms: Date.now() - startTime
@@ -726,12 +867,12 @@ serve(async (req) => {
     // Send WhatsApp notification to customer
     let whatsappSent = false;
     if (trackingNumber) {
-      const whatsappMessage = `Terima kasih kerana membeli dari kami, ${customerName}!
+      const whatsappMessage = `Terima kasih kerana membeli dari kami, ${orderData.customerName}!
 
 Pesanan anda telah diproses:
 - No. Pesanan: ${idSale}
 - No. Tracking: ${trackingNumber}
-- Jumlah: RM${totalPrice.toFixed(2)}
+- Jumlah: RM${orderData.totalPrice.toFixed(2)}
 - Produk: ${bundleName}
 
 Anda boleh track penghantaran di:
@@ -745,7 +886,7 @@ DFR EMPIRE`;
       const whatsappResult = await sendWhatsAppMessage(
         supabase,
         marketerIdStaff,
-        customerPhone,
+        orderData.customerPhone,
         whatsappMessage
       );
 
@@ -755,15 +896,14 @@ DFR EMPIRE`;
 
     // Log successful webhook
     await supabase.from('webhook_logs').insert({
-      webhook_type: 'woocommerce',
+      webhook_type: platform,
       request_method: 'POST',
-      request_body: wooOrder,
+      request_body: parsedBody,
       request_headers: { signature, source, topic },
       parsed_data: {
         marketerIdStaff,
-        customerName,
-        customerPhone,
-        totalPrice,
+        platform,
+        ...orderData,
         idSale,
         trackingNumber,
         ninjavanSuccess,
