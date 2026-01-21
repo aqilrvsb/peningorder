@@ -735,15 +735,16 @@ serve(async (req) => {
     let postageSsCost = 0;
 
     // Extract base SKU prefix (e.g., "GSI" from "GSI-1" or just "GSI")
-    const skuPrefix = orderData.sku ? orderData.sku.split('-')[0] : '';
+    // Default to "GSI" for website orders without SKU
+    const skuPrefix = orderData.sku ? orderData.sku.split('-')[0] : 'GSI';
 
-    // Extract botol count from product name (e.g., "4 Botol" → 4)
+    // Extract botol count from product name (e.g., "4 Botol" → 4, "Set D (4 Botol)" → 4)
     const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
     const botolCount = botolMatch ? parseInt(botolMatch[1], 10) : 0;
 
-    console.log('Bundle lookup:', { skuPrefix, botolCount, productName: orderData.productNames });
+    console.log('Bundle lookup:', { skuPrefix, botolCount, productName: orderData.productNames, originalSku: orderData.sku });
 
-    if (skuPrefix && botolCount > 0) {
+    if (botolCount > 0) {
       // Build target SKU pattern: "GSI-4" for 4 Botol
       const targetSkuPrefix = `${skuPrefix}-${botolCount}`;
       console.log(`Searching for bundle with SKU starting with: ${targetSkuPrefix}`);
@@ -775,7 +776,7 @@ serve(async (req) => {
         }
       }
     } else {
-      console.log('Cannot determine bundle - missing SKU prefix or Botol count');
+      console.log('Cannot determine bundle - no Botol count found in product name');
     }
 
     if (!bundleId) {
