@@ -298,21 +298,29 @@ async function sendWhatsAppMessage(
       return { success: false, error: 'No connected WhatsApp device' };
     }
 
-    // Send message via Whacenter API
-    const response = await fetch('https://app.whacenter.com/api/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        device_id: deviceSetting.device_id,
-        number: customerPhone,
-        message: message
-      })
-    });
+    // Use instance field for Whacenter API
+    const instanceId = deviceSetting.instance || deviceSetting.device_id;
+    if (!instanceId) {
+      console.log('No instance ID found in device settings');
+      return { success: false, error: 'No WhatsApp instance ID configured' };
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('WhatsApp send failed:', errorText);
-      return { success: false, error: errorText };
+    console.log('Sending WhatsApp via Whacenter:', { instance: instanceId, phone: customerPhone });
+
+    // Send message via Whacenter API (GET method with query params)
+    const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(instanceId)}&number=${encodeURIComponent(customerPhone)}&message=${encodeURIComponent(message)}`;
+
+    const response = await fetch(apiUrl, { method: 'GET' });
+    const data = await response.json();
+
+    console.log('Whacenter response:', data);
+
+    // Check if actually successful
+    const success = data.status === true || data.success === true;
+
+    if (!success) {
+      console.error('WhatsApp send failed:', data);
+      return { success: false, error: data.message || 'Failed to send WhatsApp' };
     }
 
     console.log('WhatsApp message sent successfully');
@@ -718,9 +726,7 @@ serve(async (req) => {
     // Send WhatsApp notification to customer
     let whatsappSent = false;
     if (trackingNumber) {
-      const whatsappMessage = `Assalamualaikum ${customerName},
-
-Terima kasih kerana membeli dari kami!
+      const whatsappMessage = `Terima kasih kerana membeli dari kami, ${customerName}!
 
 Pesanan anda telah diproses:
 - No. Pesanan: ${idSale}
