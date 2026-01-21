@@ -767,8 +767,8 @@ serve(async (req) => {
       );
     }
 
-    // Look up bundle by matching "X Botol" pattern to SKU prefix
-    // Example: Product "4 Botol" + SKU prefix "GSI" → find bundle with SKU starting with "GSI-4"
+    // Look up bundle by matching "SET X" pattern in product name to bundle name
+    // Example: Product "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → extract "Set C" → find bundle with name containing "Set C"
     let bundleId: string | null = null;
     let bundleName = orderData.productNames;
     let bundleSku = orderData.sku || 'WEBSITE';
@@ -777,29 +777,28 @@ serve(async (req) => {
     let postageSmCost = 0;
     let postageSsCost = 0;
 
-    // For website orders (Shoppego/WooCommerce), always use GSI as the SKU prefix
-    // This is the default bundle SKU prefix for all website orders
-    const skuPrefix = 'GSI';
-
-    // Extract botol count by finding "Botol" and getting the number from 2 characters before it
-    // Example: "Set C (3 Botol)" → find "Botol" at index 9 → check chars before = "3 " → extract "3"
+    // Extract SET identifier from product name (case insensitive)
+    // Find "SET", "set", or "Set" and get the next 2 characters (e.g., " A", " B", " C", " D")
+    // Example: "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → finds "SET" → extracts " C" → setIdentifier = "Set C"
     const productNameLower = orderData.productNames.toLowerCase();
-    const botolIndex = productNameLower.indexOf('botol');
-    let botolCount = 0;
-    if (botolIndex > 0) {
-      // Get up to 2 characters before "botol" and extract any digit
-      const beforeBotol = orderData.productNames.substring(Math.max(0, botolIndex - 2), botolIndex);
-      const digitMatch = beforeBotol.match(/(\d+)/);
-      botolCount = digitMatch ? parseInt(digitMatch[1], 10) : 0;
+    const setIndex = productNameLower.indexOf('set');
+    let setIdentifier = '';
+    if (setIndex >= 0 && setIndex + 5 <= orderData.productNames.length) {
+      // Get "SET" + next 2 characters (e.g., "SET C" or "SET A")
+      const rawSetPart = orderData.productNames.substring(setIndex, setIndex + 5).trim();
+      // Normalize to "Set X" format (capitalize first letter, lowercase rest except the letter after space)
+      setIdentifier = rawSetPart.charAt(0).toUpperCase() + rawSetPart.slice(1).toLowerCase();
+      // Ensure the letter after "Set " is uppercase (e.g., "Set c" → "Set C")
+      if (setIdentifier.length >= 5 && setIdentifier.charAt(3) === ' ') {
+        setIdentifier = setIdentifier.substring(0, 4) + setIdentifier.charAt(4).toUpperCase();
+      }
     }
-    console.log('Botol extraction:', { productName: orderData.productNames, botolIndex, botolCount });
+    console.log('SET extraction:', { productName: orderData.productNames, setIndex, setIdentifier });
 
-    console.log('Bundle lookup:', { skuPrefix, botolCount, productName: orderData.productNames, originalSku: orderData.sku });
+    console.log('Bundle lookup:', { setIdentifier, productName: orderData.productNames, originalSku: orderData.sku });
 
-    if (botolCount > 0) {
-      // Build target SKU pattern: "GSI-4" for 4 Botol
-      const targetSkuPrefix = `${skuPrefix}-${botolCount}`;
-      console.log(`Searching for bundle with SKU starting with: ${targetSkuPrefix}`);
+    if (setIdentifier) {
+      console.log(`Searching for bundle with name containing: ${setIdentifier}`);
 
       // First try logistic_bundles for this marketer
       let { data: allBundles } = await supabase
@@ -821,13 +820,10 @@ serve(async (req) => {
       if (allBundles && allBundles.length > 0) {
         console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
 
-        // Find bundle where SKU contains the target prefix (e.g., "GSI-3" matches "GSI-3 + SBNM-1 + SBNV-1")
-        // Use regex to match GSI-X where X is the exact botol count (not GSI-30, GSI-300, etc.)
-        const targetPattern = new RegExp(`${skuPrefix}-${botolCount}(?:\\s|\\+|$)`, 'i');
-        console.log('Matching pattern:', targetPattern.toString());
-
+        // Find bundle where name contains the SET identifier (case insensitive)
+        // Example: setIdentifier = "Set C" matches bundle name "SET C GOLDEN SARI" or "Set C Golden Sari"
         const matchingBundle = allBundles.find((b: any) =>
-          b.sku && targetPattern.test(b.sku)
+          b.name && b.name.toLowerCase().includes(setIdentifier.toLowerCase())
         );
 
         if (matchingBundle) {
@@ -838,17 +834,17 @@ serve(async (req) => {
           baseCost = matchingBundle.base_cost || 0;
           postageSmCost = matchingBundle.kos_postage_sm || 0;
           postageSsCost = matchingBundle.kos_postage_ss || 0;
-          console.log('Bundle found by SKU pattern + Botol:', { bundleId, bundleName, bundleSku, targetPattern: targetPattern.toString() });
+          console.log('Bundle found by SET pattern:', { bundleId, bundleName, bundleSku, setIdentifier });
         } else {
-          console.warn(`No bundle found with SKU matching pattern ${targetPattern.toString()}`);
+          console.warn(`No bundle found with name containing: ${setIdentifier}`);
         }
       }
     } else {
-      console.log('Cannot determine bundle - no Botol count found in product name');
+      console.log('Cannot determine bundle - no SET identifier found in product name');
     }
 
     if (!bundleId) {
-      console.warn('Bundle not found:', { sku: orderData.sku, productNames: orderData.productNames, skuPrefix, botolCount });
+      console.warn('Bundle not found:', { sku: orderData.sku, productNames: orderData.productNames, setIdentifier });
     }
 
     // Determine payment method
