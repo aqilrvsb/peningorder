@@ -683,14 +683,24 @@ serve(async (req) => {
 
     // Check for duplicate based on platform
     let existingOrder = null;
+    console.log('Checking for duplicate order:', { platform, platformOrderId: orderData.platformOrderId });
+
     if (platform === 'shoppego') {
-      const { data } = await supabase
+      // For Shoppego, check by shoppego_order_id (string)
+      const { data, error } = await supabase
         .from('customer_purchases')
         .select('id, id_sale, tracking_number')
         .eq('shoppego_order_id', orderData.platformOrderId)
         .maybeSingle();
-      existingOrder = data;
+
+      if (error) {
+        console.log('Shoppego duplicate check error (column may not exist):', error.message);
+        // Column doesn't exist yet, continue with order creation
+      } else {
+        existingOrder = data;
+      }
     } else {
+      // For WooCommerce, check by woo_order_id (integer)
       const { data } = await supabase
         .from('customer_purchases')
         .select('id, id_sale, tracking_number')
@@ -700,11 +710,12 @@ serve(async (req) => {
     }
 
     if (existingOrder) {
-      console.log('Duplicate order detected:', orderData.platformOrderId);
+      console.log('Duplicate order detected:', { platform, platformOrderId: orderData.platformOrderId, existingId: existingOrder.id });
       return new Response(
         JSON.stringify({
           success: true,
           message: 'Order already processed',
+          platform,
           existing_order_id: existingOrder.id,
           id_sale: existingOrder.id_sale,
           tracking_number: existingOrder.tracking_number
