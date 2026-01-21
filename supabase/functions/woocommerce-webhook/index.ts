@@ -803,14 +803,17 @@ serve(async (req) => {
     }
 
     // Fallback: If no SET found, try BOTOL pattern
+    // Logic: Find "botol", take 2 chars before it, keep only digits
+    // Example: "4 BOTOL" → 2 chars before = "4 " → digits only = "4" → botolCount = 4
     if (!setIdentifier) {
       const botolIndex = productNameLower.indexOf('botol');
-      if (botolIndex > 0) {
-        // Look for number before "botol" (e.g., "3 Botol", "3Botol", "3 botol")
-        const beforeBotol = orderData.productNames.substring(0, botolIndex).trim();
-        const numberMatch = beforeBotol.match(/(\d+)\s*$/);
-        if (numberMatch) {
-          botolCount = parseInt(numberMatch[1], 10);
+      if (botolIndex >= 2) {
+        // Get exactly 2 characters before "botol"
+        const twoCharsBefore = orderData.productNames.substring(botolIndex - 2, botolIndex);
+        // Keep only digits
+        const digitsOnly = twoCharsBefore.replace(/\D/g, '');
+        if (digitsOnly) {
+          botolCount = parseInt(digitsOnly, 10);
         }
       }
     }
@@ -849,13 +852,13 @@ serve(async (req) => {
       }
 
       if (!matchingBundle && botolCount > 0) {
-        // Method 2: Match by BOTOL count (e.g., 3 botol → "50 UNIT" based on GSI count in SKU)
-        // SKU format: "GSI-X + ..." where X is the Golden Sari count
-        console.log(`Searching for bundle with GSI-${botolCount} in SKU`);
+        // Method 2: Match by BOTOL count - find bundle where SKU starts with "GSI-{botolCount}"
+        // Example: 4 BOTOL → find bundle with SKU starting with "GSI-4"
+        console.log(`Searching for bundle with SKU starting with GSI-${botolCount}`);
         matchingBundle = allBundles.find((b: any) => {
           if (!b.sku) return false;
-          const skuMatch = b.sku.match(/GSI-(\d+)/i);
-          return skuMatch && parseInt(skuMatch[1], 10) === botolCount;
+          // Check if SKU starts with "GSI-{botolCount}" (case insensitive)
+          return b.sku.toLowerCase().startsWith(`gsi-${botolCount}`);
         });
       }
 
