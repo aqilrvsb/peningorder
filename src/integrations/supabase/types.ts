@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_staff: {
+        Row: {
+          id: string
+          name: string
+          ic_number: string | null
+          phone: string | null
+          address: string | null
+          role: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          ic_number?: string | null
+          phone?: string | null
+          address?: string | null
+          role: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          ic_number?: string | null
+          phone?: string | null
+          address?: string | null
+          role?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bundles: {
         Row: {
           created_at: string

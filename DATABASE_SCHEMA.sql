@@ -1,6 +1,36 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  date date NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['present'::text, 'absent'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  staff_type text DEFAULT 'profile'::text, -- 'profile' for profiles table, 'attendance_staff' for attendance_staff table
+  CONSTRAINT attendance_pkey PRIMARY KEY (id)
+);
+
+-- Staff for attendance only (non-login users)
+CREATE TABLE public.attendance_staff (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  ic_number text,
+  phone text,
+  address text,
+  role text NOT NULL CHECK (role = ANY (ARRAY[
+    'Managing Director'::text,
+    'Business Support Exec'::text,
+    'Customer Support'::text,
+    'Logistic'::text,
+    'Multimedia'::text
+  ])),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT attendance_staff_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.customer_purchases (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   id_sale text,
@@ -264,43 +294,3 @@ CREATE TABLE public.webhook_logs (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT webhook_logs_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.attendance (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  date date NOT NULL,
-  status text NOT NULL CHECK (status = ANY (ARRAY['present'::text, 'absent'::text])),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT attendance_pkey PRIMARY KEY (id),
-  CONSTRAINT attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
-  CONSTRAINT attendance_user_date_unique UNIQUE (user_id, date)
-);
-
--- ============================================
--- WOOCOMMERCE WEBHOOK INTEGRATION
--- ============================================
-
--- Sequence for generating unique sale IDs
-CREATE SEQUENCE IF NOT EXISTS sale_id_seq START WITH 1 INCREMENT BY 1;
-
--- Function to generate unique sale ID (format: DFRxxxxxx)
-CREATE OR REPLACE FUNCTION generate_sale_id()
-RETURNS text AS $$
-DECLARE
-  seq_val bigint;
-  sale_id text;
-BEGIN
-  SELECT nextval('sale_id_seq') INTO seq_val;
-  sale_id := 'DFR' || LPAD(seq_val::text, 6, '0');
-  RETURN sale_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Example webhook URL for marketer:
--- https://[YOUR_SUPABASE_PROJECT].supabase.co/functions/v1/woocommerce-webhook?marketer_id=[MARKETER_IDSTAFF]
---
--- WooCommerce Webhook Settings:
--- - Topic: order.updated
--- - Delivery URL: [URL above with marketer's idstaff]
--- - Secret: [marketer's idstaff - e.g., MR-001]
--- - Status: Active

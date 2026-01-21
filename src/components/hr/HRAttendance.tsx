@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Loader2, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
+import AddAttendanceStaffModal from "./AddAttendanceStaffModal";
 
 type AttendanceStatus = "present" | "absent" | null;
 
@@ -24,6 +25,7 @@ interface UserProfile {
   idstaff: string | null;
   is_active: boolean;
   role?: string;
+  staffType?: "profile" | "attendance_staff"; // To differentiate source
 }
 
 const HRAttendance = () => {
@@ -32,6 +34,7 @@ const HRAttendance = () => {
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [roleFilter, setRoleFilter] = useState("all");
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
 
   // Generate years for dropdown (current year +/- 2 years)
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
@@ -58,7 +61,7 @@ const HRAttendance = () => {
     return dayOfWeek === 0 || dayOfWeek === 6;
   };
 
-  // Fetch all users with their roles (marketer and admin only)
+  // Fetch all users with their roles (marketer, admin, and attendance_staff)
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["hr-attendance-users"],
     queryFn: async () => {
@@ -78,16 +81,40 @@ const HRAttendance = () => {
 
       if (rolesError) throw rolesError;
 
+      // Fetch attendance_staff (non-login staff)
+      const { data: attendanceStaff, error: staffError } = await supabase
+        .from("attendance_staff")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (staffError) throw staffError;
+
       // Create a map of user_id to role
       const rolesMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
 
-      // Filter only marketers and admins
-      return (profiles || [])
+      // Filter only marketers and admins from profiles
+      const profileUsers = (profiles || [])
         .map((profile: any) => ({
           ...profile,
           role: rolesMap.get(profile.id) || "unknown",
+          staffType: "profile" as const,
         }))
         .filter((u: UserProfile) => u.role === "marketer" || u.role === "admin");
+
+      // Map attendance_staff to same structure
+      const staffUsers = (attendanceStaff || []).map((staff: any) => ({
+        id: staff.id,
+        username: staff.name,
+        full_name: staff.name,
+        idstaff: staff.ic_number,
+        is_active: staff.is_active,
+        role: staff.role,
+        staffType: "attendance_staff" as const,
+      }));
+
+      // Combine both arrays
+      return [...profileUsers, ...staffUsers];
     },
   });
 
@@ -279,15 +306,26 @@ const HRAttendance = () => {
 
             {/* Role Filter */}
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-44">
                 <SelectValue placeholder="All Roles" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="marketer">Marketer</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="Managing Director">Managing Director</SelectItem>
+                <SelectItem value="Business Support Exec">Business Support Exec</SelectItem>
+                <SelectItem value="Customer Support">Customer Support</SelectItem>
+                <SelectItem value="Logistic">Logistic</SelectItem>
+                <SelectItem value="Multimedia">Multimedia</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Add Staff Button */}
+            <Button onClick={() => setShowAddStaffModal(true)} className="ml-2">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Staff
+            </Button>
 
             {/* Legend */}
             <div className="flex items-center gap-4 ml-auto text-sm">
@@ -355,7 +393,14 @@ const HRAttendance = () => {
                           </td>
                           <td className="text-center p-1">
                             <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                              user.role === "marketer" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                              user.role === "marketer" ? "bg-blue-100 text-blue-800" :
+                              user.role === "admin" ? "bg-purple-100 text-purple-800" :
+                              user.role === "Managing Director" ? "bg-amber-100 text-amber-800" :
+                              user.role === "Business Support Exec" ? "bg-green-100 text-green-800" :
+                              user.role === "Customer Support" ? "bg-pink-100 text-pink-800" :
+                              user.role === "Logistic" ? "bg-orange-100 text-orange-800" :
+                              user.role === "Multimedia" ? "bg-cyan-100 text-cyan-800" :
+                              "bg-gray-100 text-gray-800"
                             }`}>
                               {user.role}
                             </span>
@@ -403,6 +448,12 @@ const HRAttendance = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Staff Modal */}
+      <AddAttendanceStaffModal
+        open={showAddStaffModal}
+        onOpenChange={setShowAddStaffModal}
+      />
     </div>
   );
 };
