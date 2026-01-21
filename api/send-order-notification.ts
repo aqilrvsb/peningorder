@@ -313,6 +313,7 @@ export default async function handler(req: any, res: any) {
     const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
     const paymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
     const idSale = orderData.id_sale || '-';
+    const trackingNumber = orderData.tracking_number || orderData.no_tracking || '-';
 
     const message = `Salam ${customerName}. Kami telah menerima Tempahan Cik berkenaan ${productName}. 😊
 
@@ -325,6 +326,7 @@ NO TELEFON : ${phoneCustomer}
 PRODUK : ${bundleName}
 HARGA : RM${totalPrice}
 CARA BAYARAN : ${paymentMethod}
+TRACKING : ${trackingNumber}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
 

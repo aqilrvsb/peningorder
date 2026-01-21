@@ -931,6 +931,7 @@ NO TELEFON : ${orderData.customerPhone}
 PRODUK : ${bundleName}
 HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
 CARA BAYARAN : ${typePayment}
+TRACKING : ${trackingNumber || '-'}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
 
