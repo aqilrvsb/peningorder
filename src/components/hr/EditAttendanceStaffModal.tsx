@@ -126,10 +126,10 @@ const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceS
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-ic_number">IC Number</Label>
+            <Label htmlFor="edit-ic_number">ID Staff</Label>
             <Input
               id="edit-ic_number"
-              placeholder="e.g. 901234-14-5678"
+              placeholder="e.g. ST-001"
               value={formData.ic_number}
               onChange={(e) => setFormData({ ...formData, ic_number: e.target.value })}
             />
