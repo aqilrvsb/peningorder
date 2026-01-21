@@ -63,6 +63,7 @@ const HRAttendance = () => {
     employeeName: string;
     date: string;
     existingReason?: string | null;
+    isNewAbsence?: boolean; // true if coming from present state (need to revert to null if cancelled)
   } | null>(null);
   const [isAbsenceSaving, setIsAbsenceSaving] = useState(false);
 
@@ -191,21 +192,10 @@ const HRAttendance = () => {
     return map;
   }, [attendanceRecords]);
 
-  // Toggle attendance mutation (only for present/null - not absent)
+  // Toggle attendance mutation (for present only)
   const toggleAttendanceMutation = useMutation({
-    mutationFn: async (data: { userId: string; date: string; currentStatus: AttendanceStatus }) => {
-      const { userId, date, currentStatus } = data;
-
-      // Cycle through: null -> present -> null (absent is handled via modal)
-      let newStatus: AttendanceStatus;
-      if (currentStatus === null) {
-        newStatus = "present";
-      } else if (currentStatus === "present") {
-        newStatus = null;
-      } else {
-        // If currently absent, clicking clears it
-        newStatus = null;
-      }
+    mutationFn: async (data: { userId: string; date: string; newStatus: AttendanceStatus }) => {
+      const { userId, date, newStatus } = data;
 
       if (newStatus === null) {
         // Delete the record
@@ -289,32 +279,26 @@ const HRAttendance = () => {
     return reasonMap.get(key) || null;
   };
 
-  // Handle single click on attendance cell (toggle present/null only)
+  // Handle click on attendance cell
+  // Flow: null -> present (click) -> modal for absent (click) -> if save: absent, if cancel: null
+  // If already absent: click opens modal to view/edit
   const handleAttendanceClick = (userId: string, day: number, employeeName: string) => {
     const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const currentStatus = getAttendanceStatus(userId, day);
 
-    // If absent, open modal to view/edit reason
-    if (currentStatus === "absent") {
-      const reason = getAbsenceReason(userId, day);
-      setAbsenceModalData({ userId, employeeName, date, existingReason: reason });
+    if (currentStatus === null) {
+      // First click: null -> present
+      toggleAttendanceMutation.mutate({ userId, date, newStatus: "present" });
+    } else if (currentStatus === "present") {
+      // Second click: present -> open modal for absent (mark as new absence)
+      setAbsenceModalData({ userId, employeeName, date, existingReason: null, isNewAbsence: true });
       setShowAbsenceModal(true);
-      return;
+    } else if (currentStatus === "absent") {
+      // Click on absent: open modal to view/edit reason (not a new absence)
+      const reason = getAbsenceReason(userId, day);
+      setAbsenceModalData({ userId, employeeName, date, existingReason: reason, isNewAbsence: false });
+      setShowAbsenceModal(true);
     }
-
-    // Otherwise toggle present/null
-    toggleAttendanceMutation.mutate({ userId, date, currentStatus });
-  };
-
-  // Handle double click on attendance cell (open absent modal)
-  const handleAttendanceDoubleClick = (userId: string, day: number, employeeName: string) => {
-    const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const currentStatus = getAttendanceStatus(userId, day);
-    const reason = getAbsenceReason(userId, day);
-
-    // Open modal for marking absent or editing existing absence
-    setAbsenceModalData({ userId, employeeName, date, existingReason: currentStatus === "absent" ? reason : null });
-    setShowAbsenceModal(true);
   };
 
   // Handle saving absence reason from modal
@@ -482,13 +466,13 @@ const HRAttendance = () => {
                 <div className="w-6 h-6 rounded bg-green-100 flex items-center justify-center">
                   <Check className="h-4 w-4 text-green-600" />
                 </div>
-                <span className="text-muted-foreground">Present (Click)</span>
+                <span className="text-muted-foreground">Present</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-6 h-6 rounded bg-red-100 flex items-center justify-center">
                   <X className="h-4 w-4 text-red-600" />
                 </div>
-                <span className="text-muted-foreground">Absent (Double-click)</span>
+                <span className="text-muted-foreground">Absent</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-6 h-6 rounded bg-gray-100"></div>
@@ -566,7 +550,6 @@ const HRAttendance = () => {
                               >
                                 <button
                                   onClick={() => handleAttendanceClick(user.id, day, user.full_name)}
-                                  onDoubleClick={() => handleAttendanceDoubleClick(user.id, day, user.full_name)}
                                   disabled={toggleAttendanceMutation.isPending || markAbsentMutation.isPending}
                                   title={status === "absent" && reason ? `Reason: ${reason}` : undefined}
                                   className={`w-7 h-7 rounded transition-colors flex items-center justify-center ${
@@ -648,6 +631,14 @@ const HRAttendance = () => {
       <AbsenceReasonModal
         open={showAbsenceModal}
         onOpenChange={(open) => {
+          if (!open && absenceModalData?.isNewAbsence) {
+            // If cancelled and it was a new absence (from present), revert to null
+            toggleAttendanceMutation.mutate({
+              userId: absenceModalData.userId,
+              date: absenceModalData.date,
+              newStatus: null,
+            });
+          }
           setShowAbsenceModal(open);
           if (!open) setAbsenceModalData(null);
         }}
