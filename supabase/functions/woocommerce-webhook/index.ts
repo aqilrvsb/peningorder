@@ -909,18 +909,18 @@ serve(async (req) => {
 
     console.log('Order created successfully:', { id: newOrder.id, idSale, trackingNumber });
 
-    // Send WhatsApp notification to customer
+    // Send WhatsApp notification to customer (always send, regardless of tracking number)
     let whatsappSent = false;
-    if (trackingNumber) {
-      // Format full address
-      const fullAddress = [
-        orderData.address,
-        orderData.city,
-        orderData.postcode,
-        orderData.state
-      ].filter(Boolean).join(', ');
 
-      const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik berkenaan ${orderData.productNames}. 😊
+    // Format full address
+    const fullAddress = [
+      orderData.address,
+      orderData.city,
+      orderData.postcode,
+      orderData.state
+    ].filter(Boolean).join(', ');
+
+    const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik berkenaan ${orderData.productNames}. 😊
 
 Berikut adalah detail tempahan cik ${orderData.customerName} ✅
 
@@ -938,16 +938,17 @@ Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila M
 
 Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
 
-      const whatsappResult = await sendWhatsAppMessage(
-        supabase,
-        marketerIdStaff,
-        orderData.customerPhone,
-        whatsappMessage
-      );
+    console.log('Attempting to send WhatsApp to:', orderData.customerPhone);
 
-      whatsappSent = whatsappResult.success;
-      console.log('WhatsApp notification:', whatsappResult.success ? 'sent' : whatsappResult.error);
-    }
+    const whatsappResult = await sendWhatsAppMessage(
+      supabase,
+      marketerIdStaff,
+      orderData.customerPhone,
+      whatsappMessage
+    );
+
+    whatsappSent = whatsappResult.success;
+    console.log('WhatsApp notification:', whatsappResult.success ? 'sent' : whatsappResult.error)
 
     // Log successful webhook
     await supabase.from('webhook_logs').insert({
