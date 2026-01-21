@@ -304,16 +304,33 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json(response)
     }
 
-    // Generate message
-    const message = `*Pesanan Anda Sudah Ditempah*
+    // Generate message using new template
+    const customerName = orderData.customer_name || orderData.marketer_name || '';
+    const phoneCustomer = orderData.phone_customer || orderData.no_phone || '';
+    const addressFull = orderData.address_full || '';
+    const productName = orderData.product_name || orderData.produk || '';
+    const bundleName = orderData.bundle_name || orderData.produk || '';
+    const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
+    const paymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
+    const idSale = orderData.id_sale || '-';
 
-Nama : ${orderData.marketer_name}
-Phone : ${orderData.no_phone}
-Pakej : ${orderData.produk}
-Tarikh Membeli : ${orderData.tarikh_tempahan || '-'}
-Tracking Number : ${orderData.no_tracking || '-'}
-Harga Jualan : RM${parseFloat(orderData.harga_jualan_sebenar || 0).toFixed(2)}
-Cara Bayaran : ${orderData.cara_bayaran}`
+    const message = `Salam ${customerName}. Kami telah menerima Tempahan Cik berkenaan ${productName}. 😊
+
+Berikut adalah detail tempahan cik ${customerName} ✅
+
+ORDER ID : ${idSale}
+NAMA : ${customerName}
+ALAMAT : ${addressFull}
+NO TELEFON : ${phoneCustomer}
+PRODUK : ${bundleName}
+HARGA : RM${totalPrice}
+CARA BAYARAN : ${paymentMethod}
+
+Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
+
+✅ 𝐍𝐚𝐧𝐭𝐢 𝐚𝐤𝐚𝐧 𝐚𝐝𝐚 penghantaran status parcel dari semasa ke semasa 𝐧𝐚𝐧𝐭𝐢 𝐲𝐞..
+
+Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`
 
     console.log('Sending WhatsApp message to:', orderData.no_phone)
     console.log('Using instance:', deviceSetting.instance)

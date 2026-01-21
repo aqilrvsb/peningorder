@@ -867,21 +867,31 @@ serve(async (req) => {
     // Send WhatsApp notification to customer
     let whatsappSent = false;
     if (trackingNumber) {
-      const whatsappMessage = `Terima kasih kerana membeli dari kami, ${orderData.customerName}!
+      // Format full address
+      const fullAddress = [
+        orderData.address,
+        orderData.city,
+        orderData.postcode,
+        orderData.state
+      ].filter(Boolean).join(', ');
 
-Pesanan anda telah diproses:
-- No. Pesanan: ${idSale}
-- No. Tracking: ${trackingNumber}
-- Jumlah: RM${orderData.totalPrice.toFixed(2)}
-- Produk: ${bundleName}
+      const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik berkenaan ${orderData.productNames}. 😊
 
-Anda boleh track penghantaran di:
-https://www.ninjavan.co/en-my/tracking?id=${trackingNumber}
+Berikut adalah detail tempahan cik ${orderData.customerName} ✅
 
-Sebarang pertanyaan, sila hubungi kami.
+ORDER ID : ${idSale}
+NAMA : ${orderData.customerName}
+ALAMAT : ${fullAddress}
+NO TELEFON : ${orderData.customerPhone}
+PRODUK : ${bundleName}
+HARGA : RM${orderData.totalPrice.toFixed(2)}
+CARA BAYARAN : ${typePayment}
 
-Terima kasih!
-DFR EMPIRE`;
+Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
+
+✅ 𝐍𝐚𝐧𝐭𝐢 𝐚𝐤𝐚𝐧 𝐚𝐝𝐚 penghantaran status parcel dari semasa ke semasa 𝐧𝐚𝐧𝐭𝐢 𝐲𝐞..
+
+Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
 
       const whatsappResult = await sendWhatsAppMessage(
         supabase,

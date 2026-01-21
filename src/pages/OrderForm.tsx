@@ -998,18 +998,28 @@ const OrderForm: React.FC = () => {
 
         // Send WhatsApp notification to customer
         try {
+          // Format full address
+          const fullAddress = [
+            formData.alamat,
+            formData.daerah,
+            formData.poskod,
+            formData.negeri
+          ].filter(Boolean).join(', ');
+
           const notificationResponse = await fetch('/api/send-order-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               order: {
-                marketer_name: formData.namaPelanggan,
-                no_phone: formData.noPhone,
-                produk: formData.produk,
-                tarikh_tempahan: tarikhTempahan,
-                no_tracking: trackingNumber,
-                harga_jualan_sebenar: formData.hargaJualan,
-                cara_bayaran: formData.caraBayaran,
+                id_sale: idSale,
+                customer_name: formData.namaPelanggan,
+                phone_customer: formData.noPhone,
+                address_full: fullAddress,
+                product_name: formData.produk,
+                bundle_name: selectedBundle?.name || formData.produk,
+                total_price: formData.hargaJualan,
+                payment_method: formData.caraBayaran,
+                tracking_number: trackingNumber,
               },
               marketer_id: profile?.id,
             }),
