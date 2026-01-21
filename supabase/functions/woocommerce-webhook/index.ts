@@ -420,6 +420,11 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
   const shipping = checkout.shipping_address || {};
   const customer = checkout.customer || {};
 
+  // Log full payload structure to help debug COD detection
+  console.log('=== FULL SHOPPEGO PAYLOAD ===');
+  console.log(JSON.stringify(data, null, 2));
+  console.log('=== END SHOPPEGO PAYLOAD ===');
+
   // Handle potentially undefined first_name/last_name with fallbacks
   const firstName = shipping.first_name || customer.first_name || '';
   const lastName = shipping.last_name || customer.last_name || '';
@@ -436,14 +441,26 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
   // Ensure totalPrice is a number
   const totalPrice = Number(checkout.total) || 0;
 
-  // Detect COD from Shoppego payment method or shipping method
-  // Shoppego uses "shipping_method" or payment info to indicate COD
-  const shippingMethod = data.checkout?.shipping_lines?.[0]?.title || '';
-  const paymentMethod = data.checkout?.payment_method || data.payment_method || '';
-  const isCOD = shippingMethod.toLowerCase().includes('cod') ||
-                paymentMethod.toLowerCase().includes('cod') ||
-                shippingMethod.toLowerCase().includes('cash on delivery') ||
-                paymentMethod.toLowerCase().includes('cash on delivery');
+  // Detect COD from Shoppego - check the correct fields based on actual payload
+  // Shoppego uses: gateway_code, gateway_name, rate
+  console.log('=== COD DETECTION DEBUG ===');
+  console.log('checkout.gateway_code:', checkout.gateway_code);
+  console.log('checkout.gateway_name:', checkout.gateway_name);
+  console.log('checkout.rate:', checkout.rate);
+  console.log('=== END COD DEBUG ===');
+
+  // Check gateway_code first (most reliable), then gateway_name, then rate
+  const gatewayCode = checkout.gateway_code || '';
+  const gatewayName = checkout.gateway_name || '';
+  const rate = checkout.rate || '';
+
+  const isCOD = gatewayCode.toLowerCase() === 'cod' ||
+                gatewayName.toLowerCase().includes('cod') ||
+                gatewayName.toLowerCase().includes('cash on delivery') ||
+                rate.toLowerCase().includes('cod') ||
+                rate.toLowerCase().includes('cash on delivery');
+
+  console.log('COD Detection Result:', { gatewayCode, gatewayName, rate, isCOD });
 
   return {
     platformOrderId: String(checkout.id || ''),
@@ -464,6 +481,11 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
 
 // Parse WooCommerce order to normalized format
 function parseWooCommerceOrder(wooOrder: WooOrder): NormalizedOrder {
+  // Log full payload structure to help debug
+  console.log('=== FULL WOOCOMMERCE PAYLOAD ===');
+  console.log(JSON.stringify(wooOrder, null, 2));
+  console.log('=== END WOOCOMMERCE PAYLOAD ===');
+
   const shipping = wooOrder.shipping.address_1 ? wooOrder.shipping : wooOrder.billing;
   const customerName = `${shipping.first_name} ${shipping.last_name}`.trim() ||
                        `${wooOrder.billing.first_name} ${wooOrder.billing.last_name}`.trim();
@@ -474,6 +496,12 @@ function parseWooCommerceOrder(wooOrder: WooOrder): NormalizedOrder {
   const wooSku = firstLineItem?.sku || '';
   const { sku, quantity } = parseWooCommerceSku(wooSku);
   const productNames = wooOrder.line_items.map(item => item.name).join(', ');
+
+  // Log payment method for debugging
+  console.log('=== WOOCOMMERCE COD DEBUG ===');
+  console.log('payment_method:', wooOrder.payment_method);
+  console.log('payment_method_title:', wooOrder.payment_method_title);
+  console.log('=== END WOOCOMMERCE COD DEBUG ===');
 
   const isCOD = wooOrder.payment_method.toLowerCase() === 'cod';
 
@@ -780,22 +808,26 @@ serve(async (req) => {
         .eq('is_active', true)
         .eq('logistic_id', marketerLookup.id);
 
-      // If no bundles found for marketer, try global bundles table
+      // If no bundles found for marketer, try ALL logistic_bundles as fallback
       if (!allBundles || allBundles.length === 0) {
-        console.log('No logistic_bundles for marketer, trying global bundles table');
-        const { data: globalBundles } = await supabase
-          .from('bundles')
-          .select('id, name, sku, weight')
+        console.log('No logistic_bundles for marketer, trying all logistic_bundles');
+        const { data: allLogisticBundles } = await supabase
+          .from('logistic_bundles')
+          .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
           .eq('is_active', true);
-        allBundles = globalBundles;
+        allBundles = allLogisticBundles;
       }
 
       if (allBundles && allBundles.length > 0) {
         console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
 
-        // Find bundle where SKU starts with target prefix (case-insensitive)
+        // Find bundle where SKU contains the target prefix (e.g., "GSI-3" matches "GSI-3 + SBNM-1 + SBNV-1")
+        // Use regex to match GSI-X where X is the exact botol count (not GSI-30, GSI-300, etc.)
+        const targetPattern = new RegExp(`${skuPrefix}-${botolCount}(?:\\s|\\+|$)`, 'i');
+        console.log('Matching pattern:', targetPattern.toString());
+
         const matchingBundle = allBundles.find((b: any) =>
-          b.sku && b.sku.toUpperCase().startsWith(targetSkuPrefix.toUpperCase())
+          b.sku && targetPattern.test(b.sku)
         );
 
         if (matchingBundle) {
@@ -806,9 +838,9 @@ serve(async (req) => {
           baseCost = matchingBundle.base_cost || 0;
           postageSmCost = matchingBundle.kos_postage_sm || 0;
           postageSsCost = matchingBundle.kos_postage_ss || 0;
-          console.log('Bundle found by SKU prefix + Botol:', { bundleId, bundleName, bundleSku, targetSkuPrefix });
+          console.log('Bundle found by SKU pattern + Botol:', { bundleId, bundleName, bundleSku, targetPattern: targetPattern.toString() });
         } else {
-          console.warn(`No bundle found with SKU starting with ${targetSkuPrefix}`);
+          console.warn(`No bundle found with SKU matching pattern ${targetPattern.toString()}`);
         }
       }
     } else {
