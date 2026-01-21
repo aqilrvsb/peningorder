@@ -982,8 +982,50 @@ serve(async (req) => {
       orderData.state
     ].filter(Boolean).join(', ');
 
-    // Format product display: "SET C GOLDEN SARI (4 BOTOL)" using botolCount
-    const productDisplay = botolCount > 0 ? `${bundleName} (${botolCount} BOTOL)` : bundleName;
+    // SKU to product name mapping
+    const skuToProductName: Record<string, string> = {
+      'GSI': 'GOLDEN SARI',
+      'PF': 'PERFUME RINDU SARI',
+      'PF30': 'PERFUME RINDU SARI 30ML',
+      'SBNM': 'SABUN MIRI',
+      'SBNV': 'SABUN MISS V',
+      'SRM2': 'SERUM 20 ML',
+      'SRM3': 'SERUM 30ML',
+      'SRM': 'SERUM CIK EPAL',
+      'WLT': 'WALLET',
+    };
+
+    // Parse bundle SKU to create product breakdown
+    // Example: "GSI-3 + SBNM-1 + SBNV-1 + PF-1" -> "3 GOLDEN SARI + SABUN MIRI + SABUN MISS V + PERFUME RINDU SARI"
+    const formatProductBreakdown = (sku: string): string => {
+      if (!sku) return '';
+
+      const parts = sku.split('+').map(p => p.trim());
+      const breakdown: string[] = [];
+
+      for (const part of parts) {
+        // Match pattern like "GSI-3" or "SBNM-1"
+        const match = part.match(/^([A-Z0-9]+)-(\d+)$/i);
+        if (match) {
+          const skuCode = match[1].toUpperCase();
+          const qty = parseInt(match[2], 10);
+          const productName = skuToProductName[skuCode] || skuCode;
+
+          // If qty is 1, just show product name. If qty > 1, show "X PRODUCT_NAME"
+          if (qty === 1) {
+            breakdown.push(productName);
+          } else {
+            breakdown.push(`${qty} ${productName}`);
+          }
+        }
+      }
+
+      return breakdown.join(' + ');
+    };
+
+    // Format product display: "SET C GOLDEN SARI (3 GOLDEN SARI + SABUN MIRI + SABUN MISS V + PERFUME RINDU SARI)"
+    const productBreakdown = formatProductBreakdown(bundleSku);
+    const productDisplay = productBreakdown ? `${bundleName} (${productBreakdown})` : bundleName;
 
     const whatsappMessage = `Salam ${orderData.customerName}. Kami telah menerima Tempahan Cik 😊
 

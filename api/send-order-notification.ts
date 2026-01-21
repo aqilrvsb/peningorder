@@ -309,14 +309,56 @@ export default async function handler(req: any, res: any) {
     const phoneCustomer = orderData.phone_customer || orderData.no_phone || '';
     const addressFull = orderData.address_full || '';
     const bundleName = orderData.bundle_name || orderData.produk || '';
+    const bundleSku = orderData.bundle_sku || '';
     const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
     const paymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
     const idSale = orderData.id_sale || '-';
     const trackingNumber = orderData.tracking_number || orderData.no_tracking || '-';
 
-    // Extract botol count from bundle name (e.g., "SET C GOLDEN SARI" with unit 4 -> "SET C GOLDEN SARI (4 BOTOL)")
-    const unit = orderData.unit || orderData.quantity || 0;
-    const productDisplay = unit > 0 ? `${bundleName} (${unit} BOTOL)` : bundleName;
+    // SKU to product name mapping
+    const skuToProductName: Record<string, string> = {
+      'GSI': 'GOLDEN SARI',
+      'PF': 'PERFUME RINDU SARI',
+      'PF30': 'PERFUME RINDU SARI 30ML',
+      'SBNM': 'SABUN MIRI',
+      'SBNV': 'SABUN MISS V',
+      'SRM2': 'SERUM 20 ML',
+      'SRM3': 'SERUM 30ML',
+      'SRM': 'SERUM CIK EPAL',
+      'WLT': 'WALLET',
+    };
+
+    // Parse bundle SKU to create product breakdown
+    // Example: "GSI-3 + SBNM-1 + SBNV-1 + PF-1" -> "3 GOLDEN SARI + SABUN MIRI + SABUN MISS V + PERFUME RINDU SARI"
+    const formatProductBreakdown = (sku: string): string => {
+      if (!sku) return '';
+
+      const parts = sku.split('+').map(p => p.trim());
+      const breakdown: string[] = [];
+
+      for (const part of parts) {
+        // Match pattern like "GSI-3" or "SBNM-1"
+        const match = part.match(/^([A-Z0-9]+)-(\d+)$/i);
+        if (match) {
+          const skuCode = match[1].toUpperCase();
+          const qty = parseInt(match[2], 10);
+          const productName = skuToProductName[skuCode] || skuCode;
+
+          // If qty is 1, just show product name. If qty > 1, show "X PRODUCT_NAME"
+          if (qty === 1) {
+            breakdown.push(productName);
+          } else {
+            breakdown.push(`${qty} ${productName}`);
+          }
+        }
+      }
+
+      return breakdown.join(' + ');
+    };
+
+    // Format product display: "SET C GOLDEN SARI (3 GOLDEN SARI + SABUN MIRI + SABUN MISS V + PERFUME RINDU SARI)"
+    const productBreakdown = formatProductBreakdown(bundleSku);
+    const productDisplay = productBreakdown ? `${bundleName} (${productBreakdown})` : bundleName;
 
     const message = `Salam ${customerName}. Kami telah menerima Tempahan Cik 😊
 

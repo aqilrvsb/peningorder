@@ -1017,10 +1017,10 @@ const OrderForm: React.FC = () => {
                 address_full: fullAddress,
                 product_name: formData.produk,
                 bundle_name: selectedBundle?.name || formData.produk,
+                bundle_sku: selectedBundle?.sku || '', // Add bundle SKU for product breakdown
                 total_price: formData.hargaJualan,
                 payment_method: formData.caraBayaran,
                 tracking_number: trackingNumber,
-                unit: bundleUnits, // Add unit for BOTOL count in message
               },
               marketer_id: profile?.id,
             }),
