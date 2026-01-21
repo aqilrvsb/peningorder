@@ -10,6 +10,7 @@ import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
 import AddAttendanceStaffModal from "./AddAttendanceStaffModal";
 import EditAttendanceStaffModal from "./EditAttendanceStaffModal";
 import DeleteAttendanceStaffDialog from "./DeleteAttendanceStaffDialog";
+import AbsenceReasonModal from "./AbsenceReasonModal";
 
 type AttendanceStatus = "present" | "absent" | null;
 
@@ -18,6 +19,7 @@ interface AttendanceRecord {
   user_id: string;
   date: string;
   status: AttendanceStatus;
+  reason?: string | null;
 }
 
 interface UserProfile {
@@ -53,6 +55,16 @@ const HRAttendance = () => {
   const [showEditStaffModal, setShowEditStaffModal] = useState(false);
   const [showDeleteStaffDialog, setShowDeleteStaffDialog] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<AttendanceStaffData | null>(null);
+
+  // Absence reason modal state
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [absenceModalData, setAbsenceModalData] = useState<{
+    userId: string;
+    employeeName: string;
+    date: string;
+    existingReason?: string | null;
+  } | null>(null);
+  const [isAbsenceSaving, setIsAbsenceSaving] = useState(false);
 
   // Generate years for dropdown (current year +/- 2 years)
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
@@ -169,18 +181,29 @@ const HRAttendance = () => {
     return map;
   }, [attendanceRecords]);
 
-  // Toggle attendance mutation
+  // Create reason map for quick lookup
+  const reasonMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    attendanceRecords.forEach((record: AttendanceRecord) => {
+      const key = `${record.user_id}-${record.date}`;
+      map.set(key, record.reason || null);
+    });
+    return map;
+  }, [attendanceRecords]);
+
+  // Toggle attendance mutation (only for present/null - not absent)
   const toggleAttendanceMutation = useMutation({
     mutationFn: async (data: { userId: string; date: string; currentStatus: AttendanceStatus }) => {
       const { userId, date, currentStatus } = data;
 
-      // Cycle through: null -> present -> absent -> null
+      // Cycle through: null -> present -> null (absent is handled via modal)
       let newStatus: AttendanceStatus;
       if (currentStatus === null) {
         newStatus = "present";
       } else if (currentStatus === "present") {
-        newStatus = "absent";
+        newStatus = null;
       } else {
+        // If currently absent, clicking clears it
         newStatus = null;
       }
 
@@ -201,6 +224,7 @@ const HRAttendance = () => {
             user_id: userId,
             date: date,
             status: newStatus,
+            reason: null, // Clear reason when marking present
           }, {
             onConflict: "user_id,date",
           });
@@ -218,6 +242,34 @@ const HRAttendance = () => {
     },
   });
 
+  // Mark absent with reason mutation
+  const markAbsentMutation = useMutation({
+    mutationFn: async (data: { userId: string; date: string; reason: string }) => {
+      const { userId, date, reason } = data;
+
+      const { error } = await supabase
+        .from("attendance")
+        .upsert({
+          user_id: userId,
+          date: date,
+          status: "absent",
+          reason: reason,
+        }, {
+          onConflict: "user_id,date",
+        });
+
+      if (error) throw error;
+      return { userId, date, reason };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr-attendance-records", selectedYear, selectedMonth] });
+      toast.success("Absence recorded");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to record absence");
+    },
+  });
+
   // Filter users based on role
   const filteredUsers = users.filter((user: UserProfile) => {
     return roleFilter === "all" || user.role === roleFilter;
@@ -230,11 +282,59 @@ const HRAttendance = () => {
     return attendanceMap.get(key) || null;
   };
 
-  // Handle click on attendance cell
-  const handleAttendanceClick = (userId: string, day: number) => {
+  // Get absence reason for a user on a specific day
+  const getAbsenceReason = (userId: string, day: number): string | null => {
+    const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const key = `${userId}-${date}`;
+    return reasonMap.get(key) || null;
+  };
+
+  // Handle single click on attendance cell (toggle present/null only)
+  const handleAttendanceClick = (userId: string, day: number, employeeName: string) => {
     const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const currentStatus = getAttendanceStatus(userId, day);
+
+    // If absent, open modal to view/edit reason
+    if (currentStatus === "absent") {
+      const reason = getAbsenceReason(userId, day);
+      setAbsenceModalData({ userId, employeeName, date, existingReason: reason });
+      setShowAbsenceModal(true);
+      return;
+    }
+
+    // Otherwise toggle present/null
     toggleAttendanceMutation.mutate({ userId, date, currentStatus });
+  };
+
+  // Handle double click on attendance cell (open absent modal)
+  const handleAttendanceDoubleClick = (userId: string, day: number, employeeName: string) => {
+    const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const currentStatus = getAttendanceStatus(userId, day);
+    const reason = getAbsenceReason(userId, day);
+
+    // Open modal for marking absent or editing existing absence
+    setAbsenceModalData({ userId, employeeName, date, existingReason: currentStatus === "absent" ? reason : null });
+    setShowAbsenceModal(true);
+  };
+
+  // Handle saving absence reason from modal
+  const handleSaveAbsenceReason = async (reason: string) => {
+    if (!absenceModalData) return;
+
+    setIsAbsenceSaving(true);
+    try {
+      await markAbsentMutation.mutateAsync({
+        userId: absenceModalData.userId,
+        date: absenceModalData.date,
+        reason,
+      });
+      setShowAbsenceModal(false);
+      setAbsenceModalData(null);
+    } catch (error) {
+      // Error handled in mutation
+    } finally {
+      setIsAbsenceSaving(false);
+    }
   };
 
   // Count attendance for a user
@@ -382,13 +482,13 @@ const HRAttendance = () => {
                 <div className="w-6 h-6 rounded bg-green-100 flex items-center justify-center">
                   <Check className="h-4 w-4 text-green-600" />
                 </div>
-                <span className="text-muted-foreground">Present</span>
+                <span className="text-muted-foreground">Present (Click)</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-6 h-6 rounded bg-red-100 flex items-center justify-center">
                   <X className="h-4 w-4 text-red-600" />
                 </div>
-                <span className="text-muted-foreground">Absent</span>
+                <span className="text-muted-foreground">Absent (Double-click)</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-6 h-6 rounded bg-gray-100"></div>
@@ -458,19 +558,22 @@ const HRAttendance = () => {
                           {daysArray.map((day) => {
                             const status = getAttendanceStatus(user.id, day);
                             const weekend = isWeekend(day);
+                            const reason = getAbsenceReason(user.id, day);
                             return (
                               <td
                                 key={day}
                                 className={`text-center p-1 ${weekend ? "bg-gray-50" : ""}`}
                               >
                                 <button
-                                  onClick={() => handleAttendanceClick(user.id, day)}
-                                  disabled={toggleAttendanceMutation.isPending}
+                                  onClick={() => handleAttendanceClick(user.id, day, user.full_name)}
+                                  onDoubleClick={() => handleAttendanceDoubleClick(user.id, day, user.full_name)}
+                                  disabled={toggleAttendanceMutation.isPending || markAbsentMutation.isPending}
+                                  title={status === "absent" && reason ? `Reason: ${reason}` : undefined}
                                   className={`w-7 h-7 rounded transition-colors flex items-center justify-center ${
                                     status === "present"
                                       ? "bg-green-100 hover:bg-green-200"
                                       : status === "absent"
-                                      ? "bg-red-100 hover:bg-red-200"
+                                      ? "bg-red-100 hover:bg-red-200 cursor-pointer"
                                       : "bg-gray-100 hover:bg-gray-200"
                                   }`}
                                 >
@@ -539,6 +642,20 @@ const HRAttendance = () => {
         open={showDeleteStaffDialog}
         onOpenChange={setShowDeleteStaffDialog}
         staff={selectedStaff}
+      />
+
+      {/* Absence Reason Modal */}
+      <AbsenceReasonModal
+        open={showAbsenceModal}
+        onOpenChange={(open) => {
+          setShowAbsenceModal(open);
+          if (!open) setAbsenceModalData(null);
+        }}
+        employeeName={absenceModalData?.employeeName || ""}
+        date={absenceModalData?.date || ""}
+        existingReason={absenceModalData?.existingReason}
+        onSave={handleSaveAbsenceReason}
+        isLoading={isAbsenceSaving}
       />
     </div>
   );
