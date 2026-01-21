@@ -713,7 +713,7 @@ serve(async (req) => {
       );
     }
 
-    // Look up bundle by SKU
+    // Look up bundle - first try SKU, then try matching by "X Botol" in product name
     let bundleId: string | null = null;
     let bundleName = orderData.productNames;
     let bundleSku = orderData.sku || 'WEBSITE';
@@ -722,6 +722,7 @@ serve(async (req) => {
     let postageSmCost = 0;
     let postageSsCost = 0;
 
+    // First try to find bundle by exact SKU match
     if (orderData.sku) {
       const { data: bundleData } = await supabase
         .from('logistic_bundles')
@@ -738,10 +739,52 @@ serve(async (req) => {
         baseCost = bundleData.base_cost || 0;
         postageSmCost = bundleData.kos_postage_sm || 0;
         postageSsCost = bundleData.kos_postage_ss || 0;
-        console.log('Bundle found:', { bundleId, bundleName, bundleSku });
-      } else {
-        console.warn('Bundle not found for SKU:', orderData.sku);
+        console.log('Bundle found by SKU:', { bundleId, bundleName, bundleSku });
       }
+    }
+
+    // If no bundle found by SKU, try to match by "X Botol" pattern in product name
+    if (!bundleId && orderData.productNames) {
+      // Extract number from patterns like "4 Botol", "6 botol", "2BOTOL", etc.
+      const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
+      if (botolMatch) {
+        const botolCount = parseInt(botolMatch[1], 10);
+        console.log(`Found ${botolCount} Botol in product name, searching for matching bundle...`);
+
+        // Get all active bundles and find one that matches the botol count
+        const { data: allBundles } = await supabase
+          .from('logistic_bundles')
+          .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
+          .eq('is_active', true)
+          .eq('logistic_id', marketerLookup.id);
+
+        if (allBundles && allBundles.length > 0) {
+          // Find bundle where name contains the same botol count pattern
+          const matchingBundle = allBundles.find((b: any) => {
+            const bundleBotolMatch = b.name.match(/(\d+)\s*botol/i);
+            return bundleBotolMatch && parseInt(bundleBotolMatch[1], 10) === botolCount;
+          });
+
+          if (matchingBundle) {
+            bundleId = matchingBundle.id;
+            bundleName = matchingBundle.name;
+            bundleSku = matchingBundle.sku;
+            bundleWeight = matchingBundle.weight || 0.5;
+            baseCost = matchingBundle.base_cost || 0;
+            postageSmCost = matchingBundle.kos_postage_sm || 0;
+            postageSsCost = matchingBundle.kos_postage_ss || 0;
+            console.log('Bundle found by Botol match:', { bundleId, bundleName, bundleSku, botolCount });
+          } else {
+            console.warn(`No bundle found matching ${botolCount} Botol for marketer ${marketerIdStaff}`);
+          }
+        }
+      } else {
+        console.log('No "X Botol" pattern found in product name:', orderData.productNames);
+      }
+    }
+
+    if (!bundleId) {
+      console.warn('Bundle not found for SKU or product name:', orderData.sku, orderData.productNames);
     }
 
     // Determine payment method
