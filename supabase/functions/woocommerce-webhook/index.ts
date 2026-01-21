@@ -713,7 +713,8 @@ serve(async (req) => {
       );
     }
 
-    // Look up bundle - first try SKU, then try matching by "X Botol" in product name
+    // Look up bundle by matching "X Botol" pattern to SKU prefix
+    // Example: Product "4 Botol" + SKU prefix "GSI" → find bundle with SKU starting with "GSI-4"
     let bundleId: string | null = null;
     let bundleName = orderData.productNames;
     let bundleSku = orderData.sku || 'WEBSITE';
@@ -722,69 +723,52 @@ serve(async (req) => {
     let postageSmCost = 0;
     let postageSsCost = 0;
 
-    // First try to find bundle by exact SKU match
-    if (orderData.sku) {
-      const { data: bundleData } = await supabase
+    // Extract base SKU prefix (e.g., "GSI" from "GSI-1" or just "GSI")
+    const skuPrefix = orderData.sku ? orderData.sku.split('-')[0] : '';
+
+    // Extract botol count from product name (e.g., "4 Botol" → 4)
+    const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
+    const botolCount = botolMatch ? parseInt(botolMatch[1], 10) : 0;
+
+    console.log('Bundle lookup:', { skuPrefix, botolCount, productName: orderData.productNames });
+
+    if (skuPrefix && botolCount > 0) {
+      // Build target SKU pattern: "GSI-4" for 4 Botol
+      const targetSkuPrefix = `${skuPrefix}-${botolCount}`;
+      console.log(`Searching for bundle with SKU starting with: ${targetSkuPrefix}`);
+
+      // Find bundle where SKU starts with the target prefix (e.g., "GSI-4")
+      const { data: allBundles } = await supabase
         .from('logistic_bundles')
         .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
-        .eq('sku', orderData.sku)
         .eq('is_active', true)
-        .maybeSingle();
+        .eq('logistic_id', marketerLookup.id);
 
-      if (bundleData) {
-        bundleId = bundleData.id;
-        bundleName = bundleData.name;
-        bundleSku = bundleData.sku;
-        bundleWeight = bundleData.weight || 0.5;
-        baseCost = bundleData.base_cost || 0;
-        postageSmCost = bundleData.kos_postage_sm || 0;
-        postageSsCost = bundleData.kos_postage_ss || 0;
-        console.log('Bundle found by SKU:', { bundleId, bundleName, bundleSku });
-      }
-    }
+      if (allBundles && allBundles.length > 0) {
+        // Find bundle where SKU starts with target prefix (case-insensitive)
+        const matchingBundle = allBundles.find((b: any) =>
+          b.sku && b.sku.toUpperCase().startsWith(targetSkuPrefix.toUpperCase())
+        );
 
-    // If no bundle found by SKU, try to match by "X Botol" pattern in product name
-    if (!bundleId && orderData.productNames) {
-      // Extract number from patterns like "4 Botol", "6 botol", "2BOTOL", etc.
-      const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
-      if (botolMatch) {
-        const botolCount = parseInt(botolMatch[1], 10);
-        console.log(`Found ${botolCount} Botol in product name, searching for matching bundle...`);
-
-        // Get all active bundles and find one that matches the botol count
-        const { data: allBundles } = await supabase
-          .from('logistic_bundles')
-          .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
-          .eq('is_active', true)
-          .eq('logistic_id', marketerLookup.id);
-
-        if (allBundles && allBundles.length > 0) {
-          // Find bundle where name contains the same botol count pattern
-          const matchingBundle = allBundles.find((b: any) => {
-            const bundleBotolMatch = b.name.match(/(\d+)\s*botol/i);
-            return bundleBotolMatch && parseInt(bundleBotolMatch[1], 10) === botolCount;
-          });
-
-          if (matchingBundle) {
-            bundleId = matchingBundle.id;
-            bundleName = matchingBundle.name;
-            bundleSku = matchingBundle.sku;
-            bundleWeight = matchingBundle.weight || 0.5;
-            baseCost = matchingBundle.base_cost || 0;
-            postageSmCost = matchingBundle.kos_postage_sm || 0;
-            postageSsCost = matchingBundle.kos_postage_ss || 0;
-            console.log('Bundle found by Botol match:', { bundleId, bundleName, bundleSku, botolCount });
-          } else {
-            console.warn(`No bundle found matching ${botolCount} Botol for marketer ${marketerIdStaff}`);
-          }
+        if (matchingBundle) {
+          bundleId = matchingBundle.id;
+          bundleName = matchingBundle.name;
+          bundleSku = matchingBundle.sku;
+          bundleWeight = matchingBundle.weight || 0.5;
+          baseCost = matchingBundle.base_cost || 0;
+          postageSmCost = matchingBundle.kos_postage_sm || 0;
+          postageSsCost = matchingBundle.kos_postage_ss || 0;
+          console.log('Bundle found by SKU prefix + Botol:', { bundleId, bundleName, bundleSku, targetSkuPrefix });
+        } else {
+          console.warn(`No bundle found with SKU starting with ${targetSkuPrefix} for marketer ${marketerIdStaff}`);
         }
-      } else {
-        console.log('No "X Botol" pattern found in product name:', orderData.productNames);
       }
+    } else {
+      console.log('Cannot determine bundle - missing SKU prefix or Botol count');
     }
 
     if (!bundleId) {
-      console.warn('Bundle not found for SKU or product name:', orderData.sku, orderData.productNames);
+      console.warn('Bundle not found:', { sku: orderData.sku, productNames: orderData.productNames, skuPrefix, botolCount });
     }
 
     // Determine payment method
