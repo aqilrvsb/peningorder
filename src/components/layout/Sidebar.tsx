@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard,
@@ -308,11 +309,18 @@ const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
     navigate('/');
+  };
+
+  // Handle navigation click - invalidate all queries to refresh data
+  const handleNavClick = (path: string) => {
+    // Invalidate all queries to force refresh when navigating
+    queryClient.invalidateQueries();
   };
 
   const filteredNavItems = navItems.filter((item) =>
@@ -361,6 +369,7 @@ const Sidebar: React.FC = () => {
             key={item.path}
             to={item.path}
             title={collapsed ? item.label : undefined}
+            onClick={() => handleNavClick(item.path)}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
               isItemActive(item.path) && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',

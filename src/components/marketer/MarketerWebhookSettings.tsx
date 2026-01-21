@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 const MarketerWebhookSettings = () => {
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState<string | null>(null);
 
   // Get Supabase project URL from the client
@@ -64,6 +65,11 @@ const MarketerWebhookSettings = () => {
   const successCount = webhookLogs.filter((log: any) => log.response_status === 200).length;
   const errorCount = webhookLogs.filter((log: any) => log.response_status !== 200).length;
 
+  // Handle tab change - refresh webhook logs
+  const handleTabChange = () => {
+    queryClient.invalidateQueries({ queryKey: ["webhook-logs"] });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -74,7 +80,7 @@ const MarketerWebhookSettings = () => {
       </div>
 
       {/* Platform Tabs */}
-      <Tabs defaultValue="woocommerce" className="w-full">
+      <Tabs defaultValue="woocommerce" className="w-full" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="woocommerce" className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" />

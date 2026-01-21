@@ -120,6 +120,8 @@ const Logistics: React.FC = () => {
     setShipmentCurrentPage(1);
     setReturnCurrentPage(1);
     setPendingTrackingCurrentPage(1);
+    // Auto-refresh data when switching tabs
+    refreshData();
   };
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
