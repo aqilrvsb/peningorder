@@ -417,33 +417,39 @@ function formatPhoneNumber(phone: string): string {
 // Parse Shoppego order to normalized format
 function parseShoppegoOrder(data: ShoppegoOrder): NormalizedOrder {
   const checkout = data.checkout;
-  const shipping = checkout.shipping_address;
-  const customer = checkout.customer;
+  const shipping = checkout.shipping_address || {};
+  const customer = checkout.customer || {};
 
-  const customerName = `${shipping.first_name || customer.first_name} ${shipping.last_name || customer.last_name}`.trim();
-  const customerPhone = formatPhoneNumber(shipping.phone || customer.phone);
+  // Handle potentially undefined first_name/last_name with fallbacks
+  const firstName = shipping.first_name || customer.first_name || '';
+  const lastName = shipping.last_name || customer.last_name || '';
+  const customerName = `${firstName} ${lastName}`.trim() || 'Customer';
+  const customerPhone = formatPhoneNumber(shipping.phone || customer.phone || '');
   const fullAddress = [shipping.address1, shipping.address2].filter(Boolean).join(', ');
 
   // Get first item SKU and calculate total quantity
-  const firstItem = checkout.items[0];
+  const firstItem = checkout.items?.[0];
   const sku = firstItem?.product?.sku || '';
-  const totalQuantity = checkout.items.reduce((sum, item) => sum + item.quantity, 0);
-  const productNames = checkout.items.map(item => item.name || item.product?.name).join(', ');
+  const totalQuantity = checkout.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
+  const productNames = checkout.items?.map(item => item.name || item.product?.name || 'Product').join(', ') || 'Product';
+
+  // Ensure totalPrice is a number
+  const totalPrice = Number(checkout.total) || 0;
 
   return {
-    platformOrderId: checkout.id,
+    platformOrderId: String(checkout.id || ''),
     customerName,
     customerPhone,
     customerEmail: shipping.email || customer.email || '',
     address: fullAddress,
-    city: shipping.city,
-    state: mapState(shipping.state),
-    postcode: shipping.zip,
-    totalPrice: checkout.total,
+    city: shipping.city || '',
+    state: mapState(shipping.state || ''),
+    postcode: shipping.zip || '',
+    totalPrice,
     paymentMethod: 'CASH', // Shoppego orders are prepaid
     productNames,
     sku,
-    quantity: totalQuantity || 1
+    quantity: totalQuantity
   };
 }
 
@@ -734,9 +740,9 @@ serve(async (req) => {
     let postageSmCost = 0;
     let postageSsCost = 0;
 
-    // Extract base SKU prefix (e.g., "GSI" from "GSI-1" or just "GSI")
-    // Default to "GSI" for website orders without SKU
-    const skuPrefix = orderData.sku ? orderData.sku.split('-')[0] : 'GSI';
+    // For website orders (Shoppego/WooCommerce), always use GSI as the SKU prefix
+    // This is the default bundle SKU prefix for all website orders
+    const skuPrefix = 'GSI';
 
     // Extract botol count from product name (e.g., "4 Botol" → 4, "Set D (4 Botol)" → 4)
     const botolMatch = orderData.productNames.match(/(\d+)\s*botol/i);
@@ -923,7 +929,7 @@ NAMA : ${orderData.customerName}
 ALAMAT : ${fullAddress}
 NO TELEFON : ${orderData.customerPhone}
 PRODUK : ${bundleName}
-HARGA : RM${orderData.totalPrice.toFixed(2)}
+HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
 CARA BAYARAN : ${typePayment}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
