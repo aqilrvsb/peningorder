@@ -1020,6 +1020,7 @@ const OrderForm: React.FC = () => {
                 total_price: formData.hargaJualan,
                 payment_method: formData.caraBayaran,
                 tracking_number: trackingNumber,
+                unit: bundleUnits, // Add unit for BOTOL count in message
               },
               marketer_id: profile?.id,
             }),

@@ -337,13 +337,16 @@ Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila M
 
 Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`
 
-    console.log('Sending WhatsApp message to:', orderData.no_phone)
+    // Get customer phone - try multiple field names
+    const customerPhone = orderData.phone_customer || orderData.no_phone || phoneCustomer;
+
+    console.log('Sending WhatsApp message to:', customerPhone)
     console.log('Using instance:', deviceSetting.instance)
 
     // Send WhatsApp
     const whatsappResult = await sendWhatsApp(
       deviceSetting.instance,
-      orderData.no_phone,
+      customerPhone,
       message
     )
 
