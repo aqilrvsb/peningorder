@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Loader2, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { Check, X, Loader2, ChevronLeft, ChevronRight, UserPlus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
 import AddAttendanceStaffModal from "./AddAttendanceStaffModal";
+import EditAttendanceStaffModal from "./EditAttendanceStaffModal";
+import DeleteAttendanceStaffDialog from "./DeleteAttendanceStaffDialog";
 
 type AttendanceStatus = "present" | "absent" | null;
 
@@ -26,6 +28,18 @@ interface UserProfile {
   is_active: boolean;
   role?: string;
   staffType?: "profile" | "attendance_staff"; // To differentiate source
+  // Extra fields for attendance_staff
+  phone?: string | null;
+  address?: string | null;
+}
+
+interface AttendanceStaffData {
+  id: string;
+  name: string;
+  ic_number: string | null;
+  phone: string | null;
+  address: string | null;
+  role: string;
 }
 
 const HRAttendance = () => {
@@ -35,6 +49,9 @@ const HRAttendance = () => {
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [roleFilter, setRoleFilter] = useState("all");
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [showEditStaffModal, setShowEditStaffModal] = useState(false);
+  const [showDeleteStaffDialog, setShowDeleteStaffDialog] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<AttendanceStaffData | null>(null);
 
   // Generate years for dropdown (current year +/- 2 years)
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
@@ -111,6 +128,8 @@ const HRAttendance = () => {
         is_active: staff.is_active,
         role: staff.role,
         staffType: "attendance_staff" as const,
+        phone: staff.phone,
+        address: staff.address,
       }));
 
       // Combine both arrays
@@ -255,6 +274,32 @@ const HRAttendance = () => {
 
   const isLoading = isLoadingUsers || isLoadingAttendance;
 
+  // Handle edit staff
+  const handleEditStaff = (user: UserProfile) => {
+    setSelectedStaff({
+      id: user.id,
+      name: user.full_name,
+      ic_number: user.idstaff,
+      phone: user.phone || null,
+      address: user.address || null,
+      role: user.role || "",
+    });
+    setShowEditStaffModal(true);
+  };
+
+  // Handle delete staff
+  const handleDeleteStaff = (user: UserProfile) => {
+    setSelectedStaff({
+      id: user.id,
+      name: user.full_name,
+      ic_number: user.idstaff,
+      phone: user.phone || null,
+      address: user.address || null,
+      role: user.role || "",
+    });
+    setShowDeleteStaffDialog(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -377,6 +422,7 @@ const HRAttendance = () => {
                     ))}
                     <th className="text-center p-1 bg-green-50 min-w-[40px]">P</th>
                     <th className="text-center p-1 bg-red-50 min-w-[40px]">A</th>
+                    <th className="text-center p-1 min-w-[70px]">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -432,12 +478,34 @@ const HRAttendance = () => {
                           })}
                           <td className="text-center p-1 bg-green-50 font-bold text-green-700">{present}</td>
                           <td className="text-center p-1 bg-red-50 font-bold text-red-700">{absent}</td>
+                          <td className="text-center p-1">
+                            {user.staffType === "attendance_staff" ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => handleEditStaff(user)}
+                                  className="p-1 rounded hover:bg-blue-100 text-blue-600"
+                                  title="Edit"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteStaff(user)}
+                                  className="p-1 rounded hover:bg-red-100 text-red-600"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={daysInMonth + 4} className="text-center py-12 text-muted-foreground">
+                      <td colSpan={daysInMonth + 5} className="text-center py-12 text-muted-foreground">
                         No employees found.
                       </td>
                     </tr>
@@ -453,6 +521,20 @@ const HRAttendance = () => {
       <AddAttendanceStaffModal
         open={showAddStaffModal}
         onOpenChange={setShowAddStaffModal}
+      />
+
+      {/* Edit Staff Modal */}
+      <EditAttendanceStaffModal
+        open={showEditStaffModal}
+        onOpenChange={setShowEditStaffModal}
+        staff={selectedStaff}
+      />
+
+      {/* Delete Staff Dialog */}
+      <DeleteAttendanceStaffDialog
+        open={showDeleteStaffDialog}
+        onOpenChange={setShowDeleteStaffDialog}
+        staff={selectedStaff}
       />
     </div>
   );
