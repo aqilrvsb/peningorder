@@ -782,9 +782,11 @@ serve(async (req) => {
     // Handles: "SET A", "SET B", "SET C", "SET D", "SET BUNDLE"
     // Example: "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → setIdentifier = "SET C"
     // Example: "SET BUNDLE GOLDEN SARI" → setIdentifier = "SET BUNDLE"
+    // Fallback: If no SET found, try BOTOL pattern (e.g., "3 Botol" → botolCount = 3)
     const productNameLower = orderData.productNames.toLowerCase();
     const setIndex = productNameLower.indexOf('set');
     let setIdentifier = '';
+    let botolCount = 0;
 
     if (setIndex >= 0) {
       // Check for "SET BUNDLE" first (longer match takes priority)
@@ -799,54 +801,80 @@ serve(async (req) => {
         }
       }
     }
-    console.log('SET extraction:', { productName: orderData.productNames, setIndex, setIdentifier });
 
-    console.log('Bundle lookup:', { setIdentifier, productName: orderData.productNames, originalSku: orderData.sku });
-
-    if (setIdentifier) {
-      console.log(`Searching for bundle with name containing: ${setIdentifier}`);
-
-      // First try logistic_bundles for this marketer
-      let { data: allBundles } = await supabase
-        .from('logistic_bundles')
-        .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
-        .eq('is_active', true)
-        .eq('logistic_id', marketerLookup.id);
-
-      // If no bundles found for marketer, try ALL logistic_bundles as fallback
-      if (!allBundles || allBundles.length === 0) {
-        console.log('No logistic_bundles for marketer, trying all logistic_bundles');
-        const { data: allLogisticBundles } = await supabase
-          .from('logistic_bundles')
-          .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
-          .eq('is_active', true);
-        allBundles = allLogisticBundles;
-      }
-
-      if (allBundles && allBundles.length > 0) {
-        console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
-
-        // Find bundle where name contains the SET identifier (case insensitive)
-        // Example: setIdentifier = "Set C" matches bundle name "SET C GOLDEN SARI" or "Set C Golden Sari"
-        const matchingBundle = allBundles.find((b: any) =>
-          b.name && b.name.toLowerCase().includes(setIdentifier.toLowerCase())
-        );
-
-        if (matchingBundle) {
-          bundleId = matchingBundle.id;
-          bundleName = matchingBundle.name;
-          bundleSku = matchingBundle.sku;
-          bundleWeight = matchingBundle.weight || 0.5;
-          baseCost = matchingBundle.base_cost || 0;
-          postageSmCost = matchingBundle.kos_postage_sm || 0;
-          postageSsCost = matchingBundle.kos_postage_ss || 0;
-          console.log('Bundle found by SET pattern:', { bundleId, bundleName, bundleSku, setIdentifier });
-        } else {
-          console.warn(`No bundle found with name containing: ${setIdentifier}`);
+    // Fallback: If no SET found, try BOTOL pattern
+    if (!setIdentifier) {
+      const botolIndex = productNameLower.indexOf('botol');
+      if (botolIndex > 0) {
+        // Look for number before "botol" (e.g., "3 Botol", "3Botol", "3 botol")
+        const beforeBotol = orderData.productNames.substring(0, botolIndex).trim();
+        const numberMatch = beforeBotol.match(/(\d+)\s*$/);
+        if (numberMatch) {
+          botolCount = parseInt(numberMatch[1], 10);
         }
       }
-    } else {
-      console.log('Cannot determine bundle - no SET identifier found in product name');
+    }
+    console.log('Bundle extraction:', { productName: orderData.productNames, setIndex, setIdentifier, botolCount });
+
+    console.log('Bundle lookup:', { setIdentifier, botolCount, productName: orderData.productNames, originalSku: orderData.sku });
+
+    // First try logistic_bundles for this marketer
+    let { data: allBundles } = await supabase
+      .from('logistic_bundles')
+      .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
+      .eq('is_active', true)
+      .eq('logistic_id', marketerLookup.id);
+
+    // If no bundles found for marketer, try ALL logistic_bundles as fallback
+    if (!allBundles || allBundles.length === 0) {
+      console.log('No logistic_bundles for marketer, trying all logistic_bundles');
+      const { data: allLogisticBundles } = await supabase
+        .from('logistic_bundles')
+        .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
+        .eq('is_active', true);
+      allBundles = allLogisticBundles;
+    }
+
+    if (allBundles && allBundles.length > 0) {
+      console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
+
+      let matchingBundle = null;
+
+      if (setIdentifier) {
+        // Method 1: Match by SET identifier (e.g., "SET C" matches "SET C GOLDEN SARI")
+        console.log(`Searching for bundle with name containing: ${setIdentifier}`);
+        matchingBundle = allBundles.find((b: any) =>
+          b.name && b.name.toLowerCase().includes(setIdentifier.toLowerCase())
+        );
+      }
+
+      if (!matchingBundle && botolCount > 0) {
+        // Method 2: Match by BOTOL count (e.g., 3 botol → "50 UNIT" based on GSI count in SKU)
+        // SKU format: "GSI-X + ..." where X is the Golden Sari count
+        console.log(`Searching for bundle with GSI-${botolCount} in SKU`);
+        matchingBundle = allBundles.find((b: any) => {
+          if (!b.sku) return false;
+          const skuMatch = b.sku.match(/GSI-(\d+)/i);
+          return skuMatch && parseInt(skuMatch[1], 10) === botolCount;
+        });
+      }
+
+      if (matchingBundle) {
+        bundleId = matchingBundle.id;
+        bundleName = matchingBundle.name;
+        bundleSku = matchingBundle.sku;
+        bundleWeight = matchingBundle.weight || 0.5;
+        baseCost = matchingBundle.base_cost || 0;
+        postageSmCost = matchingBundle.kos_postage_sm || 0;
+        postageSsCost = matchingBundle.kos_postage_ss || 0;
+        console.log('Bundle found:', { bundleId, bundleName, bundleSku, setIdentifier, botolCount });
+      } else {
+        console.warn(`No bundle found with setIdentifier: ${setIdentifier}, botolCount: ${botolCount}`);
+      }
+    }
+
+    if (!setIdentifier && botolCount === 0) {
+      console.log('Cannot determine bundle - no SET identifier or BOTOL count found in product name');
     }
 
     if (!bundleId) {
