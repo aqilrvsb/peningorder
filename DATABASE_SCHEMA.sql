@@ -8,24 +8,16 @@ CREATE TABLE public.attendance (
   status text NOT NULL CHECK (status = ANY (ARRAY['present'::text, 'absent'::text])),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  staff_type text DEFAULT 'profile'::text, -- 'profile' for profiles table, 'attendance_staff' for attendance_staff table
-  CONSTRAINT attendance_pkey PRIMARY KEY (id)
+  CONSTRAINT attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
-
--- Staff for attendance only (non-login users)
 CREATE TABLE public.attendance_staff (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   ic_number text,
   phone text,
   address text,
-  role text NOT NULL CHECK (role = ANY (ARRAY[
-    'Managing Director'::text,
-    'Business Support Exec'::text,
-    'Customer Support'::text,
-    'Logistic'::text,
-    'Multimedia'::text
-  ])),
+  role text NOT NULL CHECK (role = ANY (ARRAY['Managing Director'::text, 'Business Support Exec'::text, 'Customer Support'::text, 'Logistic'::text, 'Multimedia'::text])),
   is_active boolean DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
