@@ -31,6 +31,7 @@ interface UserProfile {
   whatsapp_number: string | null;
   created_at: string;
   role?: string;
+  staff_type?: string;
 }
 
 const HRUserManagement = () => {
@@ -53,6 +54,7 @@ const HRUserManagement = () => {
     password: "",
     whatsapp_number: "",
     role: "marketer",
+    staff_type: "HQ",
     is_active: true,
   });
 
@@ -133,6 +135,7 @@ const HRUserManagement = () => {
           idstaff: data.idstaff || null,
           password_hash: passwordHash,
           whatsapp_number: data.whatsapp_number || null,
+          staff_type: data.staff_type || "HQ",
           is_active: data.is_active,
         })
         .select()
@@ -170,6 +173,7 @@ const HRUserManagement = () => {
         full_name: data.updates.full_name,
         idstaff: data.updates.idstaff || null,
         whatsapp_number: data.updates.whatsapp_number || null,
+        staff_type: data.updates.staff_type || "HQ",
         is_active: data.updates.is_active,
         updated_at: new Date().toISOString(),
       };
@@ -270,6 +274,7 @@ const HRUserManagement = () => {
       password: "",
       whatsapp_number: "",
       role: "marketer",
+      staff_type: "HQ",
       is_active: true,
     });
   };
@@ -291,6 +296,7 @@ const HRUserManagement = () => {
       password: "",
       whatsapp_number: user.whatsapp_number || "",
       role: user.role || "marketer",
+      staff_type: user.staff_type || "HQ",
       is_active: user.is_active,
     });
     setIsEditDialogOpen(true);
@@ -427,6 +433,7 @@ const HRUserManagement = () => {
                     <TableHead>ID Staff</TableHead>
                     <TableHead>WhatsApp</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead className="text-center">Active</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -443,6 +450,11 @@ const HRUserManagement = () => {
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role || "")}`}>
                             {user.role || "unknown"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.staff_type === 'Fighter' ? 'bg-orange-100 text-orange-800' : 'bg-teal-100 text-teal-800'}`}>
+                            {user.staff_type || "HQ"}
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
@@ -474,7 +486,7 @@ const HRUserManagement = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                         No users found.
                       </TableCell>
                     </TableRow>
@@ -555,13 +567,27 @@ const HRUserManagement = () => {
                 </Select>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label htmlFor="is_active">Active</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="staff_type">Type *</Label>
+                <Select value={formData.staff_type} onValueChange={(v) => setFormData({ ...formData, staff_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HQ">HQ</SelectItem>
+                    <SelectItem value="Fighter">Fighter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2 pt-8">
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="is_active">Active</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -645,13 +671,27 @@ const HRUserManagement = () => {
                 </Select>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="edit-is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label htmlFor="edit-is_active">Active</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-staff_type">Type *</Label>
+                <Select value={formData.staff_type} onValueChange={(v) => setFormData({ ...formData, staff_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HQ">HQ</SelectItem>
+                    <SelectItem value="Fighter">Fighter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2 pt-8">
+                <Switch
+                  id="edit-is_active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="edit-is_active">Active</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>

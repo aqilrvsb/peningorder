@@ -27,6 +27,7 @@ interface UserProfile {
   idstaff: string | null;
   is_active: boolean;
   role?: string;
+  staff_type?: string; // HQ or Fighter
   staffType?: "profile" | "attendance_staff"; // To differentiate source
   // Extra fields for attendance_staff
   phone?: string | null;
@@ -110,14 +111,17 @@ const HRAttendance = () => {
       // Create a map of user_id to role
       const rolesMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
 
-      // Filter only marketers and admins from profiles
+      // Filter only marketers and admins from profiles, and only HQ staff (not Fighter)
       const profileUsers = (profiles || [])
         .map((profile: any) => ({
           ...profile,
           role: rolesMap.get(profile.id) || "unknown",
           staffType: "profile" as const,
         }))
-        .filter((u: UserProfile) => u.role === "marketer" || u.role === "admin");
+        .filter((u: UserProfile) =>
+          (u.role === "marketer" || u.role === "admin") &&
+          (u.staff_type !== "Fighter") // Only show HQ staff, exclude Fighter
+        );
 
       // Map attendance_staff to same structure
       const staffUsers = (attendanceStaff || []).map((staff: any) => ({
