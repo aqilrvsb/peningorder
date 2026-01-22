@@ -63,6 +63,49 @@ function processNinjavanStatus(eventName: string): { status: string; seo: string
   return { status: 'Pending', seo: eventName };
 }
 
+// Get WhatsApp template category based on event
+// Used to prevent duplicate WhatsApp notifications for same category
+function getWhatsAppTemplateCategory(eventName: string): string | null {
+  const eventLower = eventName.toLowerCase();
+
+  // Successful Delivery
+  if (
+    eventLower.includes('delivered') ||
+    eventLower.includes('received by customer') ||
+    eventLower.includes('left at doorstep') ||
+    eventLower.includes('collected by customer')
+  ) {
+    return 'delivered';
+  }
+
+  // Return / Cancelled
+  if (eventLower.includes('return') || eventLower.includes('cancelled')) {
+    return 'return';
+  }
+
+  // Picked Up
+  if (eventLower.includes('picked up')) {
+    return 'picked_up';
+  }
+
+  // On Vehicle for Delivery
+  if (eventLower.includes('on vehicle') || eventLower.includes('out for delivery')) {
+    return 'on_vehicle';
+  }
+
+  // In Transit (includes hub events)
+  if (eventLower.includes('transit') || eventLower.includes('hub')) {
+    return 'in_transit';
+  }
+
+  // Failed Delivery / Exception
+  if (eventLower.includes('exception') || eventLower.includes('failed') || eventLower.includes('pending reschedule')) {
+    return 'failed';
+  }
+
+  return null;
+}
+
 // Get WhatsApp message template based on event
 function getWhatsAppMessage(
   eventName: string,
@@ -438,10 +481,27 @@ serve(async (req) => {
     let whatsappError = '';
     let whatsappSkipped = false;
 
-    // Skip WhatsApp if SEO hasn't changed (duplicate event from NinjaVan)
-    // NinjaVan sometimes fires the same event 2-3 times
-    if (previousSeo && newSeo === previousSeo) {
-      console.log('Skipping WhatsApp - duplicate event (SEO unchanged):', { previousSeo, newSeo });
+    // Get WhatsApp template categories to detect duplicates
+    // Different NinjaVan events like "Arrived at Origin Hub" and "Arrived at Transit Hub"
+    // have different SEO values but should only send ONE "In Transit" WhatsApp
+    const previousTemplateCategory = previousSeo ? getWhatsAppTemplateCategory(previousSeo) : null;
+    const currentTemplateCategory = getWhatsAppTemplateCategory(eventName);
+
+    console.log('WhatsApp template check:', {
+      previousSeo,
+      newSeo,
+      previousTemplateCategory,
+      currentTemplateCategory
+    });
+
+    // Skip WhatsApp if template category is the same (even if raw SEO is different)
+    // This prevents duplicate "In Transit" messages for different hub events
+    if (previousTemplateCategory && currentTemplateCategory && previousTemplateCategory === currentTemplateCategory) {
+      console.log('Skipping WhatsApp - same template category already sent:', {
+        previousSeo,
+        newSeo,
+        category: currentTemplateCategory
+      });
       whatsappSkipped = true;
     } else if (order.phone_customer && order.marketer_id_staff) {
       const message = getWhatsAppMessage(
@@ -486,6 +546,8 @@ serve(async (req) => {
         newStatus: updateData.delivery_status || previousStatus,
         previousSeo,
         newSeo,
+        previousTemplateCategory,
+        currentTemplateCategory,
         whatsappSent,
         whatsappSkipped,
         whatsappError
