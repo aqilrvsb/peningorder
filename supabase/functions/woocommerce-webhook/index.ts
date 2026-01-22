@@ -1074,7 +1074,7 @@ HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
 CARA BAYARAN : ${typePayment}
 TRACKING : ${trackingNumber || '-'}
 
-Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Su Yer...
+Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Kami Yer...
 
 ✅ 𝐍𝐚𝐧𝐭𝐢 𝐚𝐤𝐚𝐧 𝐚𝐝𝐚 penghantaran status parcel dari semasa ke semasa 𝐧𝐚𝐧𝐭𝐢 𝐲𝐞..
 
