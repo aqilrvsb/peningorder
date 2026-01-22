@@ -124,6 +124,9 @@ Status: ${eventName}
 
 Kurier akan cuba hantar semula. Sila pastikan anda ada di rumah.
 
+Track di sini:
+https://www.ninjavan.co/en-my/tracking?id=${trackingNumber}
+
 DFR EMPIRE`;
   }
 
