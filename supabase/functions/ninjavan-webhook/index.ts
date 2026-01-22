@@ -276,6 +276,11 @@ serve(async (req) => {
       );
     }
 
+    // Log full payload for debugging
+    console.log('=== FULL NINJAVAN PAYLOAD ===');
+    console.log(JSON.stringify(webhookData, null, 2));
+    console.log('=== END NINJAVAN PAYLOAD ===');
+
     // Extract tracking number (NinjaVan sends either tracking_id or tracking_number)
     const trackingNumber = webhookData.tracking_id || webhookData.tracking_number;
 
