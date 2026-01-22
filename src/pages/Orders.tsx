@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,8 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { orders, updateOrder, deleteOrder, refreshData } = useData();
   const { bundles, products } = useBundles();
+  const { profile } = useAuth();
+  const isMarketer = profile?.role === 'marketer';
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
@@ -691,7 +694,9 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
+                {!isMarketer && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
@@ -718,7 +723,9 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{order.kuantiti || 1}</td>
+                    {!isMarketer && (
+                      <td className="px-4 py-3 text-sm text-foreground">{order.kuantiti || 1}</td>
+                    )}
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
                         order.noTracking
@@ -834,7 +841,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={21} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 20 : 21} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>
