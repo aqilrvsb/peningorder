@@ -7,16 +7,28 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// NinjaVan webhook event interface
+// NinjaVan webhook event interface (based on actual payload)
 interface NinjaVanWebhook {
   tracking_id?: string;
   tracking_number?: string;
-  status?: string;
-  event_name?: string;
-  previous_status?: string;
+  status?: string;           // Short status: "Delivered", "On Vehicle for Delivery"
+  event?: string;            // Detailed event: "Delivered, Received by Customer"
+  event_name?: string;       // Legacy field
+  shipper_order_ref_no?: string;  // Our merchant_order_number: "BISNESOWNER-DFR{id_sale}"
   timestamp?: string;
-  shipper_id?: string;
+  is_parcel_on_rts_leg?: boolean;
   comments?: string;
+  delivery_information?: {
+    state?: string;
+    proof?: {
+      signature_uri?: string;
+      image_uris?: string[];
+      signed_by?: {
+        name?: string;
+        contact?: string;
+      };
+    };
+  };
 }
 
 // Process NinjaVan status - matching your PHP logic exactly
@@ -284,15 +296,20 @@ serve(async (req) => {
     // Extract tracking number (NinjaVan sends either tracking_id or tracking_number)
     const trackingNumber = webhookData.tracking_id || webhookData.tracking_number;
 
-    // Extract event/status (NinjaVan sends either status or event_name)
-    const eventName = webhookData.status || webhookData.event_name;
+    // Extract event - use 'event' field first (more detailed), fallback to 'status'
+    // event: "Delivered, Received by Customer" vs status: "Delivered"
+    const eventName = webhookData.event || webhookData.status || webhookData.event_name;
 
     // Extract comments/reason
     const comments = webhookData.comments || null;
 
+    // Extract shipper reference (our merchant_order_number)
+    const shipperRef = webhookData.shipper_order_ref_no || null;
+
     console.log('=== NinjaVan Webhook Received ===');
     console.log('Tracking:', trackingNumber);
     console.log('Event:', eventName);
+    console.log('Shipper Ref:', shipperRef);
     console.log('Comments:', comments);
 
     if (!trackingNumber) {
