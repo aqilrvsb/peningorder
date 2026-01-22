@@ -51,7 +51,7 @@ function processNinjavanStatus(eventName: string): { status: string; seo: string
   return { status: 'Pending', seo: eventName };
 }
 
-// Get WhatsApp message template based on event (only for non-final events)
+// Get WhatsApp message template based on event
 function getWhatsAppMessage(
   eventName: string,
   customerName: string,
@@ -60,14 +60,40 @@ function getWhatsAppMessage(
 ): string | null {
   const eventLower = eventName.toLowerCase();
 
-  // Don't send WhatsApp for Successful Delivery or Return - those are final statuses
+  // Successful Delivery - Thank you message
   if (
-    eventLower.includes('successful delivery') ||
-    eventLower.includes('completed') ||
     eventLower.includes('delivered') ||
-    eventLower.includes('return')
+    eventLower.includes('received by customer') ||
+    eventLower.includes('left at doorstep') ||
+    eventLower.includes('collected by customer')
   ) {
-    return null;
+    return `Alhamdulillah! Pesanan anda telah berjaya dihantar! 🎉
+
+No. Pesanan: ${idSale}
+No. Tracking: ${trackingNumber}
+
+Terima kasih kerana membeli dari kami. Kami amat menghargai sokongan anda!
+
+Jika ada sebarang masalah dengan produk, sila hubungi kami.
+
+Jumpa lagi! 💚
+DFR EMPIRE`;
+  }
+
+  // Return / Cancelled - Sorry message
+  if (
+    eventLower.includes('return') ||
+    eventLower.includes('cancelled')
+  ) {
+    return `Maaf, pesanan anda telah dipulangkan kepada kami. 😔
+
+No. Pesanan: ${idSale}
+No. Tracking: ${trackingNumber}
+Status: ${eventName}
+
+Kami mohon maaf atas kesulitan ini. Sila hubungi kami jika anda masih berminat untuk menerima pesanan ini.
+
+DFR EMPIRE`;
   }
 
   // Picked Up
