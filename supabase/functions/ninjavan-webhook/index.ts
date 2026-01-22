@@ -433,11 +433,17 @@ serve(async (req) => {
       });
     }
 
-    // Send WhatsApp notification for non-final events only
+    // Send WhatsApp notification
     let whatsappSent = false;
     let whatsappError = '';
+    let whatsappSkipped = false;
 
-    if (order.phone_customer && order.marketer_id_staff) {
+    // Skip WhatsApp if SEO hasn't changed (duplicate event from NinjaVan)
+    // NinjaVan sometimes fires the same event 2-3 times
+    if (previousSeo && newSeo === previousSeo) {
+      console.log('Skipping WhatsApp - duplicate event (SEO unchanged):', { previousSeo, newSeo });
+      whatsappSkipped = true;
+    } else if (order.phone_customer && order.marketer_id_staff) {
       const message = getWhatsAppMessage(
         eventName,
         order.name_customer || 'Pelanggan',
@@ -458,7 +464,7 @@ serve(async (req) => {
         whatsappError = whatsappResult.error || '';
         console.log('WhatsApp result:', whatsappResult.success ? 'sent' : whatsappResult.error);
       } else {
-        console.log('No WhatsApp for this event (final status):', eventName);
+        console.log('No WhatsApp template for this event:', eventName);
       }
     }
 
@@ -481,6 +487,7 @@ serve(async (req) => {
         previousSeo,
         newSeo,
         whatsappSent,
+        whatsappSkipped,
         whatsappError
       },
       response_status: 200,
