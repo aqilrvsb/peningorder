@@ -436,8 +436,15 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
   const firstItem = checkout.items?.[0];
   const sku = firstItem?.product?.sku || '';
   const totalQuantity = checkout.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 1;
-  // Use product.name first (e.g., "SET C GOLDEN SARI") instead of item.name (e.g., "S / Red" which is variant name)
-  const productNames = checkout.items?.map((item: any) => item.product?.name || item.name || 'Product').join(', ') || 'Product';
+  // Combine product.name AND item.name (variant) for bundle matching
+  // product.name = "golden sari", item.name = "SET 6 BOTOL +4 FREE GIFT"
+  // We need both to find SET/BOTOL patterns
+  const productNames = checkout.items?.map((item: any) => {
+    const productName = item.product?.name || '';
+    const variantName = item.name || '';
+    // Combine both names for pattern matching
+    return [productName, variantName].filter(Boolean).join(' - ');
+  }).join(', ') || 'Product';
 
   // Ensure totalPrice is a number
   const totalPrice = Number(checkout.total) || 0;
