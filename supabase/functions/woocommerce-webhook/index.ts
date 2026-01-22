@@ -242,7 +242,7 @@ async function createNinjavanOrder(
       service_level: "Standard",
       requested_tracking_number: orderData.idSale,
       reference: {
-        merchant_order_number: `DFREMPIRE-${orderData.idSale}`
+        merchant_order_number: `BISNESOWNER-DFR${orderData.idSale}`
       },
       from: {
         name: config.sender_name,

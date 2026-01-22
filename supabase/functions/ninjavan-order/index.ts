@@ -172,7 +172,7 @@ serve(async (req) => {
       service_level: "Standard",
       requested_tracking_number: trackingId,
       reference: {
-        merchant_order_number: `OLIVEJARDIN-${trackingId}`
+        merchant_order_number: `BISNESOWNER-DFR${trackingId}`
       },
       from: {
         name: config.sender_name,
