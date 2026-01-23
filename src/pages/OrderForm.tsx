@@ -770,6 +770,8 @@ const OrderForm: React.FC = () => {
         const editFinalCustomerType = formData.jenisCustomer === 'Prospect' ? determinedCustomerType : formData.jenisCustomer;
 
         // Update existing order in database - using new schema field names
+        // IMPORTANT: Include delivery_status: 'Pending' because cancelling old NinjaVan tracking
+        // triggers a webhook that sets status to 'Return'. We need to reset it back to Pending.
         const { error: updateError } = await supabase
           .from('customer_purchases')
           .update({
@@ -783,6 +785,7 @@ const OrderForm: React.FC = () => {
             total_sale: formData.hargaJualan, // NEW: total_sale
             kurier,
             tracking_number: trackingNumber,
+            delivery_status: 'Pending', // Keep as Pending after edit (webhook may set to Return due to cancel)
             jenis_platform: formData.jenisPlatform,
             jenis_customer: editFinalCustomerType,
             jenis_closing: formData.jenisClosing,
