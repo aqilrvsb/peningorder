@@ -1327,9 +1327,9 @@ const OrderForm: React.FC = () => {
               <Select
                 value={formData.produk}
                 onValueChange={(value) => handleChange('produk', value)}
-                disabled={bundlesLoading || (isEditMode && profile?.role === 'marketer')}
+                disabled={bundlesLoading}
               >
-                <SelectTrigger className={cn("bg-background", isEditMode && profile?.role === 'marketer' && "opacity-60 cursor-not-allowed")}>
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder={bundlesLoading ? "Loading..." : "Pilih Produk"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1357,8 +1357,7 @@ const OrderForm: React.FC = () => {
                 placeholder="0.00"
                 value={formData.hargaJualan || ''}
                 onChange={(e) => handleChange('hargaJualan', parseFloat(e.target.value) || 0)}
-                disabled={isEditMode && profile?.role === 'marketer'}
-                className={cn("bg-background", isPriceBelowMinimum && "border-red-500 focus-visible:ring-red-500", isEditMode && profile?.role === 'marketer' && "opacity-60 cursor-not-allowed")}
+                className={cn("bg-background", isPriceBelowMinimum && "border-red-500 focus-visible:ring-red-500")}
               />
               {currentMinPrice > 0 && (
                 <p className={cn("text-xs mt-1", isPriceBelowMinimum ? "text-red-500" : "text-muted-foreground")}>
@@ -1374,9 +1373,8 @@ const OrderForm: React.FC = () => {
               <Select
                 value={formData.caraBayaran}
                 onValueChange={(value) => handleChange('caraBayaran', value)}
-                disabled={isEditMode && profile?.role === 'marketer'}
               >
-                <SelectTrigger className={cn("bg-background", isEditMode && profile?.role === 'marketer' && "opacity-60 cursor-not-allowed")}>
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Pilih Cara Bayaran" />
                 </SelectTrigger>
                 <SelectContent>
