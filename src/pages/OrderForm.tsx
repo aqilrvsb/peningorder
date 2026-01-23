@@ -179,8 +179,10 @@ const OrderForm: React.FC = () => {
         negeri: editOrder.negeri || '',
         alamat: editOrder.alamat || '',
         produk: editOrder.produk || '',
+        quantity: 1, // Always 1 for edit mode
         hargaJualan: editOrder.hargaJualanSebenar || 0,
         caraBayaran: editOrder.caraBayaran || '',
+        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'PICKUP' : 'KURIER',
         jenisBayaran: editOrder.jenisBayaran || '',
         pilihBank: editOrder.bank || '',
         nota: editOrder.notaStaff || '',
@@ -763,8 +765,12 @@ const OrderForm: React.FC = () => {
         // Waybill no longer used - all platforms now use NinjaVan
         let newWaybillUrl = '';
 
-        // Get units from selected bundle for edit mode
-        const editBundleUnits = activeBundles.find(b => b.name === formData.produk)?.units || 1;
+        // Use quantity from form (always 1 for edit mode)
+        const editQuantity = formData.quantity || 1;
+
+        // Get selected bundle ID for product update
+        const selectedEditBundle = activeBundles.find(b => b.name === formData.produk);
+        const editBundleId = selectedEditBundle?.id || null;
 
         // Determine final customer type to save for edit mode
         const editFinalCustomerType = formData.jenisCustomer === 'Prospect' ? determinedCustomerType : formData.jenisCustomer;
@@ -781,7 +787,7 @@ const OrderForm: React.FC = () => {
             postcode_customer: formData.poskod, // NEW: postcode_customer
             city_customer: formData.daerah, // NEW: city_customer
             state_customer: formData.negeri, // NEW: state_customer
-            unit: editBundleUnits, // NEW: unit
+            unit: editQuantity, // Always 1 for edit mode
             total_sale: formData.hargaJualan, // NEW: total_sale
             kurier,
             tracking_number: trackingNumber,
@@ -795,6 +801,7 @@ const OrderForm: React.FC = () => {
             bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
             receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
             waybill_url: newWaybillUrl || null,
+            bundle_id: editBundleId, // Save selected product/bundle
             updated_at: new Date().toISOString(),
           })
           .eq('id', editOrder.id);
