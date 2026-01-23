@@ -855,11 +855,14 @@ serve(async (req) => {
       if (!matchingBundle && botolCount > 0) {
         // Method 2: Match by BOTOL count - find bundle where SKU starts with "GSI-{botolCount}"
         // Example: 4 BOTOL → find bundle with SKU starting with "GSI-4"
-        console.log(`Searching for bundle with SKU starting with GSI-${botolCount}`);
+        // IMPORTANT: Use regex to match exact number, not just startsWith
+        // e.g., "GSI-1" should NOT match "GSI-100", only "GSI-1" or "GSI-1+"
+        console.log(`Searching for bundle with SKU matching GSI-${botolCount}`);
+        const botolRegex = new RegExp(`^gsi-${botolCount}(\\+|$)`, 'i');
         matchingBundle = allBundles.find((b: any) => {
           if (!b.sku) return false;
-          // Check if SKU starts with "GSI-{botolCount}" (case insensitive)
-          return b.sku.toLowerCase().startsWith(`gsi-${botolCount}`);
+          // Check if SKU matches "GSI-{botolCount}" followed by "+" or end of string
+          return botolRegex.test(b.sku);
         });
       }
 
