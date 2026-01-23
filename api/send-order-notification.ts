@@ -311,7 +311,9 @@ export default async function handler(req: any, res: any) {
     const bundleName = orderData.bundle_name || orderData.produk || '';
     const bundleSku = orderData.bundle_sku || '';
     const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
-    const paymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
+    const rawPaymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
+    // Display "Online Payment" instead of "CASH" for WhatsApp message
+    const paymentMethod = rawPaymentMethod === 'CASH' ? 'Online Payment' : rawPaymentMethod;
     const idSale = orderData.id_sale || '-';
     const trackingNumber = orderData.tracking_number || orderData.no_tracking || '-';
 

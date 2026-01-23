@@ -890,7 +890,7 @@ serve(async (req) => {
 
     // Determine payment method
     const isCOD = orderData.paymentMethod === 'COD';
-    const typePayment = isCOD ? 'COD' : 'CASH';
+    const typePayment = isCOD ? 'COD' : 'Online Payment';
 
     // Generate Sale ID
     const idSale = await generateSaleId(supabase);
