@@ -32,7 +32,7 @@ const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Beg Lead'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
 const DELIVERY_METHOD_OPTIONS = ['KURIER', 'PICKUP'];
-const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH'];
+const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
   'CIMB Bank',
@@ -586,14 +586,7 @@ const OrderForm: React.FC = () => {
 
     // Validate payment details for CASH (all platforms now use same flow)
     if (formData.caraBayaran === 'CASH') {
-      if (!tarikhBayaran) {
-        toast({
-          title: 'Error',
-          description: 'Sila pilih Tarikh Bayaran.',
-          variant: 'destructive',
-        });
-        return;
-      }
+      // Always require Jenis Bayaran
       if (!formData.jenisBayaran) {
         toast({
           title: 'Error',
@@ -602,21 +595,32 @@ const OrderForm: React.FC = () => {
         });
         return;
       }
-      if (!formData.pilihBank) {
-        toast({
-          title: 'Error',
-          description: 'Sila pilih Bank.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (!receiptFile && !isEditMode) {
-        toast({
-          title: 'Error',
-          description: 'Sila muat naik Resit Bayaran.',
-          variant: 'destructive',
-        });
-        return;
+      // Skip other validations if Billplz is selected
+      if (formData.jenisBayaran !== 'Billplz') {
+        if (!tarikhBayaran) {
+          toast({
+            title: 'Error',
+            description: 'Sila pilih Tarikh Bayaran.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        if (!formData.pilihBank) {
+          toast({
+            title: 'Error',
+            description: 'Sila pilih Bank.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        if (!receiptFile && !isEditMode) {
+          toast({
+            title: 'Error',
+            description: 'Sila muat naik Resit Bayaran.',
+            variant: 'destructive',
+          });
+          return;
+        }
       }
     }
 
@@ -1519,35 +1523,7 @@ const OrderForm: React.FC = () => {
           <div className="bg-card border border-border rounded-lg p-6 border-l-4 border-l-emerald-500">
             <h3 className="text-lg font-semibold text-foreground mb-4">Butiran Bayaran</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Tarikh Bayaran */}
-              <div>
-                <FormLabel required>Tarikh Bayaran</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal bg-background",
-                        !tarikhBayaran && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {tarikhBayaran ? format(tarikhBayaran, "dd/MM/yyyy") : "Pilih tarikh"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={tarikhBayaran}
-                      onSelect={setTarikhBayaran}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Jenis Bayaran */}
+              {/* Jenis Bayaran - First */}
               <div>
                 <FormLabel required>Jenis Bayaran</FormLabel>
                 <Select
@@ -1565,53 +1541,87 @@ const OrderForm: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Pilih Bank */}
-              <div>
-                <FormLabel required>Pilih Bank</FormLabel>
-                <Select
-                  value={formData.pilihBank}
-                  onValueChange={(value) => handleChange('pilihBank', value)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Pilih Bank" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BANK_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Resit Bayaran */}
-              <div>
-                <FormLabel required>Resit Bayaran</FormLabel>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="receipt-upload"
-                  />
-                  <label
-                    htmlFor="receipt-upload"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm text-muted-foreground">
-                      {receiptFile ? receiptFile.name : (isEditMode ? 'Resit sudah dimuat naik' : 'Upload Resit')}
-                    </span>
-                  </label>
-                  {receiptPreview && (
-                    <img
-                      src={receiptPreview}
-                      alt="Receipt preview"
-                      className="mt-2 w-full h-32 object-cover rounded-lg border border-border"
-                    />
-                  )}
+              {/* Tarikh Bayaran - Only show if NOT Billplz */}
+              {formData.jenisBayaran !== 'Billplz' && (
+                <div>
+                  <FormLabel required>Tarikh Bayaran</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !tarikhBayaran && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {tarikhBayaran ? format(tarikhBayaran, "dd/MM/yyyy") : "Pilih tarikh"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={tarikhBayaran}
+                        onSelect={setTarikhBayaran}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-              </div>
+              )}
+
+              {/* Pilih Bank - Only show if NOT Billplz */}
+              {formData.jenisBayaran !== 'Billplz' && (
+                <div>
+                  <FormLabel required>Pilih Bank</FormLabel>
+                  <Select
+                    value={formData.pilihBank}
+                    onValueChange={(value) => handleChange('pilihBank', value)}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Pilih Bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BANK_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Resit Bayaran - Only show if NOT Billplz */}
+              {formData.jenisBayaran !== 'Billplz' && (
+                <div>
+                  <FormLabel required>Resit Bayaran</FormLabel>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="receipt-upload"
+                    />
+                    <label
+                      htmlFor="receipt-upload"
+                      className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span className="text-sm text-muted-foreground">
+                        {receiptFile ? receiptFile.name : (isEditMode ? 'Resit sudah dimuat naik' : 'Upload Resit')}
+                      </span>
+                    </label>
+                    {receiptPreview && (
+                      <img
+                        src={receiptPreview}
+                        alt="Receipt preview"
+                        className="mt-2 w-full h-32 object-cover rounded-lg border border-border"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
