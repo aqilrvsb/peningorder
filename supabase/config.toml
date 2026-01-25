@@ -1,10 +1,10 @@
 project_id = "xjcfyfkpavyonxrdczgs"
 
 [functions.ninjavan-order]
-verify_jwt = true
+verify_jwt = false
 
 [functions.ninjavan-cancel]
-verify_jwt = true
+verify_jwt = false
 
 [functions.ninjavan-waybill]
 verify_jwt = false
