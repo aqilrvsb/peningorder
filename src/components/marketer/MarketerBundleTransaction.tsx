@@ -136,14 +136,14 @@ const MarketerBundleTransaction = () => {
 
       const orderUnit = Number(p.unit) || 1;
       const orderSale = Number(p.total_sale) || 0;
-      const isSuccess = p.seo === "Successfull Delivery";
+      const isSuccess = p.seo === "Successful Delivery";
 
       // Shipped
       if (p.delivery_status === "Shipped") {
         entry.shippedUnits += orderUnit;
         entry.totalSales += orderSale;
 
-        // Success (SEO = Successfull Delivery)
+        // Success (SEO = Successful Delivery)
         if (isSuccess) {
           entry.successUnits += orderUnit;
         }
@@ -230,12 +230,12 @@ const MarketerBundleTransaction = () => {
       if (!matchesPlatform(p, modalPlatform)) return false;
 
       if (modalType === "success") {
-        return p.delivery_status === "Shipped" && p.seo === "Successfull Delivery";
+        return p.delivery_status === "Shipped" && p.seo === "Successful Delivery";
       } else if (modalType === "return") {
         return p.delivery_status === "Return";
       } else if (modalType === "remaining") {
         // Remaining = Shipped but NOT success and NOT return
-        return p.delivery_status === "Shipped" && p.seo !== "Successfull Delivery";
+        return p.delivery_status === "Shipped" && p.seo !== "Successful Delivery";
       }
       return false;
     });

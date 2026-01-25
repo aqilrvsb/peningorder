@@ -75,11 +75,11 @@ const DashboardLogistic: React.FC = () => {
     const totalCash = filteredAllOrders.filter(o => o.type_payment === 'CASH').length;
     const totalCOD = filteredAllOrders.filter(o => o.type_payment === 'COD').length;
 
-    // Total Pending Tracking: Shipped + COD + (SEO is null OR SEO != 'Successfull Delivery')
+    // Total Pending Tracking: Shipped + COD + (SEO is null OR SEO != 'Successful Delivery')
     // All platforms now use NinjaVan (including Tiktok and Shopee)
     const totalPendingTracking = filteredAllOrders.filter(o =>
       o.delivery_status === 'Shipped' &&
-      (!o.seo || o.seo !== 'Successfull Delivery') &&
+      (!o.seo || o.seo !== 'Successful Delivery') &&
       o.type_payment === 'COD'
     ).length;
 

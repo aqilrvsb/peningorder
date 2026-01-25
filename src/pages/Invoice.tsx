@@ -257,7 +257,7 @@ const Invoice = () => {
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">SEO Status</span>
                     <span className={`text-sm font-semibold ${
-                      orderData.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-600"
+                      orderData.seo === "Successful Delivery" ? "text-green-600" : "text-gray-600"
                     }`}>
                       {orderData.seo}
                     </span>

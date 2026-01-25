@@ -39,7 +39,7 @@ Content-Type: application/json
 ### Event Processing Logic
 | Event Contains | SEO Value | delivery_status | Other Updates |
 |----------------|-----------|-----------------|---------------|
-| "delivered" (case insensitive) | Successfull Delivery | Shipped | tarikh_bayaran = today |
+| "delivered" (case insensitive) | Successful Delivery | Shipped | tarikh_bayaran = today |
 | "returned to sender" (case insensitive) | Return | Return | date_return = today |
 | Other events | [event value] | (unchanged) | - |
 

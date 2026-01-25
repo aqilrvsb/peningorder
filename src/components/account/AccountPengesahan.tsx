@@ -63,7 +63,7 @@ const AccountPengesahan = () => {
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
   // Fetch CASH orders for verification (both NinjaVan CASH and Order Pickup)
-  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo !== 'Successfull Delivery'
+  // Criteria: type_payment === 'CASH', delivery_status === 'Shipped', seo !== 'Successful Delivery'
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-pengesahan", filterDate],
     queryFn: async () => {
@@ -75,7 +75,7 @@ const AccountPengesahan = () => {
         `)
         .eq("type_payment", "CASH")
         .eq("delivery_status", "Shipped")
-        .neq("seo", "Successfull Delivery")
+        .neq("seo", "Successful Delivery")
         .order("created_at", { ascending: false });
 
       // Filter by date_payment (receipt date from marketer)
@@ -172,7 +172,7 @@ const AccountPengesahan = () => {
         supabase
           .from("customer_purchases")
           .update({
-            seo: "Successfull Delivery",
+            seo: "Successful Delivery",
             date_approve: approveDate,
             updated_at: new Date().toISOString(),
           })
@@ -295,7 +295,7 @@ const AccountPengesahan = () => {
       const { error } = await supabase
         .from("customer_purchases")
         .update({
-          seo: "Successfull Delivery",
+          seo: "Successful Delivery",
           date_approve: approveDate,
           updated_at: new Date().toISOString(),
         })

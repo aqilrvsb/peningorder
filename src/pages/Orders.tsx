@@ -102,8 +102,8 @@ const Orders: React.FC = () => {
       // Delivery status filter
       if (deliveryStatusFilter !== "All") {
         if (deliveryStatusFilter === "Remaining") {
-          // Remaining = Shipped but seo !== 'Successfull Delivery'
-          if (!(order.deliveryStatus === 'Shipped' && order.seo !== 'Successfull Delivery')) {
+          // Remaining = Shipped but seo !== 'Successful Delivery'
+          if (!(order.deliveryStatus === 'Shipped' && order.seo !== 'Successful Delivery')) {
             return false;
           }
         } else if (order.deliveryStatus !== deliveryStatusFilter) {
@@ -143,13 +143,13 @@ const Orders: React.FC = () => {
     const totalPending = orders.filter(o => o.deliveryStatus === 'Pending').length;
     const totalShipped = orders.filter(o => o.deliveryStatus === 'Shipped').length;
 
-    // Remaining = Shipped but seo !== 'Successfull Delivery'
-    const remainingOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successfull Delivery');
+    // Remaining = Shipped but seo !== 'Successful Delivery'
+    const remainingOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successful Delivery');
     const totalRemaining = remainingOrders.length;
     const totalSalesRemaining = remainingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Success = Shipped and seo === 'Successfull Delivery'
-    const successOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successfull Delivery');
+    // Success = Shipped and seo === 'Successful Delivery'
+    const successOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successful Delivery');
     const totalSuccess = successOrders.length;
     const totalSalesSuccess = successOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -787,7 +787,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.notaStaff || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        order.seo === 'Successfull Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        order.seo === 'Successful Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                         order.seo === 'Shipped' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                         order.seo === 'Return' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                         'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400'

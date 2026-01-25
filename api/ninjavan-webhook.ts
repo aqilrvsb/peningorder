@@ -49,7 +49,7 @@ async function sendWhatsApp(instance: string, phone: string, message: string): P
  * Logic:
  * 1. Find order by tracking_id (no_tracking column)
  * 2. Update SEO column with event value
- * 3. If event contains "Delivered" -> SEO = "Successfull Delivery", tarikh_bayaran = today
+ * 3. If event contains "Delivered" -> SEO = "Successful Delivery", tarikh_bayaran = today
  * 4. If event = "Returned To Sender" -> delivery_status = "Return", date_return = today
  */
 
@@ -59,7 +59,7 @@ function processEvent(event: string): { seo: string; isSuccess: boolean; isRetur
 
   // Check if event contains "delivered" (any delivered status)
   if (eventLower.includes('delivered')) {
-    return { seo: 'Successfull Delivery', isSuccess: true, isReturn: false }
+    return { seo: 'Successful Delivery', isSuccess: true, isReturn: false }
   }
 
   // Check if event is "Returned To Sender"

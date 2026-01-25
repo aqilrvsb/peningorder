@@ -89,7 +89,7 @@ const LogisticPendingTracking = () => {
         `)
         .eq("delivery_status", "Shipped")
         .eq("type_payment", "COD")
-        .or("seo.is.null,seo.neq.Successfull Delivery")
+        .or("seo.is.null,seo.neq.Successful Delivery")
         .order("date_order", { ascending: false });
 
       if (startDate) {
@@ -208,7 +208,7 @@ const LogisticPendingTracking = () => {
       await supabase
         .from("customer_purchases")
         .update({
-          seo: "Successfull Delivery",
+          seo: "Successful Delivery",
           date_payment: today,
         })
         .eq("id", orderId);
@@ -257,7 +257,7 @@ const LogisticPendingTracking = () => {
       let updateData: any;
       if (bulkStatus === "Success") {
         updateData = {
-          seo: "Successfull Delivery",
+          seo: "Successful Delivery",
           date_payment: bulkDate,
           delivery_status: "Shipped",
         };
@@ -314,7 +314,7 @@ const LogisticPendingTracking = () => {
       let updateData: any;
       if (individualStatus === "Success") {
         updateData = {
-          seo: "Successfull Delivery",
+          seo: "Successful Delivery",
           date_payment: individualDate,
           delivery_status: "Shipped",
         };
@@ -620,7 +620,7 @@ const LogisticPendingTracking = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs ${order.seo === "Successfull Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                            <span className={`text-xs ${order.seo === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
                               {order.seo || "-"}
                             </span>
                           </td>
