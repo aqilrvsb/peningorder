@@ -12,7 +12,7 @@ interface PaymentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: {
-    tarikh_bayaran?: string;
+    date_payment?: string;
     jenis_bayaran?: string;
     bank?: string;
     receipt_image_url?: string;
@@ -53,7 +53,7 @@ const PaymentDetailsModal = ({ isOpen, onClose, order }: PaymentDetailsModalProp
             <Calendar className="w-5 h-5 text-blue-500" />
             <div>
               <p className="text-xs text-muted-foreground">Payment Date</p>
-              <p className="font-medium">{order.tarikh_bayaran || "-"}</p>
+              <p className="font-medium">{order.date_payment || "-"}</p>
             </div>
           </div>
 

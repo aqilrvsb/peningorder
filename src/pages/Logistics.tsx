@@ -1201,10 +1201,10 @@ const Logistics: React.FC = () => {
 
       let updateData: any;
       if (bulkStatus === 'Success') {
-        // Success: SEO='Successfull Delivery', tarikh_bayaran=date, delivery_status stays 'Shipped'
+        // Success: SEO='Successfull Delivery', date_payment=date, delivery_status stays 'Shipped'
         updateData = {
           seo: 'Successfull Delivery',
-          tarikh_bayaran: bulkDate,
+          date_payment: bulkDate,
           delivery_status: 'Shipped',
           updated_at: new Date().toISOString(),
         };

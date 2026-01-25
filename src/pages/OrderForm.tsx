@@ -407,9 +407,38 @@ const OrderForm: React.FC = () => {
     return bundle.priceNormalNp; // Default to NP
   };
 
+  // Check if state is Sabah/Sarawak (East Malaysia)
+  const isEastMalaysia = (state: string): boolean => {
+    const eastStates = ['SABAH', 'SARAWAK', 'LABUAN'];
+    return eastStates.includes(state.toUpperCase());
+  };
+
+  // Calculate postage cost for COD orders
+  // COD orders: add postage (SM or SS) + COD fee
+  // CASH orders: no postage added to selling price
+  const getPostageCost = (bundleName: string, negeri: string, caraBayaran: string): { postage: number; codFee: number; total: number } => {
+    if (caraBayaran !== 'COD') {
+      return { postage: 0, codFee: 0, total: 0 };
+    }
+
+    const bundle = activeBundles.find(b => b.name === bundleName);
+    if (!bundle) return { postage: 0, codFee: 0, total: 0 };
+
+    const isEast = isEastMalaysia(negeri);
+    const postage = isEast ? bundle.kosPostageSs : bundle.kosPostageSm;
+    const codFee = bundle.postageCod || 0;
+
+    return {
+      postage,
+      codFee,
+      total: postage + codFee
+    };
+  };
+
   // Get effective customer type for price calculation (multiply by quantity)
   const minPricePerUnit = getMinimumPrice(formData.produk, formData.jenisPlatform, formData.jenisCustomer);
-  const currentMinPrice = minPricePerUnit * (formData.quantity || 1);
+  const postageCostInfo = getPostageCost(formData.produk, formData.negeri, formData.caraBayaran);
+  const currentMinPrice = (minPricePerUnit * (formData.quantity || 1)) + postageCostInfo.total;
   const isPriceBelowMinimum = formData.hargaJualan > 0 && formData.hargaJualan < currentMinPrice;
 
   const handleChange = (field: string, value: string | number) => {
@@ -458,18 +487,24 @@ const OrderForm: React.FC = () => {
         }
       }
 
-      // Auto-populate price when product, platform, customer type, or quantity changes (only for new orders)
-      if ((field === 'produk' || field === 'jenisPlatform' || field === 'jenisCustomer' || field === 'quantity') && !isEditMode) {
+      // Auto-populate price when product, platform, customer type, quantity, negeri, or caraBayaran changes (only for new orders)
+      // For COD: price = (minPrice * quantity) + postage + COD fee
+      // For CASH: price = minPrice * quantity (no postage added)
+      if ((field === 'produk' || field === 'jenisPlatform' || field === 'jenisCustomer' || field === 'quantity' || field === 'negeri' || field === 'caraBayaran') && !isEditMode) {
         const bundleName = field === 'produk' ? value as string : prev.produk;
         const platform = field === 'jenisPlatform' ? value as string : prev.jenisPlatform;
         const customerType = field === 'jenisCustomer' ? value as string : prev.jenisCustomer;
         const quantity = field === 'quantity' ? Number(value) : prev.quantity;
+        const negeri = field === 'negeri' ? value as string : prev.negeri;
+        const caraBayaran = field === 'caraBayaran' ? value as string : prev.caraBayaran;
 
         if (bundleName && customerType) {
           const minPricePerUnit = getMinimumPrice(bundleName, platform, customerType);
-          // Auto-populate: price = minPrice * quantity
-          if (field === 'produk' || field === 'jenisCustomer' || field === 'quantity' || prev.hargaJualan === 0) {
-            newData.hargaJualan = minPricePerUnit * (quantity || 1);
+          const postageInfo = getPostageCost(bundleName, negeri, caraBayaran);
+
+          // Auto-populate: price = (minPrice * quantity) + postage (if COD)
+          if (field === 'produk' || field === 'jenisCustomer' || field === 'quantity' || field === 'negeri' || field === 'caraBayaran' || prev.hargaJualan === 0) {
+            newData.hargaJualan = (minPricePerUnit * (quantity || 1)) + postageInfo.total;
           }
         }
       }
@@ -1371,6 +1406,21 @@ const OrderForm: React.FC = () => {
                   Harga minimum: RM{currentMinPrice.toFixed(2)}
                   {isPriceBelowMinimum && " - Harga terlalu rendah!"}
                 </p>
+              )}
+              {/* Show postage breakdown for COD orders */}
+              {formData.caraBayaran === 'COD' && postageCostInfo.total > 0 && (
+                <div className="text-xs mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
+                  <p className="font-medium text-amber-700 dark:text-amber-400">Kos Postage (COD):</p>
+                  <p className="text-amber-600 dark:text-amber-500">
+                    Postage {isEastMalaysia(formData.negeri) ? 'SS' : 'SM'}: RM{postageCostInfo.postage.toFixed(2)}
+                  </p>
+                  <p className="text-amber-600 dark:text-amber-500">
+                    COD Fee: RM{postageCostInfo.codFee.toFixed(2)}
+                  </p>
+                  <p className="font-medium text-amber-700 dark:text-amber-400 border-t border-amber-200 dark:border-amber-700 pt-1 mt-1">
+                    Total Postage: RM{postageCostInfo.total.toFixed(2)}
+                  </p>
+                </div>
               )}
             </div>
 

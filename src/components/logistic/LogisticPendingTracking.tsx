@@ -209,7 +209,7 @@ const LogisticPendingTracking = () => {
         .from("customer_purchases")
         .update({
           seo: "Successfull Delivery",
-          tarikh_bayaran: today,
+          date_payment: today,
         })
         .eq("id", orderId);
 
@@ -258,7 +258,7 @@ const LogisticPendingTracking = () => {
       if (bulkStatus === "Success") {
         updateData = {
           seo: "Successfull Delivery",
-          tarikh_bayaran: bulkDate,
+          date_payment: bulkDate,
           delivery_status: "Shipped",
         };
       } else {
@@ -315,7 +315,7 @@ const LogisticPendingTracking = () => {
       if (individualStatus === "Success") {
         updateData = {
           seo: "Successfull Delivery",
-          tarikh_bayaran: individualDate,
+          date_payment: individualDate,
           delivery_status: "Shipped",
         };
       } else {
