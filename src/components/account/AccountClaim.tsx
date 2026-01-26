@@ -239,8 +239,6 @@ const AccountClaim = () => {
 
   // Calculate totals
   const totalClaimsAmount = claims.reduce((sum, c) => sum + Number(c.total_deductions), 0);
-  const pendingCount = claims.filter((c) => c.status === "pending").length;
-  const approvedCount = claims.filter((c) => c.status === "approved").length;
 
   // Calculate total deductions from items
   const totalDeductions = useMemo(() => {
@@ -861,7 +859,7 @@ const AccountClaim = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -869,28 +867,6 @@ const AccountClaim = () => {
               <div>
                 <p className="text-xl font-bold">RM {totalClaimsAmount.toFixed(2)}</p>
                 <p className="text-xs text-muted-foreground">Total Claims ({claims.length})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-6 h-6 text-yellow-500" />
-              <div>
-                <p className="text-xl font-bold">{pendingCount}</p>
-                <p className="text-xs text-muted-foreground">Pending</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <FileText className="w-6 h-6 text-green-500" />
-              <div>
-                <p className="text-xl font-bold">{approvedCount}</p>
-                <p className="text-xs text-muted-foreground">Approved</p>
               </div>
             </div>
           </CardContent>
