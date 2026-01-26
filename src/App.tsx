@@ -106,6 +106,7 @@ const App = () => (
                   <Route path="logistics/stock-out" element={<LogisticStockOut />} />
                   <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
                   {/* New Logistic Role routes - Logistics */}
+                  <Route path="logistics/create-order" element={<OrderForm />} />
                   <Route path="logistics/order" element={<LogisticOrder />} />
                   <Route path="logistics/processed" element={<LogisticProcessed />} />
                   <Route path="logistics/return" element={<LogisticReturn />} />

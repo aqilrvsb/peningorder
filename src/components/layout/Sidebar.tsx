@@ -32,6 +32,7 @@ import {
   XCircle,
   FileText,
   Webhook,
+  FilePlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -191,6 +192,12 @@ const navItems: NavItem[] = [
     roles: ['logistic'],
   },
   // ============ LOGISTIC ROLE - LOGISTICS ============
+  {
+    label: 'Key In Order',
+    path: '/dashboard/logistics/create-order',
+    icon: <FilePlus className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
   {
     label: 'Order',
     path: '/dashboard/logistics/order',
