@@ -950,8 +950,8 @@ const AccountClaim = () => {
                       <th className="p-3 text-left">Department</th>
                       <th className="p-3 text-left">Pay Date</th>
                       <th className="p-3 text-left">Invoice</th>
-                      <th className="p-3 text-right">Amount (RM)</th>
                       <th className="p-3 text-center">Attachment</th>
+                      <th className="p-3 text-right">Amount (RM)</th>
                       <th className="p-3 text-center">Status</th>
                       <th className="p-3 text-center">Action</th>
                     </tr>
@@ -972,9 +972,6 @@ const AccountClaim = () => {
                           <td className="p-3">{claim.department}</td>
                           <td className="p-3 whitespace-nowrap">{claim.pay_date}</td>
                           <td className="p-3">{claim.invoice_number || "-"}</td>
-                          <td className="p-3 text-right font-medium">
-                            RM {Number(claim.total_deductions).toFixed(2)}
-                          </td>
                           <td className="p-3 text-center">
                             {claim.attachment_url ? (
                               <a
@@ -989,6 +986,9 @@ const AccountClaim = () => {
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
+                          </td>
+                          <td className="p-3 text-right font-medium">
+                            RM {Number(claim.total_deductions).toFixed(2)}
                           </td>
                           <td className="p-3 text-center">
                             <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(claim.status)}`}>
