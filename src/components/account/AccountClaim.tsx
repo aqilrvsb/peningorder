@@ -95,23 +95,58 @@ const AccountClaim = () => {
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null);
 
-  // Fetch staff names from attendance_staff
+  // Fetch staff names from both profiles and attendance_staff (like HR Attendance)
   const { data: staffList = [] } = useQuery({
-    queryKey: ["staff-list-attendance"],
+    queryKey: ["staff-list-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("attendance_staff")
-        .select("name, ic_number, role")
+      // Fetch profiles (marketers and admins)
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
         .eq("is_active", true)
-        .order("name");
+        .order("full_name", { ascending: true });
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      return (data || []).map((staff: any) => ({
+      // Fetch user_roles
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      // Fetch attendance_staff (non-login staff)
+      const { data: attendanceStaff, error: staffError } = await supabase
+        .from("attendance_staff")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (staffError) throw staffError;
+
+      // Create a map of user_id to role
+      const rolesMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
+
+      // Filter only marketers and admins from profiles, and only HQ staff (not Fighter)
+      const profileUsers = (profiles || [])
+        .map((profile: any) => ({
+          name: profile.full_name,
+          idstaff: profile.idstaff,
+          role: rolesMap.get(profile.id) || "unknown",
+        }))
+        .filter((u: any) =>
+          (u.role === "marketer" || u.role === "admin")
+        );
+
+      // Map attendance_staff to same structure
+      const staffUsers = (attendanceStaff || []).map((staff: any) => ({
         name: staff.name,
         idstaff: staff.ic_number,
         role: staff.role,
       }));
+
+      // Combine both arrays
+      return [...profileUsers, ...staffUsers];
     },
   });
 
