@@ -36,7 +36,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
-const DEPARTMENT_OPTIONS = ["Sales", "Marketing", "Operations", "Finance", "HR", "IT", "Admin", "Other"];
 const EMPLOYMENT_TYPE_OPTIONS = ["Full Time", "Part Time", "Contract", "Intern"];
 
 interface ClaimItem {
@@ -92,6 +91,27 @@ const AccountClaim = () => {
   const [formNetPay, setFormNetPay] = useState("");
   const [formBankAccount, setFormBankAccount] = useState("");
   const [formBankName, setFormBankName] = useState("");
+
+  // Fetch departments dynamically from attendance_staff roles
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("attendance_staff")
+        .select("role")
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      // Get unique roles from attendance_staff
+      const staffRoles = [...new Set((data || []).map((d: any) => d.role))];
+
+      // Add Marketer and Admin for login users, then staff roles
+      const allDepartments = ["Marketer", "Admin", ...staffRoles];
+
+      return allDepartments;
+    },
+  });
 
   // Fetch claims
   const { data: claims = [], isLoading } = useQuery({
@@ -550,7 +570,7 @@ const AccountClaim = () => {
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DEPARTMENT_OPTIONS.map((dept) => (
+                      {departments.map((dept) => (
                         <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                       ))}
                     </SelectContent>
