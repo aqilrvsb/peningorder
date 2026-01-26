@@ -283,6 +283,12 @@ const navItems: NavItem[] = [
     icon: <Receipt className="w-5 h-5" />,
     roles: ['account'],
   },
+  {
+    label: 'Claim',
+    path: '/dashboard/account/claim',
+    icon: <FileText className="w-5 h-5" />,
+    roles: ['account'],
+  },
   // ============ ADMIN ROLE ============
   {
     label: 'Leads',

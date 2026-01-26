@@ -97,6 +97,26 @@ CREATE TABLE public.expenses (
 -- ALTER TABLE expenses DROP COLUMN IF EXISTS type;
 -- ALTER TABLE expenses DROP COLUMN IF EXISTS role;
 -- ALTER TABLE expenses DROP COLUMN IF EXISTS marketer_id_staff;
+
+CREATE TABLE public.claims (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_name text NOT NULL,
+  ic_number text NOT NULL,
+  phone_number text,
+  department text NOT NULL,
+  employment_type text NOT NULL,
+  pay_date date NOT NULL,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total_deductions numeric NOT NULL DEFAULT 0,
+  net_pay numeric NOT NULL DEFAULT 0,
+  bank_account text NOT NULL,
+  bank_name text NOT NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK (status = ANY (ARRAY['pending', 'approved', 'rejected'])),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT claims_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE public.invoice_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   company_name text NOT NULL,
