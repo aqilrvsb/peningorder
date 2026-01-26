@@ -83,7 +83,6 @@ const LogisticOrder = () => {
     paymentMethod: "CASH",
     notaStaff: "",
     productId: "",
-    trackingNumber: "",
   });
 
   // Fetch all bundles for dropdown - using logistic_bundles table
@@ -501,7 +500,6 @@ const LogisticOrder = () => {
       paymentMethod: order.type_payment || "CASH",
       notaStaff: order.nota_staff || "",
       productId: order.bundle_id || "",
-      trackingNumber: order.tracking_number || "",
     });
     setEditDialogOpen(true);
   };
@@ -513,7 +511,26 @@ const LogisticOrder = () => {
     setIsSavingEdit(true);
 
     try {
-      // Update order details in database - using new schema field names
+      const { data: session } = await supabase.auth.getSession();
+      const hasExistingTracking = !!editingOrder.tracking_number;
+      const isNinjavan = isNinjavanPlatform();
+
+      // Step 1: If has existing tracking, cancel it first
+      if (hasExistingTracking && isNinjavan) {
+        toast.info("Cancelling existing tracking...");
+        const cancelResponse = await supabase.functions.invoke("ninjavan-cancel", {
+          body: { trackingNumber: editingOrder.tracking_number, profileId: user?.id },
+          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+        });
+
+        if (cancelResponse.error) {
+          console.error("Cancel tracking error:", cancelResponse.error);
+        } else {
+          toast.success("Existing tracking cancelled");
+        }
+      }
+
+      // Step 2: Update order details in database - using new schema field names
       const updateData: any = {
         unit: editForm.quantity,
         total_sale: editForm.totalPrice,
@@ -525,13 +542,17 @@ const LogisticOrder = () => {
         city_customer: editForm.city,
         phone_customer: editForm.phone,
         name_customer: editForm.customerName,
-        tracking_number: editForm.trackingNumber || null,
         updated_at: new Date().toISOString(),
       };
 
       // If bundle changed
       if (editForm.productId && editForm.productId !== editingOrder.bundle_id) {
         updateData.bundle_id = editForm.productId;
+      }
+
+      // Clear tracking number if it was cancelled
+      if (hasExistingTracking && isNinjavan) {
+        updateData.tracking_number = null;
       }
 
       const { error: updateError } = await supabase
@@ -541,7 +562,54 @@ const LogisticOrder = () => {
 
       if (updateError) throw updateError;
 
-      toast.success("Order updated successfully");
+      // Step 3: Generate new tracking for NinjaVan platforms
+      if (isNinjavan) {
+        toast.info("Generating new tracking...");
+
+        const bundle = allProducts.find((p: any) => p.id === editForm.productId) || editingOrder.bundle;
+
+        const orderData = {
+          profileId: user?.id,
+          customerName: editForm.customerName,
+          phone: editForm.phone,
+          address: editForm.address,
+          postcode: editForm.postcode,
+          city: editForm.city,
+          state: editForm.state,
+          price: editForm.totalPrice,
+          paymentMethod: editForm.paymentMethod,
+          productName: bundle?.name || "Product",
+          productSku: bundle?.sku || "",
+          quantity: editForm.quantity,
+          nota: editForm.notaStaff,
+        };
+
+        const response = await supabase.functions.invoke("ninjavan-order", {
+          body: orderData,
+          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || "Failed to generate tracking");
+        }
+
+        const result = response.data;
+
+        if (!result.success || !result.trackingNumber) {
+          throw new Error(result.error || "Failed to get tracking number");
+        }
+
+        // Update order with new tracking number
+        await supabase
+          .from("customer_purchases")
+          .update({ tracking_number: result.trackingNumber })
+          .eq("id", editingOrder.id);
+
+        toast.success(`Order updated! New tracking: ${result.trackingNumber}`);
+      } else {
+        toast.success("Order updated successfully");
+      }
+
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
       setEditDialogOpen(false);
       setEditingOrder(null);
@@ -1076,19 +1144,18 @@ const LogisticOrder = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="trackingNumber">Tracking Number</Label>
-              <Input
-                id="trackingNumber"
-                value={editForm.trackingNumber}
-                onChange={(e) => setEditForm({ ...editForm, trackingNumber: e.target.value })}
-                placeholder="Enter tracking number (optional)"
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                You can manually enter or edit the tracking number here
-              </p>
-            </div>
+            {editingOrder && isNinjavanPlatform() && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> This is a NinjaVan order ({getOrderPlatform(editingOrder)}).
+                  {editingOrder.tracking_number ? (
+                    <> Current tracking <span className="font-mono">{editingOrder.tracking_number}</span> will be cancelled and a new one will be generated.</>
+                  ) : (
+                    <> A new tracking number will be generated.</>
+                  )}
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
