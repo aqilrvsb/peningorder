@@ -13,6 +13,7 @@ interface Order {
   total_sale: number;
   jenis_platform: string;
   jenis_closing: string;
+  seo: string;
 }
 
 interface Spend {
@@ -44,6 +45,7 @@ interface MarketerSpendStats {
   idStaff: string;
   name: string;
   totalSales: number;
+  collection: number;
   totalSpend: number;
   roas: number;
   totalLead: number;
@@ -89,7 +91,7 @@ const AccountReportSpend: React.FC = () => {
         const [ordersRes, spendsRes, profilesRes, pnlConfigRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing, seo')
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('spends')
@@ -132,17 +134,17 @@ const AccountReportSpend: React.FC = () => {
   }, []);
 
   // Calculate commission and bonus based on PNL config
-  const calculateCommissionBonus = (totalSales: number, roas: number): { commission: number; bonus: number; commissionPercent: number } => {
-    // Find matching PNL config based on sales and ROAS
+  const calculateCommissionBonus = (collection: number, roas: number): { commission: number; bonus: number; commissionPercent: number } => {
+    // Find matching PNL config based on collection and ROAS
     const matchingConfig = pnlConfigs.find(config => {
-      const salesMatch = totalSales >= config.min_sales &&
-        (config.max_sales === null || totalSales <= config.max_sales);
+      const salesMatch = collection >= config.min_sales &&
+        (config.max_sales === null || collection <= config.max_sales);
       const roasMatch = roas >= config.roas_min && roas <= config.roas_max;
       return salesMatch && roasMatch;
     });
 
     if (matchingConfig) {
-      const commission = (totalSales * matchingConfig.commission_percent) / 100;
+      const commission = (collection * matchingConfig.commission_percent) / 100;
       return {
         commission,
         bonus: matchingConfig.bonus_amount,
@@ -202,6 +204,7 @@ const AccountReportSpend: React.FC = () => {
           idStaff,
           name,
           totalSales: 0,
+          collection: 0,
           totalSpend: 0,
           roas: 0,
           totalLead: 0,
@@ -215,6 +218,11 @@ const AccountReportSpend: React.FC = () => {
 
       stats[idStaff].totalSales += amount;
       stats[idStaff].totalLead += 1;
+
+      // Calculate collection (only successful deliveries)
+      if (order.seo === "Successful Delivery") {
+        stats[idStaff].collection += amount;
+      }
 
       // Count sales by platform
       const platform = order.jenis_platform;
@@ -245,6 +253,7 @@ const AccountReportSpend: React.FC = () => {
           idStaff,
           name,
           totalSales: 0,
+          collection: 0,
           totalSpend: 0,
           roas: 0,
           totalLead: 0,
@@ -302,6 +311,7 @@ const AccountReportSpend: React.FC = () => {
     return filteredStats.reduce(
       (acc, stat) => ({
         totalSales: acc.totalSales + stat.totalSales,
+        collection: acc.collection + stat.collection,
         totalSpend: acc.totalSpend + stat.totalSpend,
         totalLead: acc.totalLead + stat.totalLead,
         salesFB: acc.salesFB + stat.salesFB,
@@ -317,6 +327,7 @@ const AccountReportSpend: React.FC = () => {
       }),
       {
         totalSales: 0,
+        collection: 0,
         totalSpend: 0,
         totalLead: 0,
         salesFB: 0,
@@ -647,6 +658,7 @@ const AccountReportSpend: React.FC = () => {
                 <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
                 <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">NAME</th>
                 <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SALES</th>
+                <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap border-r bg-green-50 dark:bg-green-950/30">COLLECTION</th>
                 <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">TOTAL SPEND</th>
                 <th rowSpan={2} className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
                 <th rowSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap border-r bg-green-50 dark:bg-green-950/30">KOMISYEN</th>
@@ -683,17 +695,18 @@ const AccountReportSpend: React.FC = () => {
             </thead>
             <tbody className="bg-background divide-y divide-border">
               {filteredStats.map((stat) => {
-                const { commission, bonus, commissionPercent } = calculateCommissionBonus(stat.totalSales, stat.roas);
+                const { commission, bonus, commissionPercent } = calculateCommissionBonus(stat.collection, stat.roas);
                 return (
                 <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
                   <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
                   <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-success whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
+                  <td className="px-3 py-2 text-sm text-right font-semibold text-green-600 whitespace-nowrap border-r bg-green-50/50 dark:bg-green-950/20">{formatNumber(stat.collection)}</td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-warning whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
                   <td className="px-3 py-2 text-sm text-center font-bold text-primary whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-green-600 whitespace-nowrap border-r bg-green-50/50 dark:bg-green-950/20">
                     {commission > 0 ? (
-                      <span title={`${commissionPercent}% of sales`}>{formatNumber(commission)}</span>
+                      <span title={`${commissionPercent}% of collection`}>{formatNumber(commission)}</span>
                     ) : '-'}
                   </td>
                   <td className="px-3 py-2 text-sm text-right font-semibold text-amber-600 whitespace-nowrap border-r bg-amber-50/50 dark:bg-amber-950/20">
@@ -725,7 +738,7 @@ const AccountReportSpend: React.FC = () => {
               })}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={23} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={24} className="px-4 py-8 text-center text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>
