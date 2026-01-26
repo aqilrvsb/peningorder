@@ -546,12 +546,12 @@ function parseWooCommerceSku(wooSku: string): { sku: string; quantity: number } 
   return { sku: wooSku, quantity: 1 };
 }
 
-// Map Malaysian state names
+// Map Malaysian state names (includes full names and abbreviations)
 function mapState(state: string): string {
   const stateMap: Record<string, string> = {
+    // Full names
     'wp kuala lumpur': 'Kuala Lumpur',
     'kuala lumpur': 'Kuala Lumpur',
-    'kl': 'Kuala Lumpur',
     'selangor': 'Selangor',
     'johor': 'Johor',
     'penang': 'Penang',
@@ -568,7 +568,28 @@ function mapState(state: string): string {
     'sarawak': 'Sarawak',
     'perlis': 'Perlis',
     'labuan': 'Labuan',
-    'putrajaya': 'Putrajaya'
+    'putrajaya': 'Putrajaya',
+    // Abbreviated state codes (used by some WooCommerce sites like akakgojes.com)
+    'kl': 'Kuala Lumpur',
+    'wpkl': 'Kuala Lumpur',
+    'sgr': 'Selangor',
+    'sel': 'Selangor',
+    'jhr': 'Johor',
+    'png': 'Penang',
+    'prk': 'Perak',
+    'kdh': 'Kedah',
+    'ktn': 'Kelantan',
+    'trg': 'Terengganu',
+    'phg': 'Pahang',
+    'nsn': 'Negeri Sembilan',
+    'ns': 'Negeri Sembilan',
+    'mlk': 'Melaka',
+    'sbh': 'Sabah',
+    'swk': 'Sarawak',
+    'srw': 'Sarawak',
+    'pls': 'Perlis',
+    'lbn': 'Labuan',
+    'pjy': 'Putrajaya'
   };
   return stateMap[state.toLowerCase()] || state;
 }
@@ -783,11 +804,10 @@ serve(async (req) => {
     // Handles: "SET A", "SET B", "SET C", "SET D", "SET BUNDLE"
     // Example: "SET C (3 GOLDEN SARI+ SABUN +PERFUME+ SABUN V)" → setIdentifier = "SET C"
     // Example: "SET BUNDLE GOLDEN SARI" → setIdentifier = "SET BUNDLE"
-    // Fallback: If no SET found, try BOTOL pattern (e.g., "3 Botol" → botolCount = 3)
+    // Fallback: If no SET found, try BOTOL or UNIT pattern
     const productNameLower = orderData.productNames.toLowerCase();
     const setIndex = productNameLower.indexOf('set');
     let setIdentifier = '';
-    let botolCount = 0;
 
     if (setIndex >= 0) {
       // Check for "SET BUNDLE" first (longer match takes priority)
@@ -803,24 +823,41 @@ serve(async (req) => {
       }
     }
 
-    // Fallback: If no SET found, try BOTOL pattern
-    // Logic: Find "botol", take 2 chars before it, keep only digits
-    // Example: "4 BOTOL" → 2 chars before = "4 " → digits only = "4" → botolCount = 4
+    // Fallback: If no SET found, try BOTOL pattern first, then UNIT pattern
+    // Logic: Find "botol" or "unit", take chars before it, extract the number
+    // Example: "4 BOTOL" → digits before = "4" → unitCount = 4
+    // Example: "6 UNIT" → digits before = "6" → unitCount = 6
+    let unitCount = 0;
     if (!setIdentifier) {
+      // Try BOTOL pattern first
       const botolIndex = productNameLower.indexOf('botol');
       if (botolIndex >= 2) {
-        // Get exactly 2 characters before "botol"
-        const twoCharsBefore = orderData.productNames.substring(botolIndex - 2, botolIndex);
-        // Keep only digits
-        const digitsOnly = twoCharsBefore.replace(/\D/g, '');
+        // Get characters before "botol" and extract digits
+        const beforeBotol = orderData.productNames.substring(Math.max(0, botolIndex - 3), botolIndex);
+        const digitsOnly = beforeBotol.replace(/\D/g, '');
         if (digitsOnly) {
-          botolCount = parseInt(digitsOnly, 10);
+          unitCount = parseInt(digitsOnly, 10);
+          console.log('Found BOTOL pattern:', { beforeBotol, digitsOnly, unitCount });
+        }
+      }
+
+      // If no BOTOL found, try UNIT pattern
+      if (unitCount === 0) {
+        const unitIndex = productNameLower.indexOf('unit');
+        if (unitIndex >= 2) {
+          // Get characters before "unit" and extract digits
+          const beforeUnit = orderData.productNames.substring(Math.max(0, unitIndex - 3), unitIndex);
+          const digitsOnly = beforeUnit.replace(/\D/g, '');
+          if (digitsOnly) {
+            unitCount = parseInt(digitsOnly, 10);
+            console.log('Found UNIT pattern:', { beforeUnit, digitsOnly, unitCount });
+          }
         }
       }
     }
-    console.log('Bundle extraction:', { productName: orderData.productNames, setIndex, setIdentifier, botolCount });
+    console.log('Bundle extraction:', { productName: orderData.productNames, setIndex, setIdentifier, unitCount });
 
-    console.log('Bundle lookup:', { setIdentifier, botolCount, productName: orderData.productNames, originalSku: orderData.sku });
+    console.log('Bundle lookup:', { setIdentifier, unitCount, productName: orderData.productNames, originalSku: orderData.sku });
 
     // First try logistic_bundles for this marketer
     let { data: allBundles } = await supabase
@@ -852,17 +889,17 @@ serve(async (req) => {
         );
       }
 
-      if (!matchingBundle && botolCount > 0) {
-        // Method 2: Match by BOTOL count - find bundle where SKU starts with "GSI-{botolCount}"
-        // Example: 4 BOTOL → find bundle with SKU starting with "GSI-4"
+      if (!matchingBundle && unitCount > 0) {
+        // Method 2: Match by BOTOL/UNIT count - find bundle where SKU starts with "GSI-{unitCount}"
+        // Example: 4 BOTOL or 4 UNIT → find bundle with SKU starting with "GSI-4"
         // IMPORTANT: Use regex to match exact number, not just startsWith
         // e.g., "GSI-1" should NOT match "GSI-100", only "GSI-1" or "GSI-1+"
-        console.log(`Searching for bundle with SKU matching GSI-${botolCount}`);
-        const botolRegex = new RegExp(`^gsi-${botolCount}(\\+|$)`, 'i');
+        console.log(`Searching for bundle with SKU matching GSI-${unitCount}`);
+        const unitRegex = new RegExp(`^gsi-${unitCount}(\\+|$)`, 'i');
         matchingBundle = allBundles.find((b: any) => {
           if (!b.sku) return false;
-          // Check if SKU matches "GSI-{botolCount}" followed by "+" or end of string
-          return botolRegex.test(b.sku);
+          // Check if SKU matches "GSI-{unitCount}" followed by "+" or end of string
+          return unitRegex.test(b.sku);
         });
       }
 
@@ -874,14 +911,14 @@ serve(async (req) => {
         baseCost = matchingBundle.base_cost || 0;
         postageSmCost = matchingBundle.kos_postage_sm || 0;
         postageSsCost = matchingBundle.kos_postage_ss || 0;
-        console.log('Bundle found:', { bundleId, bundleName, bundleSku, setIdentifier, botolCount });
+        console.log('Bundle found:', { bundleId, bundleName, bundleSku, setIdentifier, unitCount });
       } else {
-        console.warn(`No bundle found with setIdentifier: ${setIdentifier}, botolCount: ${botolCount}`);
+        console.warn(`No bundle found with setIdentifier: ${setIdentifier}, unitCount: ${unitCount}`);
       }
     }
 
-    if (!setIdentifier && botolCount === 0) {
-      console.log('Cannot determine bundle - no SET identifier or BOTOL count found in product name');
+    if (!setIdentifier && unitCount === 0) {
+      console.log('Cannot determine bundle - no SET identifier, BOTOL count, or UNIT count found in product name');
     }
 
     if (!bundleId) {
