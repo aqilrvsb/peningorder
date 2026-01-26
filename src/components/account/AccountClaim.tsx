@@ -164,6 +164,41 @@ const AccountClaim = () => {
     },
   });
 
+  // Function to generate next invoice number
+  const generateInvoiceNumber = async () => {
+    const { data, error } = await supabase
+      .from("claims")
+      .select("invoice_number")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error("Error fetching latest invoice:", error);
+      return `INV-${new Date().getFullYear()}-0001`;
+    }
+
+    if (!data || data.length === 0 || !data[0].invoice_number || data[0].invoice_number === "-") {
+      return `INV-${new Date().getFullYear()}-0001`;
+    }
+
+    const latestInvoice = data[0].invoice_number;
+    const match = latestInvoice.match(/INV-(\d{4})-(\d+)/);
+
+    if (match) {
+      const year = parseInt(match[1]);
+      const currentYear = new Date().getFullYear();
+
+      if (year === currentYear) {
+        const num = parseInt(match[2]) + 1;
+        return `INV-${currentYear}-${num.toString().padStart(4, '0')}`;
+      } else {
+        return `INV-${currentYear}-0001`;
+      }
+    }
+
+    return `INV-${new Date().getFullYear()}-0001`;
+  };
+
   // Fetch claims
   const { data: claims = [], isLoading } = useQuery({
     queryKey: ["account-claims", startDate, endDate],
@@ -367,6 +402,12 @@ const AccountClaim = () => {
         attachmentUrl = await uploadToVercelBlob(attachmentFile);
       }
 
+      // Generate invoice number for new claims only
+      let invoiceNumber = formInvoiceNumber;
+      if (!isEditing) {
+        invoiceNumber = await generateInvoiceNumber();
+      }
+
       const claimData = {
         employee_name: formEmployeeName.trim(),
         ic_number: "-",
@@ -374,10 +415,10 @@ const AccountClaim = () => {
         department: "-",
         employment_type: "-",
         pay_date: formPayDate,
-        invoice_number: formInvoiceNumber.trim() || "-",
+        invoice_number: invoiceNumber,
         items: formItems.filter((item) => item.description.trim()),
         total_deductions: totalDeductions,
-        net_pay: Number(formNetPay) || totalDeductions,
+        net_pay: totalDeductions, // Auto-calculate: same as total deductions
         bank_account: formBankAccount.trim(),
         bank_name: formBankName.trim(),
         attachment_url: attachmentUrl,
@@ -669,17 +710,6 @@ const AccountClaim = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label>Invoice Number</Label>
-                  <Input
-                    placeholder="e.g., INV-2026-001"
-                    value={formInvoiceNumber}
-                    onChange={(e) => setFormInvoiceNumber(e.target.value)}
-                  />
-                </div>
-              </div>
-
               {/* Deductions Items */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -729,18 +759,7 @@ const AccountClaim = () => {
               </div>
 
               {/* Payment Details */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Net Pay (RM)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder={totalDeductions.toFixed(2)}
-                    value={formNetPay}
-                    onChange={(e) => setFormNetPay(e.target.value)}
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Bank Account *</Label>
                   <Input
