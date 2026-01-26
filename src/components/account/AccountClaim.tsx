@@ -86,10 +86,6 @@ const AccountClaim = () => {
 
   // Form states
   const [formEmployeeName, setFormEmployeeName] = useState("");
-  const [formIcNumber, setFormIcNumber] = useState("");
-  const [formPhoneNumber, setFormPhoneNumber] = useState("");
-  const [formDepartment, setFormDepartment] = useState("");
-  const [formEmploymentType, setFormEmploymentType] = useState("");
   const [formPayDate, setFormPayDate] = useState(today);
   const [formItems, setFormItems] = useState<ClaimItem[]>([{ description: "", amount: 0 }]);
   const [formNetPay, setFormNetPay] = useState("");
@@ -99,24 +95,22 @@ const AccountClaim = () => {
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null);
 
-  // Fetch departments dynamically from attendance_staff roles
-  const { data: departments = [] } = useQuery({
-    queryKey: ["departments-list"],
+  // Fetch staff names from attendance_staff
+  const { data: staffList = [] } = useQuery({
+    queryKey: ["staff-list-attendance"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance_staff")
-        .select("role")
-        .eq("is_active", true);
+        .select("name, role")
+        .eq("is_active", true)
+        .order("name");
 
       if (error) throw error;
 
-      // Get unique roles from attendance_staff
-      const staffRoles = [...new Set((data || []).map((d: any) => d.role))];
-
-      // Add Marketer and Admin for login users, then staff roles
-      const allDepartments = ["Marketer", "Admin", ...staffRoles];
-
-      return allDepartments;
+      return (data || []).map((staff: any) => ({
+        name: staff.name,
+        role: staff.role,
+      }));
     },
   });
 
@@ -250,10 +244,6 @@ const AccountClaim = () => {
   // Reset form
   const resetForm = () => {
     setFormEmployeeName("");
-    setFormIcNumber("");
-    setFormPhoneNumber("");
-    setFormDepartment("");
-    setFormEmploymentType("");
     setFormPayDate(today);
     setFormItems([{ description: "", amount: 0 }]);
     setFormNetPay("");
@@ -275,10 +265,6 @@ const AccountClaim = () => {
   // Open dialog for editing
   const handleEditClick = (claim: Claim) => {
     setFormEmployeeName(claim.employee_name);
-    setFormIcNumber(claim.ic_number);
-    setFormPhoneNumber(claim.phone_number);
-    setFormDepartment(claim.department);
-    setFormEmploymentType(claim.employment_type);
     setFormPayDate(claim.pay_date);
     setFormItems(claim.items.length > 0 ? claim.items : [{ description: "", amount: 0 }]);
     setFormNetPay(claim.net_pay.toString());
@@ -295,19 +281,7 @@ const AccountClaim = () => {
   // Handle form submit
   const handleSubmit = async () => {
     if (!formEmployeeName.trim()) {
-      toast.error("Please enter employee name");
-      return;
-    }
-    if (!formIcNumber.trim()) {
-      toast.error("Please enter IC number");
-      return;
-    }
-    if (!formDepartment) {
-      toast.error("Please select department");
-      return;
-    }
-    if (!formEmploymentType) {
-      toast.error("Please select employment type");
+      toast.error("Please select employee name");
       return;
     }
     if (!formPayDate) {
@@ -343,10 +317,10 @@ const AccountClaim = () => {
 
       const claimData = {
         employee_name: formEmployeeName.trim(),
-        ic_number: formIcNumber.trim(),
-        phone_number: formPhoneNumber.trim(),
-        department: formDepartment,
-        employment_type: formEmploymentType,
+        ic_number: "-",
+        phone_number: "-",
+        department: "-",
+        employment_type: "-",
         pay_date: formPayDate,
         items: formItems.filter((item) => item.description.trim()),
         total_deductions: totalDeductions,
@@ -630,56 +604,15 @@ const AccountClaim = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Employee Name *</Label>
-                  <Input
-                    placeholder="Full name"
-                    value={formEmployeeName}
-                    onChange={(e) => setFormEmployeeName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>IC Number *</Label>
-                  <Input
-                    placeholder="e.g., 900101-14-5678"
-                    value={formIcNumber}
-                    onChange={(e) => setFormIcNumber(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Phone Number</Label>
-                  <Input
-                    placeholder="e.g., 0123456789"
-                    value={formPhoneNumber}
-                    onChange={(e) => setFormPhoneNumber(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Department *</Label>
-                  <Select value={formDepartment} onValueChange={setFormDepartment}>
+                  <Select value={formEmployeeName} onValueChange={setFormEmployeeName}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
+                      <SelectValue placeholder="Select employee" />
                     </SelectTrigger>
                     <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Employment Type *</Label>
-                  <Select value={formEmploymentType} onValueChange={setFormEmploymentType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      {staffList.map((staff) => (
+                        <SelectItem key={staff.name} value={staff.name}>
+                          {staff.name} ({staff.role})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
