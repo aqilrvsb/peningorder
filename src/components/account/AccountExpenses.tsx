@@ -143,10 +143,29 @@ const AccountExpenses = () => {
 
   const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
 
-  // Calculate monthly summary
+  // Calculate monthly summary - show ALL months in date range
   const monthlySummary = useMemo(() => {
     const summary: Record<string, Record<CategoryType, number>> = {};
 
+    // Generate all months between startDate and endDate
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const current = new Date(start.getFullYear(), start.getMonth(), 1);
+
+      while (current <= end) {
+        const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+        summary[monthKey] = {
+          "Overhead": 0,
+          "Marketing": 0,
+          "Cost Product": 0,
+          "Other": 0,
+        };
+        current.setMonth(current.getMonth() + 1);
+      }
+    }
+
+    // Fill in actual expense data
     expenses.forEach((e) => {
       const month = e.date.substring(0, 7); // YYYY-MM
       if (!summary[month]) {
@@ -170,7 +189,7 @@ const AccountExpenses = () => {
         ...categories,
         total: Object.values(categories).reduce((sum, val) => sum + val, 0),
       }));
-  }, [expenses]);
+  }, [expenses, startDate, endDate]);
 
   // Handle file change
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
