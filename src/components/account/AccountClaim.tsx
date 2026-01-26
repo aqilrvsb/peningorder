@@ -29,11 +29,14 @@ import {
   Download,
   Eye,
   Receipt,
+  Upload,
+  Image,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { put } from "@vercel/blob";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 const EMPLOYMENT_TYPE_OPTIONS = ["Full Time", "Part Time", "Contract", "Intern"];
@@ -56,6 +59,7 @@ interface Claim {
   net_pay: number;
   bank_account: string;
   bank_name: string;
+  attachment_url: string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
 }
@@ -91,6 +95,9 @@ const AccountClaim = () => {
   const [formNetPay, setFormNetPay] = useState("");
   const [formBankAccount, setFormBankAccount] = useState("");
   const [formBankName, setFormBankName] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [existingAttachment, setExistingAttachment] = useState<string | null>(null);
 
   // Fetch departments dynamically from attendance_staff roles
   const { data: departments = [] } = useQuery({
@@ -161,6 +168,62 @@ const AccountClaim = () => {
     return formItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   }, [formItems]);
 
+  // Handle file change
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Only JPEG, PNG, and PDF files are allowed");
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      setAttachmentFile(file);
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => setAttachmentPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setAttachmentPreview(null);
+      }
+    }
+  };
+
+  // Upload to Vercel Blob
+  const uploadToVercelBlob = async (file: File): Promise<string> => {
+    const token = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      throw new Error('Blob storage token not configured');
+    }
+    const timestamp = Date.now();
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '-');
+    const filename = `claims/${timestamp}-${cleanFileName}`;
+    const blob = await put(filename, file, { access: 'public', token });
+    return blob.url;
+  };
+
+  // Delete from Vercel Blob
+  const deleteFromBlob = async (url: string) => {
+    try {
+      const response = await fetch('/api/delete-blob', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!response.ok) {
+        console.error('Failed to delete from Blob:', url);
+      }
+    } catch (err) {
+      console.error('Blob delete error:', err);
+    }
+  };
+
   // Add new item row
   const addItemRow = () => {
     setFormItems([...formItems, { description: "", amount: 0 }]);
@@ -196,6 +259,9 @@ const AccountClaim = () => {
     setFormNetPay("");
     setFormBankAccount("");
     setFormBankName("");
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
+    setExistingAttachment(null);
     setIsEditing(false);
     setEditingId(null);
   };
@@ -218,6 +284,9 @@ const AccountClaim = () => {
     setFormNetPay(claim.net_pay.toString());
     setFormBankAccount(claim.bank_account);
     setFormBankName(claim.bank_name);
+    setExistingAttachment(claim.attachment_url);
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
     setIsEditing(true);
     setEditingId(claim.id);
     setIsDialogOpen(true);
@@ -261,6 +330,17 @@ const AccountClaim = () => {
     setIsSubmitting(true);
 
     try {
+      let attachmentUrl = existingAttachment;
+
+      // Upload new attachment if provided
+      if (attachmentFile) {
+        // Delete old attachment if exists
+        if (existingAttachment) {
+          await deleteFromBlob(existingAttachment);
+        }
+        attachmentUrl = await uploadToVercelBlob(attachmentFile);
+      }
+
       const claimData = {
         employee_name: formEmployeeName.trim(),
         ic_number: formIcNumber.trim(),
@@ -273,6 +353,7 @@ const AccountClaim = () => {
         net_pay: Number(formNetPay) || totalDeductions,
         bank_account: formBankAccount.trim(),
         bank_name: formBankName.trim(),
+        attachment_url: attachmentUrl,
         status: "pending",
         updated_at: new Date().toISOString(),
       };
@@ -305,7 +386,7 @@ const AccountClaim = () => {
   };
 
   // Handle delete
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, attachmentUrl: string | null) => {
     const result = await Swal.fire({
       icon: "warning",
       title: "Delete Claim?",
@@ -319,6 +400,11 @@ const AccountClaim = () => {
     if (!result.isConfirmed) return;
 
     try {
+      // Delete attachment from blob if exists
+      if (attachmentUrl) {
+        await deleteFromBlob(attachmentUrl);
+      }
+
       const { error } = await supabase
         .from("claims")
         .delete()
@@ -331,6 +417,12 @@ const AccountClaim = () => {
     } catch (error: any) {
       toast.error(error.message || "Failed to delete claim");
     }
+  };
+
+  // Get file icon based on URL
+  const getFileIcon = (url: string) => {
+    if (url.includes('.pdf')) return <FileText className="w-4 h-4" />;
+    return <Image className="w-4 h-4" />;
   };
 
   // Update claim status
@@ -681,6 +773,56 @@ const AccountClaim = () => {
                 </div>
               </div>
 
+              {/* Attachment Upload */}
+              <div className="space-y-2">
+                <Label>Attachment (Optional)</Label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="claim-attachment-upload"
+                  />
+                  <label
+                    htmlFor="claim-attachment-upload"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm text-muted-foreground">
+                      {attachmentFile
+                        ? attachmentFile.name
+                        : existingAttachment
+                          ? 'Replace existing attachment'
+                          : 'Upload receipt/document (JPEG, PNG, PDF - max 5MB)'}
+                    </span>
+                  </label>
+                  {(attachmentPreview || existingAttachment) && (
+                    <div className="mt-2 p-2 bg-muted rounded-lg">
+                      {attachmentPreview ? (
+                        <img
+                          src={attachmentPreview}
+                          alt="Preview"
+                          className="w-full h-32 object-cover rounded"
+                        />
+                      ) : existingAttachment && existingAttachment.includes('.pdf') ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <FileText className="w-4 h-4" />
+                          <span>PDF attached</span>
+                          <a href={existingAttachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                        </div>
+                      ) : existingAttachment ? (
+                        <img
+                          src={existingAttachment}
+                          alt="Existing attachment"
+                          className="w-full h-32 object-cover rounded"
+                        />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button
                   variant="outline"
@@ -817,6 +959,7 @@ const AccountClaim = () => {
                       <th className="p-3 text-left">Department</th>
                       <th className="p-3 text-left">Pay Date</th>
                       <th className="p-3 text-right">Amount (RM)</th>
+                      <th className="p-3 text-center">Attachment</th>
                       <th className="p-3 text-center">Status</th>
                       <th className="p-3 text-center">Action</th>
                     </tr>
@@ -838,6 +981,21 @@ const AccountClaim = () => {
                           <td className="p-3 whitespace-nowrap">{claim.pay_date}</td>
                           <td className="p-3 text-right font-medium">
                             RM {Number(claim.total_deductions).toFixed(2)}
+                          </td>
+                          <td className="p-3 text-center">
+                            {claim.attachment_url ? (
+                              <a
+                                href={claim.attachment_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                {getFileIcon(claim.attachment_url)}
+                                <Eye className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </td>
                           <td className="p-3 text-center">
                             <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(claim.status)}`}>
@@ -887,7 +1045,7 @@ const AccountClaim = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDelete(claim.id)}
+                                onClick={() => handleDelete(claim.id, claim.attachment_url)}
                                 className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                 title="Delete"
                               >
@@ -899,7 +1057,7 @@ const AccountClaim = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
                           No claims found for this date range.
                         </td>
                       </tr>

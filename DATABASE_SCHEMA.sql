@@ -111,11 +111,14 @@ CREATE TABLE public.claims (
   net_pay numeric NOT NULL DEFAULT 0,
   bank_account text NOT NULL,
   bank_name text NOT NULL,
+  attachment_url text,
   status text NOT NULL DEFAULT 'pending' CHECK (status = ANY (ARRAY['pending', 'approved', 'rejected'])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT claims_pkey PRIMARY KEY (id)
 );
+-- Add attachment_url to existing claims table:
+-- ALTER TABLE claims ADD COLUMN attachment_url text;
 
 CREATE TABLE public.invoice_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
