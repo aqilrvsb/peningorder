@@ -40,6 +40,18 @@ import { put } from "@vercel/blob";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 const EMPLOYMENT_TYPE_OPTIONS = ["Full Time", "Part Time", "Contract", "Intern"];
+const BANK_OPTIONS = [
+  'Maybank',
+  'CIMB Bank',
+  'Public Bank',
+  'RHB Bank',
+  'Hong Leong Bank',
+  'AmBank',
+  'Bank Islam',
+  'Bank Rakyat',
+  'Affin Bank',
+  'Alliance Bank',
+];
 
 interface ClaimItem {
   description: string;
@@ -333,7 +345,7 @@ const AccountClaim = () => {
       return;
     }
     if (!formBankName.trim()) {
-      toast.error("Please enter bank name");
+      toast.error("Please select bank name");
       return;
     }
 
@@ -735,11 +747,16 @@ const AccountClaim = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Bank Name *</Label>
-                  <Input
-                    placeholder="e.g., Maybank"
-                    value={formBankName}
-                    onChange={(e) => setFormBankName(e.target.value)}
-                  />
+                  <Select value={formBankName} onValueChange={setFormBankName}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BANK_OPTIONS.map((bank) => (
+                        <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
