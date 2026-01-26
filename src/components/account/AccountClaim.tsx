@@ -66,6 +66,7 @@ interface Claim {
   department: string;
   employment_type: string;
   pay_date: string;
+  invoice_number: string;
   items: ClaimItem[];
   total_deductions: number;
   net_pay: number;
@@ -99,6 +100,7 @@ const AccountClaim = () => {
   // Form states
   const [formEmployeeName, setFormEmployeeName] = useState("");
   const [formPayDate, setFormPayDate] = useState(today);
+  const [formInvoiceNumber, setFormInvoiceNumber] = useState("");
   const [formItems, setFormItems] = useState<ClaimItem[]>([{ description: "", amount: 0 }]);
   const [formNetPay, setFormNetPay] = useState("");
   const [formBankAccount, setFormBankAccount] = useState("");
@@ -293,6 +295,7 @@ const AccountClaim = () => {
   const resetForm = () => {
     setFormEmployeeName("");
     setFormPayDate(today);
+    setFormInvoiceNumber("");
     setFormItems([{ description: "", amount: 0 }]);
     setFormNetPay("");
     setFormBankAccount("");
@@ -314,6 +317,7 @@ const AccountClaim = () => {
   const handleEditClick = (claim: Claim) => {
     setFormEmployeeName(claim.employee_name);
     setFormPayDate(claim.pay_date);
+    setFormInvoiceNumber(claim.invoice_number || "");
     setFormItems(claim.items.length > 0 ? claim.items : [{ description: "", amount: 0 }]);
     setFormNetPay(claim.net_pay.toString());
     setFormBankAccount(claim.bank_account);
@@ -370,6 +374,7 @@ const AccountClaim = () => {
         department: "-",
         employment_type: "-",
         pay_date: formPayDate,
+        invoice_number: formInvoiceNumber.trim() || "-",
         items: formItems.filter((item) => item.description.trim()),
         total_deductions: totalDeductions,
         net_pay: Number(formNetPay) || totalDeductions,
@@ -464,54 +469,45 @@ const AccountClaim = () => {
     }
   };
 
-  // Generate PDF
+  // Generate PDF to match template exactly
   const generatePDF = (claim: Claim) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Colors
-    const primaryColor: [number, number, number] = [41, 128, 185]; // Blue
+    // Colors matching template
+    const blueHeader: [number, number, number] = [62, 110, 142]; // Blue from template
     const goldColor: [number, number, number] = [218, 165, 32]; // Gold
 
-    // Header - Company Logo area (left side)
+    // Left side - DZI HOLISTIK Logo (circle)
     doc.setFillColor(...goldColor);
-    doc.circle(30, 25, 15, "F");
+    doc.circle(30, 30, 15, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("DZI", 25, 23);
-    doc.setFontSize(6);
-    doc.text("HOLISTIK", 22, 28);
+    doc.text("DZI", 24, 28);
+    doc.setFontSize(7);
+    doc.text("HOLISTIK", 21, 34);
 
-    // Company Name
+    // Right side - Company Name and Address
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(18);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("DZI HOLISTIK ENTERPRISE", 50, 20);
+    doc.text("DZI HOLISTIK ENTERPRISE", 60, 20);
 
-    // Company Address
     doc.setFontSize(9);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(100, 100, 100);
-    doc.text("PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,", 50, 27);
-    doc.text("22000 JERTEH, TERENGGANU", 50, 32);
-    doc.setTextColor(...primaryColor);
-    doc.text("TEL: 016-2569963 (HR)", 50, 37);
-
-    // Line separator
-    doc.setDrawColor(...primaryColor);
-    doc.setLineWidth(0.5);
-    doc.line(15, 45, pageWidth - 15, 45);
+    doc.setFont("helvetica", "normal");
+    doc.text("PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,", 60, 28);
+    doc.text("22000 JERTEH, TERENGGANU", 60, 34);
+    doc.text("TEL: 016-2569963 (HR)", 60, 40);
 
     // Employee Details Section
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
-    const detailsStartY = 55;
+    const detailsStartY = 60;
     const labelX = 20;
-    const colonX = 70;
-    const valueX = 75;
+    const colonX = 82;
+    const valueX = 86;
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
 
     const details = [
       ["Employee Name", claim.employee_name],
@@ -524,20 +520,19 @@ const AccountClaim = () => {
 
     details.forEach((detail, index) => {
       const y = detailsStartY + index * 8;
-      doc.setFont("helvetica", "bold");
+      doc.setFont("helvetica", "normal");
       doc.text(detail[0], labelX, y);
       doc.text(":", colonX, y);
-      doc.setFont("helvetica", "normal");
       doc.text(detail[1], valueX, y);
     });
 
-    // Deductions Title
+    // DEDUCTIONS Section
     const deductionsY = detailsStartY + details.length * 8 + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("DEDUCTIONS", labelX, deductionsY);
 
-    // Deductions Table
+    // Table with blue header
     const tableData = claim.items.map((item) => [
       item.description,
       `RM ${Number(item.amount).toFixed(2)}`,
@@ -549,68 +544,66 @@ const AccountClaim = () => {
       body: tableData,
       theme: "grid",
       headStyles: {
-        fillColor: primaryColor,
+        fillColor: blueHeader,
         textColor: [255, 255, 255],
         fontStyle: "bold",
         halign: "center",
+        fontSize: 10,
       },
+      footStyles: {
+        fillColor: blueHeader,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+        fontSize: 10,
+      },
+      foot: [["TOTAL DEDUCTIONS", `RM ${claim.total_deductions.toFixed(2)}`]],
       columnStyles: {
-        0: { cellWidth: 120 },
-        1: { cellWidth: 40, halign: "right" },
+        0: { cellWidth: 125, halign: "left" },
+        1: { cellWidth: 45, halign: "right" },
       },
       styles: {
         fontSize: 9,
-        cellPadding: 5,
+        cellPadding: 4,
       },
       margin: { left: 20, right: 20 },
     });
 
-    // Get the Y position after the table
-    const finalY = (doc as any).lastAutoTable.finalY + 5;
-
-    // Total Deductions row
-    doc.setFillColor(...primaryColor);
-    doc.rect(20, finalY, 160, 8, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("TOTAL DEDUCTIONS", 90, finalY + 5.5);
-
-    doc.setTextColor(0, 0, 0);
-    doc.text(`RM ${claim.total_deductions.toFixed(2)}`, 145, finalY + 5.5);
-
     // Payment Details
-    const paymentY = finalY + 20;
-    doc.setFont("helvetica", "bold");
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
 
-    doc.text("Net Pay", labelX, paymentY);
-    doc.text("Bank Account", labelX, paymentY + 8);
-    doc.text("Bank Name", labelX, paymentY + 16);
-
     doc.setFont("helvetica", "normal");
-    doc.text(`RM ${claim.net_pay.toFixed(2)}`, valueX, paymentY);
-    doc.text(claim.bank_account, valueX, paymentY + 8);
-    doc.text(claim.bank_name, valueX, paymentY + 16);
+    doc.text("Net Pay", labelX, finalY);
+    doc.text(":", colonX, finalY);
+    doc.text(`RM ${claim.net_pay.toFixed(2)}`, valueX, finalY);
 
-    // Authorization Section
-    const authY = paymentY + 35;
-    doc.setFont("helvetica", "normal");
+    doc.text("Bank Account", labelX, finalY + 8);
+    doc.text(":", colonX, finalY + 8);
+    doc.text(claim.bank_account, valueX, finalY + 8);
+
+    doc.text("Bank Name", labelX, finalY + 16);
+    doc.text(":", colonX, finalY + 16);
+    doc.text(claim.bank_name, valueX, finalY + 16);
+
+    // Authorization Section (bottom right)
+    const authY = finalY + 35;
     doc.setFontSize(9);
-    doc.text("Authorized by:", pageWidth - 70, authY);
+    doc.text("Authorized by:", pageWidth - 75, authY);
     doc.setFont("helvetica", "bold");
-    doc.text("Managing Director - DFR Empire", pageWidth - 70, authY + 6);
+    doc.text("Managing Director - DFR Empire", pageWidth - 75, authY + 6);
 
     // Signature line
     doc.setDrawColor(0, 0, 0);
-    doc.line(pageWidth - 70, authY + 20, pageWidth - 20, authY + 20);
+    doc.setLineWidth(0.3);
+    doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
 
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...primaryColor);
-    doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 70, authY + 26);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
 
-    // Save the PDF
+    // Save PDF
     doc.save(`Claim_Slip_${claim.employee_name.replace(/\s+/g, "_")}_${claim.pay_date}.pdf`);
     toast.success("PDF generated successfully");
   };
@@ -672,6 +665,17 @@ const AccountClaim = () => {
                     type="date"
                     value={formPayDate}
                     onChange={(e) => setFormPayDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label>Invoice Number</Label>
+                  <Input
+                    placeholder="e.g., INV-2026-001"
+                    value={formInvoiceNumber}
+                    onChange={(e) => setFormInvoiceNumber(e.target.value)}
                   />
                 </div>
               </div>
@@ -945,6 +949,7 @@ const AccountClaim = () => {
                       <th className="p-3 text-left">Employee</th>
                       <th className="p-3 text-left">Department</th>
                       <th className="p-3 text-left">Pay Date</th>
+                      <th className="p-3 text-left">Invoice</th>
                       <th className="p-3 text-right">Amount (RM)</th>
                       <th className="p-3 text-center">Attachment</th>
                       <th className="p-3 text-center">Status</th>
@@ -966,6 +971,7 @@ const AccountClaim = () => {
                           </td>
                           <td className="p-3">{claim.department}</td>
                           <td className="p-3 whitespace-nowrap">{claim.pay_date}</td>
+                          <td className="p-3">{claim.invoice_number || "-"}</td>
                           <td className="p-3 text-right font-medium">
                             RM {Number(claim.total_deductions).toFixed(2)}
                           </td>
@@ -1044,7 +1050,7 @@ const AccountClaim = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={9} className="text-center py-12 text-muted-foreground">
                           No claims found for this date range.
                         </td>
                       </tr>
