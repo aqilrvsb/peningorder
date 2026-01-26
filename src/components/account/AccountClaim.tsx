@@ -26,8 +26,6 @@ import {
   Trash2,
   Edit2,
   FileText,
-  Download,
-  Eye,
   Receipt,
   Upload,
   Image,
@@ -1005,15 +1003,6 @@ const AccountClaim = () => {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => generatePDF(claim)}
-                                className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                title="Download PDF"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"

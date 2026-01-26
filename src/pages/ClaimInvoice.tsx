@@ -78,22 +78,47 @@ const ClaimInvoice = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8 flex justify-center">
-      {/* Download PDF Button - Hidden when printing */}
-      <button
-        onClick={downloadPDF}
-        className="print:hidden fixed top-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Download PDF
-      </button>
+    <>
+      <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 10mm;
+        }
+        @media print {
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          html, body {
+            width: 210mm;
+            height: 297mm;
+          }
+          * {
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
+        }
+      `}</style>
+      <div className="min-h-screen bg-white p-8 flex justify-center print:p-4">
+        {/* Download PDF Button - Hidden when printing */}
+        <button
+          onClick={downloadPDF}
+          className="print:hidden fixed top-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Download PDF
+        </button>
 
-      <div
-        className="w-full max-w-[210mm] bg-white"
-        style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}
-      >
+        <div
+          className="w-full max-w-[210mm] bg-white"
+          style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: 'black' }}
+        >
         {/* Header Section */}
         <div className="flex items-start gap-4 mb-8">
           <img
@@ -240,6 +265,7 @@ const ClaimInvoice = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
