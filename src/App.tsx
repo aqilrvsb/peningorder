@@ -33,6 +33,7 @@ import PNLConfig from "./pages/PNLConfig";
 import AdminLeads from "./pages/AdminLeads";
 import ReportAdminProspect from "./pages/ReportAdminProspect";
 import Invoice from "./pages/Invoice";
+import ClaimInvoice from "./pages/ClaimInvoice";
 // New Logistic Role components
 import LogisticProductManagement from "./components/logistic/LogisticProductManagement";
 import LogisticProductTransaction from "./components/logistic/LogisticProductTransaction";
@@ -78,6 +79,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/invoice" element={<Invoice />} />
+                <Route path="/invoice/:id" element={<ClaimInvoice />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="orders" element={<Orders />} />

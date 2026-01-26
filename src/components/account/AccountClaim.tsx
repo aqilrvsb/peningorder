@@ -422,7 +422,7 @@ const AccountClaim = () => {
         bank_account: formBankAccount.trim(),
         bank_name: formBankName.trim(),
         attachment_url: attachmentUrl,
-        status: "pending",
+        status: "approved", // Auto-approve all claims
         updated_at: new Date().toISOString(),
       };
 
@@ -990,17 +990,30 @@ const AccountClaim = () => {
                           </td>
                           <td className="p-3">{claim.department}</td>
                           <td className="p-3 whitespace-nowrap">{claim.pay_date}</td>
-                          <td className="p-3">{claim.invoice_number || "-"}</td>
+                          <td className="p-3">
+                            {claim.invoice_number && claim.invoice_number !== "-" ? (
+                              <a
+                                href={`/invoice/${claim.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                {claim.invoice_number}
+                              </a>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </td>
                           <td className="p-3 text-center">
                             {claim.attachment_url ? (
                               <a
                                 href={claim.attachment_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-700"
+                                title="View attachment"
                               >
                                 {getFileIcon(claim.attachment_url)}
-                                <Eye className="w-3 h-3" />
                               </a>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -1034,26 +1047,6 @@ const AccountClaim = () => {
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {claim.status === "pending" && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleStatusUpdate(claim.id, "approved")}
-                                    className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleStatusUpdate(claim.id, "rejected")}
-                                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
