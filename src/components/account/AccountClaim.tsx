@@ -101,7 +101,7 @@ const AccountClaim = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("attendance_staff")
-        .select("name, role")
+        .select("name, ic_number, role")
         .eq("is_active", true)
         .order("name");
 
@@ -109,6 +109,7 @@ const AccountClaim = () => {
 
       return (data || []).map((staff: any) => ({
         name: staff.name,
+        idstaff: staff.ic_number,
         role: staff.role,
       }));
     },
@@ -611,7 +612,8 @@ const AccountClaim = () => {
                     <SelectContent>
                       {staffList.map((staff) => (
                         <SelectItem key={staff.name} value={staff.name}>
-                          {staff.name} ({staff.role})
+                          {staff.name}
+                          <span className="text-muted-foreground ml-2">({staff.role})</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
