@@ -81,16 +81,22 @@ CREATE TABLE public.device_setting (
 );
 CREATE TABLE public.expenses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  type character varying NOT NULL CHECK (type::text = ANY (ARRAY['VAR'::character varying, 'FIX'::character varying]::text[])),
+  category text NOT NULL CHECK (category = ANY (ARRAY['Overhead'::text, 'Marketing'::text, 'Cost Product'::text, 'Other'::text])),
   description text NOT NULL,
   total numeric NOT NULL DEFAULT 0,
   date date NOT NULL,
+  attachment_url text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  role text DEFAULT 'company'::text CHECK (role = ANY (ARRAY['company'::text, 'personal'::text])),
-  marketer_id_staff text,
   CONSTRAINT expenses_pkey PRIMARY KEY (id)
 );
+-- Migration SQL to update existing expenses table:
+-- ALTER TABLE expenses ADD COLUMN category text CHECK (category = ANY (ARRAY['Overhead', 'Marketing', 'Cost Product', 'Other']));
+-- ALTER TABLE expenses ADD COLUMN attachment_url text;
+-- UPDATE expenses SET category = 'Other' WHERE category IS NULL;
+-- ALTER TABLE expenses DROP COLUMN IF EXISTS type;
+-- ALTER TABLE expenses DROP COLUMN IF EXISTS role;
+-- ALTER TABLE expenses DROP COLUMN IF EXISTS marketer_id_staff;
 CREATE TABLE public.invoice_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   company_name text NOT NULL,

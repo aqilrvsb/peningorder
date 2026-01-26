@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +19,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
   Loader2,
@@ -27,32 +26,40 @@ import {
   Trash2,
   Edit2,
   DollarSign,
-  TrendingUp,
-  Calendar,
+  Upload,
+  FileText,
+  Image,
   Building2,
-  User,
+  Megaphone,
+  Package,
+  MoreHorizontal,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
+import { put } from "@vercel/blob";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
+const CATEGORY_OPTIONS = ["Overhead", "Marketing", "Cost Product", "Other"] as const;
+type CategoryType = typeof CATEGORY_OPTIONS[number];
 
 interface Expense {
   id: string;
-  type: "VAR" | "FIX";
-  role: "company" | "personal";
-  marketer_id_staff: string | null;
+  category: CategoryType;
   description: string;
   total: number;
   date: string;
+  attachment_url: string | null;
   created_at: string;
 }
 
-interface Profile {
-  idstaff: string;
-  full_name: string;
-  role: string;
-}
+// Category icon and color mapping
+const categoryConfig: Record<CategoryType, { icon: any; color: string; bgColor: string }> = {
+  "Overhead": { icon: Building2, color: "text-purple-700", bgColor: "bg-purple-100" },
+  "Marketing": { icon: Megaphone, color: "text-blue-700", bgColor: "bg-blue-100" },
+  "Cost Product": { icon: Package, color: "text-orange-700", bgColor: "bg-orange-100" },
+  "Other": { icon: MoreHorizontal, color: "text-gray-700", bgColor: "bg-gray-100" },
+};
 
 const AccountExpenses = () => {
   const queryClient = useQueryClient();
@@ -64,7 +71,7 @@ const AccountExpenses = () => {
   // Filter states
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
-  const [filterType, setFilterType] = useState<"all" | "VAR" | "FIX">("all");
+  const [filterCategory, setFilterCategory] = useState<"all" | CategoryType>("all");
   const [pageSize, setPageSize] = useState<number | "All">(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -75,28 +82,13 @@ const AccountExpenses = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
-  const [formType, setFormType] = useState<"VAR" | "FIX">("VAR");
-  const [formRole, setFormRole] = useState<"company" | "personal">("company");
-  const [formMarketer, setFormMarketer] = useState<string>("");
+  const [formCategory, setFormCategory] = useState<CategoryType>("Overhead");
   const [formDescription, setFormDescription] = useState("");
   const [formTotal, setFormTotal] = useState("");
   const [formDate, setFormDate] = useState(today);
-  const [formMonth, setFormMonth] = useState(today.substring(0, 7)); // YYYY-MM format
-
-  // Fetch marketers for dropdown
-  const { data: marketers = [] } = useQuery({
-    queryKey: ["marketers-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("idstaff, full_name, role")
-        .eq("role", "marketer")
-        .order("idstaff", { ascending: true });
-
-      if (error) throw error;
-      return (data || []) as Profile[];
-    },
-  });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [existingAttachment, setExistingAttachment] = useState<string | null>(null);
 
   // Fetch expenses
   const { data: expenses = [], isLoading } = useQuery({
@@ -121,49 +113,10 @@ const AccountExpenses = () => {
     },
   });
 
-  // Calculate FIX expenses for the date range (monthly recurring)
-  const calculateFixExpenses = () => {
-    const fixExpenses = expenses.filter((e) => e.type === "FIX");
-
-    if (!startDate || !endDate || fixExpenses.length === 0) {
-      return { total: 0, count: fixExpenses.length };
-    }
-
-    // Get unique months in the date range
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    let totalFixExpenses = 0;
-
-    fixExpenses.forEach((expense) => {
-      const expenseDate = new Date(expense.date);
-
-      // Count how many months from expense date to end date (if expense date is before or within range)
-      if (expenseDate <= end) {
-        // Start counting from the later of: expense date or start date
-        const countStart = expenseDate > start ? expenseDate : start;
-
-        // Calculate months between countStart and end
-        const startYear = countStart.getFullYear();
-        const startMonth = countStart.getMonth();
-        const endYear = end.getFullYear();
-        const endMonth = end.getMonth();
-
-        const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-
-        if (monthsDiff > 0) {
-          totalFixExpenses += expense.total * monthsDiff;
-        }
-      }
-    });
-
-    return { total: totalFixExpenses, count: fixExpenses.length };
-  };
-
-  // Filter expenses by type
+  // Filter expenses by category
   const filteredExpenses = expenses.filter((expense) => {
-    if (filterType === "all") return true;
-    return expense.type === filterType;
+    if (filterCategory === "all") return true;
+    return expense.category === filterCategory;
   });
 
   // Pagination
@@ -172,21 +125,89 @@ const AccountExpenses = () => {
     ? filteredExpenses
     : filteredExpenses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Calculate totals
-  const varExpenses = expenses.filter((e) => e.type === "VAR");
-  const varTotal = varExpenses.reduce((sum, e) => sum + Number(e.total), 0);
-  const fixData = calculateFixExpenses();
-  const totalExpenses = varTotal + fixData.total;
+  // Calculate totals by category
+  const categoryTotals = useMemo(() => {
+    const totals: Record<CategoryType, number> = {
+      "Overhead": 0,
+      "Marketing": 0,
+      "Cost Product": 0,
+      "Other": 0,
+    };
+    expenses.forEach((e) => {
+      if (e.category && totals[e.category as CategoryType] !== undefined) {
+        totals[e.category as CategoryType] += Number(e.total);
+      }
+    });
+    return totals;
+  }, [expenses]);
+
+  const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
+
+  // Calculate monthly summary
+  const monthlySummary = useMemo(() => {
+    const summary: Record<string, Record<CategoryType, number>> = {};
+
+    expenses.forEach((e) => {
+      const month = e.date.substring(0, 7); // YYYY-MM
+      if (!summary[month]) {
+        summary[month] = {
+          "Overhead": 0,
+          "Marketing": 0,
+          "Cost Product": 0,
+          "Other": 0,
+        };
+      }
+      if (e.category && summary[month][e.category as CategoryType] !== undefined) {
+        summary[month][e.category as CategoryType] += Number(e.total);
+      }
+    });
+
+    // Sort by month descending
+    return Object.entries(summary)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([month, categories]) => ({
+        month,
+        ...categories,
+        total: Object.values(categories).reduce((sum, val) => sum + val, 0),
+      }));
+  }, [expenses]);
+
+  // Handle file change
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Only JPEG, PNG, and PDF files are allowed");
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      setAttachmentFile(file);
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => setAttachmentPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setAttachmentPreview(null);
+      }
+    }
+  };
 
   // Reset form
   const resetForm = () => {
-    setFormType("VAR");
-    setFormRole("company");
-    setFormMarketer("");
+    setFormCategory("Overhead");
     setFormDescription("");
     setFormTotal("");
     setFormDate(today);
-    setFormMonth(today.substring(0, 7));
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
+    setExistingAttachment(null);
     setIsEditing(false);
     setEditingId(null);
   };
@@ -199,16 +220,45 @@ const AccountExpenses = () => {
 
   // Open dialog for editing
   const handleEditClick = (expense: Expense) => {
-    setFormType(expense.type);
-    setFormRole(expense.role || "company");
-    setFormMarketer(expense.marketer_id_staff || "");
+    setFormCategory(expense.category || "Other");
     setFormDescription(expense.description);
     setFormTotal(expense.total.toString());
     setFormDate(expense.date);
-    setFormMonth(expense.date.substring(0, 7)); // Extract YYYY-MM from date
+    setExistingAttachment(expense.attachment_url);
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
     setIsEditing(true);
     setEditingId(expense.id);
     setIsDialogOpen(true);
+  };
+
+  // Upload to Vercel Blob
+  const uploadToVercelBlob = async (file: File): Promise<string> => {
+    const token = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      throw new Error('Blob storage token not configured');
+    }
+    const timestamp = Date.now();
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '-');
+    const filename = `expenses/${timestamp}-${cleanFileName}`;
+    const blob = await put(filename, file, { access: 'public', token });
+    return blob.url;
+  };
+
+  // Delete from Vercel Blob
+  const deleteFromBlob = async (url: string) => {
+    try {
+      const response = await fetch('/api/delete-blob', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!response.ok) {
+        console.error('Failed to delete from Blob:', url);
+      }
+    } catch (err) {
+      console.error('Blob delete error:', err);
+    }
   };
 
   // Handle form submit
@@ -221,32 +271,31 @@ const AccountExpenses = () => {
       toast.error("Please enter a valid total amount");
       return;
     }
-    if (formType === "VAR" && !formDate) {
+    if (!formDate) {
       toast.error("Please select a date");
-      return;
-    }
-    if (formType === "FIX" && !formMonth) {
-      toast.error("Please select a month");
-      return;
-    }
-    if (formRole === "personal" && !formMarketer) {
-      toast.error("Please select a marketer");
       return;
     }
 
     setIsSubmitting(true);
 
-    // For FIX, use first day of the selected month; for VAR, use the selected date
-    const expenseDate = formType === "FIX" ? `${formMonth}-01` : formDate;
-
     try {
+      let attachmentUrl = existingAttachment;
+
+      // Upload new attachment if provided
+      if (attachmentFile) {
+        // Delete old attachment if exists
+        if (existingAttachment) {
+          await deleteFromBlob(existingAttachment);
+        }
+        attachmentUrl = await uploadToVercelBlob(attachmentFile);
+      }
+
       const expenseData = {
-        type: formType,
-        role: formRole,
-        marketer_id_staff: formRole === "personal" ? formMarketer : null,
+        category: formCategory,
         description: formDescription.trim(),
         total: Number(formTotal),
-        date: expenseDate,
+        date: formDate,
+        attachment_url: attachmentUrl,
         updated_at: new Date().toISOString(),
       };
 
@@ -278,7 +327,7 @@ const AccountExpenses = () => {
   };
 
   // Handle delete
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, attachmentUrl: string | null) => {
     const result = await Swal.fire({
       icon: "warning",
       title: "Delete Expense?",
@@ -292,6 +341,11 @@ const AccountExpenses = () => {
     if (!result.isConfirmed) return;
 
     try {
+      // Delete attachment from blob if exists
+      if (attachmentUrl) {
+        await deleteFromBlob(attachmentUrl);
+      }
+
       const { error } = await supabase
         .from("expenses")
         .delete()
@@ -306,13 +360,26 @@ const AccountExpenses = () => {
     }
   };
 
+  // Get file icon based on URL
+  const getFileIcon = (url: string) => {
+    if (url.includes('.pdf')) return <FileText className="w-4 h-4" />;
+    return <Image className="w-4 h-4" />;
+  };
+
+  // Format month display
+  const formatMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[parseInt(month) - 1]} ${year}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Expenses</h1>
           <p className="text-muted-foreground mt-2">
-            Manage VAR (variable/one-time) and FIX (monthly recurring) expenses
+            Manage expenses by category: Overhead, Marketing, Cost Product, Other
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -327,85 +394,41 @@ const AccountExpenses = () => {
               <DialogTitle>{isEditing ? "Edit Expense" : "Add New Expense"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              {/* Role Selection - Company or Personal */}
+              {/* Category */}
               <div className="space-y-2">
-                <Label>Role</Label>
-                <RadioGroup
-                  value={formRole}
-                  onValueChange={(v) => {
-                    setFormRole(v as "company" | "personal");
-                    if (v === "company") setFormMarketer("");
-                  }}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="company" id="role-company" />
-                    <Label htmlFor="role-company" className="flex items-center gap-1 cursor-pointer font-normal">
-                      <Building2 className="w-4 h-4" />
-                      Company
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="personal" id="role-personal" />
-                    <Label htmlFor="role-personal" className="flex items-center gap-1 cursor-pointer font-normal">
-                      <User className="w-4 h-4" />
-                      Personal
-                    </Label>
-                  </div>
-                </RadioGroup>
-                <p className="text-xs text-muted-foreground">
-                  {formRole === "company"
-                    ? "Company expense - will be shown in overall profit calculation"
-                    : "Personal expense for a specific marketer"}
-                </p>
-              </div>
-
-              {/* Marketer Dropdown - only show when Personal is selected */}
-              {formRole === "personal" && (
-                <div className="space-y-2">
-                  <Label>Marketer</Label>
-                  <Select value={formMarketer} onValueChange={setFormMarketer}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select marketer..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {marketers.map((marketer) => (
-                        <SelectItem key={marketer.idstaff} value={marketer.idstaff}>
-                          {marketer.idstaff} - {marketer.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={formType} onValueChange={(v) => setFormType(v as "VAR" | "FIX")}>
+                <Label>Category</Label>
+                <Select value={formCategory} onValueChange={(v) => setFormCategory(v as CategoryType)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="VAR">VAR (Variable/One-time)</SelectItem>
-                    <SelectItem value="FIX">FIX (Monthly Recurring)</SelectItem>
+                    {CATEGORY_OPTIONS.map((cat) => {
+                      const config = categoryConfig[cat];
+                      const Icon = config.icon;
+                      return (
+                        <SelectItem key={cat} value={cat}>
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-4 h-4 ${config.color}`} />
+                            {cat}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {formType === "VAR"
-                    ? "One-time expense for the selected date only"
-                    : "Monthly recurring expense - will be counted for each month from the date onwards"}
-                </p>
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Input
-                  placeholder="e.g., MODAL ADS, Rent, Utilities..."
+                  placeholder="e.g., Office Rent, Facebook Ads, Raw Materials..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                 />
               </div>
 
+              {/* Total */}
               <div className="space-y-2">
                 <Label>Total (RM)</Label>
                 <Input
@@ -418,31 +441,68 @@ const AccountExpenses = () => {
                 />
               </div>
 
-              {formType === "VAR" ? (
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
+              {/* Date */}
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
+
+              {/* Attachment */}
+              <div className="space-y-2">
+                <Label>Attachment (Optional)</Label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="attachment-upload"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    One-time expense for this specific date
-                  </p>
+                  <label
+                    htmlFor="attachment-upload"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm text-muted-foreground">
+                      {attachmentFile
+                        ? attachmentFile.name
+                        : existingAttachment
+                          ? 'Replace existing attachment'
+                          : 'Upload JPEG, PNG, or PDF (max 5MB)'}
+                    </span>
+                  </label>
+                  {(attachmentPreview || existingAttachment) && (
+                    <div className="mt-2 p-2 bg-muted rounded-lg">
+                      {attachmentPreview ? (
+                        <img
+                          src={attachmentPreview}
+                          alt="Preview"
+                          className="w-full h-32 object-cover rounded"
+                        />
+                      ) : existingAttachment && existingAttachment.includes('.pdf') ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <FileText className="w-4 h-4" />
+                          <span>PDF attached</span>
+                          <a href={existingAttachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                        </div>
+                      ) : existingAttachment ? (
+                        <img
+                          src={existingAttachment}
+                          alt="Existing attachment"
+                          className="w-full h-32 object-cover rounded"
+                        />
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Start Month</Label>
-                  <Input
-                    type="month"
-                    value={formMonth}
-                    onChange={(e) => setFormMonth(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Monthly recurring - will be counted for each month from this month onwards
-                  </p>
-                </div>
-              )}
+                <p className="text-xs text-muted-foreground">
+                  Supported: JPEG, PNG, PDF (max 5MB)
+                </p>
+              </div>
 
               <div className="flex gap-2 pt-4">
                 <Button
@@ -471,8 +531,8 @@ const AccountExpenses = () => {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats Cards - Category Totals */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -484,29 +544,61 @@ const AccountExpenses = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-orange-500" />
-              <div>
-                <p className="text-xl font-bold">RM {varTotal.toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground">VAR Expenses ({varExpenses.length})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-blue-500" />
-              <div>
-                <p className="text-xl font-bold">RM {fixData.total.toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground">FIX Expenses ({fixData.count})</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {CATEGORY_OPTIONS.map((cat) => {
+          const config = categoryConfig[cat];
+          const Icon = config.icon;
+          return (
+            <Card key={cat}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-6 h-6 ${config.color}`} />
+                  <div>
+                    <p className="text-xl font-bold">RM {categoryTotals[cat].toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">{cat}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Monthly Summary */}
+      {monthlySummary.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-semibold mb-4">Monthly Summary</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-3 text-left">Month</th>
+                    {CATEGORY_OPTIONS.map((cat) => (
+                      <th key={cat} className="p-3 text-right">{cat}</th>
+                    ))}
+                    <th className="p-3 text-right font-bold">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlySummary.map((row) => (
+                    <tr key={row.month} className="border-b hover:bg-muted/30">
+                      <td className="p-3 font-medium">{formatMonth(row.month)}</td>
+                      {CATEGORY_OPTIONS.map((cat) => (
+                        <td key={cat} className="p-3 text-right">
+                          RM {row[cat].toFixed(2)}
+                        </td>
+                      ))}
+                      <td className="p-3 text-right font-bold">
+                        RM {row.total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>
@@ -531,15 +623,16 @@ const AccountExpenses = () => {
               />
             </div>
             <div className="flex gap-2 items-center">
-              <span className="text-sm text-muted-foreground whitespace-nowrap">Type:</span>
-              <Select value={filterType} onValueChange={(v) => { setFilterType(v as any); setCurrentPage(1); }}>
-                <SelectTrigger className="w-32">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Category:</span>
+              <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v as any); setCurrentPage(1); }}>
+                <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="VAR">VAR</SelectItem>
-                  <SelectItem value="FIX">FIX</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -575,78 +668,76 @@ const AccountExpenses = () => {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="p-3 text-left">No</th>
-                      <th className="p-3 text-left">Role</th>
-                      <th className="p-3 text-left">Marketer</th>
-                      <th className="p-3 text-left">Type</th>
+                      <th className="p-3 text-left">Category</th>
                       <th className="p-3 text-left">Description</th>
                       <th className="p-3 text-right">Total (RM)</th>
-                      <th className="p-3 text-left">Date/Month</th>
+                      <th className="p-3 text-left">Date</th>
+                      <th className="p-3 text-center">Attachment</th>
                       <th className="p-3 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedExpenses.length > 0 ? (
-                      paginatedExpenses.map((expense, index) => (
-                        <tr key={expense.id} className="border-b hover:bg-muted/30">
-                          <td className="p-3">
-                            {pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              (expense.role || "company") === "company"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-green-100 text-green-700"
-                            }`}>
-                              {(expense.role || "company") === "company" ? "Company" : "Personal"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {expense.marketer_id_staff || "-"}
-                          </td>
-                          <td className="p-3">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              expense.type === "VAR"
-                                ? "bg-orange-100 text-orange-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}>
-                              {expense.type}
-                            </span>
-                          </td>
-                          <td className="p-3">{expense.description}</td>
-                          <td className="p-3 text-right font-medium">
-                            RM {Number(expense.total).toFixed(2)}
-                          </td>
-                          <td className="p-3 whitespace-nowrap">
-                            {expense.type === "FIX"
-                              ? expense.date.substring(0, 7) // Show YYYY-MM for FIX
-                              : expense.date // Show full date for VAR
-                            }
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditClick(expense)}
-                                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(expense.id)}
-                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                      paginatedExpenses.map((expense, index) => {
+                        const config = categoryConfig[expense.category as CategoryType] || categoryConfig["Other"];
+                        const Icon = config.icon;
+                        return (
+                          <tr key={expense.id} className="border-b hover:bg-muted/30">
+                            <td className="p-3">
+                              {pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-1 rounded text-xs font-medium inline-flex items-center gap-1 ${config.bgColor} ${config.color}`}>
+                                <Icon className="w-3 h-3" />
+                                {expense.category || "Other"}
+                              </span>
+                            </td>
+                            <td className="p-3">{expense.description}</td>
+                            <td className="p-3 text-right font-medium">
+                              RM {Number(expense.total).toFixed(2)}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">{expense.date}</td>
+                            <td className="p-3 text-center">
+                              {expense.attachment_url ? (
+                                <a
+                                  href={expense.attachment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+                                >
+                                  {getFileIcon(expense.attachment_url)}
+                                  <Eye className="w-3 h-3" />
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditClick(expense)}
+                                  className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(expense.id, expense.attachment_url)}
+                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={7} className="text-center py-12 text-muted-foreground">
                           No expenses found for this date range.
                         </td>
                       </tr>
