@@ -77,9 +77,9 @@ const MarketerReward = () => {
     queryFn: async () => {
       if (!profile?.idstaff) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("customer_purchases")
-        .select("id, total_sale, delivery_status, date_order")
+        .select("id, total_sale, delivery_status, date_order, seo")
         .eq("marketer_id_staff", profile.idstaff)
         .neq("delivery_status", "Return")
         .gte("date_order", dateRange.startDate)
@@ -113,10 +113,16 @@ const MarketerReward = () => {
   // Calculate totals
   const stats = useMemo(() => {
     const totalSales = ordersData.reduce((sum, order: any) => sum + (Number(order.total_sale) || 0), 0);
+    const collection = ordersData.reduce((sum, order: any) => {
+      if (order.seo === "Successful Delivery") {
+        return sum + (Number(order.total_sale) || 0);
+      }
+      return sum;
+    }, 0);
     const totalSpend = spendsData.reduce((sum, spend: any) => sum + (Number(spend.total_spend) || 0), 0);
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
 
-    return { totalSales, totalSpend, roas };
+    return { totalSales, collection, totalSpend, roas };
   }, [ordersData, spendsData]);
 
   // Calculate tier progress
@@ -128,22 +134,22 @@ const MarketerReward = () => {
       const maxSales = config.max_sales || (pnlConfigs[index + 1]?.min_sales || minSales * 2);
       const salesRange = maxSales - minSales;
 
-      // Determine status based on current sales
+      // Determine status based on current collection
       let status: 'achieved' | 'in_progress' | 'not_started';
       let progressPercent = 0;
 
-      if (stats.totalSales >= maxSales) {
+      if (stats.collection >= maxSales) {
         // Achieved this tier
         status = 'achieved';
         progressPercent = 100;
-      } else if (stats.totalSales >= minSales) {
+      } else if (stats.collection >= minSales) {
         // In progress for this tier
         status = 'in_progress';
-        progressPercent = Math.min(100, ((stats.totalSales - minSales) / salesRange) * 100);
+        progressPercent = Math.min(100, ((stats.collection - minSales) / salesRange) * 100);
       } else if (index === 0) {
         // First tier - show progress towards it
         status = 'in_progress';
-        progressPercent = Math.min(100, (stats.totalSales / minSales) * 100);
+        progressPercent = Math.min(100, (stats.collection / minSales) * 100);
       } else {
         // Not started
         status = 'not_started';
@@ -152,11 +158,11 @@ const MarketerReward = () => {
 
       // Check ROAS requirement
       const roasMet = stats.roas >= config.roas_min && stats.roas <= config.roas_max;
-      const salesMet = stats.totalSales >= minSales && (config.max_sales === null || stats.totalSales <= config.max_sales);
+      const salesMet = stats.collection >= minSales && (config.max_sales === null || stats.collection <= config.max_sales);
       const fullyQualified = salesMet && roasMet;
 
-      // Calculate commission and bonus if qualified
-      const commission = fullyQualified ? stats.totalSales * (config.commission_percent / 100) : 0;
+      // Calculate commission and bonus if qualified (based on collection)
+      const commission = fullyQualified ? stats.collection * (config.commission_percent / 100) : 0;
       const bonus = fullyQualified ? config.bonus_amount : 0;
 
       return {
@@ -251,7 +257,7 @@ const MarketerReward = () => {
           Reward Progress
         </h1>
         <p className="text-muted-foreground mt-1">
-          Track your performance and rewards based on sales targets
+          Track your performance and rewards based on collection targets (successful deliveries)
         </p>
       </div>
 
@@ -306,7 +312,7 @@ const MarketerReward = () => {
       </Card>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-emerald-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-emerald-600 mb-2">
@@ -315,6 +321,17 @@ const MarketerReward = () => {
             </div>
             <p className="text-2xl font-bold">{formatCurrency(stats.totalSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">Excluding returns</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-green-600 mb-2">
+              <DollarSign className="w-5 h-5" />
+              <span className="text-sm font-medium">Collection</span>
+            </div>
+            <p className="text-2xl font-bold">{formatCurrency(stats.collection)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Successful deliveries</p>
           </CardContent>
         </Card>
 
@@ -355,7 +372,7 @@ const MarketerReward = () => {
                     Congratulations! You qualified for Tier {qualifiedTier.tierNumber}
                   </p>
                   <p className="text-sm text-green-600 dark:text-green-500">
-                    Sales: {formatCurrency(qualifiedTier.min_sales)} - {typeof qualifiedTier.maxSalesDisplay === 'number' ? formatCurrency(qualifiedTier.maxSalesDisplay) : qualifiedTier.maxSalesDisplay} | ROAS: {qualifiedTier.roas_min} - {qualifiedTier.roas_max}
+                    Collection: {formatCurrency(qualifiedTier.min_sales)} - {typeof qualifiedTier.maxSalesDisplay === 'number' ? formatCurrency(qualifiedTier.maxSalesDisplay) : qualifiedTier.maxSalesDisplay} | ROAS: {qualifiedTier.roas_min} - {qualifiedTier.roas_max}
                   </p>
                 </div>
               </div>
@@ -416,7 +433,7 @@ const MarketerReward = () => {
                     <div className="flex-1 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
-                          Sales Target: {formatCurrency(tier.min_sales)} - {typeof tier.maxSalesDisplay === 'number' ? formatCurrency(tier.maxSalesDisplay) : tier.maxSalesDisplay}
+                          Collection Target: {formatCurrency(tier.min_sales)} - {typeof tier.maxSalesDisplay === 'number' ? formatCurrency(tier.maxSalesDisplay) : tier.maxSalesDisplay}
                         </span>
                         <span className="font-medium">{tier.progressPercent.toFixed(1)}%</span>
                       </div>
@@ -439,7 +456,7 @@ const MarketerReward = () => {
                             <span className="text-red-500 ml-1">(Current: {stats.roas.toFixed(2)})</span>
                           )}
                         </span>
-                        <span>Current Sales: {formatCurrency(stats.totalSales)}</span>
+                        <span>Current Collection: {formatCurrency(stats.collection)}</span>
                       </div>
                     </div>
 
@@ -497,7 +514,7 @@ const MarketerReward = () => {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            * To qualify for rewards, both Sales and ROAS requirements must be met.
+            * To qualify for rewards, both Collection and ROAS requirements must be met.
           </p>
         </CardContent>
       </Card>
