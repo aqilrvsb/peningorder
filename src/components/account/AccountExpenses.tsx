@@ -34,7 +34,9 @@ import {
   Package,
   MoreHorizontal,
   Eye,
+  Download,
 } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { put } from "@vercel/blob";
@@ -392,6 +394,34 @@ const AccountExpenses = () => {
     return `${monthNames[parseInt(month) - 1]} ${year}`;
   };
 
+  // Export to XLSX
+  const exportToXLSX = () => {
+    const data = filteredExpenses.map((expense, index) => ({
+      'No': index + 1,
+      'Category': expense.category || 'Other',
+      'Description': expense.description,
+      'Total (RM)': Number(expense.total).toFixed(2),
+      'Date': expense.date,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses');
+
+    // Auto-size columns
+    const colWidths = [
+      { wch: 5 },   // No
+      { wch: 15 },  // Category
+      { wch: 40 },  // Description
+      { wch: 15 },  // Total
+      { wch: 12 },  // Date
+    ];
+    worksheet['!cols'] = colWidths;
+
+    const fileName = `expenses_${startDate}_to_${endDate}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -669,6 +699,10 @@ const AccountExpenses = () => {
               </Select>
               <span className="text-sm text-muted-foreground">entries</span>
             </div>
+            <Button onClick={exportToXLSX} className="bg-green-600 hover:bg-green-700 text-white">
+              <Download className="w-4 h-4 mr-2" />
+              Export XLSX
+            </Button>
           </div>
         </CardContent>
       </Card>
