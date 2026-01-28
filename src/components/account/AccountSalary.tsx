@@ -18,6 +18,11 @@ const SALARY_HIERARCHY: Record<string, number> = {
   "Logistic": 1000,
 };
 
+// Hardcoded role overrides (idstaff -> role)
+const ROLE_OVERRIDES: Record<string, string> = {
+  "MR-001": "Managing Director", // Muhammad Fahmi Bin Ramelan
+};
+
 // Fighter ROAS commission table
 const FIGHTER_ROAS_COMMISSION: { minRoas: number; percent: number }[] = [
   { minRoas: 2.8, percent: 10 },
@@ -126,13 +131,18 @@ const AccountSalary = () => {
 
       // Filter only HQ staff from profiles (exclude Fighter)
       const profileUsers = (profiles || [])
-        .map((profile: any) => ({
-          ...profile,
-          role: rolesMap.get(profile.id) || "unknown",
-          staffType: "profile" as const,
-        }))
+        .map((profile: any) => {
+          const baseRole = rolesMap.get(profile.id) || "unknown";
+          // Apply role override if exists (e.g., MR-001 is Managing Director)
+          const role = ROLE_OVERRIDES[profile.idstaff] || baseRole;
+          return {
+            ...profile,
+            role,
+            staffType: "profile" as const,
+          };
+        })
         .filter((u: UserProfile) =>
-          (u.role === "marketer" || u.role === "admin") &&
+          (u.role === "marketer" || u.role === "admin" || u.role === "Managing Director") &&
           (u.staff_type !== "Fighter")
         );
 

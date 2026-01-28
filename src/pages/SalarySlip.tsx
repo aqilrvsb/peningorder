@@ -16,6 +16,11 @@ const SALARY_HIERARCHY: Record<string, number> = {
   "Logistic": 1000,
 };
 
+// Hardcoded role overrides (idstaff -> role)
+const ROLE_OVERRIDES: Record<string, string> = {
+  "MR-001": "Managing Director", // Muhammad Fahmi Bin Ramelan
+};
+
 // Fighter ROAS commission table
 const FIGHTER_ROAS_COMMISSION: { minRoas: number; percent: number }[] = [
   { minRoas: 2.8, percent: 10 },
@@ -103,7 +108,9 @@ const SalarySlip = () => {
             .eq("user_id", userId)
             .single();
 
-          userRole = roleData?.role || "unknown";
+          const baseRole = roleData?.role || "unknown";
+          // Apply role override if exists (e.g., MR-001 is Managing Director)
+          userRole = ROLE_OVERRIDES[profile.idstaff] || baseRole;
           userData = {
             ...profile,
             role: userRole,
