@@ -244,16 +244,27 @@ const LogisticOrder = () => {
 
     try {
       // Update delivery status for all selected orders
-      const updatePromises = Array.from(selectedOrders).map((orderId) =>
-        supabase
+      // CASH orders keep their SEO (already set to "Successful Delivery" at key-in)
+      // COD orders get SEO = "Shipped"
+      const updatePromises = Array.from(selectedOrders).map((orderId) => {
+        const order = orders.find((o: any) => o.id === orderId);
+        const isCash = order?.type_payment === "CASH";
+
+        const updateData: any = {
+          delivery_status: "Shipped",
+          date_processed: today,
+        };
+
+        // Only set SEO for non-CASH orders (CASH already has "Successful Delivery" from key-in)
+        if (!isCash) {
+          updateData.seo = "Shipped";
+        }
+
+        return supabase
           .from("customer_purchases")
-          .update({
-            delivery_status: "Shipped",
-            date_processed: today,
-            seo: "Shipped",
-          })
-          .eq("id", orderId)
-      );
+          .update(updateData)
+          .eq("id", orderId);
+      });
 
       await Promise.all(updatePromises);
 
