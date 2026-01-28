@@ -519,6 +519,18 @@ const SalarySlip = () => {
                     {salary.commission > 0 ? formatCurrency(salary.commission) : "-"}
                   </td>
                 </tr>
+                {/* Marketer Performance Stats - Show for marketers/admin */}
+                {(user?.role === "marketer" || user?.role === "admin") && (
+                  <tr>
+                    <td colSpan={2} className="border border-black py-2 px-4 text-xs text-gray-600 bg-gray-50">
+                      <div className="flex justify-between">
+                        <span>Collection: {formatCurrency(marketerStats.collection)}</span>
+                        <span>Spend: {formatCurrency(marketerStats.totalSpend)}</span>
+                        <span>ROAS: {marketerStats.roas.toFixed(2)}x</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {/* Total Earnings Row */}
                 <tr className="bg-[#d4a853]">
                   <td className="border border-black py-2 px-4 text-center text-sm font-bold text-white">
