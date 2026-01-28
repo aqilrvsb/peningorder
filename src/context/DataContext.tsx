@@ -136,6 +136,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addOrder = async (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => {
     // New schema field mapping for insert
+    // Auto-set SEO to 'Successful Delivery' for CASH orders (collection is automatic)
     const { error } = await queryTable('customer_purchases').insert({
       id_sale: order.idSale,
       marketer_id_staff: order.marketerIdStaff,
@@ -163,6 +164,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
+      seo: order.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
     });
     if (error) { toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' }); throw error; }
     await refreshData();

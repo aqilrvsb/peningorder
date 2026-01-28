@@ -231,6 +231,10 @@ const Dashboard: React.FC = () => {
     // Total Sales
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
+    // Total Collection (orders with seo === 'Successful Delivery')
+    const collectionOrders = filteredOrders.filter(o => o.seo === 'Successful Delivery');
+    const totalCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
     // Return (only orders with deliveryStatus = 'Return')
     const returnOrders = filteredOrders.filter(o => o.deliveryStatus === 'Return');
     const totalReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
@@ -320,6 +324,7 @@ const Dashboard: React.FC = () => {
     const closingRate = totalLead > 0 ? (closedLeads / totalLead) * 100 : 0;
 
     // Calculate percentages (based on total sales as reference)
+    const collectionPercent = totalSales > 0 ? (totalCollection / totalSales) * 100 : 0;
     const returnPercent = totalSales > 0 ? (totalReturn / totalSales) * 100 : 0;
     const fbPercent = totalSales > 0 ? (salesFB / totalSales) * 100 : 0;
     const dbPercent = totalSales > 0 ? (salesDatabase / totalSales) * 100 : 0;
@@ -338,6 +343,8 @@ const Dashboard: React.FC = () => {
 
     return {
       totalSales,
+      totalCollection,
+      collectionPercent,
       totalReturn,
       returnPercent,
       totalSpend,
@@ -822,7 +829,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {/* Total Sales */}
           <div className="stat-card border-l-4 border-l-success">
             <div className="flex items-center gap-2 text-success mb-2">
@@ -831,6 +838,16 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">100%</p>
+          </div>
+
+          {/* Total Collection */}
+          <div className="stat-card border-l-4 border-l-emerald-500">
+            <div className="flex items-center gap-2 text-emerald-600 mb-2">
+              <DollarSign className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL COLLECTION</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCollection)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.collectionPercent)}</p>
           </div>
 
           {/* Return */}

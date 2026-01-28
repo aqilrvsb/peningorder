@@ -998,6 +998,7 @@ const OrderForm: React.FC = () => {
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
               waybill_url: waybillUrl || null,
               bundle_id: selectedBundle?.id || null, // NEW: bundle_id
+              seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
             });
 
           if (insertError) throw insertError;

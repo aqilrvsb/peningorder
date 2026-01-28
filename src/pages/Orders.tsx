@@ -54,6 +54,16 @@ interface OrderForTracking {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Remaining", "Return", "Success", "Failed"];
+const COLLECTION_STATUS_OPTIONS = ["All", "null", "Pending", "Success", "Return"];
+
+// Helper to get collection status based on delivery_status and seo
+const getCollectionStatus = (deliveryStatus: string, seo: string | null): string => {
+  if (deliveryStatus === 'Pending') return 'null';
+  if (deliveryStatus === 'Shipped' && seo !== 'Successful Delivery') return 'Pending';
+  if (deliveryStatus === 'Shipped' && seo === 'Successful Delivery') return 'Success';
+  if (deliveryStatus === 'Return' || deliveryStatus === 'Failed') return 'Return';
+  return 'null';
+};
 
 // Helper to get Malaysia date (UTC+8)
 const getMalaysiaDate = () => {
@@ -83,6 +93,7 @@ const Orders: React.FC = () => {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
+  const [collectionFilter, setCollectionFilter] = useState("All");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -111,6 +122,14 @@ const Orders: React.FC = () => {
         }
       }
 
+      // Collection status filter
+      if (collectionFilter !== "All") {
+        const orderCollectionStatus = getCollectionStatus(order.deliveryStatus, order.seo);
+        if (orderCollectionStatus !== collectionFilter) {
+          return false;
+        }
+      }
+
       const matchesSearch =
         order.noTempahan.toLowerCase().includes(search.toLowerCase()) ||
         order.produk.toLowerCase().includes(search.toLowerCase()) ||
@@ -124,7 +143,7 @@ const Orders: React.FC = () => {
 
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [orders, search, startDate, endDate, deliveryStatusFilter]);
+  }, [orders, search, startDate, endDate, deliveryStatusFilter, collectionFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / pageSize);
@@ -158,9 +177,15 @@ const Orders: React.FC = () => {
     const totalReturn = returnOrders.length;
     const totalSalesReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
+    // Total Collection (seo === 'Successful Delivery')
+    const collectionOrders = orders.filter(o => o.seo === 'Successful Delivery');
+    const totalCollection = collectionOrders.length;
+    const totalSalesCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
-      totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn
+      totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
+      totalCollection, totalSalesCollection
     };
   }, [orders]);
 
@@ -169,6 +194,7 @@ const Orders: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setDeliveryStatusFilter("All");
+    setCollectionFilter("All");
     setCurrentPage(1);
   };
 
@@ -523,6 +549,15 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
           <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {stats.totalCOD.toLocaleString()}</p>
         </div>
 
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Collection</span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalCollection}</p>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {stats.totalSalesCollection.toLocaleString()}</p>
+        </div>
+
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Package className="w-4 h-4 text-purple-500" />
@@ -648,6 +683,29 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
               </Select>
             </div>
 
+            {/* Collection status dropdown */}
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-500" />
+              <Select
+                value={collectionFilter}
+                onValueChange={(v) => {
+                  setCollectionFilter(v);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Collection" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COLLECTION_STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status === 'null' ? '-' : status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Page size */}
             <Select
               value={pageSize.toString()}
@@ -708,6 +766,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SEO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Collection</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
@@ -796,6 +855,21 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                       </span>
                     </td>
                     <td className="px-4 py-3">
+                      {(() => {
+                        const collectionStatus = getCollectionStatus(order.deliveryStatus, order.seo);
+                        return (
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            collectionStatus === 'Success' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            collectionStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            collectionStatus === 'Return' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400'
+                          }`}>
+                            {collectionStatus === 'null' ? '-' : collectionStatus}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-3">
                       <button
                         onClick={() => handleWhatsAppClick(order)}
                         className="p-1.5 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 transition-colors"
@@ -841,7 +915,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 20 : 21} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 21 : 22} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>
