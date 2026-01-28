@@ -60,6 +60,8 @@ import AccountCustomers from "./components/account/AccountCustomers";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
 import AccountReportProfit from "./components/account/AccountReportProfit";
 import AccountClaim from "./components/account/AccountClaim";
+import AccountSalary from "./components/account/AccountSalary";
+import SalarySlip from "./pages/SalarySlip";
 // HR components
 import HRUserManagement from "./components/hr/HRUserManagement";
 import HRAttendance from "./components/hr/HRAttendance";
@@ -80,6 +82,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/invoice" element={<Invoice />} />
                 <Route path="/invoice/:id" element={<ClaimInvoice />} />
+                <Route path="/salary/:userId/:year/:month" element={<SalarySlip />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="orders" element={<Orders />} />
@@ -127,6 +130,7 @@ const App = () => (
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
                   <Route path="account/pnl-config" element={<PNLConfig />} />
                   <Route path="account/claim" element={<AccountClaim />} />
+                  <Route path="account/salary" element={<AccountSalary />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />

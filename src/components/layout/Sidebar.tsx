@@ -296,6 +296,12 @@ const navItems: NavItem[] = [
     icon: <FileText className="w-5 h-5" />,
     roles: ['account'],
   },
+  {
+    label: 'Salary',
+    path: '/dashboard/account/salary',
+    icon: <DollarSign className="w-5 h-5" />,
+    roles: ['account'],
+  },
   // ============ ADMIN ROLE ============
   {
     label: 'Leads',
