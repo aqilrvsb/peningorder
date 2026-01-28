@@ -304,8 +304,11 @@ const AccountSalary = () => {
     const { present, totalWorking } = countAttendance(user.id);
 
     // Basic salary calculation
+    // Managing Director gets full salary without attendance calculation
     const workingDays = totalWorking > 0 ? totalWorking : workingDaysInMonth;
-    const basicSalary = workingDays > 0 ? (present / workingDays) * baseSalary : 0;
+    const basicSalary = user.role === "Managing Director"
+      ? baseSalary
+      : (workingDays > 0 ? (present / workingDays) * baseSalary : 0);
 
     let commission = 0;
     let bonus = 0;

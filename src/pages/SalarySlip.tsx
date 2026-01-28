@@ -270,8 +270,11 @@ const SalarySlip = () => {
     const { present, totalWorking } = attendanceData;
 
     // Basic salary calculation
+    // Managing Director gets full salary without attendance calculation
     const workingDays = totalWorking > 0 ? totalWorking : workingDaysInMonth;
-    const basicSalary = workingDays > 0 ? (present / workingDays) * baseSalary : 0;
+    const basicSalary = user.role === "Managing Director"
+      ? baseSalary
+      : (workingDays > 0 ? (present / workingDays) * baseSalary : 0);
 
     let commission = 0;
     let bonus = 0;
@@ -486,7 +489,10 @@ const SalarySlip = () => {
                   <td className="border border-black py-3 px-4 text-sm text-black font-semibold">
                     BASIC SALARY
                     <span className="font-normal text-gray-600 ml-2">
-                      ({salary.daysWorked} days / {salary.totalWorkingDays} days x {formatCurrency(salary.baseSalary)})
+                      {user?.role === "Managing Director"
+                        ? "(Full Salary)"
+                        : `(${salary.daysWorked} days / ${salary.totalWorkingDays} days x ${formatCurrency(salary.baseSalary)})`
+                      }
                     </span>
                   </td>
                   <td className="border border-black py-3 px-4 text-sm text-black text-right">
