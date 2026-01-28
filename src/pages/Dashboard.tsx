@@ -33,6 +33,7 @@ import {
   Banknote,
   LineChart as LineChartIcon,
   Globe,
+  CheckCircle,
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaDate } from '@/lib/utils';
@@ -242,8 +243,11 @@ const Dashboard: React.FC = () => {
     // Total Spend
     const totalSpend = filteredSpends.reduce((sum, s) => sum + (Number(s.total_spend) || 0), 0);
 
-    // ROAS (Return on Ad Spend) = Total Sales / Total Spend
+    // ROAS SALES (Return on Ad Spend) = Total Sales / Total Spend
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
+
+    // ROAS COLLECTION = Total Collection / Total Spend
+    const roasCollection = totalSpend > 0 ? totalCollection / totalSpend : 0;
 
     // Sales by Platform
     const salesFB = filteredOrders.filter(o => o.jenisPlatform === 'Facebook').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
@@ -349,6 +353,7 @@ const Dashboard: React.FC = () => {
       returnPercent,
       totalSpend,
       roas,
+      roasCollection,
       salesFB,
       fbPercent,
       salesDatabase,
@@ -488,6 +493,10 @@ const Dashboard: React.FC = () => {
     // Total Sales
     const totalSales = filteredAllOrders.reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
 
+    // Total Collection (orders with seo === 'Successful Delivery')
+    const collectionOrders = filteredAllOrders.filter(o => o.seo === 'Successful Delivery');
+    const totalCollection = collectionOrders.reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+
     // Return (only orders with delivery_status = 'Return')
     const returnOrders = filteredAllOrders.filter(o => o.delivery_status === 'Return');
     const totalReturn = returnOrders.reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
@@ -495,8 +504,11 @@ const Dashboard: React.FC = () => {
     // Total Spend (all marketers)
     const totalSpend = filteredAllSpends.reduce((sum, s) => sum + (Number(s.total_spend) || 0), 0);
 
-    // ROAS
+    // ROAS SALES
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
+
+    // ROAS COLLECTION
+    const roasCollection = totalSpend > 0 ? totalCollection / totalSpend : 0;
 
     // Sales by Platform
     const salesFB = filteredAllOrders.filter(o => o.jenis_platform === 'Facebook').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
@@ -595,10 +607,12 @@ const Dashboard: React.FC = () => {
 
     return {
       totalSales,
+      totalCollection,
       totalReturn,
       returnPercent,
       totalSpend,
       roas,
+      roasCollection,
       salesFB,
       fbPercent,
       salesDatabase,
@@ -829,7 +843,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Total Sales */}
           <div className="stat-card border-l-4 border-l-success">
             <div className="flex items-center gap-2 text-success mb-2">
@@ -870,14 +884,24 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Ad Budget</p>
           </div>
 
-          {/* ROAS */}
+          {/* ROAS SALES */}
           <div className="stat-card border-l-4 border-l-primary">
             <div className="flex items-center gap-2 text-primary mb-2">
               <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS</span>
+              <span className="text-sm font-medium">ROAS SALES</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{marketerStats.roas.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Return on Ad Spend</p>
+            <p className="text-xs text-muted-foreground mt-1">Sales / Spend</p>
+          </div>
+
+          {/* ROAS COLLECTION */}
+          <div className="stat-card border-l-4 border-l-green-500">
+            <div className="flex items-center gap-2 text-green-600 mb-2">
+              <BarChart3 className="w-5 h-5" />
+              <span className="text-sm font-medium">ROAS COLLECTION</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{marketerStats.roasCollection.toFixed(2)}x</p>
+            <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
           </div>
         </div>
 
@@ -1386,7 +1410,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Total Sales */}
           <div className="stat-card border-l-4 border-l-success">
             <div className="flex items-center gap-2 text-success mb-2">
@@ -1395,6 +1419,16 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">100%</p>
+          </div>
+
+          {/* Total Collection */}
+          <div className="stat-card border-l-4 border-l-green-500">
+            <div className="flex items-center gap-2 text-green-600 mb-2">
+              <CheckCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL COLLECTION</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalCollection)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Successful Delivery</p>
           </div>
 
           {/* Return */}
@@ -1417,14 +1451,24 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Ad Budget</p>
           </div>
 
-          {/* ROAS */}
+          {/* ROAS SALES */}
           <div className="stat-card border-l-4 border-l-primary">
             <div className="flex items-center gap-2 text-primary mb-2">
               <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS</span>
+              <span className="text-sm font-medium">ROAS SALES</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{bodStats.roas.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Return on Ad Spend</p>
+            <p className="text-xs text-muted-foreground mt-1">Sales / Spend</p>
+          </div>
+
+          {/* ROAS COLLECTION */}
+          <div className="stat-card border-l-4 border-l-green-500">
+            <div className="flex items-center gap-2 text-green-600 mb-2">
+              <BarChart3 className="w-5 h-5" />
+              <span className="text-sm font-medium">ROAS COLLECTION</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{bodStats.roasCollection.toFixed(2)}x</p>
+            <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
           </div>
         </div>
 
