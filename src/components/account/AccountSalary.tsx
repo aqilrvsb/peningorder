@@ -129,7 +129,7 @@ const AccountSalary = () => {
       // Create a map of user_id to role
       const rolesMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
 
-      // Filter only HQ staff from profiles (exclude Fighter)
+      // Filter marketers and admins from profiles (including Fighter)
       const profileUsers = (profiles || [])
         .map((profile: any) => {
           const baseRole = rolesMap.get(profile.id) || "unknown";
@@ -142,8 +142,7 @@ const AccountSalary = () => {
           };
         })
         .filter((u: UserProfile) =>
-          (u.role === "marketer" || u.role === "admin" || u.role === "Managing Director") &&
-          (u.staff_type !== "Fighter")
+          (u.role === "marketer" || u.role === "admin" || u.role === "Managing Director")
         );
 
       // Map attendance_staff
@@ -292,6 +291,15 @@ const AccountSalary = () => {
     return { commission: 0, bonus: 0 };
   };
 
+  // Calculate Fighter commission based on ROAS table
+  const calculateFighterCommission = (collection: number, roas: number) => {
+    const tier = FIGHTER_ROAS_COMMISSION.find(t => roas >= t.minRoas);
+    if (tier) {
+      return { commission: (collection * tier.percent) / 100, percent: tier.percent };
+    }
+    return { commission: 0, percent: 0 };
+  };
+
   // Calculate salary for a user
   const calculateSalary = (user: UserProfile) => {
     const baseSalary = SALARY_HIERARCHY[user.role || ""] || 1200;
@@ -307,6 +315,13 @@ const AccountSalary = () => {
     // Customer Support: 10% of company collection
     if (user.role === "Customer Support") {
       commission = totalCompanyCollection * 0.10;
+    }
+    // Fighter Marketer: ROAS-based commission table
+    else if (user.staff_type === "Fighter") {
+      const stats = getMarketerStats(user.idstaff || "");
+      const fighterResult = calculateFighterCommission(stats.collection, stats.roas);
+      commission = fighterResult.commission;
+      // Fighter doesn't get bonus, only commission
     }
     // HQ Marketer/Admin: Use PNL config
     else if ((user.role === "marketer" || user.role === "admin") && user.staff_type !== "Fighter") {
@@ -341,7 +356,15 @@ const AccountSalary = () => {
 
   // Filter users based on role
   const filteredUsers = users.filter((user: UserProfile) => {
-    return roleFilter === "all" || user.role === roleFilter;
+    if (roleFilter === "all") return true;
+    if (roleFilter === "Fighter") {
+      return user.staff_type === "Fighter";
+    }
+    if (roleFilter === "marketer") {
+      // HQ marketers only (exclude Fighter)
+      return user.role === "marketer" && user.staff_type !== "Fighter";
+    }
+    return user.role === roleFilter;
   });
 
   // Navigate months
@@ -450,7 +473,8 @@ const AccountSalary = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="marketer">Marketer</SelectItem>
+                <SelectItem value="marketer">Marketer HQ</SelectItem>
+                <SelectItem value="Fighter">Marketer Fighter</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="Managing Director">Managing Director</SelectItem>
                 <SelectItem value="Business Support Exec">Business Support Exec</SelectItem>
@@ -535,6 +559,7 @@ const AccountSalary = () => {
                           </td>
                           <td className="text-center p-3">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              user.staff_type === "Fighter" ? "bg-red-100 text-red-800" :
                               user.role === "marketer" ? "bg-blue-100 text-blue-800" :
                               user.role === "admin" ? "bg-purple-100 text-purple-800" :
                               user.role === "Managing Director" ? "bg-amber-100 text-amber-800" :
@@ -544,7 +569,7 @@ const AccountSalary = () => {
                               user.role === "Multimedia" ? "bg-cyan-100 text-cyan-800" :
                               "bg-gray-100 text-gray-800"
                             }`}>
-                              {user.role}
+                              {user.staff_type === "Fighter" ? "Fighter" : user.role}
                             </span>
                           </td>
                           <td className="text-center p-3">
