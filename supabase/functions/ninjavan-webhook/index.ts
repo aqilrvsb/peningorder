@@ -384,7 +384,7 @@ serve(async (req) => {
     // Find the order by tracking number
     const { data: order, error: orderError } = await supabase
       .from('customer_purchases')
-      .select('id, id_sale, marketer_id_staff, name_customer, phone_customer, delivery_status, seo')
+      .select('id, id_sale, marketer_id_staff, name_customer, phone_customer, delivery_status, seo, seos')
       .eq('tracking_number', trackingNumber)
       .maybeSingle();
 
@@ -431,33 +431,42 @@ serve(async (req) => {
       marketer: order.marketer_id_staff,
       customer: order.name_customer,
       currentStatus: order.delivery_status,
-      currentSeo: order.seo
+      currentSeo: order.seo,
+      currentSeos: order.seos
     });
 
     // Process NinjaVan status using your PHP logic
     const { status: newDeliveryStatus, seo: newSeo } = processNinjavanStatus(eventName);
     const previousStatus = order.delivery_status;
     const previousSeo = order.seo;
+    const previousSeos = order.seos;
 
     // Build update object
+    // NEW LOGIC:
+    // - seos: Always update for notification tracking (all events)
+    // - seo: Only update for Return or Successful Delivery (for Collection tracking)
     const updateData: any = {
-      seo: newSeo,  // Always update SEO with event
+      seos: newSeo,  // Always update SEOS with event (for notification tracking)
       nota_staff: comments || order.nota_staff  // Update nota_staff with comments if available
     };
 
-    // Handle Successful Delivery - only update seo, don't change delivery_status or date_processed
-    // date_processed is set by logistic when they process the order
+    // Handle Successful Delivery - update both seo and seos
+    // seo is for Collection tracking, seos is for notification
     if (newDeliveryStatus === 'Processed') {
-      // Only update seo to 'Successful Delivery', keep delivery_status as is
-      console.log('Successful Delivery - updating seo only');
+      updateData.seo = newSeo;  // Update seo for Collection tracking
+      console.log('Successful Delivery - updating both seo and seos');
     }
-    // Handle Return
+    // Handle Return - update both seo and seos
     else if (newDeliveryStatus === 'Return') {
+      updateData.seo = newSeo;  // Update seo for Collection tracking
       updateData.delivery_status = 'Return';
       updateData.date_return = todayDate;
       console.log('Setting as Return with date_return:', todayDate);
     }
-    // Other events - don't change delivery_status, just update SEO
+    // Other events - only update seos (notification), don't touch seo (Collection)
+    else {
+      console.log('Other event - updating seos only, seo unchanged for Collection tracking');
+    }
 
     // Update order
     const { error: updateError } = await supabase
@@ -484,21 +493,22 @@ serve(async (req) => {
     // Get WhatsApp template categories to detect duplicates
     // Different NinjaVan events like "Arrived at Origin Hub" and "Arrived at Transit Hub"
     // have different SEO values but should only send ONE "In Transit" WhatsApp
-    const previousTemplateCategory = previousSeo ? getWhatsAppTemplateCategory(previousSeo) : null;
+    // NOTE: Use SEOS (notification column) for duplicate detection, not SEO (Collection column)
+    const previousTemplateCategory = previousSeos ? getWhatsAppTemplateCategory(previousSeos) : null;
     const currentTemplateCategory = getWhatsAppTemplateCategory(eventName);
 
     console.log('WhatsApp template check:', {
-      previousSeo,
+      previousSeos,
       newSeo,
       previousTemplateCategory,
       currentTemplateCategory
     });
 
-    // Skip WhatsApp if template category is the same (even if raw SEO is different)
+    // Skip WhatsApp if template category is the same (even if raw SEOS is different)
     // This prevents duplicate "In Transit" messages for different hub events
     if (previousTemplateCategory && currentTemplateCategory && previousTemplateCategory === currentTemplateCategory) {
       console.log('Skipping WhatsApp - same template category already sent:', {
-        previousSeo,
+        previousSeos,
         newSeo,
         category: currentTemplateCategory
       });
@@ -545,7 +555,9 @@ serve(async (req) => {
         previousStatus,
         newStatus: updateData.delivery_status || previousStatus,
         previousSeo,
-        newSeo,
+        newSeo: updateData.seo || previousSeo,  // seo only updates for Return/Successful Delivery
+        previousSeos,
+        newSeos: newSeo,  // seos always updates (for notification tracking)
         previousTemplateCategory,
         currentTemplateCategory,
         whatsappSent,
@@ -565,7 +577,8 @@ serve(async (req) => {
         id_sale: order.id_sale,
         tracking_number: trackingNumber,
         event: eventName,
-        seo: newSeo,
+        seo: updateData.seo || previousSeo,  // Collection tracking (only Return/Successful Delivery)
+        seos: newSeo,  // Notification tracking (all events)
         delivery_status: updateData.delivery_status || previousStatus,
         whatsapp_sent: whatsappSent
       }),
