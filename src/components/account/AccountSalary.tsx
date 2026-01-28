@@ -92,10 +92,10 @@ const AccountSalary = () => {
     return dayOfWeek === 0 || dayOfWeek === 6;
   };
 
-  // Calculate working days in month (excluding weekends)
+  // Total days in month (counts ALL days to match HRAttendance)
   const workingDaysInMonth = useMemo(() => {
-    return daysArray.filter(day => !isWeekend(day)).length;
-  }, [daysArray]);
+    return daysInMonth;
+  }, [daysInMonth]);
 
   // Fetch all users (HQ staff only from profiles + attendance_staff)
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
@@ -240,14 +240,12 @@ const AccountSalary = () => {
       .reduce((sum: number, order: any) => sum + (Number(order.total_sale) || 0), 0);
   }, [ordersData]);
 
-  // Count attendance for a user
+  // Count attendance for a user (matches HRAttendance logic - counts ALL days)
   const countAttendance = (userId: string) => {
     let present = 0;
     let absent = 0;
 
     daysArray.forEach((day) => {
-      if (isWeekend(day)) return; // Skip weekends
-
       const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const record = attendanceRecords.find(
         (r: AttendanceRecord) => r.user_id === userId && r.date === date

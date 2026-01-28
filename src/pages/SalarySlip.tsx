@@ -79,10 +79,10 @@ const SalarySlip = () => {
     return dayOfWeek === 0 || dayOfWeek === 6;
   };
 
-  // Calculate working days in month (excluding weekends)
+  // Total days in month (counts ALL days to match HRAttendance)
   const workingDaysInMonth = useMemo(() => {
-    return daysArray.filter(day => !isWeekend(day)).length;
-  }, [daysArray]);
+    return daysInMonth;
+  }, [daysInMonth]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -161,11 +161,10 @@ const SalarySlip = () => {
           .gte("date", startDate)
           .lte("date", endDate);
 
-        // Count attendance (excluding weekends)
+        // Count attendance (matches HRAttendance logic - counts ALL days)
         let present = 0;
         let absent = 0;
         daysArray.forEach((day) => {
-          if (isWeekend(day)) return;
           const date = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const record = (attendance || []).find((r: any) => r.date === date);
           if (record?.status === "present") present++;
