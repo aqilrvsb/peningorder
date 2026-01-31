@@ -31,6 +31,7 @@ import Profile from "./pages/Profile";
 import PNL from "./pages/PNL";
 import PNLConfig from "./pages/PNLConfig";
 import AdminLeads from "./pages/AdminLeads";
+import AdminOrders from "./pages/AdminOrders";
 import ReportAdminProspect from "./pages/ReportAdminProspect";
 import Invoice from "./pages/Invoice";
 import ClaimInvoice from "./pages/ClaimInvoice";
@@ -136,6 +137,7 @@ const App = () => (
                   <Route path="settings" element={<Settings />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="admin/leads" element={<AdminLeads />} />
+                  <Route path="admin/orders" element={<AdminOrders />} />
                   {/* HR Role routes */}
                   <Route path="hr/users" element={<HRUserManagement />} />
                   <Route path="hr/attendance" element={<HRAttendance />} />

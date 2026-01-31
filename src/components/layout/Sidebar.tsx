@@ -309,6 +309,12 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     roles: ['admin'],
   },
+  {
+    label: 'Orders',
+    path: '/dashboard/admin/orders',
+    icon: <Package className="w-5 h-5" />,
+    roles: ['admin'],
+  },
   // ============ HR ROLE ============
   {
     label: 'User',
