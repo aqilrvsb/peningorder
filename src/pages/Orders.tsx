@@ -238,7 +238,7 @@ Pakej : ${order.produk || "-"}
 Tarikh Membeli : ${formattedDate}
 Tracking Number : ${tracking}
 Harga Jualan : RM${Number(order.hargaJualanSebenar || 0).toFixed(2)}
-Cara Bayaran : ${order.caraBayaran || "-"}
+Cara Bayaran : ${order.kurier || order.caraBayaran || "-"}
 
 https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
 
@@ -263,7 +263,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
       order.jenisCustomer || '-',
       order.negeri,
       order.alamat,
-      order.caraBayaran || '-',
+      order.kurier || order.caraBayaran || '-',
       order.deliveryStatus,
     ]);
     
@@ -807,10 +807,10 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                           onClick={() => handlePaymentClick(order)}
                           className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
                         >
-                          CASH
+                          {order.kurier?.replace('CASH', 'Online Payment') || 'Online Payment'}
                         </button>
                       ) : (
-                        <span className="text-muted-foreground">{order.caraBayaran || '-'}</span>
+                        <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

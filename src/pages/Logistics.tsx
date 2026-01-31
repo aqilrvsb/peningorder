@@ -23,7 +23,7 @@ import StockOutTab from '@/components/logistics/StockOutTab';
 import { getMalaysiaDate } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['All', 'Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
-const CARA_BAYARAN_OPTIONS = ['All', 'CASH', 'COD'];
+const CARA_BAYARAN_OPTIONS = ['All', 'Ninjavan COD', 'Ninjavan CASH', 'Poslaju COD', 'Poslaju CASH', 'PICKUP'];
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 const Logistics: React.FC = () => {
@@ -168,7 +168,7 @@ const Logistics: React.FC = () => {
     const matchesPlatform = platformFilter === 'All' || order.jenisPlatform === platformFilter;
 
     // Cara Bayaran filter
-    const matchesCaraBayaran = caraBayaranFilter === 'All' || order.caraBayaran === caraBayaranFilter;
+    const matchesCaraBayaran = caraBayaranFilter === 'All' || order.kurier === caraBayaranFilter;
 
     // Date filter by date_order
     let matchesDate = true;
@@ -230,7 +230,7 @@ const Logistics: React.FC = () => {
     const matchesPlatform = shipmentPlatformFilter === 'All' || order.jenisPlatform === shipmentPlatformFilter;
 
     // Cara Bayaran filter
-    const matchesCaraBayaran = shipmentCaraBayaranFilter === 'All' || order.caraBayaran === shipmentCaraBayaranFilter;
+    const matchesCaraBayaran = shipmentCaraBayaranFilter === 'All' || order.kurier === shipmentCaraBayaranFilter;
 
     // Date filter by date_processed
     let matchesDate = true;
@@ -294,7 +294,7 @@ const Logistics: React.FC = () => {
     const matchesPlatform = returnPlatformFilter === 'All' || order.jenisPlatform === returnPlatformFilter;
 
     // Cara Bayaran filter
-    const matchesCaraBayaran = returnCaraBayaranFilter === 'All' || order.caraBayaran === returnCaraBayaranFilter;
+    const matchesCaraBayaran = returnCaraBayaranFilter === 'All' || order.kurier === returnCaraBayaranFilter;
 
     // Date filter by date_return
     let matchesDate = true;
@@ -360,7 +360,7 @@ const Logistics: React.FC = () => {
     const matchesPlatform = pendingTrackingPlatformFilter === 'All' || order.jenisPlatform === pendingTrackingPlatformFilter;
 
     // Cara Bayaran filter
-    const matchesCaraBayaran = pendingTrackingCaraBayaranFilter === 'All' || order.caraBayaran === pendingTrackingCaraBayaranFilter;
+    const matchesCaraBayaran = pendingTrackingCaraBayaranFilter === 'All' || order.kurier === pendingTrackingCaraBayaranFilter;
 
     // Date filter by date_order
     let matchesDate = true;
@@ -409,32 +409,32 @@ const Logistics: React.FC = () => {
     pendingTrackingCurrentPage * pendingTrackingPageSize
   );
 
-  // Order tab counts - Pending orders
+  // Order tab counts - Pending orders (use kurier field to check CASH/COD)
   const orderCounts = {
     totalPending: pendingOrders.length,
-    cashPending: pendingOrders.filter((o) => o.caraBayaran === 'CASH').length,
-    codPending: pendingOrders.filter((o) => o.caraBayaran === 'COD').length,
+    cashPending: pendingOrders.filter((o) => o.kurier?.includes('CASH')).length,
+    codPending: pendingOrders.filter((o) => o.kurier?.includes('COD')).length,
   };
 
   // Shipment tab counts - Shipped orders
   const shipmentCounts = {
     totalShipped: shippedOrders.length,
-    cashShipped: shippedOrders.filter((o) => o.caraBayaran === 'CASH').length,
-    codShipped: shippedOrders.filter((o) => o.caraBayaran === 'COD').length,
+    cashShipped: shippedOrders.filter((o) => o.kurier?.includes('CASH')).length,
+    codShipped: shippedOrders.filter((o) => o.kurier?.includes('COD')).length,
   };
 
   // Return tab counts
   const returnCounts = {
     totalReturn: returnOrders.length,
-    cashReturn: returnOrders.filter((o) => o.caraBayaran === 'CASH').length,
-    codReturn: returnOrders.filter((o) => o.caraBayaran === 'COD').length,
+    cashReturn: returnOrders.filter((o) => o.kurier?.includes('CASH')).length,
+    codReturn: returnOrders.filter((o) => o.kurier?.includes('COD')).length,
     totalSalesReturn: returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0),
   };
 
   // Pending Tracking tab counts (COD only)
   const pendingTrackingCounts = {
     totalOrder: pendingTrackingOrders.length,
-    codOrder: pendingTrackingOrders.filter((o) => o.caraBayaran === 'COD').length,
+    codOrder: pendingTrackingOrders.filter((o) => o.kurier?.includes('COD')).length,
     totalSales: pendingTrackingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0),
   };
 
@@ -1470,12 +1470,12 @@ const Logistics: React.FC = () => {
                         <td>{order.kuantiti || 1}</td>
                         <td>RM {order.hargaJualanSebenar?.toFixed(2) || '0.00'}</td>
                         <td>
-                          {order.caraBayaran === 'CASH' ? (
+                          {order.kurier?.includes('CASH') ? (
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              CASH
+                              {order.kurier}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">{order.caraBayaran || '-'}</span>
+                            <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
                           )}
                         </td>
                         <td>
@@ -1777,12 +1777,12 @@ const Logistics: React.FC = () => {
                         <td>{order.kuantiti || 1}</td>
                         <td>RM {order.hargaJualanSebenar?.toFixed(2) || '0.00'}</td>
                         <td>
-                          {order.caraBayaran === 'CASH' ? (
+                          {order.kurier?.includes('CASH') ? (
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              CASH
+                              {order.kurier}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">{order.caraBayaran || '-'}</span>
+                            <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
                           )}
                         </td>
                         <td>
@@ -2075,12 +2075,12 @@ const Logistics: React.FC = () => {
                         <td>{order.kuantiti || 1}</td>
                         <td>RM {order.hargaJualanSebenar?.toFixed(2) || '0.00'}</td>
                         <td>
-                          {order.caraBayaran === 'CASH' ? (
+                          {order.kurier?.includes('CASH') ? (
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              CASH
+                              {order.kurier}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">{order.caraBayaran || '-'}</span>
+                            <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
                           )}
                         </td>
                         <td>
@@ -2421,12 +2421,12 @@ const Logistics: React.FC = () => {
                         <td>{order.kuantiti || 1}</td>
                         <td>RM {order.hargaJualanSebenar?.toFixed(2) || '0.00'}</td>
                         <td>
-                          {order.caraBayaran === 'CASH' ? (
+                          {order.kurier?.includes('CASH') ? (
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              CASH
+                              {order.kurier}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">{order.caraBayaran || '-'}</span>
+                            <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
                           )}
                         </td>
                         <td>

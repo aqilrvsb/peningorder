@@ -1098,6 +1098,7 @@ const OrderForm: React.FC = () => {
                 bundle_sku: selectedBundle?.sku || '', // Add bundle SKU for product breakdown
                 total_price: formData.hargaJualan,
                 payment_method: formData.caraBayaran,
+                kurier: kurier, // Include kurier for CARA BAYARAN display
                 tracking_number: trackingNumber,
               },
               marketer_id: profile?.id,

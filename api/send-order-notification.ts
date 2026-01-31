@@ -311,9 +311,17 @@ export default async function handler(req: any, res: any) {
     const bundleName = orderData.bundle_name || orderData.produk || '';
     const bundleSku = orderData.bundle_sku || '';
     const totalPrice = parseFloat(orderData.total_price || orderData.harga_jualan_sebenar || 0).toFixed(2);
-    const rawPaymentMethod = orderData.payment_method || orderData.cara_bayaran || '';
-    // Display "Online Payment" instead of "CASH" for WhatsApp message
-    const paymentMethod = rawPaymentMethod === 'CASH' ? 'Online Payment' : rawPaymentMethod;
+    // Use kurier field which contains "Ninjavan COD", "Poslaju CASH", etc.
+    const kurier = orderData.kurier || '';
+    // Display "Online Payment" instead of "CASH" suffix for WhatsApp message
+    // Fallback to payment_method/cara_bayaran if kurier is empty (old orders)
+    let paymentMethod = kurier;
+    if (kurier) {
+      paymentMethod = kurier.includes('CASH') ? kurier.replace('CASH', 'Online Payment') : kurier;
+    } else {
+      const rawPM = orderData.payment_method || orderData.cara_bayaran || '';
+      paymentMethod = rawPM === 'CASH' ? 'Online Payment' : rawPM;
+    }
     const idSale = orderData.id_sale || '-';
     const trackingNumber = orderData.tracking_number || orderData.no_tracking || '-';
 

@@ -928,6 +928,8 @@ serve(async (req) => {
     // Determine payment method
     const isCOD = orderData.paymentMethod === 'COD';
     const typePayment = isCOD ? 'COD' : 'Online Payment';
+    // For WhatsApp display: "Ninjavan COD" or "Ninjavan Online Payment"
+    const kurierDisplay = isCOD ? 'Ninjavan COD' : 'Ninjavan Online Payment';
 
     // Generate Sale ID
     const idSale = await generateSaleId(supabase);
@@ -1111,7 +1113,7 @@ ALAMAT : ${fullAddress}
 NO TELEFON : ${orderData.customerPhone}
 PRODUK : ${productDisplay}
 HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
-CARA BAYARAN : ${typePayment}
+CARA BAYARAN : ${kurierDisplay}
 TRACKING : ${trackingNumber || '-'}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Kami Yer...
