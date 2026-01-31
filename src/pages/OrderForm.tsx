@@ -31,7 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Beg Lead'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['KURIER', 'PICKUP'];
+const DELIVERY_METHOD_OPTIONS = ['Ninjavan', 'Poslaju', 'Self Pickup'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -150,7 +150,7 @@ const OrderForm: React.FC = () => {
     quantity: 1,
     hargaJualan: 0,
     caraBayaran: '',
-    deliveryMethod: 'KURIER',
+    deliveryMethod: 'Ninjavan',
     jenisBayaran: '',
     pilihBank: '',
     nota: '',
@@ -182,7 +182,7 @@ const OrderForm: React.FC = () => {
         quantity: 1, // Always 1 for edit mode
         hargaJualan: editOrder.hargaJualanSebenar || 0,
         caraBayaran: editOrder.caraBayaran || '',
-        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'PICKUP' : 'KURIER',
+        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'Self Pickup' : (editOrder.kurier?.includes('Poslaju') ? 'Poslaju' : 'Ninjavan'),
         jenisBayaran: editOrder.jenisBayaran || '',
         pilihBank: editOrder.bank || '',
         nota: editOrder.notaStaff || '',
@@ -657,13 +657,18 @@ const OrderForm: React.FC = () => {
       hour12: true,
     });
 
-    // Set kurier based on cara bayaran and delivery method
-    // All platforms (Facebook, Shopee, Tiktok, Database, Google) now use NinjaVan
+    // Set kurier based on delivery method and cara bayaran
     let kurier = '';
-    const isPickup = formData.deliveryMethod === 'PICKUP';
+    const isPickup = formData.deliveryMethod === 'Self Pickup';
+    const isNinjavan = formData.deliveryMethod === 'Ninjavan';
+    const isPoslaju = formData.deliveryMethod === 'Poslaju';
+
     if (isPickup) {
       kurier = 'PICKUP';
+    } else if (isPoslaju) {
+      kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
     } else {
+      // Default to Ninjavan
       kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
     }
     
@@ -683,11 +688,11 @@ const OrderForm: React.FC = () => {
 
       // Handle edit mode
       if (isEditMode) {
-        const wasNinjavanOrder = editOrder.kurier !== 'PICKUP';
-        const isNowNinjavanOrder = !isPickup;
+        const wasKurierOrder = editOrder.kurier !== 'PICKUP';
+        const isNowKurierOrder = !isPickup;
 
         // If it was a Ninjavan order, cancel the old tracking first
-        if (wasNinjavanOrder && editOrder.noTracking) {
+        if (wasKurierOrder && editOrder.kurier?.includes('Ninjavan') && editOrder.noTracking) {
           console.log('Cancelling old Ninjavan tracking:', editOrder.noTracking);
           const cancelled = await cancelNinjavanOrder(editOrder.noTracking);
           if (cancelled) {
@@ -698,7 +703,9 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        if (isNowNinjavanOrder) {
+        let editWaybillPdfUrl = ''; // For Poslaju PDF link in edit mode
+
+        if (isNowKurierOrder) {
           // Generate new sale ID for edit mode
           idSale = await generateSaleId();
           console.log('Generated new Sale ID for edit:', idSale);
@@ -706,50 +713,60 @@ const OrderForm: React.FC = () => {
           // Get selected bundle for SKU
           const editSelectedBundle = activeBundles.find(b => b.name === formData.produk);
 
+          const orderBody = {
+            orderId: orderNumber,
+            idSale: idSale,
+            customerName: formData.namaPelanggan,
+            phone: formData.noPhone,
+            address: formData.alamat,
+            postcode: formData.poskod,
+            city: formData.daerah,
+            state: formData.negeri,
+            price: formData.hargaJualan,
+            caraBayaran: formData.caraBayaran,
+            produk: formData.produk,
+            productSku: editSelectedBundle?.sku || formData.produk,
+            quantity: 1,
+            weight: editSelectedBundle?.weight || 0.5,
+            marketerIdStaff: profile?.username || '',
+          };
+
           try {
-            const { data: ninjavanResult, error: ninjavanError } = await supabase.functions.invoke('ninjavan-order', {
-              body: {
-                orderId: orderNumber,
-                idSale: idSale,
-                customerName: formData.namaPelanggan,
-                phone: formData.noPhone,
-                address: formData.alamat,
-                postcode: formData.poskod,
-                city: formData.daerah,
-                state: formData.negeri,
-                price: formData.hargaJualan,
-                caraBayaran: formData.caraBayaran,
-                produk: formData.produk,
-                productSku: editSelectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
-                quantity: 1,
-                weight: editSelectedBundle?.weight || 0.5, // Bundle weight in KG
-                marketerIdStaff: profile?.username || '',
-              }
+            // Call appropriate API based on delivery method
+            const functionName = isPoslaju ? 'poslaju-order' : 'ninjavan-order';
+            const kurierName = isPoslaju ? 'Poslaju' : 'Ninjavan';
+
+            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke(functionName, {
+              body: orderBody
             });
 
-            if (ninjavanError) {
-              console.error('Ninjavan API error:', ninjavanError);
+            if (kurierError) {
+              console.error(`${kurierName} API error:`, kurierError);
               toast({
                 title: 'Amaran',
-                description: 'Order dikemaskini tetapi gagal hantar ke Ninjavan.',
+                description: `Order dikemaskini tetapi gagal hantar ke ${kurierName}.`,
                 variant: 'destructive',
               });
-            } else if (ninjavanResult?.error) {
-              console.error('Ninjavan error:', ninjavanResult.error);
+            } else if (kurierResult?.error) {
+              console.error(`${kurierName} error:`, kurierResult.error);
               toast({
                 title: 'Amaran',
-                description: ninjavanResult.error,
+                description: kurierResult.error,
                 variant: 'destructive',
               });
-            } else if (ninjavanResult?.trackingNumber) {
-              trackingNumber = ninjavanResult.trackingNumber;
+            } else if (kurierResult?.trackingNumber) {
+              trackingNumber = kurierResult.trackingNumber;
+              // Save Poslaju PDF link if available
+              if (isPoslaju && kurierResult?.pdfLink) {
+                editWaybillPdfUrl = kurierResult.pdfLink;
+              }
               toast({
-                title: 'Ninjavan Berjaya',
+                title: `${kurierName} Berjaya`,
                 description: `Tracking Number Baru: ${trackingNumber}`,
               });
             }
-          } catch (ninjavanErr) {
-            console.error('Ninjavan call failed:', ninjavanErr);
+          } catch (kurierErr) {
+            console.error('Kurier call failed:', kurierErr);
           }
         }
 
@@ -801,8 +818,8 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        // Waybill no longer used - all platforms now use NinjaVan
-        let newWaybillUrl = '';
+        // Waybill URL - use Poslaju PDF link if available
+        let newWaybillUrl = editWaybillPdfUrl || '';
 
         // Use quantity from form (always 1 for edit mode)
         const editQuantity = formData.quantity || 1;
@@ -857,58 +874,69 @@ const OrderForm: React.FC = () => {
         });
       } else {
         // New order flow
-        // Get selected bundle for SKU (needed for NinjaVan)
+        // Get selected bundle for SKU (needed for kurier API)
         const selectedBundle = activeBundles.find(b => b.name === formData.produk);
 
-        // All platforms now use NinjaVan (only skip for PICKUP)
-        const shouldCallNinjavan = !isPickup;
+        // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup
+        const shouldCallKurier = !isPickup;
+        let waybillPdfUrl = ''; // For Poslaju PDF link
 
-        if (shouldCallNinjavan) {
+        if (shouldCallKurier) {
+          const orderBody = {
+            orderId: orderNumber,
+            idSale: idSale,
+            customerName: formData.namaPelanggan,
+            phone: formData.noPhone,
+            address: formData.alamat,
+            postcode: formData.poskod,
+            city: formData.daerah,
+            state: formData.negeri,
+            price: formData.hargaJualan,
+            caraBayaran: formData.caraBayaran,
+            produk: formData.produk,
+            productSku: selectedBundle?.sku || formData.produk,
+            quantity: 1,
+            weight: selectedBundle?.weight || 0.5,
+            marketerIdStaff: profile?.username || '',
+          };
+
           try {
-            const { data: ninjavanResult, error: ninjavanError } = await supabase.functions.invoke('ninjavan-order', {
-              body: {
-                orderId: orderNumber,
-                idSale: idSale,
-                customerName: formData.namaPelanggan,
-                phone: formData.noPhone,
-                address: formData.alamat,
-                postcode: formData.poskod,
-                city: formData.daerah,
-                state: formData.negeri,
-                price: formData.hargaJualan,
-                caraBayaran: formData.caraBayaran,
-                produk: formData.produk,
-                productSku: selectedBundle?.sku || formData.produk, // Use bundle SKU for NinjaVan
-                quantity: 1,
-                weight: selectedBundle?.weight || 0.5, // Bundle weight in KG
-                marketerIdStaff: profile?.username || '',
-              }
+            // Call appropriate API based on delivery method
+            const functionName = isPoslaju ? 'poslaju-order' : 'ninjavan-order';
+            const kurierName = isPoslaju ? 'Poslaju' : 'Ninjavan';
+
+            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke(functionName, {
+              body: orderBody
             });
 
-            if (ninjavanError) {
-              console.error('Ninjavan API error:', ninjavanError);
+            if (kurierError) {
+              console.error(`${kurierName} API error:`, kurierError);
               toast({
                 title: 'Amaran',
-                description: 'Order disimpan tetapi gagal hantar ke Ninjavan. Sila hubungi logistik.',
+                description: `Order disimpan tetapi gagal hantar ke ${kurierName}. Sila hubungi logistik.`,
                 variant: 'destructive',
               });
-            } else if (ninjavanResult?.error) {
-              console.error('Ninjavan error:', ninjavanResult.error);
+            } else if (kurierResult?.error) {
+              console.error(`${kurierName} error:`, kurierResult.error);
               toast({
                 title: 'Amaran',
-                description: ninjavanResult.error,
+                description: kurierResult.error,
                 variant: 'destructive',
               });
-            } else if (ninjavanResult?.trackingNumber) {
-              trackingNumber = ninjavanResult.trackingNumber;
+            } else if (kurierResult?.trackingNumber) {
+              trackingNumber = kurierResult.trackingNumber;
+              // Save Poslaju PDF link if available
+              if (isPoslaju && kurierResult?.pdfLink) {
+                waybillPdfUrl = kurierResult.pdfLink;
+              }
               toast({
-                title: 'Ninjavan Berjaya',
+                title: `${kurierName} Berjaya`,
                 description: `Tracking Number: ${trackingNumber}`,
               });
             }
-          } catch (ninjavanErr) {
-            console.error('Ninjavan call failed:', ninjavanErr);
-            // Continue to save order even if Ninjavan fails
+          } catch (kurierErr) {
+            console.error('Kurier call failed:', kurierErr);
+            // Continue to save order even if kurier fails
           }
         }
 
@@ -947,8 +975,8 @@ const OrderForm: React.FC = () => {
           }
         }
 
-        // Waybill no longer used - all platforms now use NinjaVan
-        let waybillUrl = '';
+        // Waybill URL - use Poslaju PDF link if available
+        let waybillUrl = waybillPdfUrl || '';
 
         // Get units from selected bundle (selectedBundle already defined above)
         const bundleUnits = selectedBundle?.units || 1;
@@ -1041,7 +1069,7 @@ const OrderForm: React.FC = () => {
             bank: showPaymentDetails ? formData.pilihBank : '',
             receiptImageUrl: receiptUrl,
             waybillUrl: waybillUrl,
-            seo: '',
+            seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : '', // Auto-collection for CASH
             bundleId: selectedBundle?.id || '',
           });
         }
@@ -1171,10 +1199,10 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  // All platforms now use same flow (NinjaVan) - no special handling for Shopee/Tiktok
-  const isShopeeOrTiktok = false; // Disabled - all platforms now use NinjaVan flow
-  const isPickup = formData.deliveryMethod === 'PICKUP';
-  const showPaymentDetails = formData.caraBayaran === 'CASH' || isPickup;
+  // All platforms now use same flow - no special handling for Shopee/Tiktok
+  const isShopeeOrTiktok = false; // Disabled - all platforms now use kurier flow
+  const isPickupUI = formData.deliveryMethod === 'Self Pickup';
+  const showPaymentDetails = formData.caraBayaran === 'CASH' || isPickupUI;
 
   return (
     <div className="space-y-6 animate-fade-in">

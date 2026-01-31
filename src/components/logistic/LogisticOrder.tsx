@@ -288,15 +288,17 @@ const LogisticOrder = () => {
 
     const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
-    // Separate NinjaVan orders and Shopee/Tiktok orders
+    // Separate orders by kurier type:
+    // - Ninjavan: use ninjavan-waybill API (fetch from NinjaVan)
+    // - Poslaju/Marketplace: use merge-waybills (already have PDF URL)
     const ninjavanOrdersForPrint = selectedOrdersList.filter(
-      (o: any) => getOrderPlatform(o) !== "Shopee" && getOrderPlatform(o) !== "Tiktok" && o.tracking_number
+      (o: any) => o.kurier?.includes('Ninjavan') && o.tracking_number
     );
-    const marketplaceOrders = selectedOrdersList.filter(
-      (o: any) => (getOrderPlatform(o) === "Shopee" || getOrderPlatform(o) === "Tiktok") && o.waybill_url
+    const pdfUrlOrders = selectedOrdersList.filter(
+      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Shopee" || getOrderPlatform(o) === "Tiktok") && o.waybill_url
     );
 
-    if (ninjavanOrdersForPrint.length === 0 && marketplaceOrders.length === 0) {
+    if (ninjavanOrdersForPrint.length === 0 && pdfUrlOrders.length === 0) {
       toast.error("Selected orders do not have waybills to print");
       return;
     }
@@ -304,7 +306,7 @@ const LogisticOrder = () => {
     setIsPrinting(true);
 
     try {
-      // Handle NinjaVan orders
+      // Handle NinjaVan orders (fetch waybill from API)
       if (ninjavanOrdersForPrint.length > 0) {
         const trackingNumbers = ninjavanOrdersForPrint.map((o: any) => o.tracking_number);
 
@@ -323,22 +325,29 @@ const LogisticOrder = () => {
         }
       }
 
-      // Handle Shopee/Tiktok orders (merge waybills)
-      if (marketplaceOrders.length > 0) {
-        const waybillUrls = marketplaceOrders.map((o: any) => o.waybill_url);
+      // Handle Poslaju/Shopee/Tiktok orders (merge existing PDF URLs)
+      if (pdfUrlOrders.length > 0) {
+        const waybillUrls = pdfUrlOrders.map((o: any) => o.waybill_url);
 
         const response = await supabase.functions.invoke("merge-waybills", {
           body: { waybillUrls },
         });
 
         if (response.error) {
-          console.error("Marketplace waybill error:", response.error);
-          toast.error("Failed to fetch Shopee/Tiktok waybills");
+          console.error("PDF merge error:", response.error);
+          toast.error("Failed to merge waybills");
         } else if (response.data) {
           const blob = new Blob([response.data], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           window.open(url, "_blank");
-          toast.success(`Shopee/Tiktok waybill for ${waybillUrls.length} order(s) opened`);
+          const poslajuCount = pdfUrlOrders.filter((o: any) => o.kurier?.includes('Poslaju')).length;
+          const otherCount = pdfUrlOrders.length - poslajuCount;
+          const msg = poslajuCount > 0 && otherCount > 0
+            ? `Poslaju (${poslajuCount}) + Marketplace (${otherCount}) waybills opened`
+            : poslajuCount > 0
+            ? `Poslaju waybill for ${poslajuCount} order(s) opened`
+            : `Marketplace waybill for ${otherCount} order(s) opened`;
+          toast.success(msg);
         }
       }
     } catch (error: any) {
