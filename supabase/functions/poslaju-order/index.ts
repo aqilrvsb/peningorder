@@ -36,6 +36,69 @@ function getMalaysiaDateTime() {
   return { date, dateCompact, timeStr, full: `${date.split('-').reverse().join('')}: ${timeStr}` };
 }
 
+// Send WhatsApp message using Whacenter API
+async function sendWhatsAppMessage(
+  supabase: any,
+  marketerIdStaff: string,
+  customerPhone: string,
+  message: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get marketer's profile
+    const { data: marketer } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('idstaff', marketerIdStaff)
+      .single();
+
+    if (!marketer) {
+      return { success: false, error: 'Marketer not found' };
+    }
+
+    // Get marketer's device settings
+    const { data: deviceSetting } = await supabase
+      .from('device_setting')
+      .select('*')
+      .eq('user_id', marketer.id)
+      .eq('status_wa', 'connected')
+      .maybeSingle();
+
+    if (!deviceSetting) {
+      console.log('No connected WhatsApp device for marketer:', marketerIdStaff);
+      return { success: false, error: 'No connected WhatsApp device' };
+    }
+
+    const instanceId = deviceSetting.instance || deviceSetting.device_id;
+    if (!instanceId) {
+      console.log('No instance ID found in device settings');
+      return { success: false, error: 'No WhatsApp instance ID configured' };
+    }
+
+    console.log('Sending WhatsApp via Whacenter:', { instance: instanceId, phone: customerPhone });
+
+    // Send message via Whacenter API
+    const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(instanceId)}&number=${encodeURIComponent(customerPhone)}&message=${encodeURIComponent(message)}`;
+
+    const response = await fetch(apiUrl, { method: 'GET' });
+    const data = await response.json();
+
+    console.log('Whacenter response:', data);
+
+    const success = data.status === true || data.success === true;
+
+    if (!success) {
+      console.error('WhatsApp send failed:', data);
+      return { success: false, error: data.message || 'Failed to send WhatsApp' };
+    }
+
+    console.log('WhatsApp message sent successfully to:', customerPhone);
+    return { success: true };
+  } catch (error: any) {
+    console.error('WhatsApp send error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -276,6 +339,27 @@ serve(async (req) => {
     const pdfLink = orderResult.data?.consignment?.pdf || '';
 
     console.log('Poslaju success - Tracking:', trackingNumber, 'PDF:', pdfLink);
+
+    // Send WhatsApp notification to customer
+    if (orderData.marketerIdStaff && orderData.phone && trackingNumber) {
+      const productDesc = orderData.productName || orderData.produk || 'your order';
+      const whatsappMessage = isCOD
+        ? `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n💰 Jumlah COD: RM${orderData.price}\n\nSila track penghantaran anda di:\nhttps://www.pos.com.my/track-trace-item?trackingNo=${trackingNumber}\n\nTerima kasih! 🙏`
+        : `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n\nSila track penghantaran anda di:\nhttps://www.pos.com.my/track-trace-item?trackingNo=${trackingNumber}\n\nTerima kasih! 🙏`;
+
+      const waResult = await sendWhatsAppMessage(
+        supabase,
+        orderData.marketerIdStaff,
+        orderData.phone,
+        whatsappMessage
+      );
+
+      if (waResult.success) {
+        console.log('WhatsApp notification sent to customer:', orderData.phone);
+      } else {
+        console.log('WhatsApp notification failed (non-blocking):', waResult.error);
+      }
+    }
 
     return new Response(
       JSON.stringify({
