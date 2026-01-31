@@ -445,7 +445,7 @@ const OrderForm: React.FC = () => {
     setFormData((prev) => {
       // Auto uppercase for text fields (except dropdowns)
       let processedValue = value;
-      if (typeof value === 'string' && !['jenisPlatform', 'jenisClosing', 'jenisCustomer', 'caraBayaran', 'jenisBayaran', 'pilihBank', 'produk', 'negeri'].includes(field)) {
+      if (typeof value === 'string' && !['jenisPlatform', 'jenisClosing', 'jenisCustomer', 'caraBayaran', 'jenisBayaran', 'pilihBank', 'produk', 'negeri', 'deliveryMethod'].includes(field)) {
         processedValue = value.toUpperCase();
       }
 
