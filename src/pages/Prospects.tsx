@@ -341,6 +341,7 @@ const Prospects: React.FC = () => {
 
       let successCount = 0;
       let errorCount = 0;
+      let duplicateCount = 0;
 
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
@@ -385,6 +386,18 @@ const Prospects: React.FC = () => {
           continue;
         }
 
+        // Check for duplicate: same phone + marketer + date
+        const isDuplicate = prospects.some(p =>
+          p.noTelefon === phone &&
+          p.marketerIdStaff === profile?.idstaff &&
+          p.tarikhPhoneNumber === tarikh
+        );
+
+        if (isDuplicate) {
+          duplicateCount++;
+          continue; // Skip duplicate
+        }
+
         try {
           await addProspect({
             namaProspek: nama,
@@ -399,19 +412,14 @@ const Prospects: React.FC = () => {
           });
           successCount++;
         } catch (error: any) {
-          // Allow duplicates - don't count as error if it's a duplicate phone number
-          const isDuplicate = error?.message?.includes('duplicate') || error?.code === '23505';
-          if (isDuplicate) {
-            successCount++; // Count as success to allow duplicates
-          } else {
-            errorCount++;
-          }
+          console.error('Import error:', error);
+          errorCount++;
         }
       }
 
       toast({
         title: 'Import Selesai',
-        description: `${successCount} prospect berjaya diimport. ${errorCount} gagal.`,
+        description: `${successCount} prospect berjaya diimport. ${duplicateCount} duplicate dilangkau. ${errorCount} gagal.`,
       });
     } catch (error) {
       console.error('Import error:', error);
