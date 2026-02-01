@@ -41,6 +41,7 @@ import {
 import { getMalaysiaDate } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
+import Swal from 'sweetalert2';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -363,6 +364,18 @@ const Prospects: React.FC = () => {
     }
 
     setIsImporting(true);
+
+    // Show loading indicator
+    Swal.fire({
+      title: 'Importing...',
+      html: 'Please wait while we import your data',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
       // Read file as ArrayBuffer for Excel, or text for CSV
       const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
@@ -501,12 +514,16 @@ const Prospects: React.FC = () => {
         }
       }
 
+      // Close loading and show success
+      Swal.close();
       toast({
         title: 'Import Selesai',
         description: `${successCount} prospect berjaya diimport. ${duplicateCount} duplicate dilangkau. ${errorCount} gagal.`,
       });
     } catch (error) {
       console.error('Import error:', error);
+      // Close loading and show error
+      Swal.close();
       toast({
         title: 'Error',
         description: 'Gagal mengimport fail.',
