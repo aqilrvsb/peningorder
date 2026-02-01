@@ -107,6 +107,7 @@ const Orders: React.FC = () => {
   // Payment details modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderPayment, setSelectedOrderPayment] = useState<typeof orders[0] | null>(null);
+  const [isConfirmingCollection, setIsConfirmingCollection] = useState(false);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -807,7 +808,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                           onClick={() => handlePaymentClick(order)}
                           className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
                         >
-                          {order.kurier?.replace('CASH', 'Online Payment') || 'Online Payment'}
+                          {order.kurier || 'CASH'}
                         </button>
                       ) : (
                         <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
