@@ -35,6 +35,31 @@ async function sendWhatsApp(instance: string, phone: string, message: string): P
   }
 }
 
+// Send WhatsApp message with image via Whacenter
+async function sendWhatsAppWithImage(instance: string, phone: string, imageUrl: string, caption: string): Promise<boolean> {
+  try {
+    // Format phone number (ensure it starts with country code)
+    let formattedPhone = phone.replace(/\D/g, '')
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '60' + formattedPhone.substring(1)
+    }
+    if (!formattedPhone.startsWith('60')) {
+      formattedPhone = '60' + formattedPhone
+    }
+
+    const url = `${WHACENTER_API}/send?device_id=${encodeURIComponent(instance)}&number=${encodeURIComponent(formattedPhone)}&message=${encodeURIComponent(caption)}&file=${encodeURIComponent(imageUrl)}`
+
+    const response = await fetch(url, { method: 'GET' })
+    const data = await response.json()
+
+    console.log('WhatsApp image send result:', data)
+    return data.status === true || data.success === true
+  } catch (error) {
+    console.error('Failed to send WhatsApp image:', error)
+    return false
+  }
+}
+
 /**
  * Ninjavan Webhook Handler
  *
@@ -182,6 +207,7 @@ export default async function handler(req: any, res: any) {
 
     // Send WhatsApp notification to customer
     let whatsappSent = false
+    let usageInstructionsSent = false
 
     if (order.marketer_id && order.no_phone) {
       // Get marketer's device setting
@@ -193,9 +219,29 @@ export default async function handler(req: any, res: any) {
         .limit(1)
 
       if (deviceSettings && deviceSettings.length > 0 && deviceSettings[0].instance) {
+        const instance = deviceSettings[0].instance
+
         // Send the event as the message
-        whatsappSent = await sendWhatsApp(deviceSettings[0].instance, order.no_phone, event)
+        whatsappSent = await sendWhatsApp(instance, order.no_phone, event)
         console.log('WhatsApp notification sent:', whatsappSent)
+
+        // If successful delivery, send usage instructions with image
+        if (processedEvent.isSuccess) {
+          // Get base URL from environment or construct from request
+          const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'https://marketerpro-suite-main.vercel.app'
+
+          const imageUrl = `${baseUrl}/caramakan.jpeg`
+          const usageMessage = `Ni cara penggunaan ya akak. Make sure cukup air masak tau. Masa period tak digalakkan consume , boleh stop sementara waktu . Kalau akak dah menopause , boleh consume hari4 macam biasa
+
+join group ini : https://chat.whatsapp.com/H5pW50lXnF10ErOi2HAyRm
+
+tolong join yaa..`
+
+          usageInstructionsSent = await sendWhatsAppWithImage(instance, order.no_phone, imageUrl, usageMessage)
+          console.log('Usage instructions sent:', usageInstructionsSent)
+        }
       }
     }
 
@@ -206,7 +252,8 @@ export default async function handler(req: any, res: any) {
       tracking_id: order.no_tracking,
       event: event,
       processed: processedEvent,
-      whatsapp_sent: whatsappSent
+      whatsapp_sent: whatsappSent,
+      usage_instructions_sent: usageInstructionsSent
     })
 
   } catch (error: any) {
