@@ -168,21 +168,25 @@ export default async function handler(req: any, res: any) {
     const processedEvent = processEvent(event)
 
     // Prepare update data
+    // seos = delivery notification status (updated with ALL events)
+    // seo = collection tracking (only updated on Successful Delivery or Return)
     const updateData: any = {
-      seo: processedEvent.seo,
+      seos: processedEvent.seo, // Always update seos with the event status
       updated_at: new Date().toISOString()
     }
 
     const today = new Date().toISOString().split('T')[0]
 
-    // If delivered -> update tarikh_bayaran to today and delivery_status to Shipped
+    // If delivered -> update seo (collection), tarikh_bayaran to today and delivery_status to Shipped
     if (processedEvent.isSuccess) {
+      updateData.seo = 'Successful Delivery' // Collection confirmed
       updateData.tarikh_bayaran = today
       updateData.delivery_status = 'Shipped'
     }
 
-    // If returned -> update delivery_status to Return and date_return to today
+    // If returned -> update seo (collection), delivery_status to Return and date_return to today
     if (processedEvent.isReturn) {
+      updateData.seo = 'Return' // Collection failed - returned
       updateData.delivery_status = 'Return'
       updateData.date_return = today
     }
