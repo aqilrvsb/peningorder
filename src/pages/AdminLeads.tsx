@@ -38,6 +38,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import * as XLSX from 'xlsx';
+import { parse, format } from 'date-fns';
+import Swal from 'sweetalert2';
+import { getMalaysiaDate } from '@/lib/utils';
 
 const STATUS_OPTIONS = [
   'INVALID',
@@ -522,50 +526,177 @@ const AdminLeads: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsImporting(true);
-    try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
+    // Check file type
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
+    ];
+    if (!validTypes.includes(file.type) && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast({
+        title: 'Error',
+        description: 'Sila muat naik fail Excel (.xlsx, .xls) atau CSV.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-      // Skip header
-      const dataLines = lines.slice(1);
+    setIsImporting(true);
+
+    // Show loading indicator
+    Swal.fire({
+      title: 'Importing...',
+      html: 'Please wait while we import your data',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      // Read file as ArrayBuffer for Excel, or text for CSV
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      let data: any[][] = [];
+
+      if (isExcel) {
+        // Parse Excel file
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false, raw: false });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
+      } else {
+        // Parse CSV file
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        data = lines.map(line => line.split(',').map(v => v.trim().replace(/"/g, '')));
+      }
+
+      if (data.length < 2) {
+        Swal.close();
+        toast({
+          title: 'Error',
+          description: 'Fail tidak mengandungi data.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Parse header to find column indexes
+      const header = data[0].map((h: string) => (h || '').toString().trim().toLowerCase());
+      const namaIdx = header.findIndex((h: string) => h.includes('nama'));
+      const phoneIdx = header.findIndex((h: string) => h.includes('telefon') || h.includes('phone'));
+      const nicheIdx = header.findIndex((h: string) => h.includes('niche') || h.includes('product') || h.includes('sku'));
+      const tarikhIdx = header.findIndex((h: string) => h.includes('tarikh'));
+      const adminIdx = header.findIndex((h: string) => h.includes('admin'));
+
       let successCount = 0;
       let errorCount = 0;
+      let duplicateCount = 0;
 
-      for (const line of dataLines) {
-        const [nama, phone, niche, tarikh, marketer] = line.split(',').map(s => s.trim());
-        if (nama && phone && niche && tarikh && marketer) {
-          try {
-            await addProspect({
-              namaProspek: nama.toUpperCase(),
-              noTelefon: phone,
-              niche: niche,
-              jenisProspek: '',
-              tarikhPhoneNumber: tarikh,
-              adminIdStaff: profile?.idstaff || '',
-              marketerIdStaff: marketer.toUpperCase(),
-              statusClosed: '',
-              priceClosed: 0,
-              countOrder: 0,
-            });
-            successCount++;
-          } catch {
-            errorCount++;
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length === 0 || row.every((cell: any) => !cell)) continue;
+
+        const nama = namaIdx >= 0 && row[namaIdx] ? row[namaIdx].toString().toUpperCase().trim() : '';
+        let phone = phoneIdx >= 0 && row[phoneIdx] ? row[phoneIdx].toString().trim().replace(/\D/g, '') : '';
+        const nicheValue = nicheIdx >= 0 && row[nicheIdx] ? row[nicheIdx].toString().toUpperCase().trim() : '';
+        let tarikhRaw = tarikhIdx >= 0 && row[tarikhIdx] ? row[tarikhIdx] : '';
+        const admin = adminIdx >= 0 && row[adminIdx] ? row[adminIdx].toString().toUpperCase().trim() : '';
+
+        // Auto-fix phone number format
+        if (phone) {
+          if (phone.startsWith('0')) {
+            phone = '6' + phone.substring(1);
+          } else if (!phone.startsWith('6')) {
+            phone = '60' + phone;
           }
-        } else {
+        }
+
+        // Convert date to YYYY-MM-DD format using date-fns
+        let tarikh = '';
+        if (tarikhRaw) {
+          const tarikhStr = tarikhRaw.toString().trim();
+
+          try {
+            let parsedDate: Date | null = null;
+
+            // Try DD-MM-YYYY format
+            if (tarikhStr.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+              parsedDate = parse(tarikhStr, 'dd-MM-yyyy', new Date());
+            }
+            // Try DD/MM/YYYY format
+            else if (tarikhStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+              parsedDate = parse(tarikhStr, 'dd/MM/yyyy', new Date());
+            }
+            // Try YYYY-MM-DD format (already correct)
+            else if (tarikhStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+              tarikh = tarikhStr;
+            }
+
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              tarikh = format(parsedDate, 'yyyy-MM-dd');
+            }
+          } catch (error) {
+            console.error('Date parse error:', error);
+            tarikh = '';
+          }
+        }
+
+        // Match niche by product name or SKU
+        const product = products.find(p => p.name.toUpperCase() === nicheValue || p.sku.toUpperCase() === nicheValue);
+        const niche = product ? product.sku : nicheValue;
+
+        // Validate required fields
+        if (!nama || !phone || !niche || !tarikh) {
+          errorCount++;
+          continue;
+        }
+
+        // Check for duplicate: same phone + marketer + date
+        const isDuplicate = prospects.some(p =>
+          p.noTelefon === phone &&
+          p.marketerIdStaff === profile?.idstaff &&
+          p.tarikhPhoneNumber === tarikh
+        );
+
+        if (isDuplicate) {
+          duplicateCount++;
+          continue;
+        }
+
+        try {
+          await addProspect({
+            namaProspek: nama,
+            noTelefon: phone,
+            niche: niche,
+            jenisProspek: 'EP',
+            tarikhPhoneNumber: tarikh,
+            adminIdStaff: admin,
+            marketerIdStaff: '',
+            statusClosed: '',
+            priceClosed: 0,
+          });
+          successCount++;
+        } catch (error: any) {
+          console.error('Import error:', error);
           errorCount++;
         }
       }
 
+      // Close loading and show success
+      Swal.close();
       toast({
         title: 'Import Selesai',
-        description: `${successCount} leads berjaya diimport. ${errorCount} gagal.`,
+        description: `${successCount} prospect berjaya diimport. ${duplicateCount} duplicate dilangkau. ${errorCount} gagal.`,
       });
     } catch (error) {
       console.error('Import error:', error);
+      // Close loading and show error
+      Swal.close();
       toast({
         title: 'Error',
-        description: 'Gagal membaca fail CSV.',
+        description: 'Gagal mengimport fail.',
         variant: 'destructive',
       });
     } finally {
@@ -595,7 +726,7 @@ const AdminLeads: React.FC = () => {
         <div className="flex gap-2">
           <input
             type="file"
-            accept=".csv"
+            accept=".csv,.xlsx,.xls"
             onChange={handleImportCSV}
             ref={fileInputRef}
             className="hidden"
