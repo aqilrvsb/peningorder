@@ -167,8 +167,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
-      seo: order.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
       seos: 'Pending', // Delivery tracking status - starts as Pending
+      // Note: seo is NOT set here - it's updated by ninjavan-webhook or manual receipt upload
     });
     if (error) { toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' }); throw error; }
     await refreshData();
@@ -181,6 +181,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.deliveryStatus !== undefined) upd.delivery_status = data.deliveryStatus;
     if (data.dateProcessed !== undefined) upd.date_processed = data.dateProcessed;
     if (data.dateReturn !== undefined) upd.date_return = data.dateReturn;
+    if (data.receiptImageUrl !== undefined) upd.receipt_payment_url = data.receiptImageUrl;
+    if (data.seo !== undefined) upd.seo = data.seo;
     upd.updated_at = new Date().toISOString();
     const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;

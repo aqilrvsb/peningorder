@@ -1010,8 +1010,9 @@ serve(async (req) => {
       bundle_id: bundleId,
       cost_postage: postageCost,
       cost_baseproduct: totalBaseCost,
-      seo: !isCOD ? 'Successful Delivery' : null, // Auto-collection for CASH orders
       seos: 'Pending' // Delivery tracking status - starts as Pending
+      // Note: seo column is NOT set here - it will be updated by ninjavan-webhook
+      // when delivery is confirmed (Successful Delivery) or returned
     };
 
     // Set platform-specific order ID field

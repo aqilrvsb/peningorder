@@ -320,8 +320,11 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
       const filename = `receipts/${timestamp}-${cleanFileName}`;
       const blob = await put(filename, receiptFile, { access: 'public', token });
 
-      // Update order with receipt URL
-      await updateOrder(selectedOrderPayment.id, { receiptImageUrl: blob.url });
+      // Update order with receipt URL and set seo to 'Successful Delivery' (collection confirmed)
+      await updateOrder(selectedOrderPayment.id, {
+        receiptImageUrl: blob.url,
+        seo: 'Successful Delivery' // Receipt uploaded = payment collected
+      });
 
       toast({
         title: 'Berjaya',
