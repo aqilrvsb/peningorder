@@ -312,9 +312,10 @@ const Prospects: React.FC = () => {
       if (isExcel) {
         // Parse Excel file using xlsx library
         const arrayBuffer = await file.arrayBuffer();
+        // Use cellDates: true to get JavaScript Date objects for date cells
         const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd-mm-yyyy' });
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false });
       } else {
         // Parse CSV file
         const text = await file.text();
@@ -350,8 +351,10 @@ const Prospects: React.FC = () => {
         const nama = namaIdx >= 0 && row[namaIdx] ? row[namaIdx].toString().toUpperCase().trim() : '';
         let phone = phoneIdx >= 0 && row[phoneIdx] ? row[phoneIdx].toString().trim().replace(/\D/g, '') : '';
         const nicheValue = nicheIdx >= 0 && row[nicheIdx] ? row[nicheIdx].toString().toUpperCase().trim() : '';
-        let tarikh = tarikhIdx >= 0 && row[tarikhIdx] ? row[tarikhIdx].toString().trim() : '';
+        let tarikhRaw = tarikhIdx >= 0 && row[tarikhIdx] ? row[tarikhIdx] : '';
         const admin = adminIdx >= 0 && row[adminIdx] ? row[adminIdx].toString().toUpperCase().trim() : '';
+
+        console.log('Raw tarikh from Excel:', tarikhRaw, 'Type:', typeof tarikhRaw);
 
         // Auto-fix phone number format
         if (phone) {
@@ -364,28 +367,45 @@ const Prospects: React.FC = () => {
           }
         }
 
-        // Convert date format to YYYY-MM-DD
-        if (tarikh) {
-          // Check if it's an Excel serial number (all digits, value > 40000)
-          if (/^\d+$/.test(tarikh) && Number(tarikh) > 40000) {
-            // Excel serial number - convert to date
-            const serial = Number(tarikh);
-            // Excel epoch is 1899-12-30 (due to 1900 leap year bug)
-            const excelEpoch = new Date(1899, 11, 30);
-            const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
+        // Convert date to YYYY-MM-DD format
+        let tarikh = '';
+        if (tarikhRaw) {
+          // If it's a JavaScript Date object (from Excel date cell)
+          if (tarikhRaw instanceof Date) {
+            const year = tarikhRaw.getFullYear();
+            const month = String(tarikhRaw.getMonth() + 1).padStart(2, '0');
+            const day = String(tarikhRaw.getDate()).padStart(2, '0');
             tarikh = `${year}-${month}-${day}`;
+            console.log('Converted Date object:', tarikh);
           }
-          // Check if format is DD-MM-YYYY or DD-MM-YY
-          else if (tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
-            const [day, month, year] = tarikh.split('-');
-            const fullYear = year.length === 2 ? `20${year}` : year;
-            // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
-            tarikh = `${fullYear}-${month}-${day}`;
+          // If it's a string
+          else {
+            const tarikhStr = tarikhRaw.toString().trim();
+            // Check if it's an Excel serial number (all digits, value > 40000)
+            if (/^\d+$/.test(tarikhStr) && Number(tarikhStr) > 40000) {
+              const serial = Number(tarikhStr);
+              const excelEpoch = new Date(1899, 11, 30);
+              const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              tarikh = `${year}-${month}-${day}`;
+              console.log('Converted from serial:', tarikh);
+            }
+            // Check if format is DD-MM-YYYY or DD-MM-YY
+            else if (tarikhStr.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
+              const [day, month, year] = tarikhStr.split('-');
+              console.log('Split date - day:', day, 'month:', month, 'year:', year);
+              const fullYear = year.length === 2 ? `20${year}` : year;
+              // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
+              tarikh = `${fullYear}-${month}-${day}`;
+              console.log('Converted from DD-MM-YYYY:', tarikh);
+            }
+            // If already in YYYY-MM-DD format, keep as is
+            else {
+              tarikh = tarikhStr;
+            }
           }
-          // If already in YYYY-MM-DD format, keep as is
         }
 
         // Match niche by product name or SKU (case-insensitive), save as SKU
