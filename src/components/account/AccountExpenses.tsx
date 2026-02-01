@@ -43,10 +43,13 @@ import { put } from "@vercel/blob";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 const CATEGORY_OPTIONS = ["Overhead", "Marketing", "Cost Product", "Other"] as const;
+const TYPE_OPTIONS = ["VAR", "FIX"] as const;
 type CategoryType = typeof CATEGORY_OPTIONS[number];
+type ExpenseType = typeof TYPE_OPTIONS[number];
 
 interface Expense {
   id: string;
+  type: ExpenseType;
   category: CategoryType;
   description: string;
   total: number;
@@ -84,6 +87,7 @@ const AccountExpenses = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
+  const [formType, setFormType] = useState<ExpenseType>("VAR");
   const [formCategory, setFormCategory] = useState<CategoryType>("Overhead");
   const [formDescription, setFormDescription] = useState("");
   const [formTotal, setFormTotal] = useState("");
@@ -222,6 +226,7 @@ const AccountExpenses = () => {
 
   // Reset form
   const resetForm = () => {
+    setFormType("VAR");
     setFormCategory("Overhead");
     setFormDescription("");
     setFormTotal("");
@@ -241,6 +246,7 @@ const AccountExpenses = () => {
 
   // Open dialog for editing
   const handleEditClick = (expense: Expense) => {
+    setFormType(expense.type || "VAR");
     setFormCategory(expense.category || "Other");
     setFormDescription(expense.description);
     setFormTotal(expense.total.toString());
@@ -312,6 +318,7 @@ const AccountExpenses = () => {
       }
 
       const expenseData = {
+        type: formType,
         category: formCategory,
         description: formDescription.trim(),
         total: Number(formTotal),
@@ -443,6 +450,20 @@ const AccountExpenses = () => {
               <DialogTitle>{isEditing ? "Edit Expense" : "Add New Expense"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
+              {/* Type */}
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={formType} onValueChange={(v) => setFormType(v as ExpenseType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VAR">VAR (Variable)</SelectItem>
+                    <SelectItem value="FIX">FIX (Fixed)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Category */}
               <div className="space-y-2">
                 <Label>Category</Label>
