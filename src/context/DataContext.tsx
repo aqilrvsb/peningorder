@@ -49,8 +49,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const { user, profile, isAuthenticated } = useAuth();
 
-  // Check if current user is marketer (should only see their own data)
+  // Check if current user is marketer or admin (should only see their own data)
   const isMarketer = profile?.role === 'marketer';
+  const isAdmin = profile?.role === 'admin';
+  const shouldFilterByIdStaff = isMarketer || isAdmin;
   const userIdStaff = profile?.idstaff;
 
   // Map customer_purchases table to CustomerOrder interface
@@ -114,13 +116,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated) { setOrders([]); setProspects([]); setIsLoading(false); return; }
     setIsLoading(true);
     try {
-      // Build queries - filter by marketer's idstaff if user is a marketer
+      // Build queries - filter by idstaff if user is a marketer or admin
       // Join with logistic_bundles to get bundle name
       let ordersQuery = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false });
       let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false });
 
-      // Marketers only see their own data
-      if (isMarketer && userIdStaff) {
+      // Marketers and admins only see their own data
+      if (shouldFilterByIdStaff && userIdStaff) {
         ordersQuery = ordersQuery.eq('marketer_id_staff', userIdStaff);
         prospectsQuery = prospectsQuery.eq('marketer_id_staff', userIdStaff);
       }
@@ -132,7 +134,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   };
 
-  useEffect(() => { refreshData(); }, [isAuthenticated, isMarketer, userIdStaff]);
+  useEffect(() => { refreshData(); }, [isAuthenticated, shouldFilterByIdStaff, userIdStaff]);
 
   const addOrder = async (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => {
     // New schema field mapping for insert
@@ -197,8 +199,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addProspect = async (prospect: Omit<Prospect, 'id' | 'createdAt'>) => {
-    // For marketers, auto-set marketer_id_staff to their own idstaff
-    const marketerIdStaff = isMarketer ? userIdStaff : (prospect.marketerIdStaff || null);
+    // For marketers and admins, auto-set marketer_id_staff to their own idstaff
+    const marketerIdStaff = shouldFilterByIdStaff ? userIdStaff : (prospect.marketerIdStaff || null);
 
     const { error } = await queryTable('prospects').insert({
       nama_prospek: prospect.namaProspek, no_telefon: prospect.noTelefon, niche: prospect.niche,
