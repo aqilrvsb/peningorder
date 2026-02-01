@@ -209,6 +209,7 @@ const LogisticPendingTracking = () => {
         .from("customer_purchases")
         .update({
           seo: "Successful Delivery",
+          seos: "Successful Delivery",
           date_payment: today,
         })
         .eq("id", orderId);
@@ -258,12 +259,14 @@ const LogisticPendingTracking = () => {
       if (bulkStatus === "Success") {
         updateData = {
           seo: "Successful Delivery",
+          seos: "Successful Delivery",
           date_payment: bulkDate,
           delivery_status: "Shipped",
         };
       } else {
         updateData = {
           seo: "Return",
+          seos: "Return",
           date_return: bulkDate,
           delivery_status: "Return",
         };
@@ -315,12 +318,14 @@ const LogisticPendingTracking = () => {
       if (individualStatus === "Success") {
         updateData = {
           seo: "Successful Delivery",
+          seos: "Successful Delivery",
           date_payment: individualDate,
           delivery_status: "Shipped",
         };
       } else {
         updateData = {
           seo: "Return",
+          seos: "Return",
           date_return: individualDate,
           delivery_status: "Return",
         };
@@ -620,8 +625,8 @@ const LogisticPendingTracking = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs ${order.seo === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seo || "-"}
+                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                              {order.seos || "-"}
                             </span>
                           </td>
                           <td className="p-2">

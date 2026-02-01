@@ -955,8 +955,8 @@ const LogisticOrder = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs ${order.seo === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seo || "-"}
+                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                              {order.seos || "-"}
                             </span>
                           </td>
                           <td className="p-2">
