@@ -312,9 +312,9 @@ const Prospects: React.FC = () => {
       if (isExcel) {
         // Parse Excel file using xlsx library
         const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: true });
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd-mm-yyyy' });
       } else {
         // Parse CSV file
         const text = await file.text();
@@ -364,17 +364,15 @@ const Prospects: React.FC = () => {
           }
         }
 
-        // Convert date format to YYYY-MM-DD
-        if (tarikh) {
-          // Check if format is DD-MM-YY or DD-MM-YYYY
-          if (tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
-            const [day, month, year] = tarikh.split('-');
-            const fullYear = year.length === 2 ? (year.startsWith('2') ? `20${year}` : `19${year}`) : year;
-            tarikh = `${fullYear}-${month}-${day}`;
-          }
-          // If already in YYYY-MM-DD format, keep as is
-          // Format is validated by the regex pattern
+        // Convert date format to YYYY-MM-DD (month always stays in middle!)
+        if (tarikh && tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
+          // Format: DD-MM-YYYY or DD-MM-YY
+          const [day, month, year] = tarikh.split('-');
+          const fullYear = year.length === 2 ? `20${year}` : year;
+          // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
+          tarikh = `${fullYear}-${month}-${day}`;
         }
+        // If already in YYYY-MM-DD format, keep as is
 
         // Match niche by product name or SKU (case-insensitive), save as SKU
         const product = products.find(p => p.name.toUpperCase() === nicheValue || p.sku.toUpperCase() === nicheValue);
@@ -403,7 +401,7 @@ const Prospects: React.FC = () => {
             namaProspek: nama,
             noTelefon: phone,
             niche: niche,
-            jenisProspek: '', // Will be auto-determined by OrderForm based on lead date
+            jenisProspek: 'EP', // Set to EP for imported leads
             tarikhPhoneNumber: tarikh,
             adminIdStaff: admin,
             marketerIdStaff: '', // Will be auto-filled in DataContext for marketers
