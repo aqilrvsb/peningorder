@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { getMalaysiaDate } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -304,10 +305,24 @@ const Prospects: React.FC = () => {
 
     setIsImporting(true);
     try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      
-      if (lines.length < 2) {
+      // Read file as ArrayBuffer for Excel, or text for CSV
+      const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+      let data: any[][] = [];
+
+      if (isExcel) {
+        // Parse Excel file using xlsx library
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+      } else {
+        // Parse CSV file
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        data = lines.map(line => line.split(',').map(v => v.trim().replace(/"/g, '')));
+      }
+
+      if (data.length < 2) {
         toast({
           title: 'Error',
           description: 'Fail tidak mengandungi data.',
@@ -317,36 +332,50 @@ const Prospects: React.FC = () => {
       }
 
       // Parse header to find column indexes
-      const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-      const namaIdx = header.findIndex(h => h.includes('nama'));
-      const phoneIdx = header.findIndex(h => h.includes('telefon') || h.includes('phone'));
-      const nicheIdx = header.findIndex(h => h.includes('niche') || h.includes('product'));
-      const tarikhIdx = header.findIndex(h => h.includes('tarikh'));
-      const adminIdx = header.findIndex(h => h.includes('admin'));
+      const header = data[0].map((h: string) => (h || '').toString().trim().toLowerCase());
+      const namaIdx = header.findIndex((h: string) => h.includes('nama'));
+      const phoneIdx = header.findIndex((h: string) => h.includes('telefon') || h.includes('phone'));
+      const nicheIdx = header.findIndex((h: string) => h.includes('niche') || h.includes('product') || h.includes('sku'));
+      const tarikhIdx = header.findIndex((h: string) => h.includes('tarikh'));
+      const adminIdx = header.findIndex((h: string) => h.includes('admin'));
 
       let successCount = 0;
       let errorCount = 0;
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length === 0 || row.every((cell: any) => !cell)) continue;
 
-        const nama = namaIdx >= 0 ? values[namaIdx]?.toUpperCase() : '';
-        const phone = phoneIdx >= 0 ? values[phoneIdx] : '';
-        const nicheValue = nicheIdx >= 0 ? values[nicheIdx]?.toUpperCase() : '';
-        const tarikh = tarikhIdx >= 0 ? values[tarikhIdx] : '';
-        const admin = adminIdx >= 0 ? values[adminIdx]?.toUpperCase() : '';
+        const nama = namaIdx >= 0 && row[namaIdx] ? row[namaIdx].toString().toUpperCase().trim() : '';
+        let phone = phoneIdx >= 0 && row[phoneIdx] ? row[phoneIdx].toString().trim().replace(/\D/g, '') : '';
+        const nicheValue = nicheIdx >= 0 && row[nicheIdx] ? row[nicheIdx].toString().toUpperCase().trim() : '';
+        let tarikh = tarikhIdx >= 0 && row[tarikhIdx] ? row[tarikhIdx].toString().trim() : '';
+        const admin = adminIdx >= 0 && row[adminIdx] ? row[adminIdx].toString().toUpperCase().trim() : '';
+
+        // Auto-fix phone number format
+        if (phone) {
+          if (phone.startsWith('0')) {
+            // If starts with 0, replace with 6 (e.g., 0123456789 -> 6123456789)
+            phone = '6' + phone.substring(1);
+          } else if (!phone.startsWith('6')) {
+            // If doesn't start with 6, add 60 at front
+            phone = '60' + phone;
+          }
+        }
+
+        // Convert date format from DD-MM-YY to YYYY-MM-DD
+        if (tarikh && tarikh.match(/^\d{2}-\d{2}-\d{2}$/)) {
+          const [day, month, year] = tarikh.split('-');
+          const fullYear = year.startsWith('2') ? `20${year}` : `19${year}`;
+          tarikh = `${fullYear}-${month}-${day}`;
+        }
 
         // Match niche by product name or SKU (case-insensitive), save as SKU
         const product = products.find(p => p.name.toUpperCase() === nicheValue || p.sku.toUpperCase() === nicheValue);
         const niche = product ? product.sku : nicheValue; // Use product SKU if found, otherwise use raw value
 
-        // Validate required fields and phone format
+        // Validate required fields
         if (!nama || !phone || !niche || !tarikh) {
-          errorCount++;
-          continue;
-        }
-
-        if (!phone.startsWith('6')) {
           errorCount++;
           continue;
         }
@@ -364,8 +393,14 @@ const Prospects: React.FC = () => {
             priceClosed: 0,
           });
           successCount++;
-        } catch {
-          errorCount++;
+        } catch (error: any) {
+          // Allow duplicates - don't count as error if it's a duplicate phone number
+          const isDuplicate = error?.message?.includes('duplicate') || error?.code === '23505';
+          if (isDuplicate) {
+            successCount++; // Count as success to allow duplicates
+          } else {
+            errorCount++;
+          }
         }
       }
 
