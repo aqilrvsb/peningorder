@@ -152,33 +152,33 @@ const Orders: React.FC = () => {
     currentPage * pageSize
   );
 
-  // Calculate stats
+  // Calculate stats - use filteredOrders to match date range filters
   const stats = useMemo(() => {
-    const totalCustomer = orders.length;
-    const totalSales = orders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const totalUnit = orders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
-    const totalCash = orders.filter(o => o.caraBayaran === 'CASH').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const totalCOD = orders.filter(o => o.caraBayaran === 'COD').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const totalPending = orders.filter(o => o.deliveryStatus === 'Pending').length;
-    const totalShipped = orders.filter(o => o.deliveryStatus === 'Shipped').length;
+    const totalCustomer = filteredOrders.length;
+    const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalUnit = filteredOrders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
+    const totalCash = filteredOrders.filter(o => o.caraBayaran === 'CASH').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalCOD = filteredOrders.filter(o => o.caraBayaran === 'COD').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
+    const totalShipped = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
 
     // Remaining = Shipped but seo !== 'Successful Delivery'
-    const remainingOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successful Delivery');
+    const remainingOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successful Delivery');
     const totalRemaining = remainingOrders.length;
     const totalSalesRemaining = remainingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Success = Shipped and seo === 'Successful Delivery'
-    const successOrders = orders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successful Delivery');
+    const successOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successful Delivery');
     const totalSuccess = successOrders.length;
     const totalSalesSuccess = successOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Return
-    const returnOrders = orders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return');
+    const returnOrders = filteredOrders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return');
     const totalReturn = returnOrders.length;
     const totalSalesReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Total Collection (seo === 'Successful Delivery')
-    const collectionOrders = orders.filter(o => o.seo === 'Successful Delivery');
+    const collectionOrders = filteredOrders.filter(o => o.seo === 'Successful Delivery');
     const totalCollection = collectionOrders.length;
     const totalSalesCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -187,7 +187,7 @@ const Orders: React.FC = () => {
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
       totalCollection, totalSalesCollection
     };
-  }, [orders]);
+  }, [filteredOrders]);
 
   const resetFilters = () => {
     setSearch('');
