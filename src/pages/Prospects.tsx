@@ -314,7 +314,7 @@ const Prospects: React.FC = () => {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: true });
       } else {
         // Parse CSV file
         const text = await file.text();
