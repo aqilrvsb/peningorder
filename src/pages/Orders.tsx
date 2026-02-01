@@ -189,10 +189,14 @@ const Orders: React.FC = () => {
     const totalCollection = collectionOrders.length;
     const totalSalesCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
+    // Cost Product and Cost Postage totals
+    const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
+    const totalCostPostage = filteredOrders.reduce((sum, o) => sum + (o.kosPos || 0), 0);
+
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
-      totalCollection, totalSalesCollection
+      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage
     };
   }, [filteredOrders]);
 
@@ -675,6 +679,22 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {stats.totalSalesReturn.toLocaleString()}</p>
         </div>
+
+        <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-pink-600 dark:text-pink-400 mb-1">
+            <Package className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Cost Product</span>
+          </div>
+          <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">RM {stats.totalCostProduct.toLocaleString()}</p>
+        </div>
+
+        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-1">
+            <Truck className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Cost Postage</span>
+          </div>
+          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">RM {stats.totalCostPostage.toLocaleString()}</p>
+        </div>
       </div>
 
       {/* Filters - like logistic Order layout */}
@@ -824,6 +844,8 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                 )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">Cost Postage</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Delivery Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Platform</th>
@@ -868,6 +890,8 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">RM {order.hargaJualanSebenar.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">
                       {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' ? (
                         <button
