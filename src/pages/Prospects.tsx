@@ -364,15 +364,29 @@ const Prospects: React.FC = () => {
           }
         }
 
-        // Convert date format to YYYY-MM-DD (month always stays in middle!)
-        if (tarikh && tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
-          // Format: DD-MM-YYYY or DD-MM-YY
-          const [day, month, year] = tarikh.split('-');
-          const fullYear = year.length === 2 ? `20${year}` : year;
-          // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
-          tarikh = `${fullYear}-${month}-${day}`;
+        // Convert date format to YYYY-MM-DD
+        if (tarikh) {
+          // Check if it's an Excel serial number (all digits, value > 40000)
+          if (/^\d+$/.test(tarikh) && Number(tarikh) > 40000) {
+            // Excel serial number - convert to date
+            const serial = Number(tarikh);
+            // Excel epoch is 1899-12-30 (due to 1900 leap year bug)
+            const excelEpoch = new Date(1899, 11, 30);
+            const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            tarikh = `${year}-${month}-${day}`;
+          }
+          // Check if format is DD-MM-YYYY or DD-MM-YY
+          else if (tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
+            const [day, month, year] = tarikh.split('-');
+            const fullYear = year.length === 2 ? `20${year}` : year;
+            // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
+            tarikh = `${fullYear}-${month}-${day}`;
+          }
+          // If already in YYYY-MM-DD format, keep as is
         }
-        // If already in YYYY-MM-DD format, keep as is
 
         // Match niche by product name or SKU (case-insensitive), save as SKU
         const product = products.find(p => p.name.toUpperCase() === nicheValue || p.sku.toUpperCase() === nicheValue);
