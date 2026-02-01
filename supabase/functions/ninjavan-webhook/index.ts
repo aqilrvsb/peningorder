@@ -32,14 +32,16 @@ interface NinjaVanWebhook {
 }
 
 // Process NinjaVan status - matching your PHP logic exactly
-function processNinjavanStatus(eventName: string): { status: string; seo: string } {
+// Returns: status (delivery_status), seos (notification tracking - ALL events)
+// Note: seo (collection tracking) is only set for Successful Delivery or Return
+function processNinjavanStatus(eventName: string): { status: string; seos: string; isSuccess: boolean; isReturn: boolean } {
   // Successful Delivery
   if (
     eventName.includes('Successful Delivery') ||
     eventName.includes('Completed') ||
     eventName.includes('Delivered')
   ) {
-    return { status: 'Processed', seo: 'Successful Delivery' };
+    return { status: 'Processed', seos: 'Successful Delivery', isSuccess: true, isReturn: false };
   }
 
   // Return
@@ -51,16 +53,16 @@ function processNinjavanStatus(eventName: string): { status: string; seo: string
     eventName.includes('Return Assigned') ||
     eventName.includes('Order Cancelled')
   ) {
-    return { status: 'Return', seo: 'Returned to Sender' };
+    return { status: 'Return', seos: 'Returned to Sender', isSuccess: false, isReturn: true };
   }
 
-  // Pending Reschedule - keep as Pending but update SEO
+  // Pending Reschedule - keep as Pending but update SEOS
   if (eventName.includes('Pending Reschedule')) {
-    return { status: 'Pending', seo: 'Pending Reschedule' };
+    return { status: 'Pending', seos: 'Pending Reschedule', isSuccess: false, isReturn: false };
   }
 
-  // Other events - keep Pending status, update SEO with event name
-  return { status: 'Pending', seo: eventName };
+  // Other events - keep Pending status, update SEOS with event name
+  return { status: 'Pending', seos: eventName, isSuccess: false, isReturn: false };
 }
 
 // Get WhatsApp template category based on event
@@ -436,29 +438,28 @@ serve(async (req) => {
     });
 
     // Process NinjaVan status using your PHP logic
-    const { status: newDeliveryStatus, seo: newSeo } = processNinjavanStatus(eventName);
+    // seos = notification tracking (ALL events), seo = collection tracking (only Success/Return)
+    const { status: newDeliveryStatus, seos: newSeos, isSuccess, isReturn } = processNinjavanStatus(eventName);
     const previousStatus = order.delivery_status;
     const previousSeo = order.seo;
     const previousSeos = order.seos;
 
     // Build update object
-    // NEW LOGIC:
     // - seos: Always update for notification tracking (all events)
     // - seo: Only update for Return or Successful Delivery (for Collection tracking)
     const updateData: any = {
-      seos: newSeo,  // Always update SEOS with event (for notification tracking)
+      seos: newSeos,  // Always update SEOS with event (for notification tracking)
       nota_staff: comments || order.nota_staff  // Update nota_staff with comments if available
     };
 
-    // Handle Successful Delivery - update both seo and seos
-    // seo is for Collection tracking, seos is for notification
-    if (newDeliveryStatus === 'Processed') {
-      updateData.seo = newSeo;  // Update seo for Collection tracking
+    // Handle Successful Delivery - update seo for Collection tracking
+    if (isSuccess) {
+      updateData.seo = 'Successful Delivery';  // Collection confirmed
       console.log('Successful Delivery - updating both seo and seos');
     }
-    // Handle Return - update both seo and seos
-    else if (newDeliveryStatus === 'Return') {
-      updateData.seo = newSeo;  // Update seo for Collection tracking
+    // Handle Return - update seo for Collection tracking
+    else if (isReturn) {
+      updateData.seo = 'Return';  // Collection failed - returned
       updateData.delivery_status = 'Return';
       updateData.date_return = todayDate;
       console.log('Setting as Return with date_return:', todayDate);
@@ -481,7 +482,7 @@ serve(async (req) => {
         previousStatus,
         newStatus: updateData.delivery_status || previousStatus,
         previousSeo,
-        newSeo
+        newSeos
       });
     }
 
@@ -499,7 +500,7 @@ serve(async (req) => {
 
     console.log('WhatsApp template check:', {
       previousSeos,
-      newSeo,
+      newSeos,
       previousTemplateCategory,
       currentTemplateCategory
     });
@@ -509,7 +510,7 @@ serve(async (req) => {
     if (previousTemplateCategory && currentTemplateCategory && previousTemplateCategory === currentTemplateCategory) {
       console.log('Skipping WhatsApp - same template category already sent:', {
         previousSeos,
-        newSeo,
+        newSeos,
         category: currentTemplateCategory
       });
       whatsappSkipped = true;
@@ -555,9 +556,9 @@ serve(async (req) => {
         previousStatus,
         newStatus: updateData.delivery_status || previousStatus,
         previousSeo,
-        newSeo: updateData.seo || previousSeo,  // seo only updates for Return/Successful Delivery
+        newSeo: updateData.seo || previousSeo,  // seo only updates for Return/Successful Delivery (Collection)
         previousSeos,
-        newSeos: newSeo,  // seos always updates (for notification tracking)
+        newSeos: newSeos,  // seos always updates (for notification tracking)
         previousTemplateCategory,
         currentTemplateCategory,
         whatsappSent,
@@ -578,7 +579,7 @@ serve(async (req) => {
         tracking_number: trackingNumber,
         event: eventName,
         seo: updateData.seo || previousSeo,  // Collection tracking (only Return/Successful Delivery)
-        seos: newSeo,  // Notification tracking (all events)
+        seos: newSeos,  // Notification tracking (all events)
         delivery_status: updateData.delivery_status || previousStatus,
         whatsapp_sent: whatsappSent
       }),
