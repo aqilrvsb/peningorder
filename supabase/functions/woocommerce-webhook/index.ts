@@ -893,12 +893,13 @@ serve(async (req) => {
         // Method 2: Match by BOTOL/UNIT count - find bundle where SKU starts with "GSI-{unitCount}"
         // Example: 4 BOTOL or 4 UNIT → find bundle with SKU starting with "GSI-4"
         // IMPORTANT: Use regex to match exact number, not just startsWith
-        // e.g., "GSI-1" should NOT match "GSI-100", only "GSI-1" or "GSI-1+"
+        // e.g., "GSI-1" should NOT match "GSI-100", only "GSI-1" or "GSI-1 +"
         console.log(`Searching for bundle with SKU matching GSI-${unitCount}`);
-        const unitRegex = new RegExp(`^gsi-${unitCount}(\\+|$)`, 'i');
+        // Allow optional whitespace before + (handles "GSI-3 + SBNM" format)
+        const unitRegex = new RegExp(`^gsi-${unitCount}(\\s*\\+|$)`, 'i');
         matchingBundle = allBundles.find((b: any) => {
           if (!b.sku) return false;
-          // Check if SKU matches "GSI-{unitCount}" followed by "+" or end of string
+          // Check if SKU matches "GSI-{unitCount}" followed by optional space and "+" or end of string
           return unitRegex.test(b.sku);
         });
       }
