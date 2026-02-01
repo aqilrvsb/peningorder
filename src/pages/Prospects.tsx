@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getMalaysiaDate } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { parse, format } from 'date-fns';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -310,12 +311,11 @@ const Prospects: React.FC = () => {
       let data: any[][] = [];
 
       if (isExcel) {
-        // Parse Excel file using xlsx library
+        // Parse Excel file - get raw text values
         const arrayBuffer = await file.arrayBuffer();
-        // Use cellDates: true to get JavaScript Date objects for date cells
-        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false, raw: false });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false });
+        data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
       } else {
         // Parse CSV file
         const text = await file.text();
@@ -367,43 +367,38 @@ const Prospects: React.FC = () => {
           }
         }
 
-        // Convert date to YYYY-MM-DD format
+        // Convert date to YYYY-MM-DD format using date-fns
         let tarikh = '';
         if (tarikhRaw) {
-          // If it's a JavaScript Date object (from Excel date cell)
-          if (tarikhRaw instanceof Date) {
-            const year = tarikhRaw.getFullYear();
-            const month = String(tarikhRaw.getMonth() + 1).padStart(2, '0');
-            const day = String(tarikhRaw.getDate()).padStart(2, '0');
-            tarikh = `${year}-${month}-${day}`;
-            console.log('Converted Date object:', tarikh);
-          }
-          // If it's a string
-          else {
-            const tarikhStr = tarikhRaw.toString().trim();
-            // Check if it's an Excel serial number (all digits, value > 40000)
-            if (/^\d+$/.test(tarikhStr) && Number(tarikhStr) > 40000) {
-              const serial = Number(tarikhStr);
-              const excelEpoch = new Date(1899, 11, 30);
-              const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-              tarikh = `${year}-${month}-${day}`;
-              console.log('Converted from serial:', tarikh);
+          const tarikhStr = tarikhRaw.toString().trim();
+          console.log('Raw date from Excel:', tarikhStr);
+
+          try {
+            let parsedDate: Date | null = null;
+
+            // Try DD-MM-YYYY format (e.g., "01-02-2026")
+            if (tarikhStr.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+              parsedDate = parse(tarikhStr, 'dd-MM-yyyy', new Date());
             }
-            // Check if format is DD-MM-YYYY or DD-MM-YY
-            else if (tarikhStr.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
-              const [first, second, year] = tarikhStr.split('-');
-              const fullYear = year.length === 2 ? `20${year}` : year;
-              // Swap: first becomes month, second becomes day (DD-MM-YYYY → YYYY-MM-DD)
-              tarikh = `${fullYear}-${second}-${first}`;
-              console.log('Converted:', `${first}-${second}-${year}`, '→', tarikh);
+            // Try DD/MM/YYYY format (e.g., "01/02/2026")
+            else if (tarikhStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+              parsedDate = parse(tarikhStr, 'dd/MM/yyyy', new Date());
             }
-            // If already in YYYY-MM-DD format, keep as is
-            else {
+            // Try YYYY-MM-DD format (already correct)
+            else if (tarikhStr.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
               tarikh = tarikhStr;
             }
+
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              tarikh = format(parsedDate, 'yyyy-MM-dd');
+              console.log('Parsed date:', tarikhStr, '→', tarikh);
+            } else if (!tarikh) {
+              console.error('Failed to parse date:', tarikhStr);
+              tarikh = '';
+            }
+          } catch (error) {
+            console.error('Date parse error:', error);
+            tarikh = '';
           }
         }
 
