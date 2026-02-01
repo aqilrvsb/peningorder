@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Plus, Search, Trash2, UserPlus, Loader2, Users, User, UserCheck,
   Calendar, RotateCcw, Download, Upload, Pencil, FileSpreadsheet,
@@ -62,6 +63,9 @@ const Prospects: React.FC = () => {
   const [selectedProspectOrders, setSelectedProspectOrders] = useState<any[]>([]);
   const [selectedProspectName, setSelectedProspectName] = useState('');
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [selectedProspectIds, setSelectedProspectIds] = useState<string[]>([]);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   const [formData, setFormData] = useState({
     namaProspek: '',
@@ -278,6 +282,60 @@ const Prospects: React.FC = () => {
     } finally {
       setDeleteDialogOpen(false);
       setProspectToDelete(null);
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedProspectIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedProspectIds.length === filteredProspects.length) {
+      setSelectedProspectIds([]);
+    } else {
+      setSelectedProspectIds(filteredProspects.map(p => p.id));
+    }
+  };
+
+  const handleBulkDeleteClick = () => {
+    setBulkDeleteDialogOpen(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedProspectIds.length === 0) return;
+    setIsDeletingBulk(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const id of selectedProspectIds) {
+        try {
+          await deleteProspect(id);
+          successCount++;
+        } catch (error) {
+          console.error('Error deleting prospect:', id, error);
+          errorCount++;
+        }
+      }
+
+      toast({
+        title: 'Bulk Delete Selesai',
+        description: `${successCount} prospect berjaya dipadam. ${errorCount} gagal.`,
+      });
+
+      setSelectedProspectIds([]);
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast({
+        title: 'Error',
+        description: 'Gagal memadam prospect.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingBulk(false);
+      setBulkDeleteDialogOpen(false);
     }
   };
 
@@ -521,6 +579,12 @@ const Prospects: React.FC = () => {
               {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               Import Excel
             </Button>
+            {selectedProspectIds.length > 0 && (
+              <Button variant="destructive" onClick={handleBulkDeleteClick}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete ({selectedProspectIds.length})
+              </Button>
+            )}
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) resetForm();
@@ -745,6 +809,12 @@ const Prospects: React.FC = () => {
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
+                <th className="px-4 py-3 text-center">
+                  <Checkbox
+                    checked={selectedProspectIds.length === filteredProspects.length && filteredProspects.length > 0}
+                    onCheckedChange={handleToggleSelectAll}
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
@@ -763,6 +833,12 @@ const Prospects: React.FC = () => {
               {filteredProspects.length > 0 ? (
                 filteredProspects.map((prospect, index) => (
                   <tr key={prospect.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox
+                        checked={selectedProspectIds.includes(prospect.id)}
+                        onCheckedChange={() => handleToggleSelect(prospect.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.tarikhPhoneNumber || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
@@ -830,7 +906,7 @@ const Prospects: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                     Tiada prospect dijumpai.
                   </td>
                 </tr>
@@ -856,6 +932,28 @@ const Prospects: React.FC = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               Padam
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Padam {selectedProspectIds.length} Prospect?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Adakah anda pasti mahu memadam {selectedProspectIds.length} prospect yang dipilih? Tindakan ini tidak boleh dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBulk}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBulkDelete}
+              disabled={isDeletingBulk}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingBulk ? 'Memadam...' : 'Padam'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
