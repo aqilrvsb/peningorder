@@ -363,11 +363,16 @@ const Prospects: React.FC = () => {
           }
         }
 
-        // Convert date format from DD-MM-YY to YYYY-MM-DD
-        if (tarikh && tarikh.match(/^\d{2}-\d{2}-\d{2}$/)) {
-          const [day, month, year] = tarikh.split('-');
-          const fullYear = year.startsWith('2') ? `20${year}` : `19${year}`;
-          tarikh = `${fullYear}-${month}-${day}`;
+        // Convert date format to YYYY-MM-DD
+        if (tarikh) {
+          // Check if format is DD-MM-YY or DD-MM-YYYY
+          if (tarikh.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
+            const [day, month, year] = tarikh.split('-');
+            const fullYear = year.length === 2 ? (year.startsWith('2') ? `20${year}` : `19${year}`) : year;
+            tarikh = `${fullYear}-${month}-${day}`;
+          }
+          // If already in YYYY-MM-DD format, keep as is
+          // Format is validated by the regex pattern
         }
 
         // Match niche by product name or SKU (case-insensitive), save as SKU
