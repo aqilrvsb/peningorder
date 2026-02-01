@@ -394,12 +394,11 @@ const Prospects: React.FC = () => {
             }
             // Check if format is DD-MM-YYYY or DD-MM-YY
             else if (tarikhStr.match(/^\d{2}-\d{2}-\d{2,4}$/)) {
-              const [day, month, year] = tarikhStr.split('-');
-              console.log('Split date - day:', day, 'month:', month, 'year:', year);
+              const [first, second, year] = tarikhStr.split('-');
               const fullYear = year.length === 2 ? `20${year}` : year;
-              // Month stays in middle: DD-MM-YYYY → YYYY-MM-DD
-              tarikh = `${fullYear}-${month}-${day}`;
-              console.log('Converted from DD-MM-YYYY:', tarikh);
+              // Swap: first becomes month, second becomes day (DD-MM-YYYY → YYYY-MM-DD)
+              tarikh = `${fullYear}-${second}-${first}`;
+              console.log('Converted:', `${first}-${second}-${year}`, '→', tarikh);
             }
             // If already in YYYY-MM-DD format, keep as is
             else {
