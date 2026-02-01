@@ -1004,6 +1004,7 @@ serve(async (req) => {
       kurier: isCOD ? 'Ninjavan COD' : 'Ninjavan CASH',
       type_payment: typePayment,
       date_payment: !isCOD ? dateOrder : null,
+      produk: bundleName, // Product name from matched bundle
       nota_staff: orderData.productNames,
       bundle_id: bundleId,
       cost_postage: postageCost,
