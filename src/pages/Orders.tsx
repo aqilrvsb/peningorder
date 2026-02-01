@@ -869,7 +869,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">RM {order.hargaJualanSebenar.toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {order.caraBayaran === 'CASH' ? (
+                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' ? (
                         <button
                           onClick={() => handlePaymentClick(order)}
                           className={`hover:underline cursor-pointer font-medium ${
