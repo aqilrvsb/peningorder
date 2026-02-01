@@ -58,12 +58,12 @@ const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Remaining", "Retu
 const COLLECTION_STATUS_OPTIONS = ["All", "null", "Pending", "Success", "Return"];
 
 // Helper to get collection status based on delivery_status and seo
+// Collection has 3 statuses: Pending, Success, Return
 const getCollectionStatus = (deliveryStatus: string, seo: string | null): string => {
-  if (deliveryStatus === 'Pending') return 'null';
-  if (deliveryStatus === 'Shipped' && seo !== 'Successful Delivery') return 'Pending';
-  if (deliveryStatus === 'Shipped' && seo === 'Successful Delivery') return 'Success';
   if (deliveryStatus === 'Return' || deliveryStatus === 'Failed') return 'Return';
-  return 'null';
+  if (deliveryStatus === 'Shipped' && seo === 'Successful Delivery') return 'Success';
+  // All other cases (Pending delivery_status, or Shipped but not collected yet) = Pending
+  return 'Pending';
 };
 
 // Helper to get Malaysia date (UTC+8)
@@ -935,7 +935,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                             collectionStatus === 'Return' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                             'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400'
                           }`}>
-                            {collectionStatus === 'null' ? '-' : collectionStatus}
+                            {collectionStatus}
                           </span>
                         );
                       })()}
