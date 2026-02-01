@@ -571,6 +571,7 @@ function mapState(state: string): string {
     'putrajaya': 'Putrajaya',
     // Abbreviated state codes (used by some WooCommerce sites like akakgojes.com)
     'kl': 'Kuala Lumpur',
+    'kul': 'Kuala Lumpur',
     'wpkl': 'Kuala Lumpur',
     'sgr': 'Selangor',
     'sel': 'Selangor',
@@ -1008,7 +1009,9 @@ serve(async (req) => {
       nota_staff: orderData.productNames,
       bundle_id: bundleId,
       cost_postage: postageCost,
-      cost_baseproduct: totalBaseCost
+      cost_baseproduct: totalBaseCost,
+      seo: !isCOD ? 'Successful Delivery' : null, // Auto-collection for CASH orders
+      seos: 'Pending' // Delivery tracking status - starts as Pending
     };
 
     // Set platform-specific order ID field

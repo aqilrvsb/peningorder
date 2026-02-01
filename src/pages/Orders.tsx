@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2
 } from 'lucide-react';
+import { put } from '@vercel/blob';
 import {
   Select,
   SelectContent,
@@ -108,6 +109,11 @@ const Orders: React.FC = () => {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderPayment, setSelectedOrderPayment] = useState<typeof orders[0] | null>(null);
   const [isConfirmingCollection, setIsConfirmingCollection] = useState(false);
+
+  // Receipt upload state
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string>('');
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -280,7 +286,64 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
 
   const handlePaymentClick = (order: typeof orders[0]) => {
     setSelectedOrderPayment(order);
+    setReceiptFile(null);
+    setReceiptPreview('');
     setPaymentModalOpen(true);
+  };
+
+  // Handle receipt file selection
+  const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReceiptFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Upload receipt to Vercel Blob
+  const handleUploadReceipt = async () => {
+    if (!receiptFile || !selectedOrderPayment) return;
+
+    setIsUploadingReceipt(true);
+    try {
+      const token = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN;
+      if (!token) {
+        throw new Error('Blob storage token not configured');
+      }
+
+      const timestamp = Date.now();
+      const cleanFileName = receiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filename = `receipts/${timestamp}-${cleanFileName}`;
+      const blob = await put(filename, receiptFile, { access: 'public', token });
+
+      // Update order with receipt URL
+      await updateOrder(selectedOrderPayment.id, { receiptImageUrl: blob.url });
+
+      toast({
+        title: 'Berjaya',
+        description: 'Resit bayaran telah dimuat naik.',
+      });
+
+      // Refresh data and close modal
+      await refreshData();
+      setPaymentModalOpen(false);
+      setReceiptFile(null);
+      setReceiptPreview('');
+      setSelectedOrderPayment(null);
+    } catch (error: any) {
+      console.error('Receipt upload error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal memuat naik resit. Sila cuba lagi.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingReceipt(false);
+    }
   };
 
   const handleEditClick = (order: typeof orders[0]) => {
@@ -806,7 +869,11 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                       {order.caraBayaran === 'CASH' ? (
                         <button
                           onClick={() => handlePaymentClick(order)}
-                          className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+                          className={`hover:underline cursor-pointer font-medium ${
+                            order.receiptImageUrl
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
                         >
                           {order.kurier || 'CASH'}
                         </button>
@@ -847,12 +914,12 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.notaStaff || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        order.seo === 'Successful Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                        order.seo === 'Shipped' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                        order.seo === 'Return' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                        order.seos === 'Successful Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        order.seos === 'Shipped' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                        order.seos === 'Return' || order.seos === 'Returned to Sender' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                         'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400'
                       }`}>
-                        {order.seo || '-'}
+                        {order.seos || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -985,7 +1052,13 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
       </Dialog>
 
       {/* Payment Details Modal */}
-      <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+      <Dialog open={paymentModalOpen} onOpenChange={(open) => {
+        setPaymentModalOpen(open);
+        if (!open) {
+          setReceiptFile(null);
+          setReceiptPreview('');
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Butiran Bayaran</DialogTitle>
@@ -1028,15 +1101,70 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
                     />
                   </a>
                 ) : (
-                  <p className="text-sm text-muted-foreground italic">Tiada resit dimuat naik</p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-red-500 italic">Tiada resit dimuat naik</p>
+
+                    {/* Upload receipt form */}
+                    <div className="border border-dashed border-red-300 dark:border-red-700 rounded-lg p-4 bg-red-50/50 dark:bg-red-950/20">
+                      <p className="text-sm font-medium text-foreground mb-2">Muat Naik Resit</p>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleReceiptFileChange}
+                          className="hidden"
+                          id="receipt-upload-modal"
+                        />
+                        <label
+                          htmlFor="receipt-upload-modal"
+                          className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="text-sm text-muted-foreground">
+                            {receiptFile ? receiptFile.name : 'Pilih gambar resit'}
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Preview */}
+                      {receiptPreview && (
+                        <div className="mt-3">
+                          <img
+                            src={receiptPreview}
+                            alt="Preview"
+                            className="max-w-full h-32 object-contain rounded-lg border border-border"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>
               Tutup
             </Button>
+            {selectedOrderPayment && !selectedOrderPayment.receiptImageUrl && receiptFile && (
+              <Button
+                onClick={handleUploadReceipt}
+                disabled={isUploadingReceipt}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isUploadingReceipt ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Memuat naik...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Simpan Resit
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
