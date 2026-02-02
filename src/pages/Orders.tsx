@@ -53,7 +53,7 @@ interface OrderForTracking {
   hargaJualanSebenar: number;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Remaining", "Return", "Success", "Failed"];
 const COLLECTION_STATUS_OPTIONS = ["All", "null", "Pending", "Success", "Return"];
 
@@ -91,7 +91,7 @@ const Orders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState<number | "All">(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
   const [collectionFilter, setCollectionFilter] = useState("All");
@@ -153,11 +153,11 @@ const Orders: React.FC = () => {
   }, [orders, search, startDate, endDate, deliveryStatusFilter, collectionFilter]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / pageSize);
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const effectivePageSize = pageSize === "All" ? filteredOrders.length : pageSize;
+  const totalPages = pageSize === "All" ? 1 : Math.ceil(filteredOrders.length / pageSize);
+  const paginatedOrders = pageSize === "All"
+    ? filteredOrders
+    : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Calculate stats - use filteredOrders to match date range filters
   const stats = useMemo(() => {
@@ -797,7 +797,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
             <Select
               value={pageSize.toString()}
               onValueChange={(v) => {
-                setPageSize(Number(v));
+                setPageSize(v === "All" ? "All" : Number(v));
                 setCurrentPage(1);
               }}
             >
@@ -806,7 +806,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
               </SelectTrigger>
               <SelectContent>
                 {PAGE_SIZE_OPTIONS.map((size) => (
-                  <SelectItem key={size} value={size.toString()}>
+                  <SelectItem key={size.toString()} value={size.toString()}>
                     {size}
                   </SelectItem>
                 ))}
@@ -864,7 +864,7 @@ https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
               {paginatedOrders.length > 0 ? (
                 paginatedOrders.map((order, idx) => (
                   <tr key={order.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-foreground">{(currentPage - 1) * pageSize + idx + 1}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{pageSize === "All" ? idx + 1 : (currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateProcessed || '-'}</td>
