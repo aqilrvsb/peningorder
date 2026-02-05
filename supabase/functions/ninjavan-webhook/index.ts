@@ -288,7 +288,7 @@ async function sendWhatsAppMessage(
   }
 }
 
-// Send WhatsApp image message using Whacenter API (POST with form data)
+// Send WhatsApp image message using Whacenter API (GET with file param - same as text but with file URL)
 async function sendWhatsAppImage(
   instanceId: string,
   customerPhone: string,
@@ -298,16 +298,9 @@ async function sendWhatsAppImage(
   try {
     console.log('Sending WhatsApp image via Whacenter:', { instance: instanceId, phone: customerPhone, imageUrl });
 
-    const formData = new FormData();
-    formData.append('device_id', instanceId);
-    formData.append('number', customerPhone);
-    formData.append('message', caption);
-    formData.append('file', imageUrl);
+    const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(instanceId)}&number=${encodeURIComponent(customerPhone)}&message=${encodeURIComponent(caption)}&file=${encodeURIComponent(imageUrl)}`;
 
-    const response = await fetch('https://api.whacenter.com/api/send', {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch(apiUrl, { method: 'GET' });
     const data = await response.json();
 
     console.log('Whacenter image response:', data);
