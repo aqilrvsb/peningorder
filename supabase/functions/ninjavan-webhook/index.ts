@@ -288,7 +288,7 @@ async function sendWhatsAppMessage(
   }
 }
 
-// Send WhatsApp image message using Whacenter API (POST with URL-encoded form data)
+// Send WhatsApp image message using Whacenter API (POST with JSON body + type field)
 async function sendWhatsAppImage(
   instanceId: string,
   customerPhone: string,
@@ -298,19 +298,21 @@ async function sendWhatsAppImage(
   try {
     console.log('Sending WhatsApp image via Whacenter:', { instance: instanceId, phone: customerPhone, imageUrl });
 
-    // Use POST with URL-encoded form data (matching PHP curl example)
-    const formBody = new URLSearchParams();
-    formBody.append('device_id', instanceId);
-    formBody.append('number', customerPhone);
-    formBody.append('message', caption);
-    formBody.append('file', imageUrl);
+    // Use POST with JSON body - include "type": "image" to combine image+caption
+    const payload = {
+      device_id: instanceId,
+      number: customerPhone,
+      message: caption,
+      file: imageUrl,
+      type: 'image'
+    };
 
     const response = await fetch('https://api.whacenter.com/api/send', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: formBody.toString(),
+      body: JSON.stringify(payload),
     });
     const data = await response.json();
 
