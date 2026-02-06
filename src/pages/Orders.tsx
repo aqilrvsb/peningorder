@@ -240,6 +240,12 @@ const Orders: React.FC = () => {
 
     const tracking = order.noTracking || '-';
 
+    // Determine tracking URL based on courier
+    const kurier = (order.kurier || '').toLowerCase();
+    const trackingUrl = kurier.includes('poslaju') || kurier.includes('pos laju')
+      ? `https://tracking.pos.com.my/tracking/${tracking}`
+      : `https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
+
     // Build message with order details
     const message = `DFR NOTIFICATION ORDER
 
@@ -251,7 +257,7 @@ Tracking Number : ${tracking}
 Harga Jualan : RM${Number(order.hargaJualanSebenar || 0).toFixed(2)}
 Cara Bayaran : ${order.kurier || order.caraBayaran || "-"}
 
-https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
+${trackingUrl}`;
 
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`;
