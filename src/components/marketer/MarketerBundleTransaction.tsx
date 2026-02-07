@@ -138,8 +138,8 @@ const MarketerBundleTransaction = () => {
       const orderSale = Number(p.total_sale) || 0;
       const isSuccess = p.seo === "Successful Delivery";
 
-      // Shipped
-      if (p.delivery_status === "Shipped") {
+      // Shipped Out = all orders that were shipped (Shipped + Return, since returned orders were shipped first)
+      if (p.delivery_status === "Shipped" || p.delivery_status === "Return") {
         entry.shippedUnits += orderUnit;
         entry.totalSales += orderSale;
 
@@ -147,11 +147,11 @@ const MarketerBundleTransaction = () => {
         if (isSuccess) {
           entry.successUnits += orderUnit;
         }
-      }
 
-      // Return
-      if (p.delivery_status === "Return") {
-        entry.returnUnits += orderUnit;
+        // Return
+        if (p.delivery_status === "Return") {
+          entry.returnUnits += orderUnit;
+        }
       }
 
       // Platform breakdown
@@ -166,15 +166,15 @@ const MarketerBundleTransaction = () => {
 
       const platformEntry = getPlatformEntry();
       if (platformEntry) {
-        if (p.delivery_status === "Shipped") {
+        if (p.delivery_status === "Shipped" || p.delivery_status === "Return") {
           platformEntry.units += orderUnit;
           platformEntry.sales += orderSale;
           if (isSuccess) {
             platformEntry.success += orderUnit;
           }
-        }
-        if (p.delivery_status === "Return") {
-          platformEntry.returnUnits += orderUnit;
+          if (p.delivery_status === "Return") {
+            platformEntry.returnUnits += orderUnit;
+          }
         }
       }
     });
