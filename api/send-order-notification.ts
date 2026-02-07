@@ -5,6 +5,7 @@ export const config = {
 }
 
 const WHACENTER_API = 'https://api.whacenter.com/api'
+const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro.jpg'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -32,6 +33,40 @@ async function sendWhatsApp(instance: string, phone: string, message: string): P
     return { success, response: data }
   } catch (error: any) {
     console.error('Failed to send WhatsApp:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Send WhatsApp image with caption via Whacenter (POST FormData)
+async function sendWhatsAppWithImage(instance: string, phone: string, imageUrl: string, caption: string): Promise<{ success: boolean; response?: any; error?: string }> {
+  try {
+    let formattedPhone = phone.replace(/\D/g, '')
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '60' + formattedPhone.substring(1)
+    }
+    if (!formattedPhone.startsWith('60')) {
+      formattedPhone = '60' + formattedPhone
+    }
+
+    console.log('Sending WhatsApp image via Whacenter:', { instance, phone: formattedPhone, imageUrl })
+
+    const formData = new FormData()
+    formData.append('device_id', instance)
+    formData.append('number', formattedPhone)
+    formData.append('message', caption)
+    formData.append('file', imageUrl)
+
+    const response = await fetch(`${WHACENTER_API}/send`, {
+      method: 'POST',
+      body: formData,
+    })
+    const data = await response.json()
+    console.log('WhatsApp image send result:', data)
+
+    const success = data.status === true || data.success === true
+    return { success, response: data }
+  } catch (error: any) {
+    console.error('Failed to send WhatsApp image:', error)
     return { success: false, error: error.message }
   }
 }
@@ -395,10 +430,11 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`
     console.log('Sending WhatsApp message to:', customerPhone)
     console.log('Using instance:', deviceSetting.instance)
 
-    // Send WhatsApp
-    const whatsappResult = await sendWhatsApp(
+    // Send WhatsApp image with caption
+    const whatsappResult = await sendWhatsAppWithImage(
       deviceSetting.instance,
       customerPhone,
+      INTRO_IMAGE_URL,
       message
     )
 
