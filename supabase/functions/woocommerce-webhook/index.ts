@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 const NINJAVAN_API = 'https://api.ninjavan.co/my';
+const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro.jpg';
 
 // WooCommerce Order interface
 interface WooOrder {
@@ -386,6 +387,74 @@ async function sendWhatsAppMessage(
     return { success: true };
   } catch (error: any) {
     console.error('WhatsApp send error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Send WhatsApp image with caption using Whacenter API (FormData POST)
+async function sendWhatsAppImage(
+  supabase: any,
+  marketerIdStaff: string,
+  customerPhone: string,
+  imageUrl: string,
+  caption: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: marketer } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('idstaff', marketerIdStaff)
+      .single();
+
+    if (!marketer) {
+      return { success: false, error: 'Marketer not found' };
+    }
+
+    const { data: deviceSetting } = await supabase
+      .from('device_setting')
+      .select('*')
+      .eq('user_id', marketer.id)
+      .eq('status_wa', 'connected')
+      .maybeSingle();
+
+    if (!deviceSetting) {
+      console.log('No connected WhatsApp device for marketer');
+      return { success: false, error: 'No connected WhatsApp device' };
+    }
+
+    const instanceId = deviceSetting.instance || deviceSetting.device_id;
+    if (!instanceId) {
+      console.log('No instance ID found in device settings');
+      return { success: false, error: 'No WhatsApp instance ID configured' };
+    }
+
+    console.log('Sending WhatsApp image via Whacenter:', { instance: instanceId, phone: customerPhone, imageUrl });
+
+    const formData = new FormData();
+    formData.append('device_id', instanceId);
+    formData.append('number', customerPhone);
+    formData.append('message', caption);
+    formData.append('file', imageUrl);
+
+    const response = await fetch('https://api.whacenter.com/api/send', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+
+    console.log('Whacenter image response:', data);
+
+    const success = data.status === true || data.success === true;
+
+    if (!success) {
+      console.error('WhatsApp image send failed:', data);
+      return { success: false, error: data.message || 'Failed to send WhatsApp image' };
+    }
+
+    console.log('WhatsApp image sent successfully');
+    return { success: true };
+  } catch (error: any) {
+    console.error('WhatsApp image send error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1129,10 +1198,11 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
 
     console.log('Attempting to send WhatsApp to:', orderData.customerPhone);
 
-    const whatsappResult = await sendWhatsAppMessage(
+    const whatsappResult = await sendWhatsAppImage(
       supabase,
       marketerIdStaff,
       orderData.customerPhone,
+      INTRO_IMAGE_URL,
       whatsappMessage
     );
 
