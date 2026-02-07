@@ -31,7 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Beg Lead'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Ninjavan', 'Poslaju', 'Self Pickup'];
+const DELIVERY_METHOD_OPTIONS = ['Ninjavan', 'Poslaju', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -564,8 +564,12 @@ const OrderForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (!formData.namaPelanggan || !formData.noPhone || !formData.poskod || !formData.daerah || !formData.negeri || !formData.alamat || !formData.produk || !formData.jenisClosing || !formData.caraBayaran || !formData.jenisCustomer) {
+    // Validation - phone and jenisCustomer optional for Tiktok/Shopee
+    const requiredBase = !formData.namaPelanggan || !formData.poskod || !formData.daerah || !formData.negeri || !formData.alamat || !formData.produk || !formData.jenisClosing || !formData.caraBayaran;
+    const requiresPhone = !isTiktokShopee && !formData.noPhone;
+    const requiresCustomerType = !isTiktokShopee && !formData.jenisCustomer;
+
+    if (requiredBase || requiresPhone || requiresCustomerType) {
       toast({
         title: 'Error',
         description: 'Sila lengkapkan semua medan yang diperlukan.',
@@ -574,8 +578,18 @@ const OrderForm: React.FC = () => {
       return;
     }
 
-    // Validate that customer type is NP/EP/EC (must click Check button first)
-    if (!['NP', 'EP', 'EC'].includes(formData.jenisCustomer) && !isEditMode) {
+    // Validate tracking number for marketplace couriers
+    if (isMarketplaceCourier && !formData.trackingNumber) {
+      toast({
+        title: 'Error',
+        description: 'Sila masukkan No. Tracking.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate that customer type is NP/EP/EC (must click Check button first) - skip for Tiktok/Shopee
+    if (!isTiktokShopee && !['NP', 'EP', 'EC'].includes(formData.jenisCustomer) && !isEditMode) {
       toast({
         title: 'Error',
         description: 'Sila klik butang "Semak" untuk menyemak jenis customer.',
@@ -584,8 +598,8 @@ const OrderForm: React.FC = () => {
       return;
     }
 
-    // Validate payment details for CASH (all platforms now use same flow)
-    if (formData.caraBayaran === 'CASH') {
+    // Validate payment details for CASH - skip for marketplace couriers (no Butiran Bayaran)
+    if (formData.caraBayaran === 'CASH' && !isMarketplaceCourier) {
       // Always require Jenis Bayaran
       if (!formData.jenisBayaran) {
         toast({
@@ -624,19 +638,21 @@ const OrderForm: React.FC = () => {
       }
     }
 
-    // Validate minimum price
-    const minPrice = getMinimumPrice(formData.produk, formData.jenisPlatform, formData.jenisCustomer);
-    if (formData.hargaJualan < minPrice) {
-      toast({
-        title: 'Error',
-        description: `Harga jualan minimum untuk ${formData.jenisCustomer} (${formData.jenisPlatform || 'produk ini'}) adalah RM${minPrice.toFixed(2)}.`,
-        variant: 'destructive',
-      });
-      return;
+    // Validate minimum price - skip for Tiktok/Shopee (no customer type)
+    if (!isTiktokShopee) {
+      const minPrice = getMinimumPrice(formData.produk, formData.jenisPlatform, formData.jenisCustomer);
+      if (formData.hargaJualan < minPrice) {
+        toast({
+          title: 'Error',
+          description: `Harga jualan minimum untuk ${formData.jenisCustomer} (${formData.jenisPlatform || 'produk ini'}) adalah RM${minPrice.toFixed(2)}.`,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
-    // Validate phone starts with 6
-    if (!formData.noPhone.toString().startsWith('6')) {
+    // Validate phone starts with 6 - skip for Tiktok/Shopee
+    if (!isTiktokShopee && !formData.noPhone.toString().startsWith('6')) {
       toast({
         title: 'Error',
         description: 'No. Telefon mesti bermula dengan 6.',
@@ -663,7 +679,9 @@ const OrderForm: React.FC = () => {
     const isNinjavan = formData.deliveryMethod === 'Ninjavan';
     const isPoslaju = formData.deliveryMethod === 'Poslaju';
 
-    if (isPickup) {
+    if (isMarketplaceCourier) {
+      kurier = formData.deliveryMethod; // 'Kurier Tiktok' or 'Kurier Shopee'
+    } else if (isPickup) {
       kurier = 'PICKUP';
     } else if (isPoslaju) {
       kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
@@ -877,8 +895,13 @@ const OrderForm: React.FC = () => {
         // Get selected bundle for SKU (needed for kurier API)
         const selectedBundle = activeBundles.find(b => b.name === formData.produk);
 
-        // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup
-        const shouldCallKurier = !isPickup;
+        // For marketplace couriers: use tracking from form input, skip API
+        if (isMarketplaceCourier) {
+          trackingNumber = formData.trackingNumber;
+        }
+
+        // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup and marketplace couriers
+        const shouldCallKurier = !isPickup && !isMarketplaceCourier;
         let waybillPdfUrl = ''; // For Poslaju PDF link
 
         if (shouldCallKurier) {
@@ -1014,8 +1037,9 @@ const OrderForm: React.FC = () => {
               cost_baseproduct: costBaseproduct, // From bundle base_cost
               kurier,
               tracking_number: trackingNumber,
-              delivery_status: 'Pending',
+              delivery_status: isMarketplaceCourier ? 'Shipped' : 'Pending',
               date_order: dateOrder,
+              date_processed: isMarketplaceCourier ? dateOrder : null,
               jenis_platform: formData.jenisPlatform,
               jenis_customer: finalCustomerType,
               jenis_closing: formData.jenisClosing,
@@ -1054,10 +1078,10 @@ const OrderForm: React.FC = () => {
             tarikhTempahan,
             kurier,
             noTracking: trackingNumber,
-            statusParcel: 'Pending',
-            deliveryStatus: 'Pending',
+            statusParcel: isMarketplaceCourier ? 'Shipped' : 'Pending',
+            deliveryStatus: isMarketplaceCourier ? 'Shipped' : 'Pending',
             dateOrder,
-            dateProcessed: '',
+            dateProcessed: isMarketplaceCourier ? dateOrder : '',
             jenisPlatform: formData.jenisPlatform,
             jenisCustomer: finalCustomerType,
             jenisClosing: formData.jenisClosing,
@@ -1074,8 +1098,8 @@ const OrderForm: React.FC = () => {
           });
         }
 
-        // Send WhatsApp notification to customer
-        try {
+        // Send WhatsApp notification to customer - skip for marketplace couriers
+        if (!isMarketplaceCourier) try {
           // Format full address
           const fullAddress = [
             formData.alamat,
@@ -1112,8 +1136,8 @@ const OrderForm: React.FC = () => {
           console.error('Failed to send notification:', notifyErr);
         }
 
-        // Handle lead update/creation and count_order increment
-        try {
+        // Handle lead update/creation and count_order increment - skip if no phone (Tiktok/Shopee)
+        if (formData.noPhone) try {
           if (isAdminLeadOrder && adminLeadData?.prospectId) {
             // Admin lead order - update the prospect directly
             // First get current count_order
@@ -1200,10 +1224,10 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  // All platforms now use same flow - no special handling for Shopee/Tiktok
-  const isShopeeOrTiktok = false; // Disabled - all platforms now use kurier flow
+  const isTiktokShopee = formData.jenisPlatform === 'Tiktok' || formData.jenisPlatform === 'Shopee';
+  const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok' || formData.deliveryMethod === 'Kurier Shopee';
   const isPickupUI = formData.deliveryMethod === 'Self Pickup';
-  const showPaymentDetails = formData.caraBayaran === 'CASH' || isPickupUI;
+  const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupUI) && !isMarketplaceCourier;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1243,7 +1267,7 @@ const OrderForm: React.FC = () => {
 
             {/* No. Telefon */}
             <div>
-              <FormLabel required>No. Telefon (digit start with 6)</FormLabel>
+              <FormLabel required={!isTiktokShopee}>No. Telefon (digit start with 6)</FormLabel>
               <Input
                 type="number"
                 placeholder="60123456789"
@@ -1296,7 +1320,7 @@ const OrderForm: React.FC = () => {
 
             {/* Jenis Customer */}
             <div>
-              <FormLabel required>Jenis Customer</FormLabel>
+              <FormLabel required={!isTiktokShopee}>Jenis Customer</FormLabel>
               <div className="flex gap-2">
                 <Select
                   value={formData.jenisCustomer}
@@ -1476,28 +1500,26 @@ const OrderForm: React.FC = () => {
               </Select>
             </div>
 
-            {/* Delivery Method - Only for non Shopee/Tiktok */}
-            {!isShopeeOrTiktok && (
-              <div>
-                <FormLabel required>Delivery Method</FormLabel>
-                <Select
-                  value={formData.deliveryMethod}
-                  onValueChange={(value) => handleChange('deliveryMethod', value)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Pilih Delivery Method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DELIVERY_METHOD_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Delivery Method */}
+            <div>
+              <FormLabel required>Delivery Method</FormLabel>
+              <Select
+                value={formData.deliveryMethod}
+                onValueChange={(value) => handleChange('deliveryMethod', value)}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Pilih Delivery Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_METHOD_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* Tracking Number - Only for Shopee/Tiktok */}
-            {isShopeeOrTiktok && (
+            {/* Tracking Number - Only for Kurier Tiktok/Shopee */}
+            {isMarketplaceCourier && (
               <div>
                 <FormLabel required>No. Tracking</FormLabel>
                 <Input
@@ -1506,31 +1528,6 @@ const OrderForm: React.FC = () => {
                   onChange={(e) => handleChange('trackingNumber', e.target.value)}
                   className="bg-background"
                 />
-              </div>
-            )}
-
-            {/* Waybill Attachment - Only for Shopee/Tiktok */}
-            {isShopeeOrTiktok && (
-              <div>
-                <FormLabel required>Waybill Attachment (PDF)</FormLabel>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handleWaybillChange}
-                    className="hidden"
-                    id="waybill-upload"
-                  />
-                  <label
-                    htmlFor="waybill-upload"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm text-muted-foreground">
-                      {waybillFileName || (isEditMode && editOrder.noTracking ? 'PDF sudah dimuat naik' : 'Upload PDF Waybill')}
-                    </span>
-                  </label>
-                </div>
               </div>
             )}
 

@@ -158,6 +158,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       nota_staff: order.notaStaff,
       delivery_status: order.deliveryStatus,
       date_order: order.dateOrder,
+      date_processed: order.dateProcessed || null,
       jenis_platform: order.jenisPlatform,
       jenis_customer: order.jenisCustomer,
       jenis_closing: order.jenisClosing,
