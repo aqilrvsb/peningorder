@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Image URL for successful delivery follow-up message
-const DELIVERY_IMAGE_URL = 'https://marketerpro-suite.vercel.app/caramakan.jpeg';
+const DELIVERY_IMAGE_URL = 'https://dfrventure.com/caramakan.jpeg';
 const DELIVERY_IMAGE_CAPTION = `Barang Golden Sari akak dah sampai kan? Ni cara penggunaan ya akak. Make sure cukup air masak tau. Masa period tak digalakkan consume , boleh stop sementara waktu . Kalau akak dah menopause , boleh consume hari2 macam biasa
 
 join group ini : https://chat.whatsapp.com/H5pW50lXnF10ErOi2HAyRm`;
