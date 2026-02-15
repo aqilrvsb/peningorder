@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { getMalaysiaDate } from "@/lib/utils";
-import { Loader2, Receipt, Users } from "lucide-react";
+import { Loader2, Receipt, Users, FileText } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
@@ -31,7 +34,7 @@ const AccountClaimSummary = () => {
     queryFn: async () => {
       let query = supabase
         .from("claims")
-        .select("employee_name, total_deductions, items, pay_date, status")
+        .select("employee_name, total_deductions, items, pay_date, status, bank_account, bank_name, ic_number, phone_number, department, employment_type")
         .order("pay_date", { ascending: false });
 
       if (startDate) {
@@ -49,11 +52,29 @@ const AccountClaimSummary = () => {
 
   // Group claims by employee
   const employeeSummary = useMemo(() => {
-    const map = new Map<string, { count: number; total: number; items: { description: string; amount: number }[] }>();
+    const map = new Map<string, {
+      count: number;
+      total: number;
+      items: { description: string; amount: number }[];
+      bank_account: string;
+      bank_name: string;
+      ic_number: string;
+      phone_number: string;
+      department: string;
+      employment_type: string;
+    }>();
 
     claims.forEach((claim: any) => {
       const name = claim.employee_name;
-      const existing = map.get(name) || { count: 0, total: 0, items: [] };
+      const existing = map.get(name) || {
+        count: 0, total: 0, items: [],
+        bank_account: claim.bank_account || "-",
+        bank_name: claim.bank_name || "-",
+        ic_number: claim.ic_number || "-",
+        phone_number: claim.phone_number || "-",
+        department: claim.department || "-",
+        employment_type: claim.employment_type || "-",
+      };
       existing.count += 1;
       existing.total += Number(claim.total_deductions) || 0;
 
@@ -74,6 +95,146 @@ const AccountClaimSummary = () => {
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.total - a.total);
   }, [claims]);
+
+  // Generate merged invoice PDF for an employee
+  const generateMergedPDF = (emp: typeof employeeSummary[0]) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    const blueHeader: [number, number, number] = [62, 110, 142];
+    const goldColor: [number, number, number] = [218, 165, 32];
+
+    // Logo
+    doc.setFillColor(...goldColor);
+    doc.circle(30, 30, 15, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("DZI", 24, 28);
+    doc.setFontSize(7);
+    doc.text("HOLISTIK", 21, 34);
+
+    // Company header
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("DZI HOLISTIK ENTERPRISE", 60, 20);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,", 60, 28);
+    doc.text("22000 JERTEH, TERENGGANU", 60, 34);
+    doc.text("TEL: 016-2569963 (HR)", 60, 40);
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("CLAIM SUMMARY", pageWidth / 2, 55, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Period: ${startDate} to ${endDate}`, pageWidth / 2, 62, { align: "center" });
+
+    // Employee details
+    const detailsStartY = 72;
+    const labelX = 20;
+    const colonX = 82;
+    const valueX = 86;
+
+    doc.setFontSize(10);
+    const details = [
+      ["Employee Name", emp.name],
+      ["Identification Card Number", emp.ic_number],
+      ["Phone Number", emp.phone_number],
+      ["Department", emp.department],
+      ["Employment Type", emp.employment_type],
+    ];
+
+    details.forEach((detail, index) => {
+      const y = detailsStartY + index * 8;
+      doc.setFont("helvetica", "normal");
+      doc.text(detail[0], labelX, y);
+      doc.text(":", colonX, y);
+      doc.text(detail[1], valueX, y);
+    });
+
+    // Deductions table
+    const deductionsY = detailsStartY + details.length * 8 + 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("DEDUCTIONS", labelX, deductionsY);
+
+    const tableData = emp.items.map((item) => [
+      item.description,
+      `RM ${Number(item.amount).toFixed(2)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: deductionsY + 5,
+      head: [["DESCRIPTION", "AMOUNT"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: {
+        fillColor: blueHeader,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+        fontSize: 10,
+      },
+      footStyles: {
+        fillColor: blueHeader,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+        fontSize: 10,
+      },
+      foot: [["TOTAL DEDUCTIONS", `RM ${emp.total.toFixed(2)}`]],
+      columnStyles: {
+        0: { cellWidth: 125, halign: "left" },
+        1: { cellWidth: 45, halign: "right" },
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 4,
+      },
+      margin: { left: 20, right: 20 },
+    });
+
+    // Payment details
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+
+    doc.setFont("helvetica", "normal");
+    doc.text("Net Pay", labelX, finalY);
+    doc.text(":", colonX, finalY);
+    doc.text(`RM ${emp.total.toFixed(2)}`, valueX, finalY);
+
+    doc.text("Bank Account", labelX, finalY + 8);
+    doc.text(":", colonX, finalY + 8);
+    doc.text(emp.bank_account, valueX, finalY + 8);
+
+    doc.text("Bank Name", labelX, finalY + 16);
+    doc.text(":", colonX, finalY + 16);
+    doc.text(emp.bank_name, valueX, finalY + 16);
+
+    // Authorization
+    const authY = finalY + 35;
+    doc.setFontSize(9);
+    doc.text("Authorized by:", pageWidth - 75, authY);
+    doc.setFont("helvetica", "bold");
+    doc.text("Managing Director - DFR Empire", pageWidth - 75, authY + 6);
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
+
+    doc.save(`Claim_Summary_${emp.name.replace(/\s+/g, "_")}_${startDate}_to_${endDate}.pdf`);
+    toast.success("PDF generated successfully");
+  };
 
   // Grand total
   const grandTotal = employeeSummary.reduce((sum, emp) => sum + emp.total, 0);
@@ -188,6 +349,7 @@ const AccountClaimSummary = () => {
                       <th className="p-3 text-left">Employee</th>
                       <th className="p-3 text-center">Total Claims</th>
                       <th className="p-3 text-right">Total Amount (RM)</th>
+                      <th className="p-3 text-center">Invoice</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -200,11 +362,22 @@ const AccountClaimSummary = () => {
                           <td className="p-3 font-medium">{emp.name}</td>
                           <td className="p-3 text-center">{emp.count}</td>
                           <td className="p-3 text-right font-medium">RM {emp.total.toFixed(2)}</td>
+                          <td className="p-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => generateMergedPDF(emp)}
+                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="Download merged invoice"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={5} className="text-center py-12 text-muted-foreground">
                           No claims found for this date range.
                         </td>
                       </tr>
@@ -214,6 +387,7 @@ const AccountClaimSummary = () => {
                         <td className="p-3" colSpan={2}>Grand Total</td>
                         <td className="p-3 text-center">{totalClaims}</td>
                         <td className="p-3 text-right">RM {grandTotal.toFixed(2)}</td>
+                        <td className="p-3"></td>
                       </tr>
                     )}
                   </tbody>
