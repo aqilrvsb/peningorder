@@ -309,6 +309,12 @@ const navItems: NavItem[] = [
     icon: <DollarSign className="w-5 h-5" />,
     roles: ['account'],
   },
+  {
+    label: 'Payment Voucher',
+    path: '/dashboard/account/payment-voucher',
+    icon: <CreditCard className="w-5 h-5" />,
+    roles: ['account'],
+  },
   // ============ ADMIN ROLE ============
   {
     label: 'Leads',

@@ -62,7 +62,9 @@ import AccountReportProfit from "./components/account/AccountReportProfit";
 import AccountClaim from "./components/account/AccountClaim";
 import AccountSalary from "./components/account/AccountSalary";
 import AccountClaimSummary from "./components/account/AccountClaimSummary";
+import AccountPaymentVoucher from "./components/account/AccountPaymentVoucher";
 import ClaimSummaryInvoice from "./pages/ClaimSummaryInvoice";
+import PaymentVoucherInvoice from "./pages/PaymentVoucherInvoice";
 import SalarySlip from "./pages/SalarySlip";
 // HR components
 import HRUserManagement from "./components/hr/HRUserManagement";
@@ -85,6 +87,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/invoice" element={<Invoice />} />
                 <Route path="/invoice/claim-summary" element={<ClaimSummaryInvoice />} />
+                <Route path="/invoice/payment-voucher/:id" element={<PaymentVoucherInvoice />} />
                 <Route path="/invoice/:id" element={<ClaimInvoice />} />
                 <Route path="/salary/:userId/:year/:month" element={<SalarySlip />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
@@ -136,6 +139,7 @@ const App = () => (
                   <Route path="account/claim" element={<AccountClaim />} />
                   <Route path="account/claim-summary" element={<AccountClaimSummary />} />
                   <Route path="account/salary" element={<AccountSalary />} />
+                  <Route path="account/payment-voucher" element={<AccountPaymentVoucher />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
