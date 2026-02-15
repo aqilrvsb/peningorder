@@ -220,6 +220,7 @@ serve(async (req) => {
       console.log('Using existing valid Poslaju token, expires at:', tokenData.expires_at);
     } else {
       console.log('No valid token found, requesting new token from Pos Malaysia');
+      console.log('Config client_id present:', !!config.client_id, 'client_secret present:', !!config.client_secret);
 
       const authBody = new URLSearchParams({
         client_id: config.client_id,
@@ -227,9 +228,15 @@ serve(async (req) => {
         grant_type: 'client_credentials'
       });
 
+      // Send credentials both as Basic Auth header and in body for compatibility
+      const basicAuth = btoa(`${config.client_id}:${config.client_secret}`);
+
       const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`
+        },
         body: authBody.toString()
       });
 
