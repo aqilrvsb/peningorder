@@ -220,37 +220,29 @@ serve(async (req) => {
       console.log('Using existing valid Poslaju token, expires at:', tokenData.expires_at);
     } else {
       console.log('No valid token found, requesting new token from Pos Malaysia');
-      console.log('Config client_id:', config.client_id?.substring(0, 4) + '...', 'client_secret length:', config.client_secret?.length);
 
-      const authBody = new URLSearchParams();
-      authBody.append('client_id', config.client_id);
-      authBody.append('client_secret', config.client_secret);
-      authBody.append('grant_type', 'client_credentials');
-
-      const authBodyStr = authBody.toString();
-      console.log('Auth body length:', authBodyStr.length);
+      const authBody = new URLSearchParams({
+        client_id: config.client_id,
+        client_secret: config.client_secret,
+        grant_type: 'client_credentials'
+      });
 
       const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: authBodyStr
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: authBody.toString()
       });
 
-      const authResponseText = await authResponse.text();
-      console.log('Pos Malaysia Auth response status:', authResponse.status);
-      console.log('Pos Malaysia Auth response:', authResponseText);
-
       if (!authResponse.ok) {
-        console.error('Pos Malaysia Auth failed');
+        const errorText = await authResponse.text();
+        console.error('Pos Malaysia Auth failed:', authResponse.status, errorText);
         return new Response(
-          JSON.stringify({ error: 'Failed to authenticate with Pos Malaysia API', details: authResponseText }),
+          JSON.stringify({ error: 'Failed to authenticate with Pos Malaysia API', details: errorText }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const authData = JSON.parse(authResponseText);
+      const authData = await authResponse.json();
       accessToken = authData.access_token;
       const expiresIn = authData.expires_in || 3600;
 
