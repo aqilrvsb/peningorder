@@ -174,9 +174,6 @@ const AccountCashFlow = () => {
     return totals;
   }, [cashFlows, flowType]);
 
-  // Determine if current jenis needs attachment (all Cash Out types need it)
-  const needsAttachment = activeTab === "cash-out";
-
   // Determine if current jenis needs kategori
   const needsKategori =
     (activeTab === "cash-in" && formJenis === "Rekod Jualan") ||
@@ -327,7 +324,7 @@ const AccountCashFlow = () => {
         description: formDescription.trim(),
         date: formDate,
         amount: Number(formAmount),
-        attachment_url: needsAttachment ? attachmentUrl : null,
+        attachment_url: attachmentUrl || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -722,9 +719,8 @@ const AccountCashFlow = () => {
                           />
                         </div>
 
-                        {/* Attachment (Cash Out only) */}
-                        {needsAttachment && (
-                          <div className="space-y-2">
+                        {/* Attachment (Optional for both Cash In & Cash Out) */}
+                        <div className="space-y-2">
                             <Label>Attachment (Optional)</Label>
                             <div className="relative">
                               <input
@@ -765,7 +761,6 @@ const AccountCashFlow = () => {
                             </div>
                             <p className="text-xs text-muted-foreground">Supported: JPEG, PNG, PDF (max 5MB)</p>
                           </div>
-                        )}
 
                         {/* Action buttons */}
                         <div className="flex gap-2 pt-4">
@@ -806,10 +801,11 @@ const AccountCashFlow = () => {
                             <th className="p-3 text-left">Jenis</th>
                             <th className="p-3 text-left">Kategori</th>
                             {activeTab === "cash-out" && <th className="p-3 text-left">Platform</th>}
+
                             <th className="p-3 text-left">Description</th>
                             <th className="p-3 text-left">Date</th>
                             <th className="p-3 text-right">Amount (RM)</th>
-                            {activeTab === "cash-out" && <th className="p-3 text-center">Attachment</th>}
+                            <th className="p-3 text-center">Attachment</th>
                             <th className="p-3 text-center">Action</th>
                           </tr>
                         </thead>
@@ -851,8 +847,7 @@ const AccountCashFlow = () => {
                                 <td className="p-3 text-right font-medium">
                                   RM {Number(cf.amount).toFixed(2)}
                                 </td>
-                                {activeTab === "cash-out" && (
-                                  <td className="p-3 text-center">
+                                <td className="p-3 text-center">
                                     {cf.attachment_url ? (
                                       <a
                                         href={cf.attachment_url}
@@ -867,7 +862,6 @@ const AccountCashFlow = () => {
                                       <span className="text-muted-foreground">-</span>
                                     )}
                                   </td>
-                                )}
                                 <td className="p-3">
                                   <div className="flex items-center justify-center gap-1">
                                     <Button
@@ -892,7 +886,7 @@ const AccountCashFlow = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={activeTab === "cash-out" ? 10 : 8} className="text-center py-12 text-muted-foreground">
+                              <td colSpan={activeTab === "cash-out" ? 10 : 9} className="text-center py-12 text-muted-foreground">
                                 No {flowType.toLowerCase()} records found for this date range.
                               </td>
                             </tr>
@@ -907,7 +901,7 @@ const AccountCashFlow = () => {
                               <td className="p-3 text-right font-bold">
                                 RM {filteredFlows.reduce((sum, cf) => sum + Number(cf.amount), 0).toFixed(2)}
                               </td>
-                              {activeTab === "cash-out" && <td className="p-3"></td>}
+                              <td className="p-3"></td>
                               <td className="p-3"></td>
                             </tr>
                           </tfoot>
