@@ -298,6 +298,12 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
+    label: 'Claim Summary',
+    path: '/dashboard/account/claim-summary',
+    icon: <Receipt className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'Salary',
     path: '/dashboard/account/salary',
     icon: <DollarSign className="w-5 h-5" />,
