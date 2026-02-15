@@ -315,6 +315,12 @@ const navItems: NavItem[] = [
     icon: <CreditCard className="w-5 h-5" />,
     roles: ['account'],
   },
+  {
+    label: 'Cash Flow',
+    path: '/dashboard/account/cash-flow',
+    icon: <Wallet className="w-5 h-5" />,
+    roles: ['account'],
+  },
   // ============ ADMIN ROLE ============
   {
     label: 'Leads',

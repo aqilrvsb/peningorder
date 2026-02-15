@@ -63,6 +63,7 @@ import AccountClaim from "./components/account/AccountClaim";
 import AccountSalary from "./components/account/AccountSalary";
 import AccountClaimSummary from "./components/account/AccountClaimSummary";
 import AccountPaymentVoucher from "./components/account/AccountPaymentVoucher";
+import AccountCashFlow from "./components/account/AccountCashFlow";
 import ClaimSummaryInvoice from "./pages/ClaimSummaryInvoice";
 import PaymentVoucherInvoice from "./pages/PaymentVoucherInvoice";
 import SalarySlip from "./pages/SalarySlip";
@@ -140,6 +141,7 @@ const App = () => (
                   <Route path="account/claim-summary" element={<AccountClaimSummary />} />
                   <Route path="account/salary" element={<AccountSalary />} />
                   <Route path="account/payment-voucher" element={<AccountPaymentVoucher />} />
+                  <Route path="account/cash-flow" element={<AccountCashFlow />} />
                   <Route path="finance" element={<Finance />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
