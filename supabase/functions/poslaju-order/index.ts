@@ -220,36 +220,37 @@ serve(async (req) => {
       console.log('Using existing valid Poslaju token, expires at:', tokenData.expires_at);
     } else {
       console.log('No valid token found, requesting new token from Pos Malaysia');
-      console.log('Config client_id present:', !!config.client_id, 'client_secret present:', !!config.client_secret);
+      console.log('Config client_id:', config.client_id?.substring(0, 4) + '...', 'client_secret length:', config.client_secret?.length);
 
-      const authBody = new URLSearchParams({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        grant_type: 'client_credentials'
-      });
+      const authBody = new URLSearchParams();
+      authBody.append('client_id', config.client_id);
+      authBody.append('client_secret', config.client_secret);
+      authBody.append('grant_type', 'client_credentials');
 
-      // Send credentials both as Basic Auth header and in body for compatibility
-      const basicAuth = btoa(`${config.client_id}:${config.client_secret}`);
+      const authBodyStr = authBody.toString();
+      console.log('Auth body length:', authBodyStr.length);
 
       const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${basicAuth}`
         },
-        body: authBody.toString()
+        body: authBodyStr
       });
 
+      const authResponseText = await authResponse.text();
+      console.log('Pos Malaysia Auth response status:', authResponse.status);
+      console.log('Pos Malaysia Auth response:', authResponseText);
+
       if (!authResponse.ok) {
-        const errorText = await authResponse.text();
-        console.error('Pos Malaysia Auth failed:', errorText);
+        console.error('Pos Malaysia Auth failed');
         return new Response(
-          JSON.stringify({ error: 'Failed to authenticate with Pos Malaysia API', details: errorText }),
+          JSON.stringify({ error: 'Failed to authenticate with Pos Malaysia API', details: authResponseText }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const authData = await authResponse.json();
+      const authData = JSON.parse(authResponseText);
       accessToken = authData.access_token;
       const expiresIn = authData.expires_in || 3600;
 
