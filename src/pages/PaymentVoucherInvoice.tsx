@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,10 +14,32 @@ interface PaymentVoucher {
   note: string;
 }
 
+// Convert image URL to base64 data URL
+const toBase64 = (url: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve(url);
+    img.src = url;
+  });
+};
+
 const PaymentVoucherInvoice = () => {
   const { id } = useParams();
   const [voucher, setVoucher] = useState<PaymentVoucher | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoBase64, setLogoBase64] = useState("");
+  const [sigAnggunBase64, setSigAnggunBase64] = useState("");
+  const [sigFahmiBase64, setSigFahmiBase64] = useState("");
+  const imagesReady = useRef(false);
 
   useEffect(() => {
     const fetchVoucher = async () => {
@@ -45,8 +67,27 @@ const PaymentVoucherInvoice = () => {
     fetchVoucher();
   }, [id]);
 
+  // Convert all images to base64 on mount
+  useEffect(() => {
+    const loadImages = async () => {
+      const [logo, sigA, sigF] = await Promise.all([
+        toBase64("/dzi-logo.jpg"),
+        toBase64("/sig.png"),
+        toBase64("/signature.jpg"),
+      ]);
+      setLogoBase64(logo);
+      setSigAnggunBase64(sigA);
+      setSigFahmiBase64(sigF);
+      imagesReady.current = true;
+    };
+    loadImages();
+  }, []);
+
   const downloadPDF = () => {
-    window.print();
+    // Small delay to ensure base64 images are rendered
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   if (loading) {
@@ -87,6 +128,7 @@ const PaymentVoucherInvoice = () => {
           body {
             margin: 0 !important;
             padding: 0 !important;
+            background: #fff !important;
           }
           html, body {
             width: 210mm;
@@ -95,6 +137,10 @@ const PaymentVoucherInvoice = () => {
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+          img {
+            display: inline-block !important;
+            visibility: visible !important;
           }
           .no-print {
             display: none !important;
@@ -160,11 +206,13 @@ const PaymentVoucherInvoice = () => {
           }}>
             {/* Logo */}
             <div style={{ marginRight: "20px", flexShrink: 0 }}>
-              <img
-                src="/dzi-logo.jpg"
-                alt="DZI Holistik Logo"
-                style={{ width: "140px", height: "auto" }}
-              />
+              {logoBase64 && (
+                <img
+                  src={logoBase64}
+                  alt="DZI Holistik Logo"
+                  style={{ width: "140px", height: "auto" }}
+                />
+              )}
             </div>
 
             {/* Title + Address - Center aligned */}
@@ -252,11 +300,13 @@ const PaymentVoucherInvoice = () => {
               }}>
                 Prepared by:
               </p>
-              <img
-                src="/sig.png"
-                alt="Anggun Signature"
-                style={{ width: "130px", height: "auto", marginBottom: "2px" }}
-              />
+              {sigAnggunBase64 && (
+                <img
+                  src={sigAnggunBase64}
+                  alt="Anggun Signature"
+                  style={{ width: "130px", height: "auto", marginBottom: "2px" }}
+                />
+              )}
               <p style={{
                 fontSize: "13px",
                 fontWeight: "bold",
@@ -275,11 +325,13 @@ const PaymentVoucherInvoice = () => {
               }}>
                 Approved by:
               </p>
-              <img
-                src="/signature.jpg"
-                alt="Signature"
-                style={{ width: "130px", height: "auto", marginBottom: "2px" }}
-              />
+              {sigFahmiBase64 && (
+                <img
+                  src={sigFahmiBase64}
+                  alt="Signature"
+                  style={{ width: "130px", height: "auto", marginBottom: "2px" }}
+                />
+              )}
               <p style={{
                 fontSize: "13px",
                 fontWeight: "bold",
