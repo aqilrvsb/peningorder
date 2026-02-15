@@ -96,15 +96,16 @@ const AccountClaimSummary = () => {
       .sort((a, b) => b.total - a.total);
   }, [claims]);
 
-  // Generate merged invoice PDF for an employee
+  // Generate merged invoice PDF for an employee (same format as Claim tab)
   const generateMergedPDF = (emp: typeof employeeSummary[0]) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    const blueHeader: [number, number, number] = [62, 110, 142];
-    const goldColor: [number, number, number] = [218, 165, 32];
+    // Colors matching template
+    const blueHeader: [number, number, number] = [62, 110, 142]; // Blue from template
+    const goldColor: [number, number, number] = [218, 165, 32]; // Gold
 
-    // Logo
+    // Left side - DZI HOLISTIK Logo (circle)
     doc.setFillColor(...goldColor);
     doc.circle(30, 30, 15, "F");
     doc.setTextColor(255, 255, 255);
@@ -114,7 +115,7 @@ const AccountClaimSummary = () => {
     doc.setFontSize(7);
     doc.text("HOLISTIK", 21, 34);
 
-    // Company header
+    // Right side - Company Name and Address
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
@@ -126,27 +127,22 @@ const AccountClaimSummary = () => {
     doc.text("22000 JERTEH, TERENGGANU", 60, 34);
     doc.text("TEL: 016-2569963 (HR)", 60, 40);
 
-    // Title
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("CLAIM SUMMARY", pageWidth / 2, 55, { align: "center" });
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Period: ${startDate} to ${endDate}`, pageWidth / 2, 62, { align: "center" });
-
-    // Employee details
-    const detailsStartY = 72;
+    // Employee Details Section
+    const detailsStartY = 60;
     const labelX = 20;
     const colonX = 82;
     const valueX = 86;
 
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+
     const details = [
       ["Employee Name", emp.name],
       ["Identification Card Number", emp.ic_number],
       ["Phone Number", emp.phone_number],
       ["Department", emp.department],
       ["Employment Type", emp.employment_type],
+      ["Pay Date", `${startDate} - ${endDate}`],
     ];
 
     details.forEach((detail, index) => {
@@ -157,12 +153,13 @@ const AccountClaimSummary = () => {
       doc.text(detail[1], valueX, y);
     });
 
-    // Deductions table
+    // DEDUCTIONS Section
     const deductionsY = detailsStartY + details.length * 8 + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("DEDUCTIONS", labelX, deductionsY);
 
+    // Table with blue header
     const tableData = emp.items.map((item) => [
       item.description,
       `RM ${Number(item.amount).toFixed(2)}`,
@@ -199,7 +196,7 @@ const AccountClaimSummary = () => {
       margin: { left: 20, right: 20 },
     });
 
-    // Payment details
+    // Payment Details
     const finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
@@ -217,13 +214,14 @@ const AccountClaimSummary = () => {
     doc.text(":", colonX, finalY + 16);
     doc.text(emp.bank_name, valueX, finalY + 16);
 
-    // Authorization
+    // Authorization Section (bottom right)
     const authY = finalY + 35;
     doc.setFontSize(9);
     doc.text("Authorized by:", pageWidth - 75, authY);
     doc.setFont("helvetica", "bold");
     doc.text("Managing Director - DFR Empire", pageWidth - 75, authY + 6);
 
+    // Signature line
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
     doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
@@ -232,6 +230,7 @@ const AccountClaimSummary = () => {
     doc.setTextColor(0, 0, 0);
     doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
 
+    // Save PDF
     doc.save(`Claim_Summary_${emp.name.replace(/\s+/g, "_")}_${startDate}_to_${endDate}.pdf`);
     toast.success("PDF generated successfully");
   };
