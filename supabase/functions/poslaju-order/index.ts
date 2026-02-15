@@ -198,6 +198,55 @@ serve(async (req) => {
       );
     }
 
+    // Helper: generate a new Poslaju token
+    async function generateNewToken(): Promise<string> {
+      console.log('Requesting new token from Pos Malaysia');
+
+      // Pos Malaysia expects Basic Auth header with base64(client_id:client_secret)
+      const basicAuth = btoa(`${config.client_id}:${config.client_secret}`);
+
+      const authBody = new URLSearchParams({
+        grant_type: 'client_credentials'
+      });
+
+      const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`
+        },
+        body: authBody.toString()
+      });
+
+      if (!authResponse.ok) {
+        const errorText = await authResponse.text();
+        console.error('Pos Malaysia Auth failed:', authResponse.status, errorText);
+        throw new Error(`Failed to authenticate with Pos Malaysia API: ${errorText}`);
+      }
+
+      const authData = await authResponse.json();
+      const newToken = authData.access_token;
+      const expiresIn = authData.expires_in || 3600;
+      const tokenNow = new Date();
+      const expiresAt = new Date(tokenNow.getTime() + ((expiresIn - 300) * 1000));
+
+      console.log('New Poslaju token obtained, expires in:', expiresIn, 'seconds');
+
+      // Delete old tokens and store the new one
+      await supabase.from('poslaju_tokens').delete().lt('expires_at', tokenNow.toISOString());
+
+      const { error: insertError } = await supabase.from('poslaju_tokens').insert({
+        access_token: newToken,
+        expires_at: expiresAt.toISOString()
+      });
+
+      if (insertError) {
+        console.error('Failed to store Poslaju token:', insertError);
+      }
+
+      return newToken;
+    }
+
     // Check for valid token or get new one
     let accessToken: string;
     const now = new Date();
@@ -219,44 +268,13 @@ serve(async (req) => {
       accessToken = tokenData.access_token;
       console.log('Using existing valid Poslaju token, expires at:', tokenData.expires_at);
     } else {
-      console.log('No valid token found, requesting new token from Pos Malaysia');
-
-      const authBody = new URLSearchParams({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        grant_type: 'client_credentials'
-      });
-
-      const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: authBody.toString()
-      });
-
-      if (!authResponse.ok) {
-        const errorText = await authResponse.text();
-        console.error('Pos Malaysia Auth failed:', authResponse.status, errorText);
+      try {
+        accessToken = await generateNewToken();
+      } catch (err: any) {
         return new Response(
-          JSON.stringify({ error: 'Failed to authenticate with Pos Malaysia API', details: errorText }),
+          JSON.stringify({ error: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      }
-
-      const authData = await authResponse.json();
-      accessToken = authData.access_token;
-      const expiresIn = authData.expires_in || 3600;
-
-      const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
-
-      console.log('New Poslaju token obtained, expires in:', expiresIn, 'seconds');
-
-      const { error: insertError } = await supabase.from('poslaju_tokens').insert({
-        access_token: accessToken,
-        expires_at: expiresAt.toISOString()
-      });
-
-      if (insertError) {
-        console.error('Failed to store Poslaju token:', insertError);
       }
     }
 
@@ -380,8 +398,8 @@ serve(async (req) => {
     console.log('Sending to Poslaju:', JSON.stringify(poslajuPayload));
     console.log('Payment method:', paymentMethod, 'Is COD:', isCOD);
 
-    // Send order to Pos Malaysia
-    const orderResponse = await fetch('https://posapi.pos.com.my/api/order/v2.1/create', {
+    // Send order to Pos Malaysia (with token retry on 401)
+    let orderResponse = await fetch('https://posapi.pos.com.my/api/order/v2.1/create', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -390,8 +408,40 @@ serve(async (req) => {
       body: JSON.stringify(poslajuPayload)
     });
 
-    const orderResult = await orderResponse.json();
+    let orderResult = await orderResponse.json();
     console.log('Poslaju response:', JSON.stringify(orderResult));
+
+    // If 401 (invalid/expired token), generate new token and retry once
+    if (orderResponse.status === 401) {
+      console.log('Token invalid/expired (401), generating new token and retrying...');
+
+      // Delete the invalid token
+      if (tokenData?.id) {
+        await supabase.from('poslaju_tokens').delete().eq('id', tokenData.id);
+      }
+
+      try {
+        accessToken = await generateNewToken();
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ error: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Retry the order with new token
+      orderResponse = await fetch('https://posapi.pos.com.my/api/order/v2.1/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(poslajuPayload)
+      });
+
+      orderResult = await orderResponse.json();
+      console.log('Poslaju retry response:', JSON.stringify(orderResult));
+    }
 
     if (!orderResponse.ok || orderResult.error) {
       return new Response(
