@@ -13,9 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { getMalaysiaDate } from "@/lib/utils";
 import { Loader2, Receipt, Users, FileText } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
@@ -34,7 +31,7 @@ const AccountClaimSummary = () => {
     queryFn: async () => {
       let query = supabase
         .from("claims")
-        .select("employee_name, total_deductions, items, pay_date, status, bank_account, bank_name, ic_number, phone_number, department, employment_type")
+        .select("employee_name, total_deductions, items, pay_date, status")
         .order("pay_date", { ascending: false });
 
       if (startDate) {
@@ -52,188 +49,20 @@ const AccountClaimSummary = () => {
 
   // Group claims by employee
   const employeeSummary = useMemo(() => {
-    const map = new Map<string, {
-      count: number;
-      total: number;
-      items: { description: string; amount: number }[];
-      bank_account: string;
-      bank_name: string;
-      ic_number: string;
-      phone_number: string;
-      department: string;
-      employment_type: string;
-    }>();
+    const map = new Map<string, { count: number; total: number }>();
 
     claims.forEach((claim: any) => {
       const name = claim.employee_name;
-      const existing = map.get(name) || {
-        count: 0, total: 0, items: [],
-        bank_account: claim.bank_account || "-",
-        bank_name: claim.bank_name || "-",
-        ic_number: claim.ic_number || "-",
-        phone_number: claim.phone_number || "-",
-        department: claim.department || "-",
-        employment_type: claim.employment_type || "-",
-      };
+      const existing = map.get(name) || { count: 0, total: 0 };
       existing.count += 1;
       existing.total += Number(claim.total_deductions) || 0;
-
-      // Collect all item descriptions
-      const claimItems = claim.items || [];
-      claimItems.forEach((item: any) => {
-        existing.items.push({
-          description: item.description,
-          amount: Number(item.amount) || 0,
-        });
-      });
-
       map.set(name, existing);
     });
 
-    // Convert to sorted array
     return Array.from(map.entries())
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.total - a.total);
   }, [claims]);
-
-  // Generate merged invoice PDF for an employee (same format as Claim tab)
-  const generateMergedPDF = (emp: typeof employeeSummary[0]) => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    // Colors matching template
-    const blueHeader: [number, number, number] = [62, 110, 142]; // Blue from template
-    const goldColor: [number, number, number] = [218, 165, 32]; // Gold
-
-    // Left side - DZI HOLISTIK Logo (circle)
-    doc.setFillColor(...goldColor);
-    doc.circle(30, 30, 15, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("DZI", 24, 28);
-    doc.setFontSize(7);
-    doc.text("HOLISTIK", 21, 34);
-
-    // Right side - Company Name and Address
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("DZI HOLISTIK ENTERPRISE", 60, 20);
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,", 60, 28);
-    doc.text("22000 JERTEH, TERENGGANU", 60, 34);
-    doc.text("TEL: 016-2569963 (HR)", 60, 40);
-
-    // Employee Details Section
-    const detailsStartY = 60;
-    const labelX = 20;
-    const colonX = 82;
-    const valueX = 86;
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-
-    const details = [
-      ["Employee Name", emp.name],
-      ["Identification Card Number", emp.ic_number],
-      ["Phone Number", emp.phone_number],
-      ["Department", emp.department],
-      ["Employment Type", emp.employment_type],
-      ["Pay Date", `${startDate} - ${endDate}`],
-    ];
-
-    details.forEach((detail, index) => {
-      const y = detailsStartY + index * 8;
-      doc.setFont("helvetica", "normal");
-      doc.text(detail[0], labelX, y);
-      doc.text(":", colonX, y);
-      doc.text(detail[1], valueX, y);
-    });
-
-    // DEDUCTIONS Section
-    const deductionsY = detailsStartY + details.length * 8 + 10;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text("DEDUCTIONS", labelX, deductionsY);
-
-    // Table with blue header
-    const tableData = emp.items.map((item) => [
-      item.description,
-      `RM ${Number(item.amount).toFixed(2)}`,
-    ]);
-
-    autoTable(doc, {
-      startY: deductionsY + 5,
-      head: [["DESCRIPTION", "AMOUNT"]],
-      body: tableData,
-      theme: "grid",
-      headStyles: {
-        fillColor: blueHeader,
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "center",
-        fontSize: 10,
-      },
-      footStyles: {
-        fillColor: blueHeader,
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "center",
-        fontSize: 10,
-      },
-      foot: [["TOTAL DEDUCTIONS", `RM ${emp.total.toFixed(2)}`]],
-      columnStyles: {
-        0: { cellWidth: 125, halign: "left" },
-        1: { cellWidth: 45, halign: "right" },
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 4,
-      },
-      margin: { left: 20, right: 20 },
-    });
-
-    // Payment Details
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-
-    doc.setFont("helvetica", "normal");
-    doc.text("Net Pay", labelX, finalY);
-    doc.text(":", colonX, finalY);
-    doc.text(`RM ${emp.total.toFixed(2)}`, valueX, finalY);
-
-    doc.text("Bank Account", labelX, finalY + 8);
-    doc.text(":", colonX, finalY + 8);
-    doc.text(emp.bank_account, valueX, finalY + 8);
-
-    doc.text("Bank Name", labelX, finalY + 16);
-    doc.text(":", colonX, finalY + 16);
-    doc.text(emp.bank_name, valueX, finalY + 16);
-
-    // Authorization Section (bottom right)
-    const authY = finalY + 35;
-    doc.setFontSize(9);
-    doc.text("Authorized by:", pageWidth - 75, authY);
-    doc.setFont("helvetica", "bold");
-    doc.text("Managing Director - DFR Empire", pageWidth - 75, authY + 6);
-
-    // Signature line
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
-
-    // Save PDF
-    doc.save(`Claim_Summary_${emp.name.replace(/\s+/g, "_")}_${startDate}_to_${endDate}.pdf`);
-    toast.success("PDF generated successfully");
-  };
 
   // Grand total
   const grandTotal = employeeSummary.reduce((sum, emp) => sum + emp.total, 0);
@@ -244,6 +73,16 @@ const AccountClaimSummary = () => {
   const paginatedData = pageSize === "All"
     ? employeeSummary
     : employeeSummary.slice((currentPage - 1) * (pageSize as number), currentPage * (pageSize as number));
+
+  // Open invoice in new tab
+  const openInvoice = (employeeName: string) => {
+    const params = new URLSearchParams({
+      employee: employeeName,
+      start: startDate,
+      end: endDate,
+    });
+    window.open(`/invoice/claim-summary?${params.toString()}`, "_blank");
+  };
 
   return (
     <div className="space-y-6">
@@ -365,9 +204,9 @@ const AccountClaimSummary = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => generateMergedPDF(emp)}
+                              onClick={() => openInvoice(emp.name)}
                               className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              title="Download merged invoice"
+                              title="View merged invoice"
                             >
                               <FileText className="w-4 h-4" />
                             </Button>

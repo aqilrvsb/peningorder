@@ -62,6 +62,7 @@ import AccountReportProfit from "./components/account/AccountReportProfit";
 import AccountClaim from "./components/account/AccountClaim";
 import AccountSalary from "./components/account/AccountSalary";
 import AccountClaimSummary from "./components/account/AccountClaimSummary";
+import ClaimSummaryInvoice from "./pages/ClaimSummaryInvoice";
 import SalarySlip from "./pages/SalarySlip";
 // HR components
 import HRUserManagement from "./components/hr/HRUserManagement";
@@ -83,6 +84,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/invoice" element={<Invoice />} />
+                <Route path="/invoice/claim-summary" element={<ClaimSummaryInvoice />} />
                 <Route path="/invoice/:id" element={<ClaimInvoice />} />
                 <Route path="/salary/:userId/:year/:month" element={<SalarySlip />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
