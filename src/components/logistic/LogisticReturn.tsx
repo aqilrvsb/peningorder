@@ -51,6 +51,10 @@ const LogisticReturn = () => {
   // Loading states
   const [isPrinting, setIsPrinting] = useState(false);
 
+  // Success delivery states
+  const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [successDate, setSuccessDate] = useState(today);
+
   // Fetch all profiles for marketer name and whatsapp lookup
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-lookup"],
@@ -235,6 +239,11 @@ const LogisticReturn = () => {
 
   // Mark return order as Successful Delivery - reverts back to Shipped
   const handleSuccessfulDelivery = async (order: any) => {
+    if (!successDate) {
+      toast.error("Please select a date");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("customer_purchases")
@@ -243,13 +252,14 @@ const LogisticReturn = () => {
           seos: "Successful Delivery",
           delivery_status: "Shipped",
           date_return: null,
-          date_payment: today,
+          date_payment: successDate,
         })
         .eq("id", order.id);
 
       if (error) throw error;
 
       toast.success(`${order.id_sale} marked as Successful Delivery`);
+      setSuccessOrderId(null);
       queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update order");
@@ -545,15 +555,43 @@ const LogisticReturn = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSuccessfulDelivery(order)}
-                              className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                              Success
-                            </Button>
+                            {successOrderId === order.id ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="date"
+                                  value={successDate}
+                                  onChange={(e) => setSuccessDate(e.target.value)}
+                                  onClick={(e) => (e.target as HTMLInputElement).showPicker()}
+                                  className="h-7 px-1 py-0.5 rounded border border-input bg-background text-xs cursor-pointer w-[120px]"
+                                />
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handleSuccessfulDelivery(order)}
+                                  className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSuccessOrderId(null)}
+                                  className="h-7 px-1 text-xs"
+                                >
+                                  ✕
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setSuccessOrderId(order.id); setSuccessDate(today); }}
+                                className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                Success
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))
