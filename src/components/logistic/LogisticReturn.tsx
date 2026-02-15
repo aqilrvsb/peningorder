@@ -413,6 +413,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
                       <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
@@ -451,6 +452,9 @@ const LogisticReturn = () => {
                             <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
                           <td className="p-2 text-center">{order.unit || 1}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            <span className="text-xs">{order.kurier || "-"}</span>
+                          </td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>

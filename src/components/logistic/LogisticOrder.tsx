@@ -83,6 +83,7 @@ const LogisticOrder = () => {
     paymentMethod: "CASH",
     notaStaff: "",
     productId: "",
+    kurier: "",
   });
 
   // Fetch all bundles for dropdown - using logistic_bundles table
@@ -520,6 +521,7 @@ const LogisticOrder = () => {
       paymentMethod: order.type_payment || "CASH",
       notaStaff: order.nota_staff || "",
       productId: order.bundle_id || "",
+      kurier: order.kurier || "",
     });
     setEditDialogOpen(true);
   };
@@ -562,6 +564,7 @@ const LogisticOrder = () => {
         city_customer: editForm.city,
         phone_customer: editForm.phone,
         name_customer: editForm.customerName,
+        kurier: editForm.kurier,
         updated_at: new Date().toISOString(),
       };
 
@@ -837,6 +840,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
                       <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
@@ -889,6 +893,9 @@ const LogisticOrder = () => {
                             )}
                           </td>
                           <td className="p-2 text-center">{order.unit || 1}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            <span className="text-xs">{order.kurier || "-"}</span>
+                          </td>
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
                               <span className="font-mono text-xs">{order.tracking_number}</span>
@@ -1133,6 +1140,26 @@ const LogisticOrder = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="kurier">Kurier</Label>
+              <Select
+                value={editForm.kurier}
+                onValueChange={(v) => setEditForm({ ...editForm, kurier: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select kurier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
+                  <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
+                  <SelectItem value="Poslaju COD">Poslaju COD</SelectItem>
+                  <SelectItem value="Poslaju CASH">Poslaju CASH</SelectItem>
+                  <SelectItem value="Kurier Tiktok">Kurier Tiktok</SelectItem>
+                  <SelectItem value="Kurier Shopee">Kurier Shopee</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

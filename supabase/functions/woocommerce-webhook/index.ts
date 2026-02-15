@@ -817,16 +817,17 @@ serve(async (req) => {
       console.log('Signature provided but skipping verification');
     }
 
-    // Check for duplicate based on platform
+    // Check for duplicate based on platform + marketer (different stores can have same order IDs)
     let existingOrder = null;
-    console.log('Checking for duplicate order:', { platform, platformOrderId: orderData.platformOrderId });
+    console.log('Checking for duplicate order:', { platform, platformOrderId: orderData.platformOrderId, marketer: marketerIdStaff });
 
     if (platform === 'shoppego') {
-      // For Shoppego, check by shoppego_order_id (string)
+      // For Shoppego, check by shoppego_order_id + marketer
       const { data, error } = await supabase
         .from('customer_purchases')
         .select('id, id_sale, tracking_number')
         .eq('shoppego_order_id', orderData.platformOrderId)
+        .eq('marketer_id_staff', marketerIdStaff)
         .maybeSingle();
 
       if (error) {
@@ -836,11 +837,12 @@ serve(async (req) => {
         existingOrder = data;
       }
     } else {
-      // For WooCommerce, check by woo_order_id (integer)
+      // For WooCommerce, check by woo_order_id + marketer
       const { data } = await supabase
         .from('customer_purchases')
         .select('id, id_sale, tracking_number')
         .eq('woo_order_id', parseInt(orderData.platformOrderId))
+        .eq('marketer_id_staff', marketerIdStaff)
         .maybeSingle();
       existingOrder = data;
     }
