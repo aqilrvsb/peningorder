@@ -43,6 +43,8 @@ import { put } from "@vercel/blob";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 const CATEGORY_OPTIONS = ["Overhead", "Marketing", "Cost Product", "Other"] as const;
+// Categories available in add/edit form (Cost Product is auto-calculated)
+const FORM_CATEGORY_OPTIONS = ["Overhead", "Marketing", "Other"] as const;
 const TYPE_OPTIONS = ["VAR", "FIX"] as const;
 type CategoryType = typeof CATEGORY_OPTIONS[number];
 type ExpenseType = typeof TYPE_OPTIONS[number];
@@ -119,6 +121,57 @@ const AccountExpenses = () => {
     },
   });
 
+  // Fetch cost_baseproduct from customer_purchases (for Cost Product card)
+  const { data: costProductTotal = 0 } = useQuery({
+    queryKey: ["account-cost-product", startDate, endDate],
+    queryFn: async () => {
+      let query = (supabase as any)
+        .from("customer_purchases")
+        .select("cost_baseproduct, date_order, delivery_status");
+
+      if (startDate) query = query.gte("date_order", startDate);
+      if (endDate) query = query.lte("date_order", endDate);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Exclude Return orders (same logic as Report Profit)
+      return (data || [])
+        .filter((o: any) => o.delivery_status !== "Return")
+        .reduce((sum: number, o: any) => sum + (Number(o.cost_baseproduct) || 0), 0);
+    },
+  });
+
+  // Fetch cash_flows Cash Out (to merge into Overhead/Marketing/Other cards)
+  const { data: cashOutFlows = [] } = useQuery({
+    queryKey: ["account-cashout-flows", startDate, endDate],
+    queryFn: async () => {
+      let query = (supabase as any)
+        .from("cash_flows")
+        .select("kategori, amount, date")
+        .eq("flow_type", "Cash Out");
+
+      if (startDate) query = query.gte("date", startDate);
+      if (endDate) query = query.lte("date", endDate);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as Array<{ kategori: string | null; amount: number; date: string }>;
+    },
+  });
+
+  // Cash Out totals by kategori (Overhead, Marketing, Other)
+  const cashOutByKategori = useMemo(() => {
+    const totals: Record<string, number> = { Overhead: 0, Marketing: 0, Other: 0 };
+    cashOutFlows.forEach((cf) => {
+      const k = cf.kategori || "";
+      if (totals[k] !== undefined) {
+        totals[k] += Number(cf.amount) || 0;
+      }
+    });
+    return totals;
+  }, [cashOutFlows]);
+
   // Filter expenses by category
   const filteredExpenses = expenses.filter((expense) => {
     if (filterCategory === "all") return true;
@@ -131,7 +184,7 @@ const AccountExpenses = () => {
     ? filteredExpenses
     : filteredExpenses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Calculate totals by category
+  // Calculate totals by category (expenses + cash flow cash out merged)
   const categoryTotals = useMemo(() => {
     const totals: Record<CategoryType, number> = {
       "Overhead": 0,
@@ -139,18 +192,31 @@ const AccountExpenses = () => {
       "Cost Product": 0,
       "Other": 0,
     };
+    // Sum from expenses table
     expenses.forEach((e) => {
       if (e.category && totals[e.category as CategoryType] !== undefined) {
         totals[e.category as CategoryType] += Number(e.total);
       }
     });
+    // Add cash_flows Cash Out by kategori
+    totals["Overhead"] += cashOutByKategori["Overhead"] || 0;
+    totals["Marketing"] += cashOutByKategori["Marketing"] || 0;
+    totals["Other"] += cashOutByKategori["Other"] || 0;
+    // Cost Product comes from customer_purchases
+    totals["Cost Product"] = costProductTotal;
     return totals;
-  }, [expenses]);
+  }, [expenses, cashOutByKategori, costProductTotal]);
 
   const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
 
   // Calculate monthly summary - show ALL months in date range
   const monthlySummary = useMemo(() => {
+    const initMonth = (): Record<CategoryType, number> => ({
+      "Overhead": 0,
+      "Marketing": 0,
+      "Cost Product": 0,
+      "Other": 0,
+    });
     const summary: Record<string, Record<CategoryType, number>> = {};
 
     // Generate all months between startDate and endDate
@@ -161,29 +227,27 @@ const AccountExpenses = () => {
 
       while (current <= end) {
         const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
-        summary[monthKey] = {
-          "Overhead": 0,
-          "Marketing": 0,
-          "Cost Product": 0,
-          "Other": 0,
-        };
+        summary[monthKey] = initMonth();
         current.setMonth(current.getMonth() + 1);
       }
     }
 
     // Fill in actual expense data
     expenses.forEach((e) => {
-      const month = e.date.substring(0, 7); // YYYY-MM
-      if (!summary[month]) {
-        summary[month] = {
-          "Overhead": 0,
-          "Marketing": 0,
-          "Cost Product": 0,
-          "Other": 0,
-        };
-      }
+      const month = e.date.substring(0, 7);
+      if (!summary[month]) summary[month] = initMonth();
       if (e.category && summary[month][e.category as CategoryType] !== undefined) {
         summary[month][e.category as CategoryType] += Number(e.total);
+      }
+    });
+
+    // Add cash_flows Cash Out by month
+    cashOutFlows.forEach((cf) => {
+      const month = cf.date.substring(0, 7);
+      if (!summary[month]) summary[month] = initMonth();
+      const k = cf.kategori || "";
+      if (k === "Overhead" || k === "Marketing" || k === "Other") {
+        summary[month][k as CategoryType] += Number(cf.amount) || 0;
       }
     });
 
@@ -195,7 +259,7 @@ const AccountExpenses = () => {
         ...categories,
         total: Object.values(categories).reduce((sum, val) => sum + val, 0),
       }));
-  }, [expenses, startDate, endDate]);
+  }, [expenses, cashOutFlows, startDate, endDate]);
 
   // Handle file change
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -435,7 +499,7 @@ const AccountExpenses = () => {
         <div>
           <h1 className="text-3xl font-bold">Expenses</h1>
           <p className="text-muted-foreground mt-2">
-            Manage expenses by category: Overhead, Marketing, Cost Product, Other
+            Manage expenses by category: Overhead, Marketing, Other
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -472,7 +536,7 @@ const AccountExpenses = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORY_OPTIONS.map((cat) => {
+                    {FORM_CATEGORY_OPTIONS.map((cat) => {
                       const config = categoryConfig[cat];
                       const Icon = config.icon;
                       return (
