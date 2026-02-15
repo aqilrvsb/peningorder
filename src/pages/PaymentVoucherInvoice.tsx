@@ -248,10 +248,15 @@ const PaymentVoucherInvoice = () => {
               <p style={{
                 fontSize: "14px",
                 fontWeight: "bold",
-                marginBottom: "70px",
+                marginBottom: "4px",
               }}>
                 Prepared by:
               </p>
+              <img
+                src="/sig.png"
+                alt="Anggun Signature"
+                style={{ width: "130px", height: "auto", marginBottom: "2px" }}
+              />
               <p style={{
                 fontSize: "13px",
                 fontWeight: "bold",
