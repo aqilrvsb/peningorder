@@ -65,6 +65,7 @@ import SalarySlip from "./pages/SalarySlip";
 // HR components
 import HRUserManagement from "./components/hr/HRUserManagement";
 import HRAttendance from "./components/hr/HRAttendance";
+import HRDatabaseStaff from "./components/hr/HRDatabaseStaff";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +142,7 @@ const App = () => (
                   {/* HR Role routes */}
                   <Route path="hr/users" element={<HRUserManagement />} />
                   <Route path="hr/attendance" element={<HRAttendance />} />
+                  <Route path="hr/database-staff" element={<HRDatabaseStaff />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

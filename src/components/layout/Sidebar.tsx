@@ -33,6 +33,7 @@ import {
   FileText,
   Webhook,
   FilePlus,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -332,6 +333,12 @@ const navItems: NavItem[] = [
     label: 'Attendance',
     path: '/dashboard/hr/attendance',
     icon: <ClipboardList className="w-5 h-5" />,
+    roles: ['hr'],
+  },
+  {
+    label: 'Database Staff',
+    path: '/dashboard/hr/database-staff',
+    icon: <Database className="w-5 h-5" />,
     roles: ['hr'],
   },
 ];

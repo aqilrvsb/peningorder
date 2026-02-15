@@ -8,8 +8,8 @@ CREATE TABLE public.attendance (
   status text NOT NULL CHECK (status = ANY (ARRAY['present'::text, 'absent'::text])),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT attendance_pkey PRIMARY KEY (id),
-  CONSTRAINT attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+  reason text,
+  CONSTRAINT attendance_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.attendance_staff (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -22,6 +22,26 @@ CREATE TABLE public.attendance_staff (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT attendance_staff_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.claims (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_name text NOT NULL,
+  ic_number text NOT NULL,
+  phone_number text,
+  department text NOT NULL,
+  employment_type text NOT NULL,
+  pay_date date NOT NULL,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total_deductions numeric NOT NULL DEFAULT 0,
+  net_pay numeric NOT NULL DEFAULT 0,
+  bank_account text NOT NULL,
+  bank_name text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  attachment_url text,
+  invoice_number text DEFAULT '-'::text,
+  CONSTRAINT claims_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.customer_purchases (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -60,6 +80,7 @@ CREATE TABLE public.customer_purchases (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   date_approve date,
   shoppego_order_id text,
+  seos text,
   CONSTRAINT customer_purchases_pkey PRIMARY KEY (id),
   CONSTRAINT customer_purchases_bundle_id_fkey FOREIGN KEY (bundle_id) REFERENCES public.logistic_bundles(id)
 );
@@ -81,45 +102,18 @@ CREATE TABLE public.device_setting (
 );
 CREATE TABLE public.expenses (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  category text NOT NULL CHECK (category = ANY (ARRAY['Overhead'::text, 'Marketing'::text, 'Cost Product'::text, 'Other'::text])),
+  type character varying NOT NULL CHECK (type::text = ANY (ARRAY['VAR'::character varying, 'FIX'::character varying]::text[])),
   description text NOT NULL,
   total numeric NOT NULL DEFAULT 0,
   date date NOT NULL,
-  attachment_url text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  role text DEFAULT 'company'::text CHECK (role = ANY (ARRAY['company'::text, 'personal'::text])),
+  marketer_id_staff text,
+  category text CHECK (category = ANY (ARRAY['Overhead'::text, 'Marketing'::text, 'Cost Product'::text, 'Other'::text])),
+  attachment_url text,
   CONSTRAINT expenses_pkey PRIMARY KEY (id)
 );
--- Migration SQL to update existing expenses table:
--- ALTER TABLE expenses ADD COLUMN category text CHECK (category = ANY (ARRAY['Overhead', 'Marketing', 'Cost Product', 'Other']));
--- ALTER TABLE expenses ADD COLUMN attachment_url text;
--- UPDATE expenses SET category = 'Other' WHERE category IS NULL;
--- ALTER TABLE expenses DROP COLUMN IF EXISTS type;
--- ALTER TABLE expenses DROP COLUMN IF EXISTS role;
--- ALTER TABLE expenses DROP COLUMN IF EXISTS marketer_id_staff;
-
-CREATE TABLE public.claims (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  employee_name text NOT NULL,
-  ic_number text NOT NULL,
-  phone_number text,
-  department text NOT NULL,
-  employment_type text NOT NULL,
-  pay_date date NOT NULL,
-  items jsonb NOT NULL DEFAULT '[]'::jsonb,
-  total_deductions numeric NOT NULL DEFAULT 0,
-  net_pay numeric NOT NULL DEFAULT 0,
-  bank_account text NOT NULL,
-  bank_name text NOT NULL,
-  attachment_url text,
-  status text NOT NULL DEFAULT 'pending' CHECK (status = ANY (ARRAY['pending', 'approved', 'rejected'])),
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT claims_pkey PRIMARY KEY (id)
-);
--- Add attachment_url to existing claims table:
--- ALTER TABLE claims ADD COLUMN attachment_url text;
-
 CREATE TABLE public.invoice_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   company_name text NOT NULL,
@@ -194,6 +188,31 @@ CREATE TABLE public.pnl_config (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT pnl_config_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.poslaju_config (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  client_id text NOT NULL,
+  client_secret text NOT NULL,
+  account_number text NOT NULL,
+  subscription_code text NOT NULL,
+  sender_name text NOT NULL,
+  sender_phone text NOT NULL,
+  sender_email text NOT NULL,
+  sender_address1 text NOT NULL,
+  sender_address2 text,
+  sender_postcode text NOT NULL,
+  sender_city text NOT NULL,
+  sender_state text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT poslaju_config_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.poslaju_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  access_token text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT poslaju_tokens_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.products (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -217,6 +236,7 @@ CREATE TABLE public.profiles (
   idstaff text UNIQUE,
   is_active boolean DEFAULT true,
   whatsapp_number text,
+  staff_type text DEFAULT 'HQ'::text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.prospects (
