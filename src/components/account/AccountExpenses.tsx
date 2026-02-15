@@ -121,8 +121,8 @@ const AccountExpenses = () => {
     },
   });
 
-  // Fetch cost_baseproduct from customer_purchases (for Cost Product card)
-  const { data: costProductTotal = 0 } = useQuery({
+  // Fetch cost_baseproduct rows from customer_purchases (for Cost Product card + monthly)
+  const { data: costProductRows = [] } = useQuery({
     queryKey: ["account-cost-product", startDate, endDate],
     queryFn: async () => {
       let query = (supabase as any)
@@ -136,11 +136,14 @@ const AccountExpenses = () => {
       if (error) throw error;
 
       // Exclude Return orders (same logic as Report Profit)
-      return (data || [])
-        .filter((o: any) => o.delivery_status !== "Return")
-        .reduce((sum: number, o: any) => sum + (Number(o.cost_baseproduct) || 0), 0);
+      return (data || []).filter((o: any) => o.delivery_status !== "Return") as Array<{ cost_baseproduct: number; date_order: string; delivery_status: string }>;
     },
   });
+
+  const costProductTotal = useMemo(
+    () => costProductRows.reduce((sum, o) => sum + (Number(o.cost_baseproduct) || 0), 0),
+    [costProductRows]
+  );
 
   // Fetch cash_flows Cash Out (to merge into Overhead/Marketing/Other cards)
   const { data: cashOutFlows = [] } = useQuery({
@@ -251,6 +254,14 @@ const AccountExpenses = () => {
       }
     });
 
+    // Add Cost Product from customer_purchases by month
+    costProductRows.forEach((o) => {
+      if (!o.date_order) return;
+      const month = o.date_order.substring(0, 7);
+      if (!summary[month]) summary[month] = initMonth();
+      summary[month]["Cost Product"] += Number(o.cost_baseproduct) || 0;
+    });
+
     // Sort by month descending
     return Object.entries(summary)
       .sort(([a], [b]) => b.localeCompare(a))
@@ -259,7 +270,7 @@ const AccountExpenses = () => {
         ...categories,
         total: Object.values(categories).reduce((sum, val) => sum + val, 0),
       }));
-  }, [expenses, cashOutFlows, startDate, endDate]);
+  }, [expenses, cashOutFlows, costProductRows, startDate, endDate]);
 
   // Handle file change
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
