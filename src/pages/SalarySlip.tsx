@@ -66,6 +66,14 @@ const SalarySlip = () => {
   const [pnlConfigs, setPnlConfigs] = useState<PNLConfig[]>([]);
   const [totalCompanyCollection, setTotalCompanyCollection] = useState(0);
   const [totalCompanySpend, setTotalCompanySpend] = useState(0);
+  const [staffDbData, setStaffDbData] = useState<{
+    ic_number?: string;
+    phone?: string;
+    department?: string;
+    employment_type?: string;
+    bank_name?: string;
+    bank_account?: string;
+  } | null>(null);
 
   const selectedYear = parseInt(year || String(new Date().getFullYear()));
   const selectedMonth = parseInt(month || String(new Date().getMonth() + 1)) - 1;
@@ -148,6 +156,25 @@ const SalarySlip = () => {
         }
 
         setUser(userData);
+
+        // Fetch staff_database details for display
+        const { data: staffDb } = await supabase
+          .from("staff_database")
+          .select("no_kad_pengenalan, no_telefon, jawatan, employment_type, nama_bank, no_akaun")
+          .eq("nama", userData.full_name)
+          .limit(1)
+          .maybeSingle();
+
+        if (staffDb) {
+          setStaffDbData({
+            ic_number: staffDb.no_kad_pengenalan || undefined,
+            phone: staffDb.no_telefon || undefined,
+            department: staffDb.jawatan || undefined,
+            employment_type: staffDb.employment_type || undefined,
+            bank_name: staffDb.nama_bank || undefined,
+            bank_account: staffDb.no_akaun || undefined,
+          });
+        }
 
         // Date range
         const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
@@ -436,28 +463,28 @@ const SalarySlip = () => {
               <span className="w-52 text-sm text-black">Identification Card Number</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {user.ic_number || user.idstaff || "-"}
+                {staffDbData?.ic_number || user.ic_number || user.idstaff || "-"}
               </span>
             </div>
             <div className="flex">
               <span className="w-52 text-sm text-black">Phone Number</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {user.phone || "-"}
+                {staffDbData?.phone || user.phone || "-"}
               </span>
             </div>
             <div className="flex">
               <span className="w-52 text-sm text-black">Department</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {user.role || "-"}
+                {staffDbData?.department || user.role || "-"}
               </span>
             </div>
             <div className="flex">
               <span className="w-52 text-sm text-black">Employment Type</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                Full Time
+                {staffDbData?.employment_type || "Full Time"}
               </span>
             </div>
             <div className="flex">
@@ -563,14 +590,14 @@ const SalarySlip = () => {
               <span className="w-28 text-sm text-black">Bank Account</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {user.bank_account || "-"}
+                {staffDbData?.bank_account || user.bank_account || "-"}
               </span>
             </div>
             <div className="flex">
               <span className="w-28 text-sm text-black">Bank Name</span>
               <span className="text-sm text-black">:</span>
               <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {user.bank_name || "-"}
+                {staffDbData?.bank_name || user.bank_name || "-"}
               </span>
             </div>
           </div>

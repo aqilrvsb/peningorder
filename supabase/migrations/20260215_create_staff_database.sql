@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.staff_database (
   alamat_surat text,
   no_telefon text,
   jawatan text,
+  employment_type text,
   tarikh_mula_berkhidmat text,
 
   -- Info Bank (Banking Info)

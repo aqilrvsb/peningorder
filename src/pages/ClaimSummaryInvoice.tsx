@@ -73,12 +73,32 @@ const ClaimSummaryInvoice = () => {
         totalDeductions += Number(claim.total_deductions) || 0;
       });
 
+      // Fetch employee details from staff_database by name
+      let staffIc = firstClaim.ic_number || "-";
+      let staffPhone = firstClaim.phone_number || "-";
+      let staffDepartment = firstClaim.department || "-";
+      let staffEmploymentType = firstClaim.employment_type || "-";
+
+      const { data: staffDb } = await supabase
+        .from("staff_database")
+        .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+        .eq("nama", employeeName)
+        .limit(1)
+        .maybeSingle();
+
+      if (staffDb) {
+        staffIc = staffDb.no_kad_pengenalan || staffIc;
+        staffPhone = staffDb.no_telefon || staffPhone;
+        staffDepartment = staffDb.jawatan || staffDepartment;
+        staffEmploymentType = staffDb.employment_type || staffEmploymentType;
+      }
+
       setMergedData({
         employee_name: firstClaim.employee_name,
-        ic_number: firstClaim.ic_number || "-",
-        phone_number: firstClaim.phone_number || "-",
-        department: firstClaim.department || "-",
-        employment_type: firstClaim.employment_type || "-",
+        ic_number: staffIc,
+        phone_number: staffPhone,
+        department: staffDepartment,
+        employment_type: staffEmploymentType,
         items: allItems,
         total_deductions: totalDeductions,
         net_pay: totalDeductions,

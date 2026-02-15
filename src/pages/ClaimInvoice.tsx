@@ -42,9 +42,29 @@ const ClaimInvoice = () => {
 
       if (error) {
         console.error("Error fetching claim:", error);
-      } else {
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        // Fetch employee details from staff_database by name
+        const { data: staffDb } = await supabase
+          .from("staff_database")
+          .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+          .eq("nama", data.employee_name)
+          .limit(1)
+          .maybeSingle();
+
+        if (staffDb) {
+          data.ic_number = staffDb.no_kad_pengenalan || data.ic_number;
+          data.phone_number = staffDb.no_telefon || data.phone_number;
+          data.department = staffDb.jawatan || data.department;
+          data.employment_type = staffDb.employment_type || data.employment_type;
+        }
+
         setClaim(data);
       }
+
       setLoading(false);
     };
 

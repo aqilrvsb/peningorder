@@ -50,7 +50,7 @@ const HRDatabaseStaff = () => {
     nama: "", jantina: "", umur: "", no_kad_pengenalan: "",
     warganegara: "", bangsa: "", agama: "", status_perkahwinan: "",
     alamat_tetap: "", alamat_surat: "", no_telefon: "",
-    jawatan: "", tarikh_mula_berkhidmat: "",
+    jawatan: "", employment_type: "", tarikh_mula_berkhidmat: "",
   });
 
   const [infoBank, setInfoBank] = useState({
@@ -166,6 +166,7 @@ const HRDatabaseStaff = () => {
         alamat_surat: db.alamat_surat || "",
         no_telefon: db.no_telefon || "",
         jawatan: db.jawatan || staff.role || "",
+        employment_type: db.employment_type || "",
         tarikh_mula_berkhidmat: db.tarikh_mula_berkhidmat || "",
       });
     } else if (section === "bank") {
@@ -445,9 +446,21 @@ const HRDatabaseStaff = () => {
                 <Input value={infoDiri.jawatan} onChange={(e) => setInfoDiri({ ...infoDiri, jawatan: e.target.value })} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Tarikh Mula Berkhidmat</Label>
-              <Input type="date" value={infoDiri.tarikh_mula_berkhidmat} onChange={(e) => setInfoDiri({ ...infoDiri, tarikh_mula_berkhidmat: e.target.value })} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Employment Type</Label>
+                <Select value={infoDiri.employment_type} onValueChange={(v) => setInfoDiri({ ...infoDiri, employment_type: v })}>
+                  <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Full Time">Full Time</SelectItem>
+                    <SelectItem value="Part Time">Part Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tarikh Mula Berkhidmat</Label>
+                <Input type="date" value={infoDiri.tarikh_mula_berkhidmat} onChange={(e) => setInfoDiri({ ...infoDiri, tarikh_mula_berkhidmat: e.target.value })} />
+              </div>
             </div>
           </div>
           <DialogFooter>

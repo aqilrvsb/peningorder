@@ -507,7 +507,20 @@ const AccountClaim = () => {
   };
 
   // Generate PDF to match template exactly
-  const generatePDF = (claim: Claim) => {
+  const generatePDF = async (claim: Claim) => {
+    // Fetch employee details from staff_database
+    const { data: staffDb } = await supabase
+      .from("staff_database")
+      .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+      .eq("nama", claim.employee_name)
+      .limit(1)
+      .maybeSingle();
+
+    const displayIc = staffDb?.no_kad_pengenalan || claim.ic_number || "-";
+    const displayPhone = staffDb?.no_telefon || claim.phone_number || "-";
+    const displayDept = staffDb?.jawatan || claim.department || "-";
+    const displayEmpType = staffDb?.employment_type || claim.employment_type || "-";
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -548,10 +561,10 @@ const AccountClaim = () => {
 
     const details = [
       ["Employee Name", claim.employee_name],
-      ["Identification Card Number", claim.ic_number],
-      ["Phone Number", claim.phone_number],
-      ["Department", claim.department],
-      ["Employment Type", claim.employment_type],
+      ["Identification Card Number", displayIc],
+      ["Phone Number", displayPhone],
+      ["Department", displayDept],
+      ["Employment Type", displayEmpType],
       ["Pay Date", claim.pay_date],
     ];
 
