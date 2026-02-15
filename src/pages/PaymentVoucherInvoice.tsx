@@ -138,16 +138,17 @@ const PaymentVoucherInvoice = () => {
         justifyContent: "center",
         padding: "30px",
       }}>
-        {/* A4 Page */}
+        {/* A4 Page - Double border */}
         <div style={{
           width: "210mm",
           minHeight: "297mm",
           background: "#fff",
-          border: "1.5px solid #000",
-          padding: "50px 60px",
+          border: "2px solid #000",
+          outline: "1px solid #000",
+          outlineOffset: "4px",
+          padding: "50px 55px",
           fontFamily: "'Calibri', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
           color: "#000",
-          position: "relative",
           boxSizing: "border-box",
         }}>
 
@@ -155,31 +156,31 @@ const PaymentVoucherInvoice = () => {
           <div style={{
             display: "flex",
             alignItems: "flex-start",
-            marginBottom: "50px",
+            marginBottom: "40px",
           }}>
             {/* Logo */}
-            <div style={{ marginRight: "30px", flexShrink: 0 }}>
+            <div style={{ marginRight: "20px", flexShrink: 0 }}>
               <img
                 src="/dzi-logo.jpg"
                 alt="DZI Holistik Logo"
-                style={{ width: "120px", height: "auto" }}
+                style={{ width: "140px", height: "auto" }}
               />
             </div>
 
             {/* Title + Address - Center aligned */}
-            <div style={{ flex: 1, textAlign: "center", paddingRight: "40px" }}>
+            <div style={{ flex: 1, textAlign: "center" }}>
               <h1 style={{
-                fontSize: "32px",
+                fontSize: "36px",
                 fontWeight: "bold",
-                margin: "0 0 8px 0",
+                margin: "0 0 6px 0",
                 letterSpacing: "1px",
               }}>
                 PAYMENT VOUCHER
               </h1>
               <p style={{
-                fontSize: "15px",
+                fontSize: "14px",
                 fontWeight: "bold",
-                margin: "0 0 6px 0",
+                margin: "0 0 4px 0",
               }}>
                 DZI HOLISTIK
               </p>
@@ -199,24 +200,24 @@ const PaymentVoucherInvoice = () => {
           </div>
 
           {/* Voucher Details */}
-          <div style={{ marginBottom: "60px", paddingLeft: "20px" }}>
+          <div style={{ marginBottom: "80px", paddingLeft: "30px" }}>
             {fields.map((field, idx) => (
               <div key={idx} style={{
                 display: "flex",
                 alignItems: "flex-start",
-                marginBottom: "12px",
+                marginBottom: "6px",
               }}>
                 <span style={{
-                  width: "220px",
+                  width: "240px",
                   fontWeight: "bold",
-                  fontSize: "14px",
+                  fontSize: "15px",
                   flexShrink: 0,
                 }}>
                   {field.label}
                 </span>
                 <span style={{
-                  width: "20px",
-                  fontSize: "14px",
+                  width: "30px",
+                  fontSize: "15px",
                   textAlign: "center",
                   flexShrink: 0,
                 }}>
@@ -224,7 +225,7 @@ const PaymentVoucherInvoice = () => {
                 </span>
                 <span style={{
                   flex: 1,
-                  fontSize: "14px",
+                  fontSize: "15px",
                 }}>
                   {field.value}
                 </span>
@@ -233,29 +234,27 @@ const PaymentVoucherInvoice = () => {
           </div>
 
           {/* Spacer */}
-          <div style={{ height: "60px" }}></div>
+          <div style={{ height: "40px" }}></div>
 
           {/* Authorization Section */}
           <div style={{
             display: "flex",
             justifyContent: "space-between",
-            paddingLeft: "20px",
-            paddingRight: "20px",
+            paddingLeft: "30px",
+            paddingRight: "30px",
           }}>
             {/* Prepared by */}
-            <div style={{ width: "45%" }}>
+            <div>
               <p style={{
-                fontSize: "13px",
+                fontSize: "14px",
                 fontWeight: "bold",
-                marginBottom: "60px",
+                marginBottom: "70px",
               }}>
                 Prepared by:
               </p>
               <p style={{
-                fontSize: "11px",
-                borderTop: "1px solid #000",
-                paddingTop: "6px",
-                textAlign: "center",
+                fontSize: "13px",
+                fontWeight: "bold",
                 margin: 0,
               }}>
                 (WAN DAHLIA ANGGUN BINTI WAN MOHAMAD NAZERI)
@@ -263,9 +262,9 @@ const PaymentVoucherInvoice = () => {
             </div>
 
             {/* Approved by */}
-            <div style={{ width: "45%" }}>
+            <div>
               <p style={{
-                fontSize: "13px",
+                fontSize: "14px",
                 fontWeight: "bold",
                 marginBottom: "4px",
               }}>
@@ -274,14 +273,11 @@ const PaymentVoucherInvoice = () => {
               <img
                 src="/signature.jpg"
                 alt="Signature"
-                style={{ width: "120px", height: "auto", marginBottom: "4px" }}
+                style={{ width: "130px", height: "auto", marginBottom: "2px" }}
               />
               <p style={{
-                fontSize: "11px",
+                fontSize: "13px",
                 fontWeight: "bold",
-                borderTop: "1px solid #000",
-                paddingTop: "6px",
-                textAlign: "center",
                 margin: 0,
               }}>
                 (MUHAMMAD FAHMI BIN RAMELAN)
