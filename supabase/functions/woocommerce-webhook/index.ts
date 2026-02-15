@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const NINJAVAN_API = 'https://api.ninjavan.co/my';
-const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro.jpg';
+const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro1.jpg';
 
 // WooCommerce Order interface
 interface WooOrder {

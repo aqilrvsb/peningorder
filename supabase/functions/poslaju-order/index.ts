@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro.jpg';
+const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro1.jpg';
 
 interface OrderData {
   customerName: string;
@@ -201,21 +201,23 @@ serve(async (req) => {
     // Helper: generate a new Poslaju token
     async function generateNewToken(): Promise<string> {
       console.log('Requesting new token from Pos Malaysia');
+      console.log('Config client_id:', config.client_id ? `${config.client_id.substring(0, 4)}...` : 'EMPTY');
+      console.log('Config client_secret:', config.client_secret ? `${config.client_secret.substring(0, 4)}...` : 'EMPTY');
 
-      // Pos Malaysia expects Basic Auth header with base64(client_id:client_secret)
-      const basicAuth = btoa(`${config.client_id}:${config.client_secret}`);
+      const authBody = new URLSearchParams();
+      authBody.set('client_id', config.client_id);
+      authBody.set('client_secret', config.client_secret);
+      authBody.set('grant_type', 'client_credentials');
+      const bodyString = authBody.toString();
 
-      const authBody = new URLSearchParams({
-        grant_type: 'client_credentials'
-      });
+      console.log('Auth body:', bodyString);
 
       const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${basicAuth}`
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: authBody.toString()
+        body: bodyString
       });
 
       if (!authResponse.ok) {
