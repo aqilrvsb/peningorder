@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import dziLogo from "/dzi-logo.jpg";
-import signature from "/signature.jpg";
 
 interface PaymentVoucher {
   id: string;
@@ -53,19 +51,30 @@ const PaymentVoucherInvoice = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-lg">Loading payment voucher...</p>
+      <div style={{ minHeight: "100vh", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontSize: "18px" }}>Loading payment voucher...</p>
       </div>
     );
   }
 
   if (!voucher) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-lg text-red-600">Payment voucher not found</p>
+      <div style={{ minHeight: "100vh", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontSize: "18px", color: "red" }}>Payment voucher not found</p>
       </div>
     );
   }
+
+  const fields = [
+    { label: "Payment Voucher Number", value: voucher.voucher_number },
+    { label: "Date", value: voucher.date },
+    { label: "Pay To", value: voucher.pay_to },
+    { label: "Pay By", value: voucher.pay_by },
+    { label: "Payment Method", value: voucher.payment_method },
+    { label: "Amount", value: `RM ${Number(voucher.amount).toFixed(2)}` },
+    { label: "Purpose of Payment", value: voucher.purpose_of_payment || "" },
+    { label: "Note", value: voucher.note || "" },
+  ];
 
   return (
     <>
@@ -84,136 +93,197 @@ const PaymentVoucherInvoice = () => {
             height: 297mm;
           }
           * {
-            color: #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .print\\:hidden {
+          .no-print {
             display: none !important;
           }
         }
       `}</style>
-      <div className="min-h-screen bg-white p-8 flex justify-center print:p-4">
-        {/* Download PDF Button - Hidden when printing */}
-        <button
-          onClick={downloadPDF}
-          className="print:hidden fixed top-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Download PDF
-        </button>
 
-        <div
-          className="w-full max-w-[210mm] bg-white border border-black p-10"
-          style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: 'black' }}
-        >
-          {/* Header Section - Logo left, Title + Address right */}
-          <div className="flex items-start gap-6 mb-10">
-            <img
-              src={dziLogo}
-              alt="DZI Holistik Logo"
-              className="w-32 h-auto object-contain"
-            />
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-black mb-2">
+      {/* Download PDF Button */}
+      <button
+        onClick={downloadPDF}
+        className="no-print"
+        style={{
+          position: "fixed",
+          top: "16px",
+          right: "16px",
+          background: "#2563eb",
+          color: "#fff",
+          border: "none",
+          padding: "10px 24px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontSize: "14px",
+          fontWeight: "bold",
+          zIndex: 50,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Download PDF
+      </button>
+
+      <div style={{
+        minHeight: "100vh",
+        background: "#fff",
+        display: "flex",
+        justifyContent: "center",
+        padding: "30px",
+      }}>
+        {/* A4 Page */}
+        <div style={{
+          width: "210mm",
+          minHeight: "297mm",
+          background: "#fff",
+          border: "1.5px solid #000",
+          padding: "50px 60px",
+          fontFamily: "'Calibri', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+          color: "#000",
+          position: "relative",
+          boxSizing: "border-box",
+        }}>
+
+          {/* Header Section */}
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            marginBottom: "50px",
+          }}>
+            {/* Logo */}
+            <div style={{ marginRight: "30px", flexShrink: 0 }}>
+              <img
+                src="/dzi-logo.jpg"
+                alt="DZI Holistik Logo"
+                style={{ width: "120px", height: "auto" }}
+              />
+            </div>
+
+            {/* Title + Address - Center aligned */}
+            <div style={{ flex: 1, textAlign: "center", paddingRight: "40px" }}>
+              <h1 style={{
+                fontSize: "32px",
+                fontWeight: "bold",
+                margin: "0 0 8px 0",
+                letterSpacing: "1px",
+              }}>
                 PAYMENT VOUCHER
               </h1>
-              <p className="text-base font-bold text-black mb-1">DZI HOLISTIK</p>
-              <p className="text-xs text-black leading-relaxed">
+              <p style={{
+                fontSize: "15px",
+                fontWeight: "bold",
+                margin: "0 0 6px 0",
+              }}>
+                DZI HOLISTIK
+              </p>
+              <p style={{ fontSize: "11px", margin: "0 0 1px 0" }}>
                 PT2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK,
               </p>
-              <p className="text-xs text-black">
+              <p style={{ fontSize: "11px", margin: "0 0 1px 0" }}>
                 MUKIM PELAGAT, 22000 JERTEH, TERENGGANU
               </p>
-              <p className="text-xs text-black">TEL: 011-1523 4741</p>
-              <p className="text-xs text-black">EMEL: dziholistik@gmail.com</p>
+              <p style={{ fontSize: "11px", margin: "0 0 1px 0" }}>
+                TEL: 011-1523 4741
+              </p>
+              <p style={{ fontSize: "11px", margin: "0" }}>
+                EMEL: dziholistik@gmail.com
+              </p>
             </div>
           </div>
 
-          {/* Voucher Details Section */}
-          <div className="mb-12 space-y-4 px-4">
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Payment Voucher Number</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.voucher_number}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Date</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.date}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Pay To</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.pay_to}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Pay By</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.pay_by}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Payment Method</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.payment_method}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Amount</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                RM {Number(voucher.amount).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Purpose of Payment</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.purpose_of_payment || ""}
-              </span>
-            </div>
-            <div className="flex">
-              <span className="w-56 text-sm font-bold text-black">Note</span>
-              <span className="text-sm text-black mr-4">:</span>
-              <span className="flex-1 text-sm text-black">
-                {voucher.note || ""}
-              </span>
-            </div>
+          {/* Voucher Details */}
+          <div style={{ marginBottom: "60px", paddingLeft: "20px" }}>
+            {fields.map((field, idx) => (
+              <div key={idx} style={{
+                display: "flex",
+                alignItems: "flex-start",
+                marginBottom: "12px",
+              }}>
+                <span style={{
+                  width: "220px",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  flexShrink: 0,
+                }}>
+                  {field.label}
+                </span>
+                <span style={{
+                  width: "20px",
+                  fontSize: "14px",
+                  textAlign: "center",
+                  flexShrink: 0,
+                }}>
+                  :
+                </span>
+                <span style={{
+                  flex: 1,
+                  fontSize: "14px",
+                }}>
+                  {field.value}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* Spacer */}
-          <div className="mb-16"></div>
+          <div style={{ height: "60px" }}></div>
 
-          {/* Authorization Section - Two columns: Prepared by (left) + Approved by (right) */}
-          <div className="flex justify-between px-4">
+          {/* Authorization Section */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            paddingLeft: "20px",
+            paddingRight: "20px",
+          }}>
             {/* Prepared by */}
-            <div>
-              <p className="text-sm font-bold text-black mb-12">Prepared by:</p>
-              <p className="text-xs text-black border-t border-black pt-1 text-center">
+            <div style={{ width: "45%" }}>
+              <p style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                marginBottom: "60px",
+              }}>
+                Prepared by:
+              </p>
+              <p style={{
+                fontSize: "11px",
+                borderTop: "1px solid #000",
+                paddingTop: "6px",
+                textAlign: "center",
+                margin: 0,
+              }}>
                 (WAN DAHLIA ANGGUN BINTI WAN MOHAMAD NAZERI)
               </p>
             </div>
 
             {/* Approved by */}
-            <div>
-              <p className="text-sm font-bold text-black mb-1">Approved by:</p>
+            <div style={{ width: "45%" }}>
+              <p style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                marginBottom: "4px",
+              }}>
+                Approved by:
+              </p>
               <img
-                src={signature}
+                src="/signature.jpg"
                 alt="Signature"
-                className="w-28 h-auto mb-1"
+                style={{ width: "120px", height: "auto", marginBottom: "4px" }}
               />
-              <p className="text-xs font-bold text-black border-t border-black pt-1 text-center">
+              <p style={{
+                fontSize: "11px",
+                fontWeight: "bold",
+                borderTop: "1px solid #000",
+                paddingTop: "6px",
+                textAlign: "center",
+                margin: 0,
+              }}>
                 (MUHAMMAD FAHMI BIN RAMELAN)
               </p>
             </div>
