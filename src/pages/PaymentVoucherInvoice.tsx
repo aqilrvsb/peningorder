@@ -106,89 +106,88 @@ const PaymentVoucherInvoice = () => {
         </button>
 
         <div
-          className="w-full max-w-[210mm] bg-white"
+          className="w-full max-w-[210mm] bg-white border border-black p-10"
           style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", color: 'black' }}
         >
-          {/* Header Section */}
-          <div className="flex items-start gap-4 mb-8">
+          {/* Header Section - Logo left, Title + Address right */}
+          <div className="flex items-start gap-6 mb-10">
             <img
               src={dziLogo}
               alt="DZI Holistik Logo"
-              className="w-28 h-auto object-contain"
+              className="w-32 h-auto object-contain"
             />
-            <div>
-              <h1 className="text-2xl font-bold text-black tracking-wide mb-1">
-                DZI HOLISTIK ENTERPRISE
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-black mb-2">
+                PAYMENT VOUCHER
               </h1>
-              <p className="text-sm text-black leading-relaxed">
-                PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,
+              <p className="text-base font-bold text-black mb-1">DZI HOLISTIK</p>
+              <p className="text-xs text-black leading-relaxed">
+                PT2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK,
               </p>
-              <p className="text-sm text-black">22000 JERTEH, TERENGGANU</p>
-              <p className="text-sm text-black">TEL: 016-2569963 (HR)</p>
+              <p className="text-xs text-black">
+                MUKIM PELAGAT, 22000 JERTEH, TERENGGANU
+              </p>
+              <p className="text-xs text-black">TEL: 011-1523 4741</p>
+              <p className="text-xs text-black">EMEL: dziholistik@gmail.com</p>
             </div>
           </div>
 
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold text-black underline">PAYMENT VOUCHER</h2>
-          </div>
-
           {/* Voucher Details Section */}
-          <div className="mb-8 space-y-3">
+          <div className="mb-12 space-y-4 px-4">
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Payment Voucher Number</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
+              <span className="w-56 text-sm font-bold text-black">Payment Voucher Number</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 {voucher.voucher_number}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Date</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
+              <span className="w-56 text-sm font-bold text-black">Date</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 {voucher.date}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Pay To</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
+              <span className="w-56 text-sm font-bold text-black">Pay To</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 {voucher.pay_to}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Pay By</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
+              <span className="w-56 text-sm font-bold text-black">Pay By</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 {voucher.pay_by}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Payment Method</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
+              <span className="w-56 text-sm font-bold text-black">Payment Method</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 {voucher.payment_method}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Amount</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2 font-bold">
+              <span className="w-56 text-sm font-bold text-black">Amount</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
                 RM {Number(voucher.amount).toFixed(2)}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Purpose of Payment</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {voucher.purpose_of_payment || "-"}
+              <span className="w-56 text-sm font-bold text-black">Purpose of Payment</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
+                {voucher.purpose_of_payment || ""}
               </span>
             </div>
             <div className="flex">
-              <span className="w-52 text-sm font-bold text-black">Note</span>
-              <span className="text-sm text-black">:</span>
-              <span className="flex-1 border-b border-gray-300 ml-2 text-sm text-black px-2">
-                {voucher.note || "-"}
+              <span className="w-56 text-sm font-bold text-black">Note</span>
+              <span className="text-sm text-black mr-4">:</span>
+              <span className="flex-1 text-sm text-black">
+                {voucher.note || ""}
               </span>
             </div>
           </div>
@@ -196,18 +195,26 @@ const PaymentVoucherInvoice = () => {
           {/* Spacer */}
           <div className="mb-16"></div>
 
-          {/* Authorization Section */}
-          <div className="flex justify-end">
-            <div className="text-center">
-              <p className="text-sm text-black mb-1">Authorized by:</p>
-              <p className="text-sm text-black mb-2">Managing Director – DFR Empire</p>
+          {/* Authorization Section - Two columns: Prepared by (left) + Approved by (right) */}
+          <div className="flex justify-between px-4">
+            {/* Prepared by */}
+            <div>
+              <p className="text-sm font-bold text-black mb-12">Prepared by:</p>
+              <p className="text-xs text-black border-t border-black pt-1 text-center">
+                (WAN DAHLIA ANGGUN BINTI WAN MOHAMAD NAZERI)
+              </p>
+            </div>
+
+            {/* Approved by */}
+            <div>
+              <p className="text-sm font-bold text-black mb-1">Approved by:</p>
               <img
                 src={signature}
                 alt="Signature"
-                className="w-32 h-auto mx-auto mb-1"
+                className="w-28 h-auto mb-1"
               />
-              <p className="text-sm text-black border-t border-black pt-1">
-                Muhammad Fahmi Bin Ramelan
+              <p className="text-xs font-bold text-black border-t border-black pt-1 text-center">
+                (MUHAMMAD FAHMI BIN RAMELAN)
               </p>
             </div>
           </div>
