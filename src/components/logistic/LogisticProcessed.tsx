@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { getMalaysiaDate } from "@/lib/utils";
 import {
   Clock,
@@ -24,6 +32,7 @@ import {
   Trash2,
   RotateCcw,
   MessageCircle,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -53,6 +62,27 @@ const LogisticProcessed = () => {
   const [isPending, setIsPending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    customerName: "",
+    phone: "",
+    address: "",
+    postcode: "",
+    city: "",
+    state: "",
+    quantity: 1,
+    totalPrice: 0,
+    paymentMethod: "CASH",
+    notaStaff: "",
+    productId: "",
+    kurier: "",
+    trackingNumber: "",
+    idStaff: "",
+  });
 
   // Fetch all profiles for marketer name and whatsapp lookup
   const { data: profiles = [] } = useQuery({
@@ -96,6 +126,108 @@ const LogisticProcessed = () => {
       return data || [];
     },
   });
+
+  // Fetch all bundles for dropdown
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["logistic-bundles-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("logistic_bundles")
+        .select("id, name, sku")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch all profiles with idstaff for staff dropdown
+  const { data: allStaff = [] } = useQuery({
+    queryKey: ["profiles-idstaff"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("idstaff, full_name")
+        .not("idstaff", "is", null)
+        .order("idstaff");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const MALAYSIAN_STATES = [
+    "Johor", "Kedah", "Kelantan", "Melaka", "Negeri Sembilan",
+    "Pahang", "Perak", "Perlis", "Pulau Pinang", "Sabah",
+    "Sarawak", "Selangor", "Terengganu", "Kuala Lumpur", "Labuan", "Putrajaya"
+  ];
+
+  const KURIER_OPTIONS = ["Ninjavan COD", "Ninjavan CASH", "Poslaju COD", "Poslaju CASH", "Kurier Tiktok", "Kurier Shopee"];
+
+  // Open edit dialog
+  const handleOpenEdit = (order: any) => {
+    setEditingOrder(order);
+    setEditForm({
+      customerName: order.name_customer || "",
+      phone: order.phone_customer || "",
+      address: order.address_customer || "",
+      postcode: order.postcode_customer || "",
+      city: order.city_customer || "",
+      state: order.state_customer || "",
+      quantity: order.unit || 1,
+      totalPrice: Number(order.total_sale || 0),
+      paymentMethod: order.type_payment || "CASH",
+      notaStaff: order.nota_staff || "",
+      productId: order.bundle_id || "",
+      kurier: order.kurier || "",
+      trackingNumber: order.tracking_number || "",
+      idStaff: order.marketer_id_staff || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Save edited order - database update only, no API calls
+  const handleSaveEdit = async () => {
+    if (!editingOrder) return;
+    setIsSavingEdit(true);
+
+    try {
+      const updateData: any = {
+        name_customer: editForm.customerName,
+        phone_customer: editForm.phone,
+        address_customer: editForm.address,
+        postcode_customer: editForm.postcode,
+        city_customer: editForm.city,
+        state_customer: editForm.state,
+        unit: editForm.quantity,
+        total_sale: editForm.totalPrice,
+        type_payment: editForm.paymentMethod,
+        nota_staff: editForm.notaStaff,
+        kurier: editForm.kurier,
+        tracking_number: editForm.trackingNumber,
+        marketer_id_staff: editForm.idStaff,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editForm.productId && editForm.productId !== editingOrder.bundle_id) {
+        updateData.bundle_id = editForm.productId;
+      }
+
+      const { error: updateError } = await supabase
+        .from("customer_purchases")
+        .update(updateData)
+        .eq("id", editingOrder.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Order updated successfully");
+      setEditDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["logistic-processed"] });
+    } catch (error: any) {
+      console.error("Edit error:", error);
+      toast.error("Failed to update order: " + error.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   // Helper function to get platform display value
   const getOrderPlatform = (order: any) => {
@@ -549,6 +681,7 @@ const LogisticProcessed = () => {
                       <th className="p-2 text-left">Waybill</th>
                       <th className="p-2 text-left">SEO</th>
                       <th className="p-2 text-left">WhatsApp</th>
+                      <th className="p-2 text-left">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -640,11 +773,21 @@ const LogisticProcessed = () => {
                               </a>
                             )}
                           </td>
+                          <td className="p-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEdit(order)}
+                              className="h-7 w-7 p-0"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
                           No processed orders found.
                         </td>
                       </tr>
@@ -683,6 +826,201 @@ const LogisticProcessed = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Order - {editingOrder?.id_sale}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Id Staff</Label>
+                <Select
+                  value={editForm.idStaff}
+                  onValueChange={(v) => setEditForm({ ...editForm, idStaff: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select staff" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allStaff.map((staff: any) => (
+                      <SelectItem key={staff.idstaff} value={staff.idstaff}>
+                        {staff.idstaff} - {staff.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Customer Name</Label>
+                <Input
+                  value={editForm.customerName}
+                  onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Input
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Postcode</Label>
+                <Input
+                  value={editForm.postcode}
+                  onChange={(e) => setEditForm({ ...editForm, postcode: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>City</Label>
+                <Input
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Select
+                  value={editForm.state}
+                  onValueChange={(v) => setEditForm({ ...editForm, state: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MALAYSIAN_STATES.map((state) => (
+                      <SelectItem key={state} value={state}>{state}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={editForm.quantity}
+                  onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Total Price (RM)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.totalPrice}
+                  onChange={(e) => setEditForm({ ...editForm, totalPrice: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select
+                  value={editForm.paymentMethod}
+                  onValueChange={(v) => setEditForm({ ...editForm, paymentMethod: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">CASH</SelectItem>
+                    <SelectItem value="COD">COD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Kurier</Label>
+                <Select
+                  value={editForm.kurier}
+                  onValueChange={(v) => setEditForm({ ...editForm, kurier: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select kurier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KURIER_OPTIONS.map((k) => (
+                      <SelectItem key={k} value={k}>{k}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tracking Number</Label>
+                <Input
+                  value={editForm.trackingNumber}
+                  onChange={(e) => setEditForm({ ...editForm, trackingNumber: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Product</Label>
+              <Select
+                value={editForm.productId}
+                onValueChange={(v) => setEditForm({ ...editForm, productId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProducts.map((product: any) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Input
+                value={editForm.notaStaff}
+                onChange={(e) => setEditForm({ ...editForm, notaStaff: e.target.value })}
+                placeholder="Staff notes..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isSavingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

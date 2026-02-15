@@ -22,6 +22,7 @@ import {
   DollarSign,
   CreditCard,
   MessageCircle,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -232,6 +233,29 @@ const LogisticReturn = () => {
     }
   };
 
+  // Mark return order as Successful Delivery - reverts back to Shipped
+  const handleSuccessfulDelivery = async (order: any) => {
+    try {
+      const { error } = await supabase
+        .from("customer_purchases")
+        .update({
+          seo: "Successful Delivery",
+          seos: "Successful Delivery",
+          delivery_status: "Shipped",
+          date_return: null,
+          date_payment: today,
+        })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      toast.success(`${order.id_sale} marked as Successful Delivery`);
+      queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update order");
+    }
+  };
+
   const handleFilterChange = () => {
     setCurrentPage(1);
     setSelectedOrders(new Set());
@@ -427,6 +451,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left">Waybill</th>
                       <th className="p-2 text-left">SEO</th>
                       <th className="p-2 text-left">WhatsApp</th>
+                      <th className="p-2 text-left">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -519,11 +544,22 @@ const LogisticReturn = () => {
                               </a>
                             )}
                           </td>
+                          <td className="p-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSuccessfulDelivery(order)}
+                              className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                              Success
+                            </Button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={26} className="text-center py-12 text-muted-foreground">
                           No return orders found.
                         </td>
                       </tr>

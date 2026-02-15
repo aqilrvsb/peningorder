@@ -848,6 +848,7 @@ ${trackingUrl}`;
                 {!isMarketer && (
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
                 )}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
@@ -880,6 +881,7 @@ ${trackingUrl}`;
                     {!isMarketer && (
                       <td className="px-4 py-3 text-sm text-foreground">{order.kuantiti || 1}</td>
                     )}
+                    <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
                         order.noTracking
