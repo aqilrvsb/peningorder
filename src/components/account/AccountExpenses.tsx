@@ -46,13 +46,16 @@ const CATEGORY_OPTIONS = ["Overhead", "Marketing", "Cost Product", "Other"] as c
 // Categories available in add/edit form (Cost Product is auto-calculated)
 const FORM_CATEGORY_OPTIONS = ["Overhead", "Marketing", "Other"] as const;
 const TYPE_OPTIONS = ["VAR", "FIX"] as const;
+const PLATFORM_OPTIONS = ["FACEBOOK", "TIKTOK", "SHOPEE", "DATABASE", "GOOGLE"] as const;
 type CategoryType = typeof CATEGORY_OPTIONS[number];
 type ExpenseType = typeof TYPE_OPTIONS[number];
+type PlatformType = typeof PLATFORM_OPTIONS[number];
 
 interface Expense {
   id: string;
   type: ExpenseType;
   category: CategoryType;
+  platform: string | null;
   description: string;
   total: number;
   date: string;
@@ -94,6 +97,7 @@ const AccountExpenses = () => {
   const [formDescription, setFormDescription] = useState("");
   const [formTotal, setFormTotal] = useState("");
   const [formDate, setFormDate] = useState(today);
+  const [formPlatform, setFormPlatform] = useState<string>("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [existingAttachment, setExistingAttachment] = useState<string | null>(null);
@@ -212,15 +216,34 @@ const AccountExpenses = () => {
 
   const totalExpenses = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
 
+  // Calculate platform breakdown per category (from expenses only)
+  const categoryPlatformTotals = useMemo(() => {
+    const result: Record<CategoryType, Record<string, number>> = {
+      "Overhead": {},
+      "Marketing": {},
+      "Cost Product": {},
+      "Other": {},
+    };
+    expenses.forEach((e) => {
+      const cat = (e.category as CategoryType) || "Other";
+      if (result[cat] && e.platform) {
+        result[cat][e.platform] = (result[cat][e.platform] || 0) + Number(e.total);
+      }
+    });
+    return result;
+  }, [expenses]);
+
   // Calculate monthly summary - show ALL months in date range
   const monthlySummary = useMemo(() => {
-    const initMonth = (): Record<CategoryType, number> => ({
-      "Overhead": 0,
-      "Marketing": 0,
-      "Cost Product": 0,
-      "Other": 0,
+    type MonthData = {
+      categories: Record<CategoryType, number>;
+      platforms: Record<string, number>;
+    };
+    const initMonth = (): MonthData => ({
+      categories: { "Overhead": 0, "Marketing": 0, "Cost Product": 0, "Other": 0 },
+      platforms: {},
     });
-    const summary: Record<string, Record<CategoryType, number>> = {};
+    const summary: Record<string, MonthData> = {};
 
     // Generate all months between startDate and endDate
     if (startDate && endDate) {
@@ -239,8 +262,12 @@ const AccountExpenses = () => {
     expenses.forEach((e) => {
       const month = e.date.substring(0, 7);
       if (!summary[month]) summary[month] = initMonth();
-      if (e.category && summary[month][e.category as CategoryType] !== undefined) {
-        summary[month][e.category as CategoryType] += Number(e.total);
+      if (e.category && summary[month].categories[e.category as CategoryType] !== undefined) {
+        summary[month].categories[e.category as CategoryType] += Number(e.total);
+      }
+      // Track platform totals per month
+      if (e.platform) {
+        summary[month].platforms[e.platform] = (summary[month].platforms[e.platform] || 0) + Number(e.total);
       }
     });
 
@@ -250,7 +277,7 @@ const AccountExpenses = () => {
       if (!summary[month]) summary[month] = initMonth();
       const k = cf.kategori || "";
       if (k === "Overhead" || k === "Marketing" || k === "Other") {
-        summary[month][k as CategoryType] += Number(cf.amount) || 0;
+        summary[month].categories[k as CategoryType] += Number(cf.amount) || 0;
       }
     });
 
@@ -259,16 +286,17 @@ const AccountExpenses = () => {
       if (!o.date_order) return;
       const month = o.date_order.substring(0, 7);
       if (!summary[month]) summary[month] = initMonth();
-      summary[month]["Cost Product"] += Number(o.cost_baseproduct) || 0;
+      summary[month].categories["Cost Product"] += Number(o.cost_baseproduct) || 0;
     });
 
     // Sort by month descending
     return Object.entries(summary)
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([month, categories]) => ({
+      .map(([month, data]) => ({
         month,
-        ...categories,
-        total: Object.values(categories).reduce((sum, val) => sum + val, 0),
+        ...data.categories,
+        platforms: data.platforms,
+        total: Object.values(data.categories).reduce((sum, val) => sum + val, 0),
       }));
   }, [expenses, cashOutFlows, costProductRows, startDate, endDate]);
 
@@ -303,6 +331,7 @@ const AccountExpenses = () => {
   const resetForm = () => {
     setFormType("VAR");
     setFormCategory("Overhead");
+    setFormPlatform("");
     setFormDescription("");
     setFormTotal("");
     setFormDate(today);
@@ -323,6 +352,7 @@ const AccountExpenses = () => {
   const handleEditClick = (expense: Expense) => {
     setFormType(expense.type || "VAR");
     setFormCategory(expense.category || "Other");
+    setFormPlatform(expense.platform || "");
     setFormDescription(expense.description);
     setFormTotal(expense.total.toString());
     setFormDate(expense.date);
@@ -395,6 +425,7 @@ const AccountExpenses = () => {
       const expenseData = {
         type: formType,
         category: formCategory,
+        platform: formPlatform || null,
         description: formDescription.trim(),
         total: Number(formTotal),
         date: formDate,
@@ -481,6 +512,7 @@ const AccountExpenses = () => {
     const data = filteredExpenses.map((expense, index) => ({
       'No': index + 1,
       'Category': expense.category || 'Other',
+      'Platform': expense.platform || '-',
       'Description': expense.description,
       'Total (RM)': Number(expense.total).toFixed(2),
       'Date': expense.date,
@@ -494,6 +526,7 @@ const AccountExpenses = () => {
     const colWidths = [
       { wch: 5 },   // No
       { wch: 15 },  // Category
+      { wch: 12 },  // Platform
       { wch: 40 },  // Description
       { wch: 15 },  // Total
       { wch: 12 },  // Date
@@ -559,6 +592,22 @@ const AccountExpenses = () => {
                         </SelectItem>
                       );
                     })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Platform (Optional) */}
+              <div className="space-y-2">
+                <Label>Platform (Optional)</Label>
+                <Select value={formPlatform || "__none__"} onValueChange={(v) => setFormPlatform(v === "__none__" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select platform (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- None --</SelectItem>
+                    {PLATFORM_OPTIONS.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -692,6 +741,8 @@ const AccountExpenses = () => {
         {CATEGORY_OPTIONS.map((cat) => {
           const config = categoryConfig[cat];
           const Icon = config.icon;
+          const platformBreakdown = categoryPlatformTotals[cat] || {};
+          const hasPlatforms = Object.keys(platformBreakdown).length > 0;
           return (
             <Card key={cat}>
               <CardContent className="p-4">
@@ -702,6 +753,16 @@ const AccountExpenses = () => {
                     <p className="text-xs text-muted-foreground">{cat}</p>
                   </div>
                 </div>
+                {hasPlatforms && (
+                  <div className="mt-2 pt-2 border-t space-y-0.5">
+                    {PLATFORM_OPTIONS.filter(p => platformBreakdown[p]).map(p => (
+                      <div key={p} className="flex justify-between text-xs text-muted-foreground">
+                        <span>{p}</span>
+                        <span>RM {platformBreakdown[p].toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -722,6 +783,9 @@ const AccountExpenses = () => {
                       <th key={cat} className="p-3 text-right">{cat}</th>
                     ))}
                     <th className="p-3 text-right font-bold">Total</th>
+                    {PLATFORM_OPTIONS.map((p) => (
+                      <th key={p} className="p-3 text-right text-indigo-600">{p}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -736,6 +800,11 @@ const AccountExpenses = () => {
                       <td className="p-3 text-right font-bold">
                         RM {row.total.toFixed(2)}
                       </td>
+                      {PLATFORM_OPTIONS.map((p) => (
+                        <td key={p} className="p-3 text-right text-indigo-600">
+                          {row.platforms[p] ? `RM ${row.platforms[p].toFixed(2)}` : '-'}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -818,6 +887,7 @@ const AccountExpenses = () => {
                     <tr>
                       <th className="p-3 text-left">No</th>
                       <th className="p-3 text-left">Category</th>
+                      <th className="p-3 text-left">Platform</th>
                       <th className="p-3 text-left">Description</th>
                       <th className="p-3 text-right">Total (RM)</th>
                       <th className="p-3 text-left">Date</th>
@@ -840,6 +910,15 @@ const AccountExpenses = () => {
                                 <Icon className="w-3 h-3" />
                                 {expense.category || "Other"}
                               </span>
+                            </td>
+                            <td className="p-3">
+                              {expense.platform ? (
+                                <span className="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                                  {expense.platform}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </td>
                             <td className="p-3">{expense.description}</td>
                             <td className="p-3 text-right font-medium">
@@ -886,7 +965,7 @@ const AccountExpenses = () => {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
                           No expenses found for this date range.
                         </td>
                       </tr>

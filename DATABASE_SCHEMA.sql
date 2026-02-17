@@ -127,6 +127,7 @@ CREATE TABLE public.expenses (
   marketer_id_staff text,
   category text CHECK (category = ANY (ARRAY['Overhead'::text, 'Marketing'::text, 'Cost Product'::text, 'Other'::text])),
   attachment_url text,
+  platform text,
   CONSTRAINT expenses_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.invoice_settings (
