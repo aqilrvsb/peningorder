@@ -57,6 +57,7 @@ const CASH_IN_KATEGORI = [
   "Collection COD Ninja Van",
   "Manual Payment",
   "Billplz",
+  "Bizzapp",
   "Agent",
   "TikTok",
   "Shopee",
