@@ -237,11 +237,11 @@ const AccountExpenses = () => {
   const monthlySummary = useMemo(() => {
     type MonthData = {
       categories: Record<CategoryType, number>;
-      platforms: Record<string, number>;
+      categoryPlatforms: Record<CategoryType, Record<string, number>>;
     };
     const initMonth = (): MonthData => ({
       categories: { "Overhead": 0, "Marketing": 0, "Cost Product": 0, "Other": 0 },
-      platforms: {},
+      categoryPlatforms: { "Overhead": {}, "Marketing": {}, "Cost Product": {}, "Other": {} },
     });
     const summary: Record<string, MonthData> = {};
 
@@ -262,12 +262,13 @@ const AccountExpenses = () => {
     expenses.forEach((e) => {
       const month = e.date.substring(0, 7);
       if (!summary[month]) summary[month] = initMonth();
-      if (e.category && summary[month].categories[e.category as CategoryType] !== undefined) {
-        summary[month].categories[e.category as CategoryType] += Number(e.total);
+      const cat = (e.category as CategoryType) || "Other";
+      if (summary[month].categories[cat] !== undefined) {
+        summary[month].categories[cat] += Number(e.total);
       }
-      // Track platform totals per month
-      if (e.platform) {
-        summary[month].platforms[e.platform] = (summary[month].platforms[e.platform] || 0) + Number(e.total);
+      // Track platform totals per category per month
+      if (e.platform && summary[month].categoryPlatforms[cat]) {
+        summary[month].categoryPlatforms[cat][e.platform] = (summary[month].categoryPlatforms[cat][e.platform] || 0) + Number(e.total);
       }
     });
 
@@ -295,7 +296,7 @@ const AccountExpenses = () => {
       .map(([month, data]) => ({
         month,
         ...data.categories,
-        platforms: data.platforms,
+        categoryPlatforms: data.categoryPlatforms,
         total: Object.values(data.categories).reduce((sum, val) => sum + val, 0),
       }));
   }, [expenses, cashOutFlows, costProductRows, startDate, endDate]);
@@ -736,6 +737,25 @@ const AccountExpenses = () => {
                 <p className="text-xs text-muted-foreground">Total Expenses</p>
               </div>
             </div>
+            {(() => {
+              const allPlatforms: Record<string, number> = {};
+              Object.values(categoryPlatformTotals).forEach(pt => {
+                Object.entries(pt).forEach(([p, v]) => {
+                  allPlatforms[p] = (allPlatforms[p] || 0) + v;
+                });
+              });
+              const hasAny = Object.keys(allPlatforms).length > 0;
+              return hasAny ? (
+                <div className="mt-2 pt-2 border-t space-y-0.5">
+                  {PLATFORM_OPTIONS.filter(p => allPlatforms[p]).map(p => (
+                    <div key={p} className="flex justify-between text-xs text-muted-foreground">
+                      <span>{p}</span>
+                      <span>RM {allPlatforms[p].toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            })()}
           </CardContent>
         </Card>
         {CATEGORY_OPTIONS.map((cat) => {
@@ -783,28 +803,33 @@ const AccountExpenses = () => {
                       <th key={cat} className="p-3 text-right">{cat}</th>
                     ))}
                     <th className="p-3 text-right font-bold">Total</th>
-                    {PLATFORM_OPTIONS.map((p) => (
-                      <th key={p} className="p-3 text-right text-indigo-600">{p}</th>
-                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {monthlySummary.map((row) => (
                     <tr key={row.month} className="border-b hover:bg-muted/30">
                       <td className="p-3 font-medium">{formatMonth(row.month)}</td>
-                      {CATEGORY_OPTIONS.map((cat) => (
-                        <td key={cat} className="p-3 text-right">
-                          RM {row[cat].toFixed(2)}
-                        </td>
-                      ))}
+                      {CATEGORY_OPTIONS.map((cat) => {
+                        const catPlatforms = row.categoryPlatforms[cat] || {};
+                        const hasCatPlatforms = Object.keys(catPlatforms).length > 0;
+                        return (
+                          <td key={cat} className="p-3 text-right">
+                            <div>RM {row[cat].toFixed(2)}</div>
+                            {hasCatPlatforms && (
+                              <div className="mt-1 space-y-0.5">
+                                {PLATFORM_OPTIONS.filter(p => catPlatforms[p]).map(p => (
+                                  <div key={p} className="text-[10px] text-indigo-600">
+                                    {p}: RM {catPlatforms[p].toFixed(2)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
                       <td className="p-3 text-right font-bold">
                         RM {row.total.toFixed(2)}
                       </td>
-                      {PLATFORM_OPTIONS.map((p) => (
-                        <td key={p} className="p-3 text-right text-indigo-600">
-                          {row.platforms[p] ? `RM ${row.platforms[p].toFixed(2)}` : '-'}
-                        </td>
-                      ))}
                     </tr>
                   ))}
                 </tbody>
