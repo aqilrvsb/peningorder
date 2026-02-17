@@ -33,6 +33,7 @@ interface Expense {
   description: string;
   total: number;
   date: string;
+  platform: string | null;
 }
 
 interface Profile {
@@ -111,7 +112,7 @@ const AccountReportProfit: React.FC = () => {
             .order('created_at', { ascending: false }),
           (supabase as any)
             .from('expenses')
-            .select('id, type, description, total, date')
+            .select('id, type, role, marketer_id_staff, description, total, date, platform')
             .order('date', { ascending: false }),
           (supabase as any)
             .from('profiles')
@@ -249,6 +250,52 @@ const AccountReportProfit: React.FC = () => {
 
     return { var: varTotal, fix: fixTotal, total: varTotal + fixTotal };
   }, [filteredVarExpenses, calculateFixExpenseTotal]);
+
+  // Calculate company expenses by platform (from expenses table platform field)
+  const expensesByPlatform = useMemo(() => {
+    const platformMap: Record<string, number> = { facebook: 0, tiktok: 0, shopee: 0, database: 0, google: 0 };
+
+    // Helper to normalize platform string to key
+    const normalizePlatform = (p: string | null): string | null => {
+      if (!p) return null;
+      const lower = p.toLowerCase();
+      if (lower === 'facebook') return 'facebook';
+      if (lower === 'tiktok') return 'tiktok';
+      if (lower === 'shopee') return 'shopee';
+      if (lower === 'database') return 'database';
+      if (lower === 'google') return 'google';
+      return null;
+    };
+
+    // VAR company expenses with platform
+    filteredVarExpenses
+      .filter(e => !e.role || e.role === 'company')
+      .forEach(e => {
+        const key = normalizePlatform(e.platform);
+        if (key) platformMap[key] += Number(e.total) || 0;
+      });
+
+    // FIX company expenses with platform - multiply by months in range
+    const fixExpenses = expenses.filter(e => e.type === 'FIX' && (!e.role || e.role === 'company'));
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    fixExpenses.forEach(expense => {
+      const key = normalizePlatform(expense.platform);
+      if (!key) return;
+
+      const expenseDate = new Date(expense.date);
+      if (expenseDate <= end) {
+        const countStart = expenseDate > start ? expenseDate : start;
+        const monthsDiff = (end.getFullYear() - countStart.getFullYear()) * 12 + (end.getMonth() - countStart.getMonth()) + 1;
+        if (monthsDiff > 0) {
+          platformMap[key] += (Number(expense.total) || 0) * monthsDiff;
+        }
+      }
+    });
+
+    return platformMap;
+  }, [filteredVarExpenses, expenses, startDate, endDate]);
 
   // Calculate personal expenses by marketer
   const personalExpensesByMarketer = useMemo(() => {
@@ -461,7 +508,7 @@ const AccountReportProfit: React.FC = () => {
     return { ...base, roas, profit };
   }, [filteredStats, totalExpenses]);
 
-  // Platform totals with profit
+  // Platform totals with profit (including expenses per platform)
   const platformTotals = useMemo(() => {
     return {
       facebook: {
@@ -469,43 +516,48 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendFB,
         costProduct: totals.costProductFB,
         postage: totals.postageFB,
+        expenses: expensesByPlatform.facebook,
         roas: totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0,
-        profit: totals.salesFB - totals.spendFB - totals.costProductFB - totals.postageFB,
+        profit: totals.salesFB - totals.spendFB - totals.costProductFB - totals.postageFB - expensesByPlatform.facebook,
       },
       database: {
         sales: totals.salesDatabase,
         spend: totals.spendDatabase,
         costProduct: totals.costProductDatabase,
         postage: totals.postageDatabase,
+        expenses: expensesByPlatform.database,
         roas: totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0,
-        profit: totals.salesDatabase - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase,
+        profit: totals.salesDatabase - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase - expensesByPlatform.database,
       },
       shopee: {
         sales: totals.salesShopee,
         spend: totals.spendShopee,
         costProduct: totals.costProductShopee,
         postage: totals.postageShopee,
+        expenses: expensesByPlatform.shopee,
         roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
-        profit: totals.salesShopee - totals.spendShopee - totals.costProductShopee - totals.postageShopee,
+        profit: totals.salesShopee - totals.spendShopee - totals.costProductShopee - totals.postageShopee - expensesByPlatform.shopee,
       },
       tiktok: {
         sales: totals.salesTiktok,
         spend: totals.spendTiktok,
         costProduct: totals.costProductTiktok,
         postage: totals.postageTiktok,
+        expenses: expensesByPlatform.tiktok,
         roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
-        profit: totals.salesTiktok - totals.spendTiktok - totals.costProductTiktok - totals.postageTiktok,
+        profit: totals.salesTiktok - totals.spendTiktok - totals.costProductTiktok - totals.postageTiktok - expensesByPlatform.tiktok,
       },
       google: {
         sales: totals.salesGoogle,
         spend: totals.spendGoogle,
         costProduct: totals.costProductGoogle,
         postage: totals.postageGoogle,
+        expenses: expensesByPlatform.google,
         roas: totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0,
-        profit: totals.salesGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle,
+        profit: totals.salesGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle - expensesByPlatform.google,
       },
     };
-  }, [totals]);
+  }, [totals, expensesByPlatform]);
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-MY', {
@@ -660,6 +712,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.facebook.postage)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Expenses:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.facebook.expenses)}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
               </div>
@@ -694,6 +750,10 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Postage:</span>
                 <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Expenses:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.tiktok.expenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
@@ -732,6 +792,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.shopee.postage)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Expenses:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.shopee.expenses)}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.shopee.roas.toFixed(2)}x</span>
               </div>
@@ -768,6 +832,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.database.postage)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Expenses:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.database.expenses)}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.database.roas.toFixed(2)}x</span>
               </div>
@@ -802,6 +870,10 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Postage:</span>
                 <span className="font-semibold">RM {formatNumber(platformTotals.google.postage)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Expenses:</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.google.expenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
