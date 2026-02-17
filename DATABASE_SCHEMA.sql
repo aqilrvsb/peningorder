@@ -23,6 +23,21 @@ CREATE TABLE public.attendance_staff (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT attendance_staff_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.cash_flows (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  flow_type text NOT NULL,
+  bank text NOT NULL,
+  jenis text NOT NULL,
+  kategori text,
+  platform text,
+  description text NOT NULL,
+  date date NOT NULL DEFAULT CURRENT_DATE,
+  amount numeric NOT NULL DEFAULT 0,
+  attachment_url text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT cash_flows_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.claims (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   employee_name text NOT NULL,
@@ -176,6 +191,20 @@ CREATE TABLE public.ninjavan_tokens (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT ninjavan_tokens_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.payment_vouchers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  voucher_number text NOT NULL,
+  date text NOT NULL,
+  pay_to text NOT NULL,
+  pay_by text NOT NULL,
+  payment_method text NOT NULL,
+  amount numeric NOT NULL DEFAULT 0,
+  purpose_of_payment text,
+  note text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_vouchers_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.pnl_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   role text NOT NULL DEFAULT 'marketer'::text CHECK (role = ANY (ARRAY['marketer'::text, 'admin'::text])),
@@ -269,6 +298,41 @@ CREATE TABLE public.spends (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   jenis_closing text,
   CONSTRAINT spends_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.staff_database (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  staff_id uuid NOT NULL,
+  staff_source text NOT NULL CHECK (staff_source = ANY (ARRAY['attendance_staff'::text, 'profiles'::text])),
+  nama text,
+  jantina text,
+  umur text,
+  no_kad_pengenalan text,
+  warganegara text,
+  bangsa text,
+  agama text,
+  status_perkahwinan text,
+  alamat_tetap text,
+  alamat_surat text,
+  no_telefon text,
+  jawatan text,
+  tarikh_mula_berkhidmat text,
+  nama_bank text,
+  nama_pemilik_bank text,
+  no_akaun text,
+  jenis_akaun text,
+  waris1_nama text,
+  waris1_hubungan text,
+  waris1_telefon text,
+  waris1_alamat text,
+  waris2_nama text,
+  waris2_hubungan text,
+  waris2_telefon text,
+  waris2_alamat text,
+  akademik jsonb DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  employment_type text,
+  CONSTRAINT staff_database_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.stock_adjustment_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
