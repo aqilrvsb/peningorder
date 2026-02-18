@@ -106,25 +106,28 @@ const Top10: React.FC = () => {
           // Fetch orders filtered by date range
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+            .select('*')
             .not('marketer_id_staff', 'is', null)
             .gte('date_order', startDate)
             .lte('date_order', endDate)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           // Fetch spends filtered by date range
           (supabase as any)
             .from('spends')
             .select('id, marketer_id_staff, total_spend, tarikh_spend')
             .not('marketer_id_staff', 'is', null)
             .gte('tarikh_spend', startDate)
-            .lte('tarikh_spend', endDate),
+            .lte('tarikh_spend', endDate)
+            .range(0, 49999),
           // Fetch prospects filtered by date range
           (supabase as any)
             .from('prospects')
             .select('id, marketer_id_staff, tarikh_phone_number')
             .not('marketer_id_staff', 'is', null)
             .gte('tarikh_phone_number', startDate)
-            .lte('tarikh_phone_number', endDate),
+            .lte('tarikh_phone_number', endDate)
+            .range(0, 49999),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;
@@ -184,7 +187,7 @@ const Top10: React.FC = () => {
       }
 
       // Count sales amount (using total_sale from database)
-      const saleAmount = Number(order.total_sale) || 0;
+      const saleAmount = parseFloat(order.total_sale) || 0;
       stats[idStaff].totalSales += saleAmount;
 
       // Count returns

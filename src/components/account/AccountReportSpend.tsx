@@ -124,16 +124,18 @@ const AccountReportSpend: React.FC = () => {
         const [ordersRes, spendsRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing, seo')
+            .select('*')
             .gte('date_order', startDate)
             .lte('date_order', endDate)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('spends')
             .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
             .gte('tarikh_spend', startDate)
             .lte('tarikh_spend', endDate)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;

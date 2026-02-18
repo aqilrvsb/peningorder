@@ -137,16 +137,18 @@ const AccountReportProfit: React.FC = () => {
         const [ordersRes, spendsRes] = await Promise.all([
           (supabase as any)
             .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, delivery_status, cost_baseproduct, cost_postage')
+            .select('*')
             .gte('date_order', startDate)
             .lte('date_order', endDate)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('spends')
             .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
             .gte('tarikh_spend', startDate)
             .lte('tarikh_spend', endDate)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;
@@ -335,8 +337,8 @@ const AccountReportProfit: React.FC = () => {
       if (!idStaff) return;
 
       const name = profiles[idStaff] || idStaff;
-      const sale = Number(order.total_sale) || 0;
-      const costProduct = Number(order.cost_baseproduct) || 0;
+      const sale = parseFloat(order.total_sale) || 0;
+      const costProduct = parseFloat(order.cost_baseproduct) || 0;
 
       initStats(idStaff, name);
 
@@ -372,7 +374,7 @@ const AccountReportProfit: React.FC = () => {
       if (!idStaff) return;
 
       const name = profiles[idStaff] || idStaff;
-      const postage = Number(order.cost_postage) || 0;
+      const postage = parseFloat(order.cost_postage) || 0;
 
       initStats(idStaff, name);
 
