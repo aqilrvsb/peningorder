@@ -164,8 +164,8 @@ const Orders: React.FC = () => {
     const totalCustomer = filteredOrders.length;
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalUnit = filteredOrders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
-    const totalCash = filteredOrders.filter(o => o.caraBayaran === 'CASH').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const totalCOD = filteredOrders.filter(o => o.caraBayaran === 'COD').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalCash = filteredOrders.filter(o => o.caraBayaran === 'CASH' || o.kurier?.includes('CASH')).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalCOD = filteredOrders.filter(o => o.caraBayaran === 'COD' || o.kurier?.includes('COD')).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
     const totalShipped = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
 
