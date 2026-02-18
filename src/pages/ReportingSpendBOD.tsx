@@ -69,83 +69,65 @@ const ReportingSpendBOD: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch all data
+  // Fetch profiles once on mount
   useEffect(() => {
-    const fetchAllData = async () => {
-      setIsLoading(true);
+    const fetchProfiles = async () => {
       try {
-        const [ordersRes, spendsRes, profilesRes] = await Promise.all([
-          (supabase as any)
-            .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('profiles')
-            .select('idstaff, full_name'),
-        ]);
-
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
-        if (profilesRes.error) throw profilesRes.error;
-
-        setOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
-
-        // Create a mapping of idstaff to full_name
+        const { data, error } = await (supabase as any)
+          .from('profiles')
+          .select('idstaff, full_name');
+        if (error) throw error;
         const profileMap: Record<string, string> = {};
-        (profilesRes.data || []).forEach((p: Profile) => {
+        (data || []).forEach((p: Profile) => {
           if (p.idstaff) {
             profileMap[p.idstaff] = p.full_name || p.idstaff;
           }
         });
         setProfiles(profileMap);
       } catch (error) {
+        console.error('Error fetching profiles:', error);
+      }
+    };
+    fetchProfiles();
+  }, []);
+
+  // Fetch orders and spends filtered by date range (re-fetch when dates change)
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [ordersRes, spendsRes] = await Promise.all([
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing')
+            .gte('date_order', startDate)
+            .lte('date_order', endDate)
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
+            .gte('tarikh_spend', startDate)
+            .lte('tarikh_spend', endDate)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+
+        setOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
+      } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
     };
+    fetchData();
+  }, [startDate, endDate]);
 
-    fetchAllData();
-  }, []);
-
-  // Filter orders by date range
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (!order.date_order) return false;
-      try {
-        const orderDate = parseISO(order.date_order);
-        return isWithinInterval(orderDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [orders, startDate, endDate]);
-
-  // Filter spends by date range
-  const filteredSpends = useMemo(() => {
-    return spends.filter(spend => {
-      if (!spend.tarikh_spend) return false;
-      try {
-        const spendDate = parseISO(spend.tarikh_spend);
-        return isWithinInterval(spendDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [spends, startDate, endDate]);
+  // Data already filtered by date at DB level
+  const filteredOrders = orders;
+  const filteredSpends = spends;
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {

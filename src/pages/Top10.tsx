@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trophy, Medal, Award, Calendar, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { parseISO, isWithinInterval } from 'date-fns';
+// date-fns no longer needed - date filtering done at DB level
 import { getMalaysiaDate } from '@/lib/utils';
 
 interface MarketerStats {
@@ -75,56 +75,65 @@ const Top10: React.FC = () => {
   const [endDate, setEndDate] = useState(today);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch ALL data from Supabase
+  // Fetch profiles once on mount (doesn't depend on date range)
   useEffect(() => {
-    const fetchAllData = async () => {
-      setIsLoading(true);
+    const fetchProfiles = async () => {
       try {
-        // Fetch orders (using total_sale instead of total_price, no marketer_name)
-        const { data: ordersData, error: ordersError } = await (supabase as any)
-          .from('customer_purchases')
-          .select('id, marketer_id_staff, date_order, total_sale, delivery_status, jenis_customer, jenis_platform, jenis_closing')
-          .not('marketer_id_staff', 'is', null)
-          .order('created_at', { ascending: false })
-          .range(0, 49999);
-
-        if (ordersError) throw ordersError;
-        setOrders(ordersData || []);
-
-        // Fetch spends
-        const { data: spendsData, error: spendsError } = await (supabase as any)
-          .from('spends')
-          .select('id, marketer_id_staff, total_spend, tarikh_spend')
-          .not('marketer_id_staff', 'is', null)
-          .range(0, 49999);
-
-        if (spendsError) throw spendsError;
-        setSpends(spendsData || []);
-
-        // Fetch prospects (leads)
-        const { data: prospectsData, error: prospectsError } = await (supabase as any)
-          .from('prospects')
-          .select('id, marketer_id_staff, tarikh_phone_number')
-          .not('marketer_id_staff', 'is', null)
-          .range(0, 49999);
-
-        if (prospectsError) throw prospectsError;
-        setProspects(prospectsData || []);
-
-        // Fetch profiles to get marketer names (username -> full_name mapping)
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('username, full_name');
 
         if (profilesError) throw profilesError;
 
-        // Create a mapping of username to full_name
         const profileMap: Record<string, string> = {};
         (profilesData || []).forEach((p: Profile) => {
           profileMap[p.username] = p.full_name || p.username;
         });
         setProfiles(profileMap);
+      } catch (error) {
+        console.error('Error fetching profiles:', error);
+      }
+    };
+    fetchProfiles();
+  }, []);
 
+  // Fetch data filtered by date range from Supabase (re-fetch when dates change)
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [ordersRes, spendsRes, prospectsRes] = await Promise.all([
+          // Fetch orders filtered by date range
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_sale, delivery_status, jenis_customer, jenis_platform, jenis_closing')
+            .not('marketer_id_staff', 'is', null)
+            .gte('date_order', startDate)
+            .lte('date_order', endDate)
+            .order('created_at', { ascending: false }),
+          // Fetch spends filtered by date range
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, total_spend, tarikh_spend')
+            .not('marketer_id_staff', 'is', null)
+            .gte('tarikh_spend', startDate)
+            .lte('tarikh_spend', endDate),
+          // Fetch prospects filtered by date range
+          (supabase as any)
+            .from('prospects')
+            .select('id, marketer_id_staff, tarikh_phone_number')
+            .not('marketer_id_staff', 'is', null)
+            .gte('tarikh_phone_number', startDate)
+            .lte('tarikh_phone_number', endDate),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+        if (prospectsRes.error) throw prospectsRes.error;
+
+        setOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
+        setProspects(prospectsRes.data || []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -132,57 +141,15 @@ const Top10: React.FC = () => {
       }
     };
 
-    fetchAllData();
-  }, []);
+    fetchData();
+  }, [startDate, endDate]);
 
-  // Calculate marketer statistics
+  // Calculate marketer statistics (data already filtered by date at DB level)
   const marketerStats = useMemo(() => {
     const stats: Record<string, MarketerStats> = {};
 
-    // Filter orders by date range
-    const filteredOrders = orders.filter(order => {
-      if (!order.date_order) return false;
-      try {
-        const orderDate = parseISO(order.date_order);
-        return isWithinInterval(orderDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-
-    // Filter spends by date range
-    const filteredSpends = spends.filter(spend => {
-      if (!spend.tarikh_spend) return false;
-      try {
-        const spendDate = parseISO(spend.tarikh_spend);
-        return isWithinInterval(spendDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-
-    // Filter prospects by date range
-    const filteredProspects = prospects.filter(prospect => {
-      if (!prospect.tarikh_phone_number) return false;
-      try {
-        const prospectDate = parseISO(prospect.tarikh_phone_number);
-        return isWithinInterval(prospectDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-
     // Aggregate stats by marketer from orders
-    filteredOrders.forEach(order => {
+    orders.forEach(order => {
       const idStaff = order.marketer_id_staff;
       // Get name from profiles mapping, fallback to idStaff if not found
       const name = profiles[idStaff] || idStaff;
@@ -265,7 +232,7 @@ const Top10: React.FC = () => {
     });
 
     // Add spend data
-    filteredSpends.forEach(spend => {
+    spends.forEach(spend => {
       const idStaff = spend.marketer_id_staff;
       if (stats[idStaff]) {
         stats[idStaff].spend += Number(spend.total_spend) || 0;
@@ -273,7 +240,7 @@ const Top10: React.FC = () => {
     });
 
     // Add lead counts
-    filteredProspects.forEach(prospect => {
+    prospects.forEach(prospect => {
       const idStaff = prospect.marketer_id_staff;
       if (stats[idStaff]) {
         stats[idStaff].totalLead += 1;
@@ -290,7 +257,7 @@ const Top10: React.FC = () => {
       }));
 
     return sortedStats;
-  }, [orders, spends, prospects, profiles, startDate, endDate]);
+  }, [orders, spends, prospects, profiles]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {

@@ -83,22 +83,11 @@ const AccountReportSpend: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch all data
+  // Fetch profiles and PNL config once on mount
   useEffect(() => {
-    const fetchAllData = async () => {
-      setIsLoading(true);
+    const fetchStaticData = async () => {
       try {
-        const [ordersRes, spendsRes, profilesRes, pnlConfigRes] = await Promise.all([
-          (supabase as any)
-            .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing, seo')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
+        const [profilesRes, pnlConfigRes] = await Promise.all([
           (supabase as any)
             .from('profiles')
             .select('idstaff, full_name'),
@@ -109,15 +98,10 @@ const AccountReportSpend: React.FC = () => {
             .order('min_sales', { ascending: true }),
         ]);
 
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
         if (profilesRes.error) throw profilesRes.error;
 
-        setOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
         setPnlConfigs(pnlConfigRes.data || []);
 
-        // Create a mapping of idstaff to full_name
         const profileMap: Record<string, string> = {};
         (profilesRes.data || []).forEach((p: Profile) => {
           if (p.idstaff) {
@@ -126,14 +110,45 @@ const AccountReportSpend: React.FC = () => {
         });
         setProfiles(profileMap);
       } catch (error) {
+        console.error('Error fetching static data:', error);
+      }
+    };
+    fetchStaticData();
+  }, []);
+
+  // Fetch orders and spends filtered by date range (re-fetch when dates change)
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [ordersRes, spendsRes] = await Promise.all([
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, jenis_closing, seo')
+            .gte('date_order', startDate)
+            .lte('date_order', endDate)
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
+            .gte('tarikh_spend', startDate)
+            .lte('tarikh_spend', endDate)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+
+        setOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
+      } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchAllData();
-  }, []);
+    fetchData();
+  }, [startDate, endDate]);
 
   // Calculate commission and bonus based on PNL config
   const calculateCommissionBonus = (collection: number, roas: number): { commission: number; bonus: number; commissionPercent: number } => {
@@ -157,37 +172,9 @@ const AccountReportSpend: React.FC = () => {
     return { commission: 0, bonus: 0, commissionPercent: 0 };
   };
 
-  // Filter orders by date range
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (!order.date_order) return false;
-      try {
-        const orderDate = parseISO(order.date_order);
-        return isWithinInterval(orderDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [orders, startDate, endDate]);
-
-  // Filter spends by date range
-  const filteredSpends = useMemo(() => {
-    return spends.filter(spend => {
-      if (!spend.tarikh_spend) return false;
-      try {
-        const spendDate = parseISO(spend.tarikh_spend);
-        return isWithinInterval(spendDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [spends, startDate, endDate]);
+  // Data already filtered by date at DB level
+  const filteredOrders = orders;
+  const filteredSpends = spends;
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {

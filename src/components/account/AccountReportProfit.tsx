@@ -96,23 +96,11 @@ const AccountReportProfit: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch all data
+  // Fetch profiles and expenses once on mount (small datasets)
   useEffect(() => {
-    const fetchAllData = async () => {
-      setIsLoading(true);
+    const fetchStaticData = async () => {
       try {
-        const [ordersRes, spendsRes, expensesRes, profilesRes] = await Promise.all([
-          // Fetch ALL orders (including Return) - we need Return orders for postage calculation
-          (supabase as any)
-            .from('customer_purchases')
-            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, delivery_status, cost_baseproduct, cost_postage')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
+        const [expensesRes, profilesRes] = await Promise.all([
           (supabase as any)
             .from('expenses')
             .select('id, type, role, marketer_id_staff, description, total, date, platform')
@@ -122,16 +110,11 @@ const AccountReportProfit: React.FC = () => {
             .select('idstaff, full_name'),
         ]);
 
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
         if (expensesRes.error) throw expensesRes.error;
         if (profilesRes.error) throw profilesRes.error;
 
-        setAllOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
         setExpenses(expensesRes.data || []);
 
-        // Create a mapping of idstaff to full_name
         const profileMap: Record<string, string> = {};
         (profilesRes.data || []).forEach((p: Profile) => {
           if (p.idstaff) {
@@ -140,49 +123,51 @@ const AccountReportProfit: React.FC = () => {
         });
         setProfiles(profileMap);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching static data:', error);
+      }
+    };
+    fetchStaticData();
+  }, []);
+
+  // Fetch orders and spends filtered by date range (re-fetch when dates change)
+  useEffect(() => {
+    const fetchDateData = async () => {
+      setIsLoading(true);
+      try {
+        const [ordersRes, spendsRes] = await Promise.all([
+          (supabase as any)
+            .from('customer_purchases')
+            .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, delivery_status, cost_baseproduct, cost_postage')
+            .gte('date_order', startDate)
+            .lte('date_order', endDate)
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('spends')
+            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+            .gte('tarikh_spend', startDate)
+            .lte('tarikh_spend', endDate)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+        if (spendsRes.error) throw spendsRes.error;
+
+        setAllOrders(ordersRes.data || []);
+        setSpends(spendsRes.data || []);
+      } catch (error) {
+        console.error('Error fetching date data:', error);
       } finally {
         setIsLoading(false);
       }
     };
+    fetchDateData();
+  }, [startDate, endDate]);
 
-    fetchAllData();
-  }, []);
+  // Orders already filtered by date at DB level
+  const filteredOrders = allOrders;
 
-  // Filter ALL orders by date range (for postage - includes Return)
-  const allFilteredOrders = useMemo(() => {
-    return allOrders.filter(order => {
-      if (!order.date_order) return false;
-      try {
-        const orderDate = parseISO(order.date_order);
-        return isWithinInterval(orderDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [allOrders, startDate, endDate]);
-
-  // All orders including Return (for sales, cost product, postage)
-  const filteredOrders = allFilteredOrders;
-
-  // Filter spends by date range (tarikh_spend)
-  const filteredSpends = useMemo(() => {
-    return spends.filter(spend => {
-      if (!spend.tarikh_spend) return false;
-      try {
-        const spendDate = parseISO(spend.tarikh_spend);
-        return isWithinInterval(spendDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [spends, startDate, endDate]);
+  // Spends already filtered by date at DB level
+  const filteredSpends = spends;
 
   // Filter VAR expenses by date range (one-time expenses)
   const filteredVarExpenses = useMemo(() => {
