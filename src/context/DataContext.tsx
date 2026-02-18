@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { fetchAllRows } from '@/lib/utils';
 
 // Roles that can see all data (not filtered by their own idstaff)
 const ADMIN_ROLES = ['admin', 'bod', 'logistic', 'account'];
@@ -117,20 +118,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!isAuthenticated) { setOrders([]); setProspects([]); setIsLoading(false); return; }
     setIsLoading(true);
     try {
-      // Build queries - filter by idstaff if user is a marketer or admin
-      // Join with logistic_bundles to get bundle name
-      let ordersQuery = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false }).range(0, 49999);
-      let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false }).range(0, 49999);
+      // Build query functions for pagination - filter by idstaff if user is a marketer or admin
+      const buildOrdersQuery = () => {
+        let q = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false });
+        if (shouldFilterByIdStaff && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
+        return q;
+      };
+      const buildProspectsQuery = () => {
+        let q = queryTable('prospects').select('*').order('created_at', { ascending: false });
+        if (shouldFilterByIdStaff && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
+        return q;
+      };
 
-      // Marketers and admins only see their own data
-      if (shouldFilterByIdStaff && userIdStaff) {
-        ordersQuery = ordersQuery.eq('marketer_id_staff', userIdStaff);
-        prospectsQuery = prospectsQuery.eq('marketer_id_staff', userIdStaff);
-      }
-
-      const [ordersRes, prospectsRes] = await Promise.all([ordersQuery, prospectsQuery]);
-      setOrders((ordersRes.data || []).map(mapOrder));
-      setProspects((prospectsRes.data || []).map(mapProspect));
+      const [ordersData, prospectsData] = await Promise.all([
+        fetchAllRows(buildOrdersQuery),
+        fetchAllRows(buildProspectsQuery),
+      ]);
+      setOrders(ordersData.map(mapOrder));
+      setProspects(prospectsData.map(mapProspect));
     } catch (e) { console.error('Error:', e); }
     setIsLoading(false);
   };

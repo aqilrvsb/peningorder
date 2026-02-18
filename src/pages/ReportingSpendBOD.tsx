@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar, Search, Loader2, BarChart3, DollarSign, Users, TrendingUp, Globe, Phone, MessageSquare, FileText, Video, Play, ShoppingBag, Facebook, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 
 interface Order {
   id: string;
@@ -91,33 +91,32 @@ const ReportingSpendBOD: React.FC = () => {
     fetchProfiles();
   }, []);
 
-  // Fetch orders and spends filtered by date range (re-fetch when dates change)
+  // Fetch orders and spends filtered by date range using pagination to bypass server row limits
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [ordersRes, spendsRes] = await Promise.all([
-          (supabase as any)
-            .from('customer_purchases')
-            .select('*')
-            .gte('date_order', startDate)
-            .lte('date_order', endDate)
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
-            .gte('tarikh_spend', startDate)
-            .lte('tarikh_spend', endDate)
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
+        const [ordersData, spendsData] = await Promise.all([
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('customer_purchases')
+              .select('*')
+              .gte('date_order', startDate)
+              .lte('date_order', endDate)
+              .order('created_at', { ascending: false })
+          ),
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('spends')
+              .select('id, marketer_id_staff, jenis_platform, jenis_closing, total_spend, tarikh_spend')
+              .gte('tarikh_spend', startDate)
+              .lte('tarikh_spend', endDate)
+              .order('created_at', { ascending: false })
+          ),
         ]);
 
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
-
-        setOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
+        setOrders(ordersData);
+        setSpends(spendsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

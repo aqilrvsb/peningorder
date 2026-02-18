@@ -3,8 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trophy, Medal, Award, Calendar, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-// date-fns no longer needed - date filtering done at DB level
-import { getMalaysiaDate } from '@/lib/utils';
+import { getMalaysiaDate, getMalaysiaStartOfMonth, fetchAllRows } from '@/lib/utils';
 
 interface MarketerStats {
   rank: number;
@@ -69,10 +68,9 @@ const Top10: React.FC = () => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Date filter state - default to today (Malaysia timezone)
-  const today = getMalaysiaDate();
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
+  // Date filter state - default to current month (Malaysia timezone)
+  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(getMalaysiaDate());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch profiles once on mount (doesn't depend on date range)
@@ -97,46 +95,42 @@ const Top10: React.FC = () => {
     fetchProfiles();
   }, []);
 
-  // Fetch data filtered by date range from Supabase (re-fetch when dates change)
+  // Fetch data filtered by date range using pagination to bypass server row limits
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [ordersRes, spendsRes, prospectsRes] = await Promise.all([
-          // Fetch orders filtered by date range
-          (supabase as any)
-            .from('customer_purchases')
-            .select('*')
-            .not('marketer_id_staff', 'is', null)
-            .gte('date_order', startDate)
-            .lte('date_order', endDate)
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          // Fetch spends filtered by date range
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, total_spend, tarikh_spend')
-            .not('marketer_id_staff', 'is', null)
-            .gte('tarikh_spend', startDate)
-            .lte('tarikh_spend', endDate)
-            .range(0, 49999),
-          // Fetch prospects filtered by date range
-          (supabase as any)
-            .from('prospects')
-            .select('id, marketer_id_staff, tarikh_phone_number')
-            .not('marketer_id_staff', 'is', null)
-            .gte('tarikh_phone_number', startDate)
-            .lte('tarikh_phone_number', endDate)
-            .range(0, 49999),
+        const [ordersData, spendsData, prospectsData] = await Promise.all([
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('customer_purchases')
+              .select('*')
+              .not('marketer_id_staff', 'is', null)
+              .gte('date_order', startDate)
+              .lte('date_order', endDate)
+              .order('created_at', { ascending: false })
+          ),
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('spends')
+              .select('id, marketer_id_staff, total_spend, tarikh_spend')
+              .not('marketer_id_staff', 'is', null)
+              .gte('tarikh_spend', startDate)
+              .lte('tarikh_spend', endDate)
+          ),
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('prospects')
+              .select('id, marketer_id_staff, tarikh_phone_number')
+              .not('marketer_id_staff', 'is', null)
+              .gte('tarikh_phone_number', startDate)
+              .lte('tarikh_phone_number', endDate)
+          ),
         ]);
 
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
-        if (prospectsRes.error) throw prospectsRes.error;
-
-        setOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
-        setProspects(prospectsRes.data || []);
+        setOrders(ordersData);
+        setSpends(spendsData);
+        setProspects(prospectsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar, Search, Loader2, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 
 interface Order {
   id: string;
@@ -129,33 +129,32 @@ const AccountReportProfit: React.FC = () => {
     fetchStaticData();
   }, []);
 
-  // Fetch orders and spends filtered by date range (re-fetch when dates change)
+  // Fetch orders and spends filtered by date range using pagination to bypass server row limits
   useEffect(() => {
     const fetchDateData = async () => {
       setIsLoading(true);
       try {
-        const [ordersRes, spendsRes] = await Promise.all([
-          (supabase as any)
-            .from('customer_purchases')
-            .select('*')
-            .gte('date_order', startDate)
-            .lte('date_order', endDate)
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
-          (supabase as any)
-            .from('spends')
-            .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
-            .gte('tarikh_spend', startDate)
-            .lte('tarikh_spend', endDate)
-            .order('created_at', { ascending: false })
-            .range(0, 49999),
+        const [ordersData, spendsData] = await Promise.all([
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('customer_purchases')
+              .select('*')
+              .gte('date_order', startDate)
+              .lte('date_order', endDate)
+              .order('created_at', { ascending: false })
+          ),
+          fetchAllRows(() =>
+            (supabase as any)
+              .from('spends')
+              .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+              .gte('tarikh_spend', startDate)
+              .lte('tarikh_spend', endDate)
+              .order('created_at', { ascending: false })
+          ),
         ]);
 
-        if (ordersRes.error) throw ordersRes.error;
-        if (spendsRes.error) throw spendsRes.error;
-
-        setAllOrders(ordersRes.data || []);
-        setSpends(spendsRes.data || []);
+        setAllOrders(ordersData);
+        setSpends(spendsData);
       } catch (error) {
         console.error('Error fetching date data:', error);
       } finally {
@@ -369,7 +368,7 @@ const AccountReportProfit: React.FC = () => {
     });
 
     // Process ALL orders including Return (for postage only)
-    allFilteredOrders.forEach(order => {
+    filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff;
       if (!idStaff) return;
 
@@ -440,7 +439,7 @@ const AccountReportProfit: React.FC = () => {
 
     // Convert to array and sort by total sales (highest first)
     return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
-  }, [filteredOrders, allFilteredOrders, filteredSpends, profiles, personalExpensesByMarketer]);
+  }, [filteredOrders, filteredSpends, profiles, personalExpensesByMarketer]);
 
   // Filter by search term
   const filteredStats = useMemo(() => {

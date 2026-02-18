@@ -36,7 +36,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaDate } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaDate, fetchAllRows } from '@/lib/utils';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -134,13 +134,13 @@ const Dashboard: React.FC = () => {
     const fetchAllOrders = async () => {
       setAllOrdersLoading(true);
       try {
-        const { data, error } = await (supabase as any)
-          .from('customer_purchases')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(0, 49999);
-        if (error) throw error;
-        setAllOrders(data || []);
+        const data = await fetchAllRows(() =>
+          (supabase as any)
+            .from('customer_purchases')
+            .select('*')
+            .order('created_at', { ascending: false })
+        );
+        setAllOrders(data);
       } catch (error) {
         console.error('Error fetching all orders:', error);
       } finally {
@@ -158,16 +158,13 @@ const Dashboard: React.FC = () => {
     const fetchBODData = async () => {
       setBodDataLoading(true);
       try {
-        const [spendsRes, prospectsRes] = await Promise.all([
-          (supabase as any).from('spends').select('*').range(0, 49999),
-          (supabase as any).from('prospects').select('*').range(0, 49999),
+        const [spendsData, prospectsData] = await Promise.all([
+          fetchAllRows(() => (supabase as any).from('spends').select('*')),
+          fetchAllRows(() => (supabase as any).from('prospects').select('*')),
         ]);
 
-        if (spendsRes.error) throw spendsRes.error;
-        if (prospectsRes.error) throw prospectsRes.error;
-
-        setAllSpends(spendsRes.data || []);
-        setAllProspects(prospectsRes.data || []);
+        setAllSpends(spendsData);
+        setAllProspects(prospectsData);
       } catch (error) {
         console.error('Error fetching BOD data:', error);
       } finally {

@@ -6,6 +6,35 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Fetch ALL rows from a Supabase query using pagination.
+ * Supabase/PostgREST has a server-side max_rows limit (default 1000).
+ * This function fetches in batches to guarantee all rows are returned.
+ *
+ * @param buildQuery - A function that returns a fresh query builder (called per page)
+ * @returns All rows concatenated
+ */
+export async function fetchAllRows<T = any>(
+  buildQuery: () => any
+): Promise<T[]> {
+  const PAGE_SIZE = 1000;
+  let allData: T[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await buildQuery().range(from, to);
+    if (error) throw error;
+    const rows = (data || []) as T[];
+    allData = allData.concat(rows);
+    if (rows.length < PAGE_SIZE) break;
+    page++;
+  }
+
+  return allData;
+}
+
+/**
  * Get current date in Malaysia timezone (UTC+8)
  * Returns date string in YYYY-MM-DD format
  */
