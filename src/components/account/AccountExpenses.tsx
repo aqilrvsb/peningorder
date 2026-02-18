@@ -139,8 +139,7 @@ const AccountExpenses = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Exclude Return orders (same logic as Report Profit)
-      return (data || []).filter((o: any) => o.delivery_status !== "Return") as Array<{ cost_baseproduct: number; date_order: string; delivery_status: string }>;
+      return (data || []) as Array<{ cost_baseproduct: number; date_order: string; delivery_status: string }>;
     },
   });
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Search, Loader2, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database } from 'lucide-react';
+import { Calendar, Search, Loader2, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
@@ -45,6 +45,7 @@ interface MarketerProfitStats {
   idStaff: string;
   name: string;
   totalSales: number;
+  totalReturn: number;
   totalSpend: number;
   totalCostProduct: number;
   totalPostage: number;
@@ -162,10 +163,8 @@ const AccountReportProfit: React.FC = () => {
     });
   }, [allOrders, startDate, endDate]);
 
-  // Filter orders excluding Return (for sales, cost product)
-  const filteredOrders = useMemo(() => {
-    return allFilteredOrders.filter(order => order.delivery_status !== 'Return');
-  }, [allFilteredOrders]);
+  // All orders including Return (for sales, cost product, postage)
+  const filteredOrders = allFilteredOrders;
 
   // Filter spends by date range (tarikh_spend)
   const filteredSpends = useMemo(() => {
@@ -327,6 +326,7 @@ const AccountReportProfit: React.FC = () => {
           idStaff,
           name,
           totalSales: 0,
+          totalReturn: 0,
           totalSpend: 0,
           totalCostProduct: 0,
           totalPostage: 0,
@@ -342,7 +342,7 @@ const AccountReportProfit: React.FC = () => {
       }
     };
 
-    // Process orders excluding Return (for sales, cost product)
+    // Process orders including Return (for sales, cost product)
     filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff;
       if (!idStaff) return;
@@ -354,6 +354,9 @@ const AccountReportProfit: React.FC = () => {
       initStats(idStaff, name);
 
       stats[idStaff].totalSales += sale;
+      if (order.delivery_status === 'Return') {
+        stats[idStaff].totalReturn += sale;
+      }
       stats[idStaff].totalCostProduct += costProduct;
 
       // Count by platform (sales and cost only)
@@ -465,6 +468,7 @@ const AccountReportProfit: React.FC = () => {
     const base = filteredStats.reduce(
       (acc, stat) => ({
         totalSales: acc.totalSales + stat.totalSales,
+        totalReturn: acc.totalReturn + stat.totalReturn,
         totalSpend: acc.totalSpend + stat.totalSpend,
         totalCostProduct: acc.totalCostProduct + stat.totalCostProduct,
         totalPostage: acc.totalPostage + stat.totalPostage,
@@ -491,6 +495,7 @@ const AccountReportProfit: React.FC = () => {
       }),
       {
         totalSales: 0,
+        totalReturn: 0,
         totalSpend: 0,
         totalCostProduct: 0,
         totalPostage: 0,
@@ -583,7 +588,7 @@ const AccountReportProfit: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
             Report Profit
           </h1>
-          <p className="text-muted-foreground mt-1">Profit analysis by marketer (excluding Return orders)</p>
+          <p className="text-muted-foreground mt-1">Profit analysis by marketer (including Return orders)</p>
         </div>
       </div>
 
@@ -629,13 +634,20 @@ const AccountReportProfit: React.FC = () => {
       </div>
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <div className="stat-card border-l-4 border-l-blue-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
             <DollarSign className="w-3 h-3" />
             Total Sales
           </div>
           <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.totalSales)}</div>
+        </div>
+        <div className="stat-card border-l-4 border-l-rose-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <RotateCcw className="w-3 h-3" />
+            Return
+          </div>
+          <div className="text-lg font-bold text-rose-600">RM {formatNumber(totals.totalReturn)}</div>
         </div>
         <div className="stat-card border-l-4 border-l-red-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
@@ -903,6 +915,7 @@ const AccountReportProfit: React.FC = () => {
                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">NAME</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap border-r">SALES</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-rose-600 uppercase tracking-wider whitespace-nowrap border-r">RETURN</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-red-600 uppercase tracking-wider whitespace-nowrap border-r">SPEND</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r">COST PRODUCT</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r">POSTAGE</th>
@@ -921,6 +934,7 @@ const AccountReportProfit: React.FC = () => {
                     <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
                     <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-blue-600 whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-rose-600 whitespace-nowrap border-r">{formatNumber(stat.totalReturn)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-red-600 whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-purple-600 whitespace-nowrap border-r">{formatNumber(stat.totalCostProduct)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600 whitespace-nowrap border-r">{formatNumber(stat.totalPostage)}</td>
@@ -934,7 +948,7 @@ const AccountReportProfit: React.FC = () => {
               })}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>
