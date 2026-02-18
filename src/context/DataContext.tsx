@@ -119,8 +119,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // Build queries - filter by idstaff if user is a marketer or admin
       // Join with logistic_bundles to get bundle name
-      let ordersQuery = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false });
-      let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false });
+      let ordersQuery = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false }).range(0, 49999);
+      let prospectsQuery = queryTable('prospects').select('*').order('created_at', { ascending: false }).range(0, 49999);
 
       // Marketers and admins only see their own data
       if (shouldFilterByIdStaff && userIdStaff) {

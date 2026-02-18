@@ -87,10 +87,12 @@ const ReportSales: React.FC = () => {
           (supabase as any)
             .from('customer_purchases')
             .select('id, marketer_id_staff, marketer_name, date_order, total_price, delivery_status, jenis_customer, jenis_platform, jenis_closing')
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('spends')
-            .select('id, marketer_id_staff, total_spend, tarikh_spend'),
+            .select('id, marketer_id_staff, total_spend, tarikh_spend')
+            .range(0, 49999),
         ]);
 
         if (ordersRes.error) throw ordersRes.error;

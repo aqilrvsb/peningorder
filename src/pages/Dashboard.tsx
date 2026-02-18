@@ -137,7 +137,8 @@ const Dashboard: React.FC = () => {
         const { data, error } = await (supabase as any)
           .from('customer_purchases')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(0, 49999);
         if (error) throw error;
         setAllOrders(data || []);
       } catch (error) {
@@ -158,8 +159,8 @@ const Dashboard: React.FC = () => {
       setBodDataLoading(true);
       try {
         const [spendsRes, prospectsRes] = await Promise.all([
-          (supabase as any).from('spends').select('*'),
-          (supabase as any).from('prospects').select('*'),
+          (supabase as any).from('spends').select('*').range(0, 49999),
+          (supabase as any).from('prospects').select('*').range(0, 49999),
         ]);
 
         if (spendsRes.error) throw spendsRes.error;

@@ -136,7 +136,7 @@ const AccountExpenses = () => {
       if (startDate) query = query.gte("date_order", startDate);
       if (endDate) query = query.lte("date_order", endDate);
 
-      const { data, error } = await query;
+      const { data, error } = await query.range(0, 49999);
       if (error) throw error;
 
       return (data || []) as Array<{ cost_baseproduct: number; date_order: string; delivery_status: string }>;

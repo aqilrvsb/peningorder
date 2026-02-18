@@ -208,7 +208,8 @@ const AccountSalary = () => {
         .from("customer_purchases")
         .select("id, marketer_id_staff, total_sale, seo, date_order")
         .gte("date_order", startDate)
-        .lte("date_order", endDate);
+        .lte("date_order", endDate)
+        .range(0, 49999);
 
       if (error) throw error;
       return data || [];
@@ -226,7 +227,8 @@ const AccountSalary = () => {
         .from("spends")
         .select("id, marketer_id_staff, total_spend, tarikh_spend")
         .gte("tarikh_spend", startDate)
-        .lte("tarikh_spend", endDate);
+        .lte("tarikh_spend", endDate)
+        .range(0, 49999);
 
       if (error) throw error;
       return data || [];

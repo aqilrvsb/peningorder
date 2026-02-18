@@ -83,7 +83,8 @@ const MarketerReward = () => {
         .eq("marketer_id_staff", profile.idstaff)
         .neq("delivery_status", "Return")
         .gte("date_order", dateRange.startDate)
-        .lte("date_order", dateRange.endDate);
+        .lte("date_order", dateRange.endDate)
+        .range(0, 49999);
 
       if (error) throw error;
       return data || [];

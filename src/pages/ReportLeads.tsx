@@ -97,14 +97,17 @@ const ReportLeads: React.FC = () => {
         const [prospectsRes, ordersRes, spendsRes] = await Promise.all([
           (supabase as any)
             .from('prospects')
-            .select('id, marketer_id_staff, tarikh_phone_number, jenis_prospek, status_closed, price_closed, admin_id_staff'),
+            .select('id, marketer_id_staff, tarikh_phone_number, jenis_prospek, status_closed, price_closed, admin_id_staff')
+            .range(0, 49999),
           (supabase as any)
             .from('customer_purchases')
             .select('id, marketer_id_staff, date_order, total_price, jenis_customer')
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('spends')
-            .select('id, marketer_id_staff, total_spend, tarikh_spend'),
+            .select('id, marketer_id_staff, total_spend, tarikh_spend')
+            .range(0, 49999),
         ]);
 
         if (prospectsRes.error) throw prospectsRes.error;

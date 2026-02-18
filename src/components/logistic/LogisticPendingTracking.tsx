@@ -99,7 +99,7 @@ const LogisticPendingTracking = () => {
         query = query.lte("date_order", endDate);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.range(0, 49999);
       if (error) throw error;
 
       return data || [];

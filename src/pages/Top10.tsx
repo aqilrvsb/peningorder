@@ -81,29 +81,32 @@ const Top10: React.FC = () => {
       setIsLoading(true);
       try {
         // Fetch orders (using total_sale instead of total_price, no marketer_name)
-        const { data: ordersData, error: ordersError } = await supabase
+        const { data: ordersData, error: ordersError } = await (supabase as any)
           .from('customer_purchases')
           .select('id, marketer_id_staff, date_order, total_sale, delivery_status, jenis_customer, jenis_platform, jenis_closing')
           .not('marketer_id_staff', 'is', null)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .range(0, 49999);
 
         if (ordersError) throw ordersError;
         setOrders(ordersData || []);
 
         // Fetch spends
-        const { data: spendsData, error: spendsError } = await supabase
+        const { data: spendsData, error: spendsError } = await (supabase as any)
           .from('spends')
           .select('id, marketer_id_staff, total_spend, tarikh_spend')
-          .not('marketer_id_staff', 'is', null);
+          .not('marketer_id_staff', 'is', null)
+          .range(0, 49999);
 
         if (spendsError) throw spendsError;
         setSpends(spendsData || []);
 
         // Fetch prospects (leads)
-        const { data: prospectsData, error: prospectsError } = await supabase
+        const { data: prospectsData, error: prospectsError } = await (supabase as any)
           .from('prospects')
           .select('id, marketer_id_staff, tarikh_phone_number')
-          .not('marketer_id_staff', 'is', null);
+          .not('marketer_id_staff', 'is', null)
+          .range(0, 49999);
 
         if (prospectsError) throw prospectsError;
         setProspects(prospectsData || []);

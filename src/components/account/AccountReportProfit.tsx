@@ -106,11 +106,13 @@ const AccountReportProfit: React.FC = () => {
           (supabase as any)
             .from('customer_purchases')
             .select('id, marketer_id_staff, date_order, total_sale, jenis_platform, delivery_status, cost_baseproduct, cost_postage')
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('spends')
             .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .range(0, 49999),
           (supabase as any)
             .from('expenses')
             .select('id, type, role, marketer_id_staff, description, total, date, platform')
