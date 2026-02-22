@@ -5,7 +5,7 @@ export const config = {
 }
 
 const WHACENTER_API = 'https://api.whacenter.com/api'
-const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro1.jpg'
+const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro2.jpg'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
