@@ -315,9 +315,12 @@ const AccountSalary = () => {
     let commission = 0;
     let bonus = 0;
 
-    // Customer Support: 10% of company collection
+    // Customer Support: 10% of collection from their own marketer_id_staff only
     if (user.role === "Customer Support") {
-      commission = totalCompanyCollection * 0.10;
+      const csCollection = ordersData
+        .filter((order: any) => order.marketer_id_staff === user.idstaff && order.seo === "Successful Delivery")
+        .reduce((sum: number, order: any) => sum + (Number(order.total_sale) || 0), 0);
+      commission = csCollection * 0.10;
     }
     // Fighter Marketer: ROAS-based commission table
     else if (user.staff_type === "Fighter") {

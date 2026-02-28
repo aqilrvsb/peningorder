@@ -646,6 +646,20 @@ const HRAttendance = () => {
         date={absenceModalData?.date || ""}
         existingReason={absenceModalData?.existingReason}
         onSave={handleSaveAbsenceReason}
+        onMarkPresent={absenceModalData ? async () => {
+          setIsAbsenceSaving(true);
+          try {
+            await toggleAttendanceMutation.mutateAsync({
+              userId: absenceModalData.userId,
+              date: absenceModalData.date,
+              newStatus: "present",
+            });
+            setShowAbsenceModal(false);
+            setAbsenceModalData(null);
+          } finally {
+            setIsAbsenceSaving(false);
+          }
+        } : undefined}
         isLoading={isAbsenceSaving}
       />
     </div>

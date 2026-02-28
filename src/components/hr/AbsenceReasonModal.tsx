@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 
 interface AbsenceReasonModalProps {
   open: boolean;
@@ -18,6 +18,7 @@ interface AbsenceReasonModalProps {
   date: string;
   existingReason?: string | null;
   onSave: (reason: string) => Promise<void>;
+  onMarkPresent?: () => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -28,6 +29,7 @@ const AbsenceReasonModal = ({
   date,
   existingReason,
   onSave,
+  onMarkPresent,
   isLoading = false,
 }: AbsenceReasonModalProps) => {
   const [reason, setReason] = useState("");
@@ -81,22 +83,36 @@ const AbsenceReasonModal = ({
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isLoading || !reason.trim()}
-            className="bg-red-600 hover:bg-red-700"
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {existingReason ? "Update" : "Mark Absent"}
-          </Button>
+        <DialogFooter className="flex-row gap-2 sm:justify-between">
+          <div>
+            {existingReason && onMarkPresent && (
+              <Button
+                onClick={onMarkPresent}
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700 gap-1"
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Mark Present
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isLoading || !reason.trim()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {existingReason ? "Update" : "Mark Absent"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
