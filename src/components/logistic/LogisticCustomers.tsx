@@ -147,14 +147,14 @@ const LogisticCustomers = () => {
           *,
           bundle:logistic_bundles(name, sku)
         `)
-        .order("date_processed", { ascending: false, nullsFirst: false });
+        .order("date_order", { ascending: false, nullsFirst: false });
 
       if (!isQuickSearchActive) {
         if (startDate) {
-          query = query.gte("date_processed", startDate);
+          query = query.gte("date_order", startDate);
         }
         if (endDate) {
-          query = query.lte("date_processed", endDate);
+          query = query.lte("date_order", endDate);
         }
       }
       if (platformFilter !== "all") {
