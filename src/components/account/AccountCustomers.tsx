@@ -173,8 +173,8 @@ const AccountCustomers = () => {
 
   const platformStats = [
     { title: "Facebook", ...getPlatformStats("Facebook"), color: "bg-blue-100 text-blue-800" },
-    { title: "Tiktok HQ", ...getPlatformStats("Tiktok HQ"), color: "bg-pink-100 text-pink-800" },
-    { title: "Shopee HQ", ...getPlatformStats("Shopee HQ"), color: "bg-orange-100 text-orange-800" },
+    { title: "Tiktok", ...getPlatformStats("Tiktok"), color: "bg-pink-100 text-pink-800" },
+    { title: "Shopee", ...getPlatformStats("Shopee"), color: "bg-orange-100 text-orange-800" },
     { title: "Database", ...getPlatformStats("Database"), color: "bg-purple-100 text-purple-800" },
     { title: "Google", ...getPlatformStats("Google"), color: "bg-green-100 text-green-800" },
   ];
@@ -508,8 +508,8 @@ const AccountCustomers = () => {
               <SelectContent>
                 <SelectItem value="all">All Platform</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
-                <SelectItem value="Tiktok HQ">Tiktok HQ</SelectItem>
-                <SelectItem value="Shopee HQ">Shopee HQ</SelectItem>
+                <SelectItem value="Tiktok">Tiktok</SelectItem>
+                <SelectItem value="Shopee">Shopee</SelectItem>
                 <SelectItem value="Database">Database</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>

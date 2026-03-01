@@ -107,14 +107,14 @@ const CLOSING_TYPES = [
 
 const ORDER_FROM_OPTIONS = [
   "Facebook",
-  "Tiktok HQ",
-  "Shopee HQ",
+  "Tiktok",
+  "Shopee",
   "Database",
   "Google",
 ];
 
 // These sources require manual tracking number and PDF attachment (no NinjaVan, phone optional)
-const MANUAL_TRACKING_SOURCES = ["Tiktok HQ", "Shopee HQ"];
+const MANUAL_TRACKING_SOURCES = ["Tiktok", "Shopee"];
 
 // These sources use NinjaVan for shipping (phone REQUIRED for shipping)
 const NINJAVAN_SOURCES = ["Facebook", "Database", "Google"];

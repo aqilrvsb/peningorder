@@ -253,8 +253,8 @@ const LogisticCustomers = () => {
 
   const platformStats = [
     { title: "Facebook", ...getPlatformStats("Facebook"), color: "bg-blue-100 text-blue-800" },
-    { title: "Tiktok HQ", ...getPlatformStats("Tiktok HQ"), color: "bg-pink-100 text-pink-800" },
-    { title: "Shopee HQ", ...getPlatformStats("Shopee HQ"), color: "bg-orange-100 text-orange-800" },
+    { title: "Tiktok", ...getPlatformStats("Tiktok"), color: "bg-pink-100 text-pink-800" },
+    { title: "Shopee", ...getPlatformStats("Shopee"), color: "bg-orange-100 text-orange-800" },
     { title: "Database", ...getPlatformStats("Database"), color: "bg-purple-100 text-purple-800" },
     { title: "Google", ...getPlatformStats("Google"), color: "bg-green-100 text-green-800" },
   ];
@@ -400,7 +400,7 @@ const LogisticCustomers = () => {
     enabled: !!user?.id,
   });
 
-  const MANUAL_TRACKING_SOURCES = ["Tiktok HQ", "Shopee HQ"];
+  const MANUAL_TRACKING_SOURCES = ["Tiktok", "Shopee"];
 
   const createCustomerPurchase = useMutation({
     mutationFn: async (data: CustomerPurchaseData) => {
@@ -572,16 +572,10 @@ const LogisticCustomers = () => {
       let jenisPlatform = 'Website';
       if (orderFromValue) {
         platform = orderFromValue;
-        if (orderFromValue === 'Tiktok HQ') {
-          jenisPlatform = 'Tiktok';
-        } else if (orderFromValue === 'Shopee HQ') {
-          jenisPlatform = 'Shopee';
-        } else {
-          jenisPlatform = orderFromValue;
-        }
+        jenisPlatform = orderFromValue;
       }
 
-      const isDirectShipped = orderFromValue === 'Tiktok HQ' || orderFromValue === 'Shopee HQ';
+      const isDirectShipped = orderFromValue === 'Tiktok' || orderFromValue === 'Shopee';
       const deliveryStatus = isDirectShipped ? 'Shipped' : 'Pending';
       const dateProcessed = isDirectShipped ? (data.dateOrder || getMalaysiaDate()) : null;
 
@@ -936,8 +930,8 @@ const LogisticCustomers = () => {
               <SelectContent>
                 <SelectItem value="all">All Platform</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
-                <SelectItem value="Tiktok HQ">Tiktok HQ</SelectItem>
-                <SelectItem value="Shopee HQ">Shopee HQ</SelectItem>
+                <SelectItem value="Tiktok">Tiktok</SelectItem>
+                <SelectItem value="Shopee">Shopee</SelectItem>
                 <SelectItem value="Database">Database</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
