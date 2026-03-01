@@ -80,16 +80,23 @@ const LogisticScanWaybill = () => {
     id: gsiBundleMatch ? gsiBundleMatch.id : null as string | null,
   };
 
+  // Extract quantity from bundle SKU (e.g., "GSI-4" → 4, "GSI-6 + SBNM" → 6)
+  const extractQuantityFromSku = (sku: string): number => {
+    if (!sku) return 0;
+    const match = sku.match(/^gsi-(\d+)/i);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
   // Product matching - same logic as woocommerce-webhook
   // Method 1: Match "SET X" pattern in product name → find bundle name containing "SET X"
   // Method 2: Match BOTOL/UNIT count → find bundle with SKU matching "GSI-{count}"
   // Method 3: Exact Seller SKU match
   // Fallback: Default GSI bundle
+  // Quantity is derived from matched bundle SKU (e.g., GSI-4 → qty 4)
   const matchBundleFromDB = (sellerSku: string, waybillProductText: string): { sku: string; name: string; id: string | null; quantity: number } => {
     let bundleSku = DEFAULT_BUNDLE.sku;
     let bundleName = DEFAULT_BUNDLE.name;
     let bundleId: string | null = DEFAULT_BUNDLE.id;
-    let matchedQuantity = 0;
     let matched = false;
 
     const productNameLower = waybillProductText.toLowerCase();
@@ -147,8 +154,6 @@ const LogisticScanWaybill = () => {
       }
 
       if (unitCount > 0) {
-        matchedQuantity = unitCount;
-        // Match bundle with SKU starting with "GSI-{unitCount}" (exact number)
         const unitRegex = new RegExp(`^gsi-${unitCount}(\\s*\\+|$)`, 'i');
         const unitMatch = allBundles.find((b: any) => b.sku && unitRegex.test(b.sku));
         if (unitMatch) {
@@ -171,7 +176,10 @@ const LogisticScanWaybill = () => {
       }
     }
 
-    return { sku: bundleSku, name: bundleName, id: bundleId, quantity: matchedQuantity };
+    // Derive quantity from the matched bundle SKU (e.g., GSI-4 → 4, GSI-6 + SBNM → 6)
+    const quantity = extractQuantityFromSku(bundleSku);
+
+    return { sku: bundleSku, name: bundleName, id: bundleId, quantity };
   };
 
   // Parse TikTok waybill text (J&T Express format)
@@ -276,17 +284,11 @@ const LogisticScanWaybill = () => {
         waybillProductText = productTextMatch[1].trim().toUpperCase();
       }
 
-      // Match bundle from DB - also extracts quantity from BOTOL/UNIT patterns
-      const matchedBundle = matchBundleFromDB(sellerSku, waybillProductText);
+      // Match bundle from DB - try product name first, then full text
+      const matchedBundle = matchBundleFromDB(sellerSku, waybillProductText || normalizedText);
 
-      // Quantity - use bundle-matched quantity (from BOTOL/UNIT), fallback to Qty Total
-      let quantity = matchedBundle.quantity || 1;
-      if (quantity <= 1) {
-        const qtyTotalMatch = text.match(/Qty\s*Total[:\s]*(\d+)/i);
-        if (qtyTotalMatch) {
-          quantity = parseInt(qtyTotalMatch[1]);
-        }
-      }
+      // Quantity derived from matched bundle SKU (e.g., GSI-4 → 4), fallback to 1
+      const quantity = matchedBundle.quantity || 1;
 
       // Date order
       let dateOrder = bulkDateOrder;
@@ -555,10 +557,10 @@ const LogisticScanWaybill = () => {
         orderId = orderIdMatch[1];
       }
 
-      // Match bundle from DB - also extracts quantity from BOTOL/UNIT patterns
+      // Match bundle from DB - quantity derived from bundle SKU
       const matchedBundle = matchBundleFromDB("", flatText);
 
-      // Quantity - use bundle-matched quantity (from BOTOL/UNIT), fallback to 1
+      // Quantity derived from matched bundle SKU (e.g., GSI-4 → 4), fallback to 1
       const quantity = matchedBundle.quantity || 1;
 
       if (orderId) {
@@ -825,6 +827,7 @@ const LogisticScanWaybill = () => {
             kurier: kurierValue,
             date_order: w.date_order || today,
             bundle_id: w.bundle_id || null,
+            nota_staff: w.product_name || null,
           });
 
         if (error) throw error;
