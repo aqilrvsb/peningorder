@@ -991,8 +991,8 @@ const LogisticCustomers = () => {
                         <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
-                        <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
-                        <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "HQ"}</td>
+                        <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "HQ"}</td>
                         <td className="p-2">{order.name_customer || "-"}</td>
                         <td className="p-2 whitespace-nowrap">
                           {order.phone_customer ? (
@@ -1050,9 +1050,9 @@ const LogisticCustomers = () => {
                         <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
                         <td className="p-2 text-xs">{order.state_customer || "-"}</td>
                         <td className="p-2">
-                          <div className="max-w-[150px]">
-                            <p className="text-xs truncate">{order.address_customer || "-"}</p>
-                            <p className="text-xs text-muted-foreground truncate">
+                          <div className="min-w-[250px]">
+                            <p className="text-xs whitespace-normal">{order.address_customer || "-"}</p>
+                            <p className="text-xs text-muted-foreground">
                               {order.postcode_customer} {order.city_customer}
                             </p>
                           </div>
