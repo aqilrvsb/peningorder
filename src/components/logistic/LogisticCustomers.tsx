@@ -67,6 +67,10 @@ const LogisticCustomers = () => {
   const [dateEditType, setDateEditType] = useState<"date_order" | "date_processed">("date_order");
   const [newDate, setNewDate] = useState<string>("");
 
+  // State for inline phone edit
+  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState<string>("");
+
   // Fetch profile for idstaff
   const { data: profile } = useQuery({
     queryKey: ["profile-logistic", user?.id],
@@ -210,7 +214,7 @@ const LogisticCustomers = () => {
     });
   })();
 
-  // Quick search filtered purchases
+  // Quick search filtered purchases (for stats)
   const quickSearchFilteredPurchases = isQuickSearchActive && quickSearch
     ? groupedPurchases.filter((p: any) => {
         const searchTerm = quickSearch.toLowerCase();
@@ -221,6 +225,18 @@ const LogisticCustomers = () => {
         );
       })
     : groupedPurchases;
+
+  // Display orders - filter raw purchases for table rendering
+  const displayOrders = isQuickSearchActive && quickSearch
+    ? (purchases || []).filter((order: any) => {
+        const searchTerm = quickSearch.toLowerCase();
+        return (
+          order.name_customer?.toLowerCase().includes(searchTerm) ||
+          order.phone_customer?.includes(quickSearch) ||
+          order.tracking_number?.toLowerCase().includes(searchTerm)
+        );
+      })
+    : (purchases || []);
 
   const totalTransactions = groupedPurchases.length;
 
@@ -281,6 +297,35 @@ const LogisticCustomers = () => {
   const clearQuickSearch = () => {
     setQuickSearch("");
     setIsQuickSearchActive(false);
+  };
+
+  // Inline phone save - validates starts with 6, saves to DB without refreshing sort
+  const handlePhoneSave = async (orderId: string) => {
+    const phone = editingPhoneValue.trim();
+    if (!phone) {
+      setEditingPhoneId(null);
+      return;
+    }
+    if (!phone.startsWith("6")) {
+      toast.error("Phone must start with 6 (e.g., 60123456789)");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("customer_purchases")
+        .update({ phone_customer: phone })
+        .eq("id", orderId);
+      if (error) throw error;
+      toast.success("Phone saved");
+      // Update local data without refetching (no sort change)
+      queryClient.setQueryData(
+        ["customer_purchases", startDate, endDate, platformFilter, isQuickSearchActive],
+        (old: any) => old?.map((o: any) => o.id === orderId ? { ...o, phone_customer: phone } : o)
+      );
+    } catch (err: any) {
+      toast.error("Failed to save phone: " + err.message);
+    }
+    setEditingPhoneId(null);
   };
 
   // Delete selected orders - open confirmation
@@ -939,8 +984,8 @@ const LogisticCustomers = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(purchases || []).length > 0 ? (
-                    (purchases || []).map((order: any, index: number) => (
+                  {displayOrders.length > 0 ? (
+                    displayOrders.map((order: any, index: number) => (
                       <tr key={order.id} className="border-b hover:bg-muted/30">
                         <td className="p-2">
                           <Checkbox
@@ -955,7 +1000,28 @@ const LogisticCustomers = () => {
                         <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "-"}</td>
                         <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "-"}</td>
                         <td className="p-2">{order.name_customer || "-"}</td>
-                        <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
+                        <td className="p-2 whitespace-nowrap">
+                          {order.phone_customer ? (
+                            order.phone_customer
+                          ) : editingPhoneId === order.id ? (
+                            <Input
+                              className="h-7 w-32 text-xs"
+                              placeholder="60123456789"
+                              value={editingPhoneValue}
+                              onChange={(e) => setEditingPhoneValue(e.target.value)}
+                              onBlur={() => handlePhoneSave(order.id)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handlePhoneSave(order.id); }}
+                              autoFocus
+                            />
+                          ) : (
+                            <Input
+                              className="h-7 w-32 text-xs text-muted-foreground"
+                              placeholder="Enter phone..."
+                              onFocus={() => { setEditingPhoneId(order.id); setEditingPhoneValue(""); }}
+                              readOnly
+                            />
+                          )}
+                        </td>
                         <td className="p-2">
                           <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                         </td>
