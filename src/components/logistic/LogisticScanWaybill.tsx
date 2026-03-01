@@ -80,20 +80,13 @@ const LogisticScanWaybill = () => {
     id: gsiBundleMatch ? gsiBundleMatch.id : null as string | null,
   };
 
-  // Extract quantity from bundle SKU (e.g., "GSI-4" → 4, "GSI-6 + SBNM" → 6)
-  const extractQuantityFromSku = (sku: string): number => {
-    if (!sku) return 0;
-    const match = sku.match(/^gsi-(\d+)/i);
-    return match ? parseInt(match[1], 10) : 0;
-  };
-
   // Product matching - same logic as woocommerce-webhook
   // Method 1: Match "SET X" pattern in product name → find bundle name containing "SET X"
   // Method 2: Match BOTOL/UNIT count → find bundle with SKU matching "GSI-{count}"
   // Method 3: Exact Seller SKU match
   // Fallback: Default GSI bundle
-  // Quantity is derived from matched bundle SKU (e.g., GSI-4 → qty 4)
-  const matchBundleFromDB = (sellerSku: string, waybillProductText: string): { sku: string; name: string; id: string | null; quantity: number } => {
+  // Note: unit (quantity) is always 1 — each waybill page = 1 bundle ordered
+  const matchBundleFromDB = (sellerSku: string, waybillProductText: string): { sku: string; name: string; id: string | null } => {
     let bundleSku = DEFAULT_BUNDLE.sku;
     let bundleName = DEFAULT_BUNDLE.name;
     let bundleId: string | null = DEFAULT_BUNDLE.id;
@@ -176,10 +169,7 @@ const LogisticScanWaybill = () => {
       }
     }
 
-    // Derive quantity from the matched bundle SKU (e.g., GSI-4 → 4, GSI-6 + SBNM → 6)
-    const quantity = extractQuantityFromSku(bundleSku);
-
-    return { sku: bundleSku, name: bundleName, id: bundleId, quantity };
+    return { sku: bundleSku, name: bundleName, id: bundleId };
   };
 
   // Parse TikTok waybill text (J&T Express format)
@@ -287,8 +277,8 @@ const LogisticScanWaybill = () => {
       // Match bundle from DB - try product name first, then full text
       const matchedBundle = matchBundleFromDB(sellerSku, waybillProductText || normalizedText);
 
-      // Quantity derived from matched bundle SKU (e.g., GSI-4 → 4), fallback to 1
-      const quantity = matchedBundle.quantity || 1;
+      // Quantity: 1 waybill page = 1 bundle ordered
+      const quantity = 1;
 
       // Date order
       let dateOrder = bulkDateOrder;
@@ -557,11 +547,11 @@ const LogisticScanWaybill = () => {
         orderId = orderIdMatch[1];
       }
 
-      // Match bundle from DB - quantity derived from bundle SKU
+      // Match bundle from DB
       const matchedBundle = matchBundleFromDB("", flatText);
 
-      // Quantity derived from matched bundle SKU (e.g., GSI-4 → 4), fallback to 1
-      const quantity = matchedBundle.quantity || 1;
+      // Quantity: 1 waybill = 1 bundle ordered
+      const quantity = 1;
 
       if (orderId) {
         return {
