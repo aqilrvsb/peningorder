@@ -15,9 +15,10 @@ import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { getMalaysiaDate } from "@/lib/utils";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-// Set the workerSrc for PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+// Set the workerSrc for PDF.js using the bundled worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface ParsedWaybill {
   id: string;
