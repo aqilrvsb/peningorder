@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, FileText, Loader2, Trash2, Save, Eye, ScanLine, AlertCircle, Link } from "lucide-react";
+import { Upload, FileText, Loader2, Trash2, Save, Eye, ScanLine, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { getMalaysiaDate } from "@/lib/utils";
@@ -53,8 +53,6 @@ const LogisticScanWaybill = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [parsedWaybills, setParsedWaybills] = useState<ParsedWaybill[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [uploadMethod, setUploadMethod] = useState<"file" | "url">("file");
 
   // Raw text modal state
   const [rawTextModalOpen, setRawTextModalOpen] = useState(false);
@@ -696,48 +694,6 @@ const LogisticScanWaybill = () => {
     }
   };
 
-  // Handle URL fetch (TikTok only)
-  const handleUrlFetch = async () => {
-    const url = pdfUrl.trim();
-    if (!url) {
-      toast.error("Please paste a PDF URL");
-      return;
-    }
-
-    setIsProcessing(true);
-    setParsedWaybills([]);
-
-    try {
-      toast.info("Fetching PDF from URL...");
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/fetch-pdf`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ url }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `Failed to fetch: ${response.status} ${response.statusText}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength === 0) {
-        throw new Error("Empty response from URL");
-      }
-      await processPDFData(arrayBuffer);
-    } catch (error: any) {
-      console.error("Error fetching PDF from URL:", error);
-      toast.error(`Failed to fetch PDF: ${error.message}`);
-      setIsProcessing(false);
-    }
-  };
-
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
     setParsedWaybills(prev =>
@@ -907,89 +863,25 @@ const LogisticScanWaybill = () => {
             </div>
           </div>
 
-          {/* Upload Method Toggle - URL only for TikTok */}
-          {platform === "Tiktok" && (
-            <div className="space-y-2">
-              <Label>Upload Method</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="uploadMethod"
-                    value="file"
-                    checked={uploadMethod === "file"}
-                    onChange={() => setUploadMethod("file")}
-                    className="w-4 h-4"
-                  />
-                  <Upload className="h-4 w-4" />
-                  <span>Upload PDF</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="uploadMethod"
-                    value="url"
-                    checked={uploadMethod === "url"}
-                    onChange={() => setUploadMethod("url")}
-                    className="w-4 h-4"
-                  />
-                  <Link className="h-4 w-4" />
-                  <span>Paste URL</span>
-                </label>
-              </div>
-            </div>
-          )}
-
           {/* File Upload */}
-          {uploadMethod === "file" && (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                  disabled={isProcessing}
-                />
-                {isProcessing && <Loader2 className="h-10 w-10 animate-spin text-primary" />}
-              </div>
-              {selectedFile && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  <span>{selectedFile.name}</span>
-                </div>
-              )}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                disabled={isProcessing}
+              />
+              {isProcessing && <Loader2 className="h-10 w-10 animate-spin text-primary" />}
             </div>
-          )}
-
-          {/* URL Paste - TikTok only */}
-          {platform === "Tiktok" && uploadMethod === "url" && (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={pdfUrl}
-                  onChange={(e) => setPdfUrl(e.target.value)}
-                  placeholder="Paste TikTok Seller waybill PDF link here..."
-                  disabled={isProcessing}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleUrlFetch}
-                  disabled={isProcessing || !pdfUrl.trim()}
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <ScanLine className="h-4 w-4 mr-2" />
-                  )}
-                  Fetch PDF
-                </Button>
+            {selectedFile && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>{selectedFile.name}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Paste the waybill PDF link from TikTok Seller
-              </p>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="p-4 bg-muted rounded-lg space-y-3">
             <div>
