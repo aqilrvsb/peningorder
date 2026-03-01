@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/utils";
 import { getDaysInMonth, getDay, format } from "date-fns";
 import dziLogo from "/dzi-logo.jpg";
 import signature from "/signature.jpg";
@@ -199,13 +200,14 @@ const SalarySlip = () => {
         });
         setAttendanceData({ present, absent, totalWorking: present + absent });
 
-        // Fetch orders for collection
-        const { data: orders } = await (supabase as any)
-          .from("customer_purchases")
-          .select("id, marketer_id_staff, total_sale, seo, date_order")
-          .gte("date_order", startDate)
-          .lte("date_order", endDate)
-          .range(0, 49999);
+        // Fetch orders for collection - use fetchAllRows to bypass server row limit
+        const orders = await fetchAllRows(() =>
+          (supabase as any)
+            .from("customer_purchases")
+            .select("id, marketer_id_staff, total_sale, seo, date_order")
+            .gte("date_order", startDate)
+            .lte("date_order", endDate)
+        );
 
         setOrdersData(orders || []);
 
@@ -215,13 +217,14 @@ const SalarySlip = () => {
           .reduce((sum: number, order: any) => sum + (Number(order.total_sale) || 0), 0);
         setTotalCompanyCollection(companyCollection);
 
-        // Fetch spends
-        const { data: spends } = await (supabase as any)
-          .from("spends")
-          .select("id, marketer_id_staff, total_spend, tarikh_spend")
-          .gte("tarikh_spend", startDate)
-          .lte("tarikh_spend", endDate)
-          .range(0, 49999);
+        // Fetch spends - use fetchAllRows to bypass server row limit
+        const spends = await fetchAllRows(() =>
+          (supabase as any)
+            .from("spends")
+            .select("id, marketer_id_staff, total_spend, tarikh_spend")
+            .gte("tarikh_spend", startDate)
+            .lte("tarikh_spend", endDate)
+        );
 
         setSpendsData(spends || []);
 
@@ -309,9 +312,12 @@ const SalarySlip = () => {
     let bonus = 0;
     let commissionPercent = 0;
 
-    // Customer Support: 10% of company collection
+    // Customer Support: 10% of their own collection
     if (user.role === "Customer Support") {
-      commission = totalCompanyCollection * 0.10;
+      const csCollection = ordersData
+        .filter((order: any) => order.marketer_id_staff === user.idstaff && order.seo === "Successful Delivery")
+        .reduce((sum: number, order: any) => sum + (Number(order.total_sale) || 0), 0);
+      commission = csCollection * 0.10;
       commissionPercent = 10;
     }
     // Fighter (non-HQ marketer): ROAS-based commission
@@ -544,7 +550,7 @@ const SalarySlip = () => {
                     {salary.commission > 0 && (
                       <span className="font-normal text-gray-600 ml-2">
                         ({salary.commissionPercent}%
-                        {user?.role === "Customer Support" && " of Company Collection"}
+                        {user?.role === "Customer Support" && " of Own Collection"}
                         {(user?.role === "marketer" || user?.role === "admin") && ` of Collection - ROAS: ${marketerStats.roas.toFixed(2)}`}
                         )
                       </span>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -197,41 +198,37 @@ const AccountSalary = () => {
     },
   });
 
-  // Fetch orders (for collection calculation)
+  // Fetch orders (for collection calculation) - use fetchAllRows to bypass server row limit
   const { data: ordersData = [], isLoading: isLoadingOrders } = useQuery({
     queryKey: ["salary-orders", selectedYear, selectedMonth],
     queryFn: async () => {
       const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
       const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${daysInMonth}`;
 
-      const { data, error } = await (supabase as any)
-        .from("customer_purchases")
-        .select("id, marketer_id_staff, total_sale, seo, date_order")
-        .gte("date_order", startDate)
-        .lte("date_order", endDate)
-        .range(0, 49999);
-
-      if (error) throw error;
-      return data || [];
+      return await fetchAllRows(() =>
+        (supabase as any)
+          .from("customer_purchases")
+          .select("id, marketer_id_staff, total_sale, seo, date_order")
+          .gte("date_order", startDate)
+          .lte("date_order", endDate)
+      );
     },
   });
 
-  // Fetch spends
+  // Fetch spends - use fetchAllRows to bypass server row limit
   const { data: spendsData = [], isLoading: isLoadingSpends } = useQuery({
     queryKey: ["salary-spends", selectedYear, selectedMonth],
     queryFn: async () => {
       const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
       const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${daysInMonth}`;
 
-      const { data, error } = await (supabase as any)
-        .from("spends")
-        .select("id, marketer_id_staff, total_spend, tarikh_spend")
-        .gte("tarikh_spend", startDate)
-        .lte("tarikh_spend", endDate)
-        .range(0, 49999);
-
-      if (error) throw error;
-      return data || [];
+      return await fetchAllRows(() =>
+        (supabase as any)
+          .from("spends")
+          .select("id, marketer_id_staff, total_spend, tarikh_spend")
+          .gte("tarikh_spend", startDate)
+          .lte("tarikh_spend", endDate)
+      );
     },
   });
 
