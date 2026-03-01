@@ -75,7 +75,7 @@ const LogisticPendingTracking = () => {
   const profilesMap = new Map(profiles.map((p: any) => [p.username, p.full_name]));
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
-  // Fetch pending tracking orders (Shipped + COD + SEO not successful)
+  // Fetch pending tracking orders (Shipped + SEO not successful) - includes both COD and CASH
   // All platforms now use NinjaVan (including Tiktok, Shopee)
   // Filter by date_order (not date_processed)
   const { data: orders = [], isLoading } = useQuery({
@@ -88,7 +88,6 @@ const LogisticPendingTracking = () => {
           bundle:logistic_bundles(name, sku)
         `)
         .eq("delivery_status", "Shipped")
-        .eq("type_payment", "COD")
         .or("seo.is.null,seo.neq.Successful Delivery")
         .order("date_order", { ascending: false });
 
@@ -363,7 +362,7 @@ const LogisticPendingTracking = () => {
         <div>
           <h1 className="text-2xl font-bold">Pending Tracking</h1>
           <p className="text-muted-foreground text-sm">
-            Track COD orders awaiting payment confirmation
+            Track orders awaiting payment confirmation
           </p>
         </div>
         {/* Stats inline */}
