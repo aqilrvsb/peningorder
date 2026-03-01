@@ -72,22 +72,96 @@ const LogisticScanWaybill = () => {
     },
   });
 
-  // Default bundle configuration (first active bundle or fallback)
+  // Default bundle configuration - use first GSI bundle if found
+  const gsiBundleMatch = allBundles.find((b: any) => b.sku && b.sku.toUpperCase().includes("GSI"));
   const DEFAULT_BUNDLE = {
-    sku: "",
-    name: "Unknown Bundle",
-    id: null as string | null,
+    sku: gsiBundleMatch ? gsiBundleMatch.sku : "GSI",
+    name: gsiBundleMatch ? gsiBundleMatch.name : "GSI",
+    id: gsiBundleMatch ? gsiBundleMatch.id : null as string | null,
   };
 
-  // Shared product matching - 3 strategies against logistic_bundles
-  const matchBundleFromDB = (sellerSku: string, waybillProductText: string): { sku: string; name: string; id: string | null } => {
+  // Product matching - same logic as woocommerce-webhook
+  // Method 1: Match "SET X" pattern in product name → find bundle name containing "SET X"
+  // Method 2: Match BOTOL/UNIT count → find bundle with SKU matching "GSI-{count}"
+  // Method 3: Exact Seller SKU match
+  // Fallback: Default GSI bundle
+  const matchBundleFromDB = (sellerSku: string, waybillProductText: string): { sku: string; name: string; id: string | null; quantity: number } => {
     let bundleSku = DEFAULT_BUNDLE.sku;
     let bundleName = DEFAULT_BUNDLE.name;
     let bundleId: string | null = DEFAULT_BUNDLE.id;
+    let matchedQuantity = 0;
     let matched = false;
 
-    // Strategy 1: Exact Seller SKU match against bundle SKU
-    if (sellerSku && !matched) {
+    const productNameLower = waybillProductText.toLowerCase();
+
+    // Method 1: Match "SET X" pattern in product name (e.g., "SET C" → find bundle named "SET C ...")
+    const setIndex = productNameLower.indexOf('set');
+    let setIdentifier = '';
+    if (setIndex >= 0) {
+      if (productNameLower.substring(setIndex).startsWith('set bundle')) {
+        setIdentifier = 'SET BUNDLE';
+      } else if (setIndex + 5 <= waybillProductText.length) {
+        const afterSet = waybillProductText.substring(setIndex + 3, setIndex + 5).trim();
+        if (afterSet.length >= 1 && /^[A-Za-z]$/.test(afterSet.charAt(0))) {
+          setIdentifier = 'SET ' + afterSet.charAt(0).toUpperCase();
+        }
+      }
+    }
+
+    if (setIdentifier && !matched) {
+      const setMatch = allBundles.find((b: any) =>
+        b.name && b.name.toLowerCase().includes(setIdentifier.toLowerCase())
+      );
+      if (setMatch) {
+        bundleSku = setMatch.sku || "";
+        bundleName = setMatch.name;
+        bundleId = setMatch.id;
+        matched = true;
+      }
+    }
+
+    // Method 2: Match by BOTOL/UNIT count → find bundle with SKU matching "GSI-{count}"
+    if (!matched && !setIdentifier) {
+      let unitCount = 0;
+
+      // Try BOTOL pattern first
+      const botolIndex = productNameLower.indexOf('botol');
+      if (botolIndex >= 2) {
+        const beforeBotol = waybillProductText.substring(Math.max(0, botolIndex - 3), botolIndex);
+        const digitsOnly = beforeBotol.replace(/\D/g, '');
+        if (digitsOnly) {
+          unitCount = parseInt(digitsOnly, 10);
+        }
+      }
+
+      // If no BOTOL found, try UNIT pattern
+      if (unitCount === 0) {
+        const unitIndex = productNameLower.indexOf('unit');
+        if (unitIndex >= 2) {
+          const beforeUnit = waybillProductText.substring(Math.max(0, unitIndex - 3), unitIndex);
+          const digitsOnly = beforeUnit.replace(/\D/g, '');
+          if (digitsOnly) {
+            unitCount = parseInt(digitsOnly, 10);
+          }
+        }
+      }
+
+      if (unitCount > 0) {
+        matchedQuantity = unitCount;
+        // Match bundle with SKU starting with "GSI-{unitCount}" (exact number)
+        const unitRegex = new RegExp(`^gsi-${unitCount}(\\s*\\+|$)`, 'i');
+        const unitMatch = allBundles.find((b: any) => b.sku && unitRegex.test(b.sku));
+        if (unitMatch) {
+          bundleSku = unitMatch.sku || "";
+          bundleName = unitMatch.name;
+          bundleId = unitMatch.id;
+          matched = true;
+        }
+      }
+    }
+
+    // Method 3: Exact Seller SKU match against bundle SKU
+    if (!matched && sellerSku) {
       const exactMatch = allBundles.find((b: any) => b.sku && b.sku.toUpperCase() === sellerSku.toUpperCase());
       if (exactMatch) {
         bundleSku = exactMatch.sku || "";
@@ -97,44 +171,7 @@ const LogisticScanWaybill = () => {
       }
     }
 
-    // Strategy 2: Match by unique bundle name keywords
-    if (!matched && waybillProductText) {
-      const upperText = waybillProductText.toUpperCase();
-      for (const bundle of allBundles) {
-        const bName = (bundle as any).name.toUpperCase();
-        const skipWords = ["BUNDLE", "PACK", "SET", "COMBO", "THE", "AND", "WITH"];
-        const keywords = bName.split(/\s+/).filter((w: string) =>
-          w.length >= 3 && !skipWords.includes(w) && !/^\d+/.test(w) && !w.includes("(") && !w.includes(")")
-        );
-
-        for (const keyword of keywords) {
-          if (keyword.length >= 4 && upperText.includes(keyword)) {
-            bundleSku = (bundle as any).sku || "";
-            bundleName = (bundle as any).name;
-            bundleId = (bundle as any).id;
-            matched = true;
-            break;
-          }
-        }
-        if (matched) break;
-      }
-    }
-
-    // Strategy 3: Check if text contains bundle SKU directly
-    if (!matched && waybillProductText) {
-      const upperText = waybillProductText.toUpperCase();
-      for (const bundle of allBundles) {
-        if ((bundle as any).sku && upperText.includes((bundle as any).sku.toUpperCase())) {
-          bundleSku = (bundle as any).sku || "";
-          bundleName = (bundle as any).name;
-          bundleId = (bundle as any).id;
-          matched = true;
-          break;
-        }
-      }
-    }
-
-    return { sku: bundleSku, name: bundleName, id: bundleId };
+    return { sku: bundleSku, name: bundleName, id: bundleId, quantity: matchedQuantity };
   };
 
   // Parse TikTok waybill text (J&T Express format)
@@ -225,18 +262,6 @@ const LogisticScanWaybill = () => {
         }
       }
 
-      // Quantity - prioritize "X BOTOL"
-      let quantity = 1;
-      const botolMatch = text.match(/(\d+)\s*BOTOL/i);
-      if (botolMatch) {
-        quantity = parseInt(botolMatch[1]);
-      } else {
-        const qtyTotalMatch = text.match(/Qty\s*Total[:\s]*(\d+)/i);
-        if (qtyTotalMatch) {
-          quantity = parseInt(qtyTotalMatch[1]);
-        }
-      }
-
       // Seller SKU
       let sellerSku = "";
       const sellerSkuMatch = normalizedText.match(/Seller\s*SKU\s+([A-Z0-9][A-Z0-9\s\+\-]*?)(?=\s+\d|\s+Qty)/i);
@@ -244,15 +269,24 @@ const LogisticScanWaybill = () => {
         sellerSku = sellerSkuMatch[1].trim();
       }
 
-      // Product name text for keyword matching
+      // Product name text for bundle matching (contains SET/BOTOL/UNIT info)
       let waybillProductText = "";
       const productTextMatch = normalizedText.match(/Product\s*Name\s+(.+?)(?=\s+Qty\s*Total)/i);
       if (productTextMatch) {
         waybillProductText = productTextMatch[1].trim().toUpperCase();
       }
 
-      // Match bundle from DB
+      // Match bundle from DB - also extracts quantity from BOTOL/UNIT patterns
       const matchedBundle = matchBundleFromDB(sellerSku, waybillProductText);
+
+      // Quantity - use bundle-matched quantity (from BOTOL/UNIT), fallback to Qty Total
+      let quantity = matchedBundle.quantity || 1;
+      if (quantity <= 1) {
+        const qtyTotalMatch = text.match(/Qty\s*Total[:\s]*(\d+)/i);
+        if (qtyTotalMatch) {
+          quantity = parseInt(qtyTotalMatch[1]);
+        }
+      }
 
       // Date order
       let dateOrder = bulkDateOrder;
@@ -521,13 +555,11 @@ const LogisticScanWaybill = () => {
         orderId = orderIdMatch[1];
       }
 
-      let quantity = 1;
-      const botolMatch = flatText.match(/(\d+)\s*Botol/i);
-      if (botolMatch) {
-        quantity = parseInt(botolMatch[1]) || 1;
-      }
-
+      // Match bundle from DB - also extracts quantity from BOTOL/UNIT patterns
       const matchedBundle = matchBundleFromDB("", flatText);
+
+      // Quantity - use bundle-matched quantity (from BOTOL/UNIT), fallback to 1
+      const quantity = matchedBundle.quantity || 1;
 
       if (orderId) {
         return {
