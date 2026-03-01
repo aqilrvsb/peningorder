@@ -335,13 +335,19 @@ const SalarySlip = () => {
       bonus = pnlResult.bonus;
       commissionPercent = pnlResult.percent;
     }
-    // Managing Director, Business Support Exec, Multimedia: PNL based on company performance
-    else if (["Managing Director", "Business Support Exec", "Multimedia"].includes(user.role || "")) {
+    // Managing Director: PNL based (commission + bonus)
+    else if (user.role === "Managing Director") {
       const roas = totalCompanySpend > 0 ? totalCompanyCollection / totalCompanySpend : 0;
       const pnlResult = calculatePNLCommissionBonus(totalCompanyCollection, roas);
       commission = pnlResult.commission;
       bonus = pnlResult.bonus;
       commissionPercent = pnlResult.percent;
+    }
+    // Business Support Exec, Multimedia: bonus only, no commission
+    else if (["Business Support Exec", "Multimedia"].includes(user.role || "")) {
+      const roas = totalCompanySpend > 0 ? totalCompanyCollection / totalCompanySpend : 0;
+      const pnlResult = calculatePNLCommissionBonus(totalCompanyCollection, roas);
+      bonus = pnlResult.bonus;
     }
 
     const totalEarnings = basicSalary + commission + bonus;
