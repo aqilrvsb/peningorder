@@ -240,7 +240,7 @@ const ReportSales: React.FC = () => {
         stats[idStaff].closingCall += 1;
       } else if (closingType === 'live') {
         stats[idStaff].closingLive += 1;
-      } else if (closingType === 'beg lead') {
+      } else if (closingType === 'shop' || closingType === 'beg lead') {
         stats[idStaff].closingShop += 1;
       }
     });
@@ -452,7 +452,7 @@ const ReportSales: React.FC = () => {
                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[80px]">WEBSITE</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[80px]">CALL</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[80px]">LIVE</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[80px]">BEG LEAD</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap min-w-[80px]">SHOP</th>
               </tr>
             </thead>
             <tbody className="bg-background divide-y divide-border">

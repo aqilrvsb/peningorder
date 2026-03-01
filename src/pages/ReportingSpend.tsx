@@ -198,7 +198,7 @@ const ReportingSpend: React.FC = () => {
         manual: platformSpends.filter(s => s.jenisClosing === 'Manual').reduce((sum, s) => sum + s.totalSpend, 0),
         call: platformSpends.filter(s => s.jenisClosing === 'Call').reduce((sum, s) => sum + s.totalSpend, 0),
         live: platformSpends.filter(s => s.jenisClosing === 'Live').reduce((sum, s) => sum + s.totalSpend, 0),
-        shop: platformSpends.filter(s => s.jenisClosing === 'Beg Lead').reduce((sum, s) => sum + s.totalSpend, 0),
+        shop: platformSpends.filter(s => s.jenisClosing === 'Shop' || s.jenisClosing === 'Shop').reduce((sum, s) => sum + s.totalSpend, 0),
       };
 
       // Calculate percentages based on spend
@@ -231,7 +231,7 @@ const ReportingSpend: React.FC = () => {
       manual: filteredSpends.filter(s => s.jenisClosing === 'Manual').reduce((sum, s) => sum + s.totalSpend, 0),
       call: filteredSpends.filter(s => s.jenisClosing === 'Call').reduce((sum, s) => sum + s.totalSpend, 0),
       live: filteredSpends.filter(s => s.jenisClosing === 'Live').reduce((sum, s) => sum + s.totalSpend, 0),
-      shop: filteredSpends.filter(s => s.jenisClosing === 'Beg Lead').reduce((sum, s) => sum + s.totalSpend, 0),
+      shop: filteredSpends.filter(s => s.jenisClosing === 'Shop' || s.jenisClosing === 'Shop').reduce((sum, s) => sum + s.totalSpend, 0),
       totalSpend,
     };
   }, [filteredSpends]);
@@ -474,7 +474,7 @@ const ReportingSpend: React.FC = () => {
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
               <Store className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Beg Lead</span>
+              <span className="text-xs uppercase font-medium">Shop</span>
             </div>
             <p className="text-xl font-bold text-amber-700 dark:text-amber-300">RM {closingStats.shop.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground">{closingStats.totalSpend > 0 ? ((closingStats.shop / closingStats.totalSpend) * 100).toFixed(1) : 0}%</p>
@@ -529,7 +529,7 @@ const ReportingSpend: React.FC = () => {
                   <span className="text-xs font-medium">RM {platform.closingBreakdown.live.toFixed(0)} <span className="text-muted-foreground">({platform.closingPct.livePct.toFixed(0)}%)</span></span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-amber-600 dark:text-amber-400">Beg Lead</span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400">Shop</span>
                   <span className="text-xs font-medium">RM {platform.closingBreakdown.shop.toFixed(0)} <span className="text-muted-foreground">({platform.closingPct.shopPct.toFixed(0)}%)</span></span>
                 </div>
               </div>
@@ -616,7 +616,7 @@ const ReportingSpend: React.FC = () => {
                       data.jenisClosing === 'Manual' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
                       data.jenisClosing === 'Call' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400' :
                       data.jenisClosing === 'Live' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400' :
-                      data.jenisClosing === 'Beg Lead' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
+                      data.jenisClosing === 'Shop' || data.jenisClosing === 'Beg Lead' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
                       'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
                     }`}>
                       {data.jenisClosing === 'Wa Bot' ? 'WA Bot' : data.jenisClosing}

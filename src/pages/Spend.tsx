@@ -45,7 +45,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
-const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Beg Lead'];
+const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Shop'];
 
 interface Spend {
   id: string;

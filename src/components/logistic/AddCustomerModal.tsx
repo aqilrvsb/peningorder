@@ -101,7 +101,7 @@ const CLOSING_TYPES = [
   "Call",
   "Manual",
   "Live",
-  "Beg Lead",
+  "Shop",
   "Walk In",
 ];
 

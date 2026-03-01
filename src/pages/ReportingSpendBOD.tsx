@@ -287,7 +287,7 @@ const ReportingSpendBOD: React.FC = () => {
       manual: 0,
       call: 0,
       live: 0,
-      begLead: 0,
+      shop: 0,
     };
 
     // Calculate total spend by jenis_closing from filtered spends
@@ -299,7 +299,7 @@ const ReportingSpendBOD: React.FC = () => {
       else if (closing === 'manual') spendByClosing.manual += amount;
       else if (closing === 'call') spendByClosing.call += amount;
       else if (closing === 'live') spendByClosing.live += amount;
-      else if (closing === 'beg lead') spendByClosing.begLead += amount;
+      else if (closing === 'shop' || closing === 'beg lead') spendByClosing.shop += amount;
     });
 
     // Sales by jenis_closing from orders
@@ -309,7 +309,7 @@ const ReportingSpendBOD: React.FC = () => {
       manual: 0,
       call: 0,
       live: 0,
-      begLead: 0,
+      shop: 0,
     };
 
     filteredOrders.forEach(order => {
@@ -320,10 +320,10 @@ const ReportingSpendBOD: React.FC = () => {
       else if (closing === 'manual') salesByClosing.manual += amount;
       else if (closing === 'call') salesByClosing.call += amount;
       else if (closing === 'live') salesByClosing.live += amount;
-      else if (closing === 'beg lead') salesByClosing.begLead += amount;
+      else if (closing === 'shop' || closing === 'beg lead') salesByClosing.shop += amount;
     });
 
-    const totalSpendByClosing = spendByClosing.website + spendByClosing.waBot + spendByClosing.manual + spendByClosing.call + spendByClosing.live + spendByClosing.begLead;
+    const totalSpendByClosing = spendByClosing.website + spendByClosing.waBot + spendByClosing.manual + spendByClosing.call + spendByClosing.live + spendByClosing.shop;
 
     return {
       spendByClosing,
@@ -468,7 +468,7 @@ const ReportingSpendBOD: React.FC = () => {
                 <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM {formatNumber(summaryStats.salesByClosing.manual)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.manual / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
                 <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM {formatNumber(summaryStats.salesByClosing.call)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.call / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
                 <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM {formatNumber(summaryStats.salesByClosing.live)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.live / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
-                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM {formatNumber(summaryStats.salesByClosing.begLead)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.begLead / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Shop</span><span>RM {formatNumber(summaryStats.salesByClosing.shop)} ({totals.salesFB > 0 ? ((summaryStats.salesByClosing.shop / totals.salesFB) * 100).toFixed(0) : 0}%)</span></div>
               </div>
             </div>
           </div>
@@ -497,7 +497,7 @@ const ReportingSpendBOD: React.FC = () => {
                 <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
-                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Shop</span><span>RM 0 (0%)</span></div>
               </div>
             </div>
           </div>
@@ -526,7 +526,7 @@ const ReportingSpendBOD: React.FC = () => {
                 <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
-                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Shop</span><span>RM 0 (0%)</span></div>
               </div>
             </div>
           </div>
@@ -555,7 +555,7 @@ const ReportingSpendBOD: React.FC = () => {
                 <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
-                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Shop</span><span>RM 0 (0%)</span></div>
               </div>
             </div>
           </div>
@@ -584,7 +584,7 @@ const ReportingSpendBOD: React.FC = () => {
                 <div className="flex justify-between"><span className="text-gray-600">Manual</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-blue-600">Call</span><span>RM 0 (0%)</span></div>
                 <div className="flex justify-between"><span className="text-purple-600">Live</span><span>RM 0 (0%)</span></div>
-                <div className="flex justify-between"><span className="text-amber-600">Beg Lead</span><span>RM 0 (0%)</span></div>
+                <div className="flex justify-between"><span className="text-amber-600">Shop</span><span>RM 0 (0%)</span></div>
               </div>
             </div>
           </div>

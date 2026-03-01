@@ -262,7 +262,7 @@ const Dashboard: React.FC = () => {
       const website = platformOrders.filter(o => o.jenisClosing === 'Website').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
       const call = platformOrders.filter(o => o.jenisClosing === 'Call').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
       const live = platformOrders.filter(o => o.jenisClosing === 'Live').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-      const shop = platformOrders.filter(o => o.jenisClosing === 'Beg Lead').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+      const shop = platformOrders.filter(o => o.jenisClosing === 'Shop' || o.jenisClosing === 'Beg Lead').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
       return {
         manual, manualPct: platformTotal > 0 ? (manual / platformTotal) * 100 : 0,
         waBot, waBotPct: platformTotal > 0 ? (waBot / platformTotal) * 100 : 0,
@@ -309,7 +309,7 @@ const Dashboard: React.FC = () => {
     const salesWebsite = filteredOrders.filter(o => o.jenisClosing === 'Website').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesCall = filteredOrders.filter(o => o.jenisClosing === 'Call').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesLive = filteredOrders.filter(o => o.jenisClosing === 'Live').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const salesShop = filteredOrders.filter(o => o.jenisClosing === 'Beg Lead').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const salesShop = filteredOrders.filter(o => o.jenisClosing === 'Shop' || o.jenisClosing === 'Beg Lead').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Total Lead
     const totalLead = filteredProspects.length;
@@ -523,7 +523,7 @@ const Dashboard: React.FC = () => {
       const website = platformOrders.filter(o => o.jenis_closing === 'Website').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
       const call = platformOrders.filter(o => o.jenis_closing === 'Call').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
       const live = platformOrders.filter(o => o.jenis_closing === 'Live').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
-      const shop = platformOrders.filter(o => o.jenis_closing === 'Beg Lead').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+      const shop = platformOrders.filter(o => o.jenis_closing === 'Shop' || o.jenis_closing === 'Beg Lead').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
       return {
         manual, manualPct: platformTotal > 0 ? (manual / platformTotal) * 100 : 0,
         waBot, waBotPct: platformTotal > 0 ? (waBot / platformTotal) * 100 : 0,
@@ -570,7 +570,7 @@ const Dashboard: React.FC = () => {
     const salesWebsite = filteredAllOrders.filter(o => o.jenis_closing === 'Website').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
     const salesCall = filteredAllOrders.filter(o => o.jenis_closing === 'Call').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
     const salesLive = filteredAllOrders.filter(o => o.jenis_closing === 'Live').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
-    const salesShop = filteredAllOrders.filter(o => o.jenis_closing === 'Beg Lead').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+    const salesShop = filteredAllOrders.filter(o => o.jenis_closing === 'Shop' || o.jenis_closing === 'Beg Lead').reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
 
     // Total Lead (all marketers)
     const totalLead = filteredAllProspects.length;
@@ -961,7 +961,7 @@ const Dashboard: React.FC = () => {
               <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingShopee.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.websitePct)})</span></p>
               <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingShopee.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.callPct)})</span></p>
               <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(marketerStats.closingShopee.live)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Beg Lead:</span> {formatCurrency(marketerStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.shopPct)})</span></p>
+              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(marketerStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.shopPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
               <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerShopee.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerShopee.npPct)})</span></p>
@@ -984,7 +984,7 @@ const Dashboard: React.FC = () => {
               <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingTiktok.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.websitePct)})</span></p>
               <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingTiktok.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.callPct)})</span></p>
               <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(marketerStats.closingTiktok.live)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Beg Lead:</span> {formatCurrency(marketerStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.shopPct)})</span></p>
+              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(marketerStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.shopPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
               <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerTiktok.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerTiktok.npPct)})</span></p>
@@ -1071,7 +1071,7 @@ const Dashboard: React.FC = () => {
           <div className="stat-card">
             <div className="flex items-center gap-2 text-orange-500 mb-2">
               <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING BEG LEAD</span>
+              <span className="text-sm font-medium">CLOSING SHOP</span>
             </div>
             <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesShop)}</p>
             <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.shopPercent)}</p>
@@ -1528,7 +1528,7 @@ const Dashboard: React.FC = () => {
               <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingShopee.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.websitePct)})</span></p>
               <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingShopee.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.callPct)})</span></p>
               <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(bodStats.closingShopee.live)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Beg Lead:</span> {formatCurrency(bodStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.shopPct)})</span></p>
+              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(bodStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.shopPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
               <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerShopee.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerShopee.npPct)})</span></p>
@@ -1551,7 +1551,7 @@ const Dashboard: React.FC = () => {
               <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingTiktok.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.websitePct)})</span></p>
               <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingTiktok.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.callPct)})</span></p>
               <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(bodStats.closingTiktok.live)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Beg Lead:</span> {formatCurrency(bodStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.shopPct)})</span></p>
+              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(bodStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.shopPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
               <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerTiktok.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerTiktok.npPct)})</span></p>
@@ -1638,7 +1638,7 @@ const Dashboard: React.FC = () => {
           <div className="stat-card">
             <div className="flex items-center gap-2 text-orange-500 mb-2">
               <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING BEG LEAD</span>
+              <span className="text-sm font-medium">CLOSING SHOP</span>
             </div>
             <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesShop)}</p>
             <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.shopPercent)}</p>
