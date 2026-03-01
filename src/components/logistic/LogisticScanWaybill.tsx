@@ -594,21 +594,26 @@ const LogisticScanWaybill = () => {
       const numPages = pdf.numPages;
       const waybills: ParsedWaybill[] = [];
 
+      console.log(`PDF loaded: ${numPages} pages`);
       toast.info(`Processing ${numPages} page(s)...`);
 
       if (platform === "Tiktok") {
         for (let i = 1; i <= numPages; i++) {
+          console.log(`Processing TikTok page ${i}/${numPages}...`);
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
           const text = textContent.items
             .map((item: any) => item.str)
             .join(" ");
 
+          console.log(`Page ${i} text length: ${text.length}, preview: ${text.substring(0, 100)}`);
           const parsedWaybill = parseTiktokWaybill(text, i);
+          console.log(`Page ${i} parse result:`, parsedWaybill ? `OK - tracking: ${parsedWaybill.tracking_number}` : "FAILED (null)");
           if (parsedWaybill) {
             waybills.push(parsedWaybill);
           }
         }
+        console.log(`TikTok total parsed: ${waybills.length}/${numPages}`);
       } else if (platform === "Shopee") {
         const shippingPages: ShopeeShippingPage[] = [];
         const packingPages: ShopeePackingPage[] = [];
