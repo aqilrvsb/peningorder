@@ -34,6 +34,7 @@ import {
   Webhook,
   FilePlus,
   Database,
+  ScanLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -197,6 +198,12 @@ const navItems: NavItem[] = [
     label: 'Key In Order',
     path: '/dashboard/logistics/create-order',
     icon: <FilePlus className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Scan Waybill',
+    path: '/dashboard/logistics/scan-waybill',
+    icon: <ScanLine className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {

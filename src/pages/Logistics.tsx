@@ -20,6 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import StockInTab from '@/components/logistics/StockInTab';
 import StockOutTab from '@/components/logistics/StockOutTab';
+import LogisticScanWaybill from '@/components/logistic/LogisticScanWaybill';
 import { getMalaysiaDate } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['All', 'Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
@@ -100,6 +101,7 @@ const Logistics: React.FC = () => {
   const getTabFromPath = () => {
     if (location.pathname.includes('/logistics/stock-in')) return 'stock-in';
     if (location.pathname.includes('/logistics/stock-out')) return 'stock-out';
+    if (location.pathname.includes('/logistics/scan-waybill')) return 'scan-waybill';
     if (location.pathname.includes('/logistics/order')) return 'order';
     if (location.pathname.includes('/logistics/shipment')) return 'shipment';
     if (location.pathname.includes('/logistics/return')) return 'return';
@@ -2527,6 +2529,10 @@ const Logistics: React.FC = () => {
 
         <TabsContent value="stock-out" className="mt-6">
           <StockOutTab />
+        </TabsContent>
+
+        <TabsContent value="scan-waybill" className="mt-6">
+          <LogisticScanWaybill />
         </TabsContent>
       </Tabs>
     </div>

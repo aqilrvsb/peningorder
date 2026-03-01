@@ -46,6 +46,7 @@ import LogisticProcessed from "./components/logistic/LogisticProcessed";
 import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
+import LogisticScanWaybill from "./components/logistic/LogisticScanWaybill";
 // Marketer components
 import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
 import MarketerReward from "./components/marketer/MarketerReward";
@@ -120,6 +121,7 @@ const App = () => (
                   <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
                   {/* New Logistic Role routes - Logistics */}
                   <Route path="logistics/create-order" element={<OrderForm />} />
+                  <Route path="logistics/scan-waybill" element={<LogisticScanWaybill />} />
                   <Route path="logistics/order" element={<LogisticOrder />} />
                   <Route path="logistics/processed" element={<LogisticProcessed />} />
                   <Route path="logistics/return" element={<LogisticReturn />} />
