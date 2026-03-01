@@ -333,20 +333,16 @@ const AccountSalary = () => {
       commission = pnlResult.commission;
       bonus = pnlResult.bonus;
     }
-    // Managing Director: PNL based (commission + bonus)
+    // Managing Director: commission only (PNL based), no bonus
     else if (user.role === "Managing Director") {
       const companyRoas = spendsData.reduce((sum: number, s: any) => sum + (Number(s.total_spend) || 0), 0);
       const roas = companyRoas > 0 ? totalCompanyCollection / companyRoas : 0;
       const pnlResult = calculatePNLCommissionBonus(totalCompanyCollection, roas);
       commission = pnlResult.commission;
-      bonus = pnlResult.bonus;
     }
-    // Business Support Exec, Multimedia: bonus only, no commission
+    // Business Support Exec, Multimedia: no commission, no bonus
     else if (["Business Support Exec", "Multimedia"].includes(user.role || "")) {
-      const companyRoas = spendsData.reduce((sum: number, s: any) => sum + (Number(s.total_spend) || 0), 0);
-      const roas = companyRoas > 0 ? totalCompanyCollection / companyRoas : 0;
-      const pnlResult = calculatePNLCommissionBonus(totalCompanyCollection, roas);
-      bonus = pnlResult.bonus;
+      // No commission and no bonus for these roles
     }
 
     const totalEarnings = basicSalary + commission + bonus;
