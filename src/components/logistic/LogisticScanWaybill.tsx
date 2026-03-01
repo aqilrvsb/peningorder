@@ -816,6 +816,7 @@ const LogisticScanWaybill = () => {
             seos: "Shipped",
             kurier: kurierValue,
             date_order: w.date_order || today,
+            date_processed: w.date_order || today,
             bundle_id: w.bundle_id || null,
             nota_staff: w.product_name || null,
           });
