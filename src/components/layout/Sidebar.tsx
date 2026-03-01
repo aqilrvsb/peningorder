@@ -287,6 +287,18 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
+    label: 'Pending Tracking',
+    path: '/dashboard/account/pending-tracking',
+    icon: <Clock className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
+    label: 'Success Tracking',
+    path: '/dashboard/account/success-tracking',
+    icon: <CheckCircle className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'Invoice Settings',
     path: '/dashboard/account/invoice-settings',
     icon: <FileText className="w-5 h-5" />,
