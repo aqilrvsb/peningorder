@@ -547,8 +547,21 @@ const LogisticScanWaybill = () => {
         orderId = orderIdMatch[1];
       }
 
-      // Match bundle from DB
+      // Extract total price from packing list (last decimal number e.g. "79.00")
+      let totalPrice = 0;
+      const priceMatches = flatText.match(/(\d+\.\d{2})/g);
+      if (priceMatches && priceMatches.length > 0) {
+        totalPrice = parseFloat(priceMatches[priceMatches.length - 1]) || 0;
+      }
+
+      // Try to match bundle from DB using product text
       const matchedBundle = matchBundleFromDB("", flatText);
+
+      // Check if the match is a real match (not just default fallback)
+      // For Shopee, product names are generic - only trust SET pattern matches
+      const hasSetPattern = /\bset\s+[a-z]/i.test(flatText);
+      const hasBotolPattern = /\d+\s*botol/i.test(flatText);
+      const isRealMatch = hasSetPattern || hasBotolPattern;
 
       // Quantity: 1 waybill = 1 bundle ordered
       const quantity = 1;
@@ -556,12 +569,12 @@ const LogisticScanWaybill = () => {
       if (orderId) {
         return {
           orderId,
-          productName: matchedBundle.name,
-          productSku: matchedBundle.sku,
+          productName: isRealMatch ? matchedBundle.name : "",
+          productSku: isRealMatch ? matchedBundle.sku : "",
           quantity,
-          totalPrice: 0,
+          totalPrice,
           rawText: lineText,
-          bundleId: matchedBundle.id,
+          bundleId: isRealMatch ? matchedBundle.id : null,
         };
       }
 
@@ -592,8 +605,8 @@ const LogisticScanWaybill = () => {
         city: "",
         state: shipping.state,
         quantity: packing?.quantity || 1,
-        product_sku: packing?.productSku || DEFAULT_BUNDLE.sku,
-        product_name: packing?.productName || DEFAULT_BUNDLE.name,
+        product_sku: packing?.productSku || "",
+        product_name: packing?.productName || "",
         total_price: packing?.totalPrice || 0,
         payment_method: shipping.isCOD ? "COD" : "Online Transfer",
         jenis_closing: "Shop",
