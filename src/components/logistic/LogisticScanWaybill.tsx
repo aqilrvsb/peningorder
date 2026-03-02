@@ -1104,18 +1104,34 @@ const LogisticScanWaybill = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          value={waybill.product_name}
-                          onChange={(e) => updateWaybillField(waybill.id, "product_name", e.target.value)}
-                          className="h-8 w-[150px] text-xs"
-                        />
+                        <Select
+                          value={waybill.bundle_id || ""}
+                          onValueChange={(val) => {
+                            const bundle = allBundles.find((b: any) => b.id === val);
+                            if (bundle) {
+                              setParsedWaybills(prev =>
+                                prev.map(w => w.id === waybill.id ? {
+                                  ...w,
+                                  bundle_id: bundle.id,
+                                  product_name: bundle.name,
+                                  product_sku: bundle.sku || "",
+                                } : w)
+                              );
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-[180px] text-xs">
+                            <SelectValue placeholder="Select bundle" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allBundles.map((b: any) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          value={waybill.product_sku}
-                          onChange={(e) => updateWaybillField(waybill.id, "product_sku", e.target.value)}
-                          className="h-8 w-[80px] font-mono text-xs"
-                        />
+                        <span className="font-mono text-xs text-muted-foreground">{waybill.product_sku}</span>
                       </TableCell>
                       <TableCell>
                         <Input
