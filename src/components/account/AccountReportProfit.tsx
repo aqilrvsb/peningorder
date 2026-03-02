@@ -367,18 +367,22 @@ const AccountReportProfit: React.FC = () => {
     });
 
     // Process ALL orders including Return (for postage only)
+    // Shopee/Tiktok: use abs(cost_postage) as fees (same as Success Tracking)
+    // Others: use cost_postage as-is
     filteredOrders.forEach(order => {
       const idStaff = order.marketer_id_staff || "HQ";
 
       const name = profiles[idStaff] || idStaff;
-      const postage = parseFloat(order.cost_postage) || 0;
+      const platform = order.jenis_platform;
+      const postage = (platform === 'Shopee' || platform === 'Tiktok')
+        ? Math.abs(Number(order.cost_postage) || 0)
+        : parseFloat(order.cost_postage) || 0;
 
       initStats(idStaff, name);
 
       stats[idStaff].totalPostage += postage;
 
       // Count postage by platform
-      const platform = order.jenis_platform;
       if (platform === 'Facebook') {
         stats[idStaff].postageFB += postage;
       } else if (platform === 'Database') {
