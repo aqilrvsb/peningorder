@@ -45,13 +45,17 @@ const AccountPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const firstDay = getMalaysiaStartOfMonth();
+  const lastDay = getMalaysiaEndOfMonth();
+
   // Filter states
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
-  const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  const [startDate, setStartDate] = useState(firstDay);
+  const [endDate, setEndDate] = useState(lastDay);
   const [platformFilter, setPlatformFilter] = useState("all");
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [trackingSearch, setTrackingSearch] = useState("");
 
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -116,7 +120,7 @@ const AccountPendingTracking = () => {
 
   // Fetch pending tracking orders: Shipped + SEO not successful
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["account-pending-tracking", startDate, endDate],
+    queryKey: ["account-pending-tracking", startDate, endDate, trackingSearch],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -125,8 +129,12 @@ const AccountPendingTracking = () => {
         .or("seo.is.null,seo.neq.Successful Delivery")
         .order("date_order", { ascending: false });
 
-      if (startDate) query = query.gte("date_order", startDate);
-      if (endDate) query = query.lte("date_order", endDate);
+      if (trackingSearch) {
+        query = query.eq("tracking_number", trackingSearch);
+      } else {
+        if (startDate) query = query.gte("date_order", startDate);
+        if (endDate) query = query.lte("date_order", endDate);
+      }
 
       const { data, error } = await query.range(0, 49999);
       if (error) throw error;
@@ -886,23 +894,61 @@ const AccountPendingTracking = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search... (use + to combine filters)"
+                  placeholder="Search tracking number..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && search.trim()) {
+                      setTrackingSearch(search.trim());
+                      setStartDate("");
+                      setEndDate("");
+                      handleFilterChange();
+                    }
+                  }}
                   className="pl-10"
                 />
               </div>
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (search.trim()) {
+                    setTrackingSearch(search.trim());
+                    setStartDate("");
+                    setEndDate("");
+                    handleFilterChange();
+                  }
+                }}
+                className="shrink-0"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              {trackingSearch && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTrackingSearch("");
+                    setSearch("");
+                    setStartDate(firstDay);
+                    setEndDate(lastDay);
+                    handleFilterChange();
+                  }}
+                  className="shrink-0"
+                >
+                  Reset
+                </Button>
+              )}
               <div className="flex gap-2">
                 <Input
                   type="date"
                   value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
+                  onChange={(e) => { setStartDate(e.target.value); setTrackingSearch(""); handleFilterChange(); }}
                   className="w-40"
                 />
                 <Input
                   type="date"
                   value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
+                  onChange={(e) => { setEndDate(e.target.value); setTrackingSearch(""); handleFilterChange(); }}
                   className="w-40"
                 />
               </div>
