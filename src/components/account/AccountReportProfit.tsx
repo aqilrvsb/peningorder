@@ -332,8 +332,7 @@ const AccountReportProfit: React.FC = () => {
 
     // Process orders including Return (for sales, cost product)
     filteredOrders.forEach(order => {
-      const idStaff = order.marketer_id_staff;
-      if (!idStaff) return;
+      const idStaff = order.marketer_id_staff || "HQ";
 
       const name = profiles[idStaff] || idStaff;
       const sale = parseFloat(order.total_sale) || 0;
@@ -369,8 +368,7 @@ const AccountReportProfit: React.FC = () => {
 
     // Process ALL orders including Return (for postage only)
     filteredOrders.forEach(order => {
-      const idStaff = order.marketer_id_staff;
-      if (!idStaff) return;
+      const idStaff = order.marketer_id_staff || "HQ";
 
       const name = profiles[idStaff] || idStaff;
       const postage = parseFloat(order.cost_postage) || 0;
