@@ -1021,7 +1021,29 @@ const LogisticCustomers = () => {
                         </td>
                         <td className="p-2 text-center">{order.unit || 1}</td>
                         <td className="p-2 whitespace-nowrap">
-                          <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                          {order.tracking_number ? (
+                            order.jenis_platform === "Tiktok" ? (
+                              <a
+                                href={`https://seller-my.tiktok.com/order/detail?order_no=${order.tracking_number}&shop_region=MY`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline font-mono text-xs"
+                              >
+                                {order.tracking_number}
+                              </a>
+                            ) : order.jenis_platform === "Shopee" ? (
+                              <a
+                                href={`https://seller.shopee.com.my/portal/sale/order?search=${encodeURIComponent(order.tracking_number)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-orange-600 hover:underline font-mono text-xs"
+                              >
+                                {order.tracking_number}
+                              </a>
+                            ) : (
+                              <span className="font-mono text-xs">{order.tracking_number}</span>
+                            )
+                          ) : "-"}
                         </td>
                         <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                         <td className="p-2">
