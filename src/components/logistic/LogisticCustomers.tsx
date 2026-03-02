@@ -1015,6 +1015,11 @@ const LogisticCustomers = () => {
                               placeholder="60123456789"
                               value={editingPhoneValue}
                               onChange={(e) => setEditingPhoneValue(e.target.value)}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                const pasted = e.clipboardData.getData("text");
+                                setEditingPhoneValue(normalizePhone(pasted));
+                              }}
                               onBlur={() => handlePhoneSave(order.id)}
                               onKeyDown={(e) => { if (e.key === "Enter") handlePhoneSave(order.id); }}
                               autoFocus
