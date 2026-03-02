@@ -299,15 +299,27 @@ const LogisticCustomers = () => {
     setIsQuickSearchActive(false);
   };
 
-  // Inline phone save - validates starts with 6, saves to DB without refreshing sort
+  // Normalize phone: auto-prepend 60 if starts with 0 or 1
+  const normalizePhone = (raw: string): string => {
+    let phone = raw.trim().replace(/\D/g, ""); // remove non-digits
+    if (phone.startsWith("0")) {
+      phone = "6" + phone; // 012345 → 6012345
+    } else if (phone.startsWith("1")) {
+      phone = "60" + phone; // 19723 → 6019723
+    }
+    return phone;
+  };
+
+  // Inline phone save - auto-normalizes, saves to DB without refreshing sort
   const handlePhoneSave = async (orderId: string) => {
-    const phone = editingPhoneValue.trim();
-    if (!phone) {
+    const raw = editingPhoneValue.trim();
+    if (!raw) {
       setEditingPhoneId(null);
       return;
     }
-    if (!phone.startsWith("6")) {
-      toast.error("Phone must start with 6 (e.g., 60123456789)");
+    const phone = normalizePhone(raw);
+    if (!phone.startsWith("60")) {
+      toast.error("Phone must start with 60 (e.g., 60123456789)");
       return;
     }
     try {

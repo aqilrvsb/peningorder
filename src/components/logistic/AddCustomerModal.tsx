@@ -175,6 +175,17 @@ const AddCustomerModal = ({
     }
   };
 
+  // Normalize phone: auto-prepend 60 if starts with 0 or 1
+  const normalizePhone = (raw: string): string => {
+    let phone = raw.trim().replace(/\D/g, "");
+    if (phone.startsWith("0")) {
+      phone = "6" + phone; // 012345 → 6012345
+    } else if (phone.startsWith("1")) {
+      phone = "60" + phone; // 19723 → 6019723
+    }
+    return phone;
+  };
+
   const handleSubmit = () => {
     // Basic validation - phone is optional for non-NinjaVan sources
     const isProductSelected = selectionType === "product" && productId;
@@ -206,7 +217,7 @@ const AddCustomerModal = ({
 
     onSubmit({
       customerName,
-      customerPhone: customerPhone || "",
+      customerPhone: customerPhone ? normalizePhone(customerPhone) : "",
       customerAddress,
       customerPostcode: customerPostcode || undefined,
       customerCity: customerCity || undefined,
