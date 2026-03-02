@@ -412,12 +412,15 @@ const AccountPendingTracking = () => {
       return;
     }
 
-    // Find orders matching the tracking numbers
-    const ordersToUpdate = filteredOrders.filter((o: any) =>
-      trackingNumbers.includes(o.tracking_number)
-    );
+    // Query DB directly for matching pending orders (not limited by current date/filter)
+    const { data: pendingOrders } = await supabase
+      .from("customer_purchases")
+      .select("id, tracking_number")
+      .eq("delivery_status", "Shipped")
+      .or("seo.is.null,seo.neq.Successful Delivery")
+      .in("tracking_number", trackingNumbers);
 
-    if (ordersToUpdate.length === 0) {
+    if (!pendingOrders || pendingOrders.length === 0) {
       toast.error("No matching orders found for the tracking numbers");
       return;
     }
@@ -441,7 +444,7 @@ const AccountPendingTracking = () => {
         };
       }
 
-      const updatePromises = ordersToUpdate.map((order: any) =>
+      const updatePromises = pendingOrders.map((order: any) =>
         supabase
           .from("customer_purchases")
           .update(updateData)
@@ -450,7 +453,7 @@ const AccountPendingTracking = () => {
 
       await Promise.all(updatePromises);
 
-      toast.success(`${ordersToUpdate.length} order(s) updated to ${bulkStatus}`);
+      toast.success(`${pendingOrders.length} order(s) updated to ${bulkStatus}`);
       setBulkTrackingList("");
       setBulkDate("");
       setBulkReasonReturn("");
@@ -508,12 +511,25 @@ const AccountPendingTracking = () => {
         return;
       }
 
-      // Match against current orders by tracking_number
+      // Query DB directly for matching pending orders (not limited by current date/filter)
+      const trackingNumbers = updates.map((u) => u.tracking);
+      const { data: pendingOrders } = await supabase
+        .from("customer_purchases")
+        .select("id, tracking_number")
+        .eq("delivery_status", "Shipped")
+        .or("seo.is.null,seo.neq.Successful Delivery")
+        .in("tracking_number", trackingNumbers);
+
+      const pendingMap = new Map<string, string>();
+      for (const o of pendingOrders || []) {
+        pendingMap.set(o.tracking_number, o.id);
+      }
+
       let matched = 0;
       const notFoundList: { tracking: string; price: number; fees: number }[] = [];
       for (const item of updates) {
-        const order = filteredOrders.find((o: any) => o.tracking_number === item.tracking);
-        if (order) {
+        const orderId = pendingMap.get(item.tracking);
+        if (orderId) {
           await supabase
             .from("customer_purchases")
             .update({
@@ -522,7 +538,7 @@ const AccountPendingTracking = () => {
               cost_postage: item.fees,
               seo: "Successful Delivery",
             })
-            .eq("id", order.id);
+            .eq("id", orderId);
           matched++;
         } else {
           notFoundList.push({ tracking: item.tracking, price: item.price, fees: item.fees });
