@@ -39,6 +39,7 @@ const LogisticPendingTracking = () => {
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  const [platformFilter, setPlatformFilter] = useState("all");
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -107,6 +108,9 @@ const LogisticPendingTracking = () => {
 
   // Filter orders
   const filteredOrders = orders.filter((order: any) => {
+    // Platform filter
+    if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
+
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
@@ -483,6 +487,19 @@ const LogisticPendingTracking = () => {
               onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
               className="w-36 h-9"
             />
+            <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue placeholder="Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platform</SelectItem>
+                <SelectItem value="Facebook">Facebook</SelectItem>
+                <SelectItem value="Tiktok">TikTok</SelectItem>
+                <SelectItem value="Shopee">Shopee</SelectItem>
+                <SelectItem value="Database">Database</SelectItem>
+                <SelectItem value="Google">Google</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Show:</span>
               <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
