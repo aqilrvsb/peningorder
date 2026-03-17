@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { Users, ShoppingCart, DollarSign, Package, Plus, Loader2, FileText, Trash2, Search, XCircle } from "lucide-react";
+import { Users, ShoppingCart, DollarSign, Package, Plus, Loader2, FileText, Trash2, Search, XCircle, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
@@ -265,6 +266,47 @@ const LogisticCustomers = () => {
     { title: "Total Units Sold", value: totalUnitsPurchased, icon: Package, color: "text-emerald-600" },
     { title: "Total Revenue", value: `RM ${totalPrice.toFixed(2)}`, icon: DollarSign, color: "text-green-600" },
   ];
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    if (displayOrders.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    const data = displayOrders.map((order: any, index: number) => ({
+      "No": index + 1,
+      "Id Sales": order.id_sale || "-",
+      "Tarikh Processed": order.date_processed || "-",
+      "Tarikh Order": order.date_order || "-",
+      "Id Staff": order.marketer_id_staff || "HQ",
+      "Sales Name": profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "HQ",
+      "Nama Pelanggan": order.name_customer || "-",
+      "Phone": order.phone_customer || "-",
+      "Produk": order.bundle?.name || "-",
+      "Unit": order.unit || 1,
+      "Tracking": order.tracking_number || "-",
+      "Total Sales": Number(order.total_sale || 0).toFixed(2),
+      "Cara Bayaran": order.type_payment || "-",
+      "Delivery Status": order.delivery_status || "-",
+      "Jenis Platform": order.jenis_platform || "-",
+      "Jenis Closing": order.jenis_closing || "-",
+      "Jenis Customer": order.jenis_customer || "-",
+      "Negeri": order.state_customer || "-",
+      "Alamat": order.address_customer || "-",
+      "Poskod": order.postcode_customer || "-",
+      "Bandar": order.city_customer || "-",
+      "Nota": order.nota_staff || "-",
+      "SEO": order.seos || "-",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customer HQ");
+    const filename = isQuickSearchActive
+      ? `Customer_HQ_Search_${quickSearch}.xlsx`
+      : `Customer_HQ_${startDate || "all"}_${endDate || "all"}${platformFilter !== "all" ? `_${platformFilter}` : ""}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast.success(`Exported ${data.length} records to Excel`);
+  };
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -948,6 +990,10 @@ const LogisticCustomers = () => {
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
             </Select>
+            <Button size="sm" onClick={handleExportExcel} variant="outline" className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300">
+              <Download className="w-4 h-4 mr-1" />
+              Export Excel
+            </Button>
           </div>
 
           {/* Table */}
