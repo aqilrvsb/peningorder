@@ -44,6 +44,8 @@ const Profile: React.FC = () => {
   });
 
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const [isUpdatingGroupLink, setIsUpdatingGroupLink] = useState(false);
 
   // Device state (for marketers only)
   const [device, setDevice] = useState<DeviceSetting | null>(null);
@@ -57,6 +59,23 @@ const Profile: React.FC = () => {
   });
 
   const isMarketer = profile?.role === 'marketer';
+
+  // Load profile fields (whatsapp number, group link)
+  useEffect(() => {
+    if (profile?.id) {
+      (async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('whatsapp_number, whatsapp_group_link')
+          .eq('id', profile.id)
+          .single();
+        if (data) {
+          setWhatsappNumber(data.whatsapp_number || '');
+          setWhatsappGroupLink(data.whatsapp_group_link || '');
+        }
+      })();
+    }
+  }, [profile?.id]);
 
   // Load device for marketer
   useEffect(() => {
@@ -460,6 +479,35 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleGroupLinkUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setIsUpdatingGroupLink(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ whatsapp_group_link: whatsappGroupLink.trim() || null })
+        .eq('id', profile?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Berjaya',
+        description: 'WhatsApp Group Link telah dikemaskini.',
+      });
+    } catch (error: any) {
+      console.error('Group link update error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal mengemaskini WhatsApp Group Link.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingGroupLink(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -725,6 +773,47 @@ const Profile: React.FC = () => {
             </Button>
           </form>
         </div>
+      </div>
+
+      {/* WhatsApp Group Link Card */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Phone className="w-5 h-5 text-green-600" />
+          <h3 className="text-lg font-semibold text-foreground">WhatsApp Group Link</h3>
+        </div>
+
+        <form onSubmit={handleGroupLinkUpdate} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Link Group WhatsApp
+            </label>
+            <Input
+              type="text"
+              placeholder="https://chat.whatsapp.com/xxxxx"
+              value={whatsappGroupLink}
+              onChange={(e) => setWhatsappGroupLink(e.target.value)}
+              className="bg-background"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Link ini akan dihantar kepada pelanggan selepas delivery berjaya.
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isUpdatingGroupLink}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            {isUpdatingGroupLink ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Mengemaskini...
+              </>
+            ) : (
+              'Kemaskini Group Link'
+            )}
+          </Button>
+        </form>
       </div>
 
       {/* QR Code Modal */}

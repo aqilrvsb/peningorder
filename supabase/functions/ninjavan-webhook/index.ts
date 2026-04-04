@@ -9,9 +9,13 @@ const corsHeaders = {
 
 // Image URL for successful delivery follow-up message
 const DELIVERY_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/caramakan.jpg';
-const DELIVERY_IMAGE_CAPTION = `Barang Golden Sari akak dah sampai kan? Ni cara penggunaan ya akak. Make sure cukup air masak tau. Masa period tak digalakkan consume , boleh stop sementara waktu . Kalau akak dah menopause , boleh consume hari2 macam biasa
+const DEFAULT_GROUP_LINK = 'https://chat.whatsapp.com/H5pW50lXnF10ErOi2HAyRm';
 
-join group ini : https://chat.whatsapp.com/H5pW50lXnF10ErOi2HAyRm`;
+function getDeliveryImageCaption(groupLink: string): string {
+  return `Barang Golden Sari akak dah sampai kan? Ni cara penggunaan ya akak. Make sure cukup air masak tau. Masa period tak digalakkan consume , boleh stop sementara waktu . Kalau akak dah menopause , boleh consume hari2 macam biasa
+
+join group ini : ${groupLink}`;
+}
 
 // NinjaVan webhook event interface (based on actual payload)
 interface NinjaVanWebhook {
@@ -229,12 +233,12 @@ async function sendWhatsAppMessage(
   marketerIdStaff: string,
   customerPhone: string,
   message: string
-): Promise<{ success: boolean; error?: string; instanceId?: string }> {
+): Promise<{ success: boolean; error?: string; instanceId?: string; groupLink?: string }> {
   try {
-    // Get marketer's profile
+    // Get marketer's profile (including group link for delivery follow-up)
     const { data: marketer } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, whatsapp_group_link')
       .eq('idstaff', marketerIdStaff)
       .single();
 
@@ -281,7 +285,7 @@ async function sendWhatsAppMessage(
     }
 
     console.log('WhatsApp message sent successfully to:', customerPhone);
-    return { success: true, instanceId };
+    return { success: true, instanceId, groupLink: marketer.whatsapp_group_link || '' };
   } catch (error: any) {
     console.error('WhatsApp send error:', error);
     return { success: false, error: error.message };
@@ -584,11 +588,12 @@ serve(async (req) => {
         // Send 2nd message: image with product usage instructions (only for successful delivery)
         if (whatsappResult.success && whatsappResult.instanceId && isSuccess) {
           console.log('Sending delivery follow-up image message...');
+          const groupLink = whatsappResult.groupLink || DEFAULT_GROUP_LINK;
           const imageResult = await sendWhatsAppImage(
             whatsappResult.instanceId,
             order.phone_customer,
             DELIVERY_IMAGE_URL,
-            DELIVERY_IMAGE_CAPTION
+            getDeliveryImageCaption(groupLink)
           );
           console.log('Image message result:', imageResult.success ? 'sent' : imageResult.error);
         }

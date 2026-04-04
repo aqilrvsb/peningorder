@@ -266,6 +266,7 @@ CREATE TABLE public.profiles (
   idstaff text UNIQUE,
   is_active boolean DEFAULT true,
   whatsapp_number text,
+  whatsapp_group_link text,
   staff_type text DEFAULT 'HQ'::text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id)
 );
