@@ -508,18 +508,57 @@ const AccountClaim = () => {
 
   // Generate PDF to match template exactly
   const generatePDF = async (claim: Claim) => {
-    // Fetch employee details from staff_database
-    const { data: staffDb } = await supabase
+    // Fetch employee details from staff_database (exact match, then case-insensitive)
+    let staffDb = null;
+    const { data: staffExact } = await supabase
       .from("staff_database")
       .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
       .eq("nama", claim.employee_name)
       .limit(1)
       .maybeSingle();
 
-    const displayIc = staffDb?.no_kad_pengenalan || claim.ic_number || "-";
-    const displayPhone = staffDb?.no_telefon || claim.phone_number || "-";
-    const displayDept = staffDb?.jawatan || claim.department || "-";
-    const displayEmpType = staffDb?.employment_type || claim.employment_type || "-";
+    if (staffExact) {
+      staffDb = staffExact;
+    } else {
+      const { data: staffFuzzy } = await supabase
+        .from("staff_database")
+        .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+        .ilike("nama", claim.employee_name)
+        .limit(1)
+        .maybeSingle();
+      staffDb = staffFuzzy;
+    }
+
+    let displayIc = staffDb?.no_kad_pengenalan || claim.ic_number || "-";
+    let displayPhone = staffDb?.no_telefon || claim.phone_number || "-";
+    let displayDept = staffDb?.jawatan || claim.department || "-";
+    let displayEmpType = staffDb?.employment_type || claim.employment_type || "-";
+
+    // Fallback to profiles / attendance_staff if staff_database has no match
+    if (!staffDb) {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("whatsapp_number")
+        .eq("full_name", claim.employee_name)
+        .limit(1)
+        .maybeSingle();
+
+      if (profileData) {
+        displayPhone = profileData.whatsapp_number || displayPhone;
+      }
+
+      const { data: attStaff } = await supabase
+        .from("attendance_staff")
+        .select("phone, role")
+        .eq("name", claim.employee_name)
+        .limit(1)
+        .maybeSingle();
+
+      if (attStaff) {
+        displayPhone = attStaff.phone || displayPhone;
+        displayDept = attStaff.role || displayDept;
+      }
+    }
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
