@@ -508,57 +508,64 @@ const AccountClaim = () => {
 
   // Generate PDF to match template exactly
   const generatePDF = async (claim: Claim) => {
-    // Fetch employee details from staff_database (exact match, then case-insensitive)
-    let staffDb = null;
-    const { data: staffExact } = await supabase
-      .from("staff_database")
-      .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
-      .eq("nama", claim.employee_name)
+    // Look up employee details via UUID reference chain (not name string matching)
+    let staffDb: any = null;
+
+    // 1. Try via profiles -> staff_database
+    const { data: profileMatch } = await supabase
+      .from("profiles")
+      .select("id, whatsapp_number")
+      .eq("full_name", claim.employee_name)
       .limit(1)
       .maybeSingle();
 
-    if (staffExact) {
-      staffDb = staffExact;
-    } else {
-      const { data: staffFuzzy } = await supabase
+    if (profileMatch) {
+      const { data: staffViaProfile } = await supabase
+        .from("staff_database")
+        .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+        .eq("staff_id", profileMatch.id)
+        .eq("staff_source", "profiles")
+        .limit(1)
+        .maybeSingle();
+      staffDb = staffViaProfile;
+    }
+
+    // 2. Try via attendance_staff -> staff_database
+    if (!staffDb) {
+      const { data: attMatch } = await supabase
+        .from("attendance_staff")
+        .select("id, phone, role")
+        .eq("name", claim.employee_name)
+        .limit(1)
+        .maybeSingle();
+
+      if (attMatch) {
+        const { data: staffViaAtt } = await supabase
+          .from("staff_database")
+          .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+          .eq("staff_id", attMatch.id)
+          .eq("staff_source", "attendance_staff")
+          .limit(1)
+          .maybeSingle();
+        staffDb = staffViaAtt;
+      }
+    }
+
+    // 3. Last resort: direct name match on staff_database
+    if (!staffDb) {
+      const { data: directMatch } = await supabase
         .from("staff_database")
         .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
         .ilike("nama", claim.employee_name)
         .limit(1)
         .maybeSingle();
-      staffDb = staffFuzzy;
+      staffDb = directMatch;
     }
 
-    let displayIc = staffDb?.no_kad_pengenalan || claim.ic_number || "-";
-    let displayPhone = staffDb?.no_telefon || claim.phone_number || "-";
-    let displayDept = staffDb?.jawatan || claim.department || "-";
-    let displayEmpType = staffDb?.employment_type || claim.employment_type || "-";
-
-    // Fallback to profiles / attendance_staff if staff_database has no match
-    if (!staffDb) {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("whatsapp_number")
-        .eq("full_name", claim.employee_name)
-        .limit(1)
-        .maybeSingle();
-
-      if (profileData) {
-        displayPhone = profileData.whatsapp_number || displayPhone;
-      }
-
-      const { data: attStaff } = await supabase
-        .from("attendance_staff")
-        .select("phone, role")
-        .eq("name", claim.employee_name)
-        .limit(1)
-        .maybeSingle();
-
-      if (attStaff) {
-        displayPhone = attStaff.phone || displayPhone;
-        displayDept = attStaff.role || displayDept;
-      }
-    }
+    const displayIc = staffDb?.no_kad_pengenalan || claim.ic_number || "-";
+    const displayPhone = staffDb?.no_telefon || profileMatch?.whatsapp_number || claim.phone_number || "-";
+    const displayDept = staffDb?.jawatan || claim.department || "-";
+    const displayEmpType = staffDb?.employment_type || claim.employment_type || "-";
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();

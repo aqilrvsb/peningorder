@@ -47,61 +47,81 @@ const ClaimInvoice = () => {
       }
 
       if (data) {
-        // Try staff_database first (exact name match)
-        const { data: staffDb } = await supabase
-          .from("staff_database")
-          .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
-          .eq("nama", data.employee_name)
+        // Look up employee details from staff_database via UUID reference
+        // Strategy: find profile/attendance_staff by name -> get ID -> find staff_database by staff_id
+        let staffDb: any = null;
+
+        // 1. Try via profiles -> staff_database (staff_source = 'profiles')
+        const { data: profileMatch } = await supabase
+          .from("profiles")
+          .select("id, whatsapp_number")
+          .eq("full_name", data.employee_name)
           .limit(1)
           .maybeSingle();
 
-        if (staffDb) {
-          data.ic_number = staffDb.no_kad_pengenalan || data.ic_number;
-          data.phone_number = staffDb.no_telefon || data.phone_number;
-          data.department = staffDb.jawatan || data.department;
-          data.employment_type = staffDb.employment_type || data.employment_type;
-        } else {
-          // Fallback: try case-insensitive match on staff_database
-          const { data: staffDbFuzzy } = await supabase
+        if (profileMatch) {
+          const { data: staffViaProfile } = await supabase
+            .from("staff_database")
+            .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+            .eq("staff_id", profileMatch.id)
+            .eq("staff_source", "profiles")
+            .limit(1)
+            .maybeSingle();
+
+          staffDb = staffViaProfile;
+          // Use profile whatsapp as phone fallback
+          if (!staffDb?.no_telefon && profileMatch.whatsapp_number) {
+            data.phone_number = profileMatch.whatsapp_number;
+          }
+        }
+
+        // 2. If not found, try via attendance_staff -> staff_database (staff_source = 'attendance_staff')
+        if (!staffDb) {
+          const { data: attMatch } = await supabase
+            .from("attendance_staff")
+            .select("id, phone, role")
+            .eq("name", data.employee_name)
+            .limit(1)
+            .maybeSingle();
+
+          if (attMatch) {
+            const { data: staffViaAtt } = await supabase
+              .from("staff_database")
+              .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
+              .eq("staff_id", attMatch.id)
+              .eq("staff_source", "attendance_staff")
+              .limit(1)
+              .maybeSingle();
+
+            staffDb = staffViaAtt;
+            // Use attendance phone/role as fallback
+            if (!staffDb?.no_telefon && attMatch.phone) {
+              data.phone_number = attMatch.phone;
+            }
+            if (!staffDb?.jawatan && attMatch.role) {
+              data.department = attMatch.role;
+            }
+          }
+        }
+
+        // 3. Last resort: direct name match on staff_database (exact then case-insensitive)
+        if (!staffDb) {
+          const { data: directMatch } = await supabase
             .from("staff_database")
             .select("no_kad_pengenalan, no_telefon, jawatan, employment_type")
             .ilike("nama", data.employee_name)
             .limit(1)
             .maybeSingle();
 
-          if (staffDbFuzzy) {
-            data.ic_number = staffDbFuzzy.no_kad_pengenalan || data.ic_number;
-            data.phone_number = staffDbFuzzy.no_telefon || data.phone_number;
-            data.department = staffDbFuzzy.jawatan || data.department;
-            data.employment_type = staffDbFuzzy.employment_type || data.employment_type;
-          } else {
-            // Fallback: try profiles table (full_name)
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("whatsapp_number")
-              .eq("full_name", data.employee_name)
-              .limit(1)
-              .maybeSingle();
+          staffDb = directMatch;
+        }
 
-            if (profileData) {
-              data.phone_number = profileData.whatsapp_number || data.phone_number;
-            }
-
-            // Fallback: try attendance_staff table (name)
-            if (data.phone_number === "-") {
-              const { data: attStaff } = await supabase
-                .from("attendance_staff")
-                .select("phone, role")
-                .eq("name", data.employee_name)
-                .limit(1)
-                .maybeSingle();
-
-              if (attStaff) {
-                data.phone_number = attStaff.phone || data.phone_number;
-                data.department = attStaff.role || data.department;
-              }
-            }
-          }
+        // Apply staff_database details if found
+        if (staffDb) {
+          data.ic_number = staffDb.no_kad_pengenalan || data.ic_number;
+          data.phone_number = staffDb.no_telefon || data.phone_number;
+          data.department = staffDb.jawatan || data.department;
+          data.employment_type = staffDb.employment_type || data.employment_type;
         }
 
         setClaim(data);
