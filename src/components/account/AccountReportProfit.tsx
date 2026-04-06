@@ -346,8 +346,8 @@ const AccountReportProfit: React.FC = () => {
       }
       stats[idStaff].totalCostProduct += costProduct;
 
-      // Count by platform (sales and cost only)
-      const platform = order.jenis_platform;
+      // Count by platform (sales and cost only) - default to Facebook if no platform set
+      const platform = order.jenis_platform || 'Facebook';
       if (platform === 'Facebook') {
         stats[idStaff].salesFB += sale;
         stats[idStaff].costProductFB += costProduct;
@@ -373,8 +373,9 @@ const AccountReportProfit: React.FC = () => {
       const idStaff = order.marketer_id_staff || "HQ";
 
       const name = profiles[idStaff] || idStaff;
-      const platform = order.jenis_platform;
-      const postage = (platform === 'Shopee' || platform === 'Tiktok')
+      const rawPlatform = order.jenis_platform;
+      const platform = rawPlatform || 'Facebook';
+      const postage = (rawPlatform === 'Shopee' || rawPlatform === 'Tiktok')
         ? Math.abs(Number(order.cost_postage) || 0)
         : parseFloat(order.cost_postage) || 0;
 
@@ -382,7 +383,7 @@ const AccountReportProfit: React.FC = () => {
 
       stats[idStaff].totalPostage += postage;
 
-      // Count postage by platform
+      // Count postage by platform - default to Facebook if no platform set
       if (platform === 'Facebook') {
         stats[idStaff].postageFB += postage;
       } else if (platform === 'Database') {
@@ -408,8 +409,8 @@ const AccountReportProfit: React.FC = () => {
 
       stats[idStaff].totalSpend += amount;
 
-      // Count spend by platform
-      const platform = spend.jenis_platform;
+      // Count spend by platform - default to Facebook if no platform set
+      const platform = spend.jenis_platform || 'Facebook';
       if (platform === 'Facebook') {
         stats[idStaff].spendFB += amount;
       } else if (platform === 'Database') {
