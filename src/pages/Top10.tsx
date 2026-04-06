@@ -216,7 +216,6 @@ const Top10: React.FC = () => {
       }
 
       // Sum sales by platform
-      const platform = order.jenis_platform;
       if (platform === 'Facebook') {
         stats[idStaff].platformFB += saleAmount;
       } else if (platform === 'Tiktok') {
