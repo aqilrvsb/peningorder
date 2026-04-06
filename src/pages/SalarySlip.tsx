@@ -49,10 +49,8 @@ interface UserProfile {
 interface PNLConfig {
   id: string;
   role: string;
-  min_sales: number;
-  max_sales: number | null;
-  roas_min: number;
-  roas_max: number;
+  min_gross_profit: number;
+  max_gross_profit: number | null;
   commission_percent: number;
   bonus_amount: number;
 }
@@ -238,7 +236,7 @@ const SalarySlip = () => {
           .from("pnl_config")
           .select("*")
           .eq("role", "marketer")
-          .order("min_sales", { ascending: true });
+          .order("min_gross_profit", { ascending: true });
 
         setPnlConfigs(pnl || []);
 
@@ -252,34 +250,47 @@ const SalarySlip = () => {
     fetchData();
   }, [userId, year, month, selectedYear, selectedMonth, daysInMonth]);
 
-  // Calculate marketer stats
+  // Calculate marketer stats (collection, spend, cost product, postage, gross profit, ROAS)
   const getMarketerStats = () => {
-    if (!user?.idstaff) return { collection: 0, totalSpend: 0, roas: 0 };
+    if (!user?.idstaff) return { collection: 0, totalSpend: 0, costProduct: 0, postage: 0, grossProfit: 0, roas: 0 };
 
-    const collection = ordersData
-      .filter((order: any) => order.marketer_id_staff === user.idstaff && order.seo === "Successful Delivery")
+    const marketerOrders = ordersData.filter((order: any) => order.marketer_id_staff === user.idstaff);
+    const successOrders = marketerOrders.filter((order: any) => order.seo === "Successful Delivery");
+
+    const collection = successOrders
       .reduce((sum: number, order: any) => sum + (Number(order.total_sale) || 0), 0);
 
     const totalSpend = spendsData
       .filter((spend: any) => spend.marketer_id_staff === user.idstaff)
       .reduce((sum: number, spend: any) => sum + (Number(spend.total_spend) || 0), 0);
 
+    const costProduct = marketerOrders
+      .reduce((sum: number, order: any) => sum + (Number(order.cost_baseproduct) || 0), 0);
+
+    const postage = marketerOrders
+      .reduce((sum: number, order: any) => {
+        const platform = order.jenis_platform;
+        const p = (platform === 'Shopee' || platform === 'Tiktok')
+          ? Math.abs(Number(order.cost_postage) || 0)
+          : (Number(order.cost_postage) || 0);
+        return sum + p;
+      }, 0);
+
+    const grossProfit = collection - totalSpend - costProduct - postage;
     const roas = totalSpend > 0 ? collection / totalSpend : 0;
 
-    return { collection, totalSpend, roas };
+    return { collection, totalSpend, costProduct, postage, grossProfit, roas };
   };
 
-  // Calculate PNL commission/bonus
-  const calculatePNLCommissionBonus = (collection: number, roas: number) => {
+  // Calculate PNL commission/bonus based on gross profit
+  const calculatePNLCommissionBonus = (grossProfit: number) => {
     const matchingConfig = pnlConfigs.find(config => {
-      const salesMatch = collection >= config.min_sales &&
-        (config.max_sales === null || collection <= config.max_sales);
-      const roasMatch = roas >= config.roas_min && roas <= config.roas_max;
-      return salesMatch && roasMatch;
+      return grossProfit >= config.min_gross_profit &&
+        (config.max_gross_profit === null || grossProfit <= config.max_gross_profit);
     });
 
     if (matchingConfig) {
-      const commission = (collection * matchingConfig.commission_percent) / 100;
+      const commission = (grossProfit * matchingConfig.commission_percent) / 100;
       return { commission, bonus: matchingConfig.bonus_amount, percent: matchingConfig.commission_percent };
     }
     return { commission: 0, bonus: 0, percent: 0 };
@@ -327,18 +338,26 @@ const SalarySlip = () => {
       commission = fighterResult.commission;
       commissionPercent = fighterResult.percent;
     }
-    // HQ Marketer/Admin: Use PNL config
+    // HQ Marketer/Admin: Use PNL config based on gross profit
     else if ((user.role === "marketer" || user.role === "admin") && user.staff_type !== "Fighter") {
       const stats = getMarketerStats();
-      const pnlResult = calculatePNLCommissionBonus(stats.collection, stats.roas);
+      const pnlResult = calculatePNLCommissionBonus(stats.grossProfit);
       commission = pnlResult.commission;
       bonus = pnlResult.bonus;
       commissionPercent = pnlResult.percent;
     }
-    // Managing Director: commission only (PNL based), no bonus
+    // Managing Director: commission only (PNL based on company-wide gross profit), no bonus
     else if (user.role === "Managing Director") {
-      const roas = totalCompanySpend > 0 ? totalCompanyCollection / totalCompanySpend : 0;
-      const pnlResult = calculatePNLCommissionBonus(totalCompanyCollection, roas);
+      const companyCostProduct = ordersData.reduce((sum: number, o: any) => sum + (Number(o.cost_baseproduct) || 0), 0);
+      const companyPostage = ordersData.reduce((sum: number, o: any) => {
+        const platform = o.jenis_platform;
+        const p = (platform === 'Shopee' || platform === 'Tiktok')
+          ? Math.abs(Number(o.cost_postage) || 0)
+          : (Number(o.cost_postage) || 0);
+        return sum + p;
+      }, 0);
+      const companyGrossProfit = totalCompanyCollection - totalCompanySpend - companyCostProduct - companyPostage;
+      const pnlResult = calculatePNLCommissionBonus(companyGrossProfit);
       commission = pnlResult.commission;
       commissionPercent = pnlResult.percent;
     }

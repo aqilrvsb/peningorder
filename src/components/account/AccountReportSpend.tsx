@@ -33,10 +33,8 @@ interface Profile {
 interface PNLConfig {
   id: string;
   role: 'marketer' | 'admin';
-  min_sales: number;
-  max_sales: number | null;
-  roas_min: number;
-  roas_max: number;
+  min_gross_profit: number;
+  max_gross_profit: number | null;
   commission_percent: number;
   bonus_amount: number;
 }
@@ -47,6 +45,9 @@ interface MarketerSpendStats {
   totalSales: number;
   collection: number;
   totalSpend: number;
+  costProduct: number;
+  postage: number;
+  grossProfit: number;
   roas: number;
   totalLead: number;
   // Facebook
@@ -95,7 +96,7 @@ const AccountReportSpend: React.FC = () => {
             .from('pnl_config')
             .select('*')
             .eq('role', 'marketer')
-            .order('min_sales', { ascending: true }),
+            .order('min_gross_profit', { ascending: true }),
         ]);
 
         if (profilesRes.error) throw profilesRes.error;
@@ -151,18 +152,16 @@ const AccountReportSpend: React.FC = () => {
     fetchData();
   }, [startDate, endDate]);
 
-  // Calculate commission and bonus based on PNL config
-  const calculateCommissionBonus = (collection: number, roas: number): { commission: number; bonus: number; commissionPercent: number } => {
-    // Find matching PNL config based on collection and ROAS
+  // Calculate commission and bonus based on PNL config (gross profit)
+  const calculateCommissionBonus = (grossProfit: number): { commission: number; bonus: number; commissionPercent: number } => {
+    // Find matching PNL config based on gross profit
     const matchingConfig = pnlConfigs.find(config => {
-      const salesMatch = collection >= config.min_sales &&
-        (config.max_sales === null || collection <= config.max_sales);
-      const roasMatch = roas >= config.roas_min && roas <= config.roas_max;
-      return salesMatch && roasMatch;
+      return grossProfit >= config.min_gross_profit &&
+        (config.max_gross_profit === null || grossProfit <= config.max_gross_profit);
     });
 
     if (matchingConfig) {
-      const commission = (collection * matchingConfig.commission_percent) / 100;
+      const commission = (grossProfit * matchingConfig.commission_percent) / 100;
       return {
         commission,
         bonus: matchingConfig.bonus_amount,
@@ -196,6 +195,9 @@ const AccountReportSpend: React.FC = () => {
           totalSales: 0,
           collection: 0,
           totalSpend: 0,
+          costProduct: 0,
+          postage: 0,
+          grossProfit: 0,
           roas: 0,
           totalLead: 0,
           salesFB: 0, spendFB: 0, roasFB: 0,
@@ -208,6 +210,13 @@ const AccountReportSpend: React.FC = () => {
 
       stats[idStaff].totalSales += amount;
       stats[idStaff].totalLead += 1;
+      stats[idStaff].costProduct += Number(order.cost_baseproduct) || 0;
+
+      const platform = order.jenis_platform;
+      const postageVal = (platform === 'Shopee' || platform === 'Tiktok')
+        ? Math.abs(Number(order.cost_postage) || 0)
+        : (Number(order.cost_postage) || 0);
+      stats[idStaff].postage += postageVal;
 
       // Calculate collection (only successful deliveries)
       if (order.seo === "Successful Delivery") {
@@ -215,7 +224,6 @@ const AccountReportSpend: React.FC = () => {
       }
 
       // Count sales by platform
-      const platform = order.jenis_platform;
       if (platform === 'Facebook') {
         stats[idStaff].salesFB += amount;
       } else if (platform === 'Database') {
@@ -245,6 +253,9 @@ const AccountReportSpend: React.FC = () => {
           totalSales: 0,
           collection: 0,
           totalSpend: 0,
+          costProduct: 0,
+          postage: 0,
+          grossProfit: 0,
           roas: 0,
           totalLead: 0,
           salesFB: 0, spendFB: 0, roasFB: 0,
@@ -272,8 +283,9 @@ const AccountReportSpend: React.FC = () => {
       }
     });
 
-    // Calculate ROAS
+    // Calculate ROAS and Gross Profit
     Object.values(stats).forEach(stat => {
+      stat.grossProfit = stat.collection - stat.totalSpend - stat.costProduct - stat.postage;
       stat.roas = stat.totalSpend > 0 ? stat.totalSales / stat.totalSpend : 0;
       stat.roasFB = stat.spendFB > 0 ? stat.salesFB / stat.spendFB : 0;
       stat.roasDatabase = stat.spendDatabase > 0 ? stat.salesDatabase / stat.spendDatabase : 0;
@@ -685,7 +697,7 @@ const AccountReportSpend: React.FC = () => {
             </thead>
             <tbody className="bg-background divide-y divide-border">
               {filteredStats.map((stat) => {
-                const { commission, bonus, commissionPercent } = calculateCommissionBonus(stat.collection, stat.roas);
+                const { commission, bonus, commissionPercent } = calculateCommissionBonus(stat.grossProfit);
                 return (
                 <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
                   <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>

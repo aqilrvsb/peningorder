@@ -11,10 +11,8 @@ import { Progress } from "@/components/ui/progress";
 interface PNLConfig {
   id: string;
   role: 'marketer' | 'admin';
-  min_sales: number;
-  max_sales: number | null;
-  roas_min: number;
-  roas_max: number;
+  min_gross_profit: number;
+  max_gross_profit: number | null;
   commission_percent: number;
   bonus_amount: number;
 }
@@ -55,7 +53,7 @@ const MarketerReward = () => {
     return { startDate, endDate };
   }, [selectedYear, selectedMonth]);
 
-  // Fetch PNL configs for marketer role - sorted by min_sales then roas_min (lower first)
+  // Fetch PNL configs for marketer role - sorted by min_gross_profit
   const { data: pnlConfigs = [], isLoading: configsLoading } = useQuery({
     queryKey: ["pnl-configs-marketer"],
     queryFn: async () => {
@@ -63,8 +61,7 @@ const MarketerReward = () => {
         .from("pnl_config")
         .select("*")
         .eq("role", "marketer")
-        .order("min_sales", { ascending: true })
-        .order("roas_min", { ascending: true });
+        .order("min_gross_profit", { ascending: true });
 
       if (error) throw error;
       return (data || []) as PNLConfig[];
@@ -121,9 +118,18 @@ const MarketerReward = () => {
       return sum;
     }, 0);
     const totalSpend = spendsData.reduce((sum, spend: any) => sum + (Number(spend.total_spend) || 0), 0);
+    const costProduct = ordersData.reduce((sum, order: any) => sum + (Number(order.cost_baseproduct) || 0), 0);
+    const postage = ordersData.reduce((sum, order: any) => {
+      const platform = (order as any).jenis_platform;
+      const p = (platform === 'Shopee' || platform === 'Tiktok')
+        ? Math.abs(Number(order.cost_postage) || 0)
+        : (Number(order.cost_postage) || 0);
+      return sum + p;
+    }, 0);
+    const grossProfit = collection - totalSpend - costProduct - postage;
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
 
-    return { totalSales, collection, totalSpend, roas };
+    return { totalSales, collection, totalSpend, costProduct, postage, grossProfit, roas };
   }, [ordersData, spendsData]);
 
   // Calculate tier progress
@@ -131,39 +137,33 @@ const MarketerReward = () => {
     if (!pnlConfigs.length) return [];
 
     return pnlConfigs.map((config, index) => {
-      const minSales = config.min_sales;
-      const maxSales = config.max_sales || (pnlConfigs[index + 1]?.min_sales || minSales * 2);
-      const salesRange = maxSales - minSales;
+      const minProfit = config.min_gross_profit;
+      const maxProfit = config.max_gross_profit || (pnlConfigs[index + 1]?.min_gross_profit || minProfit * 2);
+      const profitRange = maxProfit - minProfit;
 
-      // Determine status based on current collection
+      // Determine status based on current gross profit
       let status: 'achieved' | 'in_progress' | 'not_started';
       let progressPercent = 0;
 
-      if (stats.collection >= maxSales) {
-        // Achieved this tier
+      if (stats.grossProfit >= maxProfit) {
         status = 'achieved';
         progressPercent = 100;
-      } else if (stats.collection >= minSales) {
-        // In progress for this tier
+      } else if (stats.grossProfit >= minProfit) {
         status = 'in_progress';
-        progressPercent = Math.min(100, ((stats.collection - minSales) / salesRange) * 100);
+        progressPercent = Math.min(100, ((stats.grossProfit - minProfit) / profitRange) * 100);
       } else if (index === 0) {
-        // First tier - show progress towards it
         status = 'in_progress';
-        progressPercent = Math.min(100, (stats.collection / minSales) * 100);
+        progressPercent = minProfit > 0 ? Math.min(100, (stats.grossProfit / minProfit) * 100) : 0;
       } else {
-        // Not started
         status = 'not_started';
         progressPercent = 0;
       }
 
-      // Check ROAS requirement
-      const roasMet = stats.roas >= config.roas_min && stats.roas <= config.roas_max;
-      const salesMet = stats.collection >= minSales && (config.max_sales === null || stats.collection <= config.max_sales);
-      const fullyQualified = salesMet && roasMet;
+      const profitMet = stats.grossProfit >= minProfit && (config.max_gross_profit === null || stats.grossProfit <= config.max_gross_profit);
+      const fullyQualified = profitMet;
 
-      // Calculate commission and bonus if qualified (based on collection)
-      const commission = fullyQualified ? stats.collection * (config.commission_percent / 100) : 0;
+      // Calculate commission and bonus if qualified (based on gross profit)
+      const commission = fullyQualified ? stats.grossProfit * (config.commission_percent / 100) : 0;
       const bonus = fullyQualified ? config.bonus_amount : 0;
 
       return {
@@ -171,12 +171,11 @@ const MarketerReward = () => {
         tierNumber: index + 1,
         status,
         progressPercent,
-        roasMet,
-        salesMet,
+        profitMet,
         fullyQualified,
         commission,
         bonus,
-        maxSalesDisplay: config.max_sales || 'Above',
+        maxProfitDisplay: config.max_gross_profit || 'Above',
       };
     });
   }, [pnlConfigs, stats]);
@@ -373,7 +372,7 @@ const MarketerReward = () => {
                     Congratulations! You qualified for Tier {qualifiedTier.tierNumber}
                   </p>
                   <p className="text-sm text-green-600 dark:text-green-500">
-                    Collection: {formatCurrency(qualifiedTier.min_sales)} - {typeof qualifiedTier.maxSalesDisplay === 'number' ? formatCurrency(qualifiedTier.maxSalesDisplay) : qualifiedTier.maxSalesDisplay} | ROAS: {qualifiedTier.roas_min} - {qualifiedTier.roas_max}
+                    Gross Profit: {formatCurrency(qualifiedTier.min_gross_profit)} - {typeof qualifiedTier.maxProfitDisplay === 'number' ? formatCurrency(qualifiedTier.maxProfitDisplay) : qualifiedTier.maxProfitDisplay}
                   </p>
                 </div>
               </div>
@@ -434,7 +433,7 @@ const MarketerReward = () => {
                     <div className="flex-1 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
-                          Collection Target: {formatCurrency(tier.min_sales)} - {typeof tier.maxSalesDisplay === 'number' ? formatCurrency(tier.maxSalesDisplay) : tier.maxSalesDisplay}
+                          Gross Profit Target: {formatCurrency(tier.min_gross_profit)} - {typeof tier.maxProfitDisplay === 'number' ? formatCurrency(tier.maxProfitDisplay) : tier.maxProfitDisplay}
                         </span>
                         <span className="font-medium">{tier.progressPercent.toFixed(1)}%</span>
                       </div>
@@ -450,14 +449,13 @@ const MarketerReward = () => {
                       </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>
-                          ROAS Required: {tier.roas_min} - {tier.roas_max}
-                          {tier.roasMet ? (
-                            <span className="text-green-600 ml-1">(Met: {stats.roas.toFixed(2)})</span>
+                          {tier.profitMet ? (
+                            <span className="text-green-600">Qualified</span>
                           ) : (
-                            <span className="text-red-500 ml-1">(Current: {stats.roas.toFixed(2)})</span>
+                            <span className="text-red-500">Not yet qualified</span>
                           )}
                         </span>
-                        <span>Current Collection: {formatCurrency(stats.collection)}</span>
+                        <span>Current Gross Profit: {formatCurrency(stats.grossProfit)}</span>
                       </div>
                     </div>
 

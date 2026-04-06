@@ -209,10 +209,8 @@ CREATE TABLE public.payment_vouchers (
 CREATE TABLE public.pnl_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   role text NOT NULL DEFAULT 'marketer'::text CHECK (role = ANY (ARRAY['marketer'::text, 'admin'::text])),
-  min_sales numeric NOT NULL DEFAULT 0,
-  max_sales numeric,
-  roas_min numeric NOT NULL DEFAULT 0,
-  roas_max numeric NOT NULL DEFAULT 99,
+  min_gross_profit numeric NOT NULL DEFAULT 0,
+  max_gross_profit numeric,
   commission_percent numeric NOT NULL DEFAULT 0,
   bonus_amount numeric NOT NULL DEFAULT 0,
   created_at timestamp with time zone NOT NULL DEFAULT now(),

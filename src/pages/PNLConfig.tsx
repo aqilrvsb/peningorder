@@ -6,15 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, Plus, Pencil, Trash2, Loader2, DollarSign, TrendingUp, Percent, Gift } from 'lucide-react';
+import { Settings, Plus, Pencil, Trash2, Loader2, DollarSign, Percent, Gift } from 'lucide-react';
 
 interface PNLConfig {
   id: string;
   role: 'marketer' | 'admin';
-  min_sales: number;
-  max_sales: number | null;
-  roas_min: number;
-  roas_max: number;
+  min_gross_profit: number;
+  max_gross_profit: number | null;
   commission_percent: number;
   bonus_amount: number;
   created_at: string;
@@ -22,20 +20,16 @@ interface PNLConfig {
 
 interface FormData {
   role: 'marketer' | 'admin';
-  min_sales: string;
-  max_sales: string;
-  roas_min: string;
-  roas_max: string;
+  min_gross_profit: string;
+  max_gross_profit: string;
   commission_percent: string;
   bonus_amount: string;
 }
 
 const initialFormData: FormData = {
   role: 'marketer',
-  min_sales: '',
-  max_sales: '',
-  roas_min: '',
-  roas_max: '',
+  min_gross_profit: '',
+  max_gross_profit: '',
   commission_percent: '',
   bonus_amount: '',
 };
@@ -58,7 +52,7 @@ const PNLConfig: React.FC = () => {
         .from('pnl_config')
         .select('*')
         .order('role', { ascending: true })
-        .order('min_sales', { ascending: true });
+        .order('min_gross_profit', { ascending: true });
 
       if (error) throw error;
       setConfigs(data || []);
@@ -83,10 +77,8 @@ const PNLConfig: React.FC = () => {
       setEditingConfig(config);
       setFormData({
         role: config.role,
-        min_sales: config.min_sales.toString(),
-        max_sales: config.max_sales?.toString() || '',
-        roas_min: config.roas_min.toString(),
-        roas_max: config.roas_max.toString(),
+        min_gross_profit: config.min_gross_profit.toString(),
+        max_gross_profit: config.max_gross_profit?.toString() || '',
         commission_percent: config.commission_percent.toString(),
         bonus_amount: config.bonus_amount.toString(),
       });
@@ -105,7 +97,7 @@ const PNLConfig: React.FC = () => {
 
   const handleSave = async () => {
     // Validate form
-    if (!formData.min_sales || !formData.roas_min || !formData.roas_max || !formData.commission_percent) {
+    if (!formData.min_gross_profit || !formData.commission_percent) {
       toast({
         title: 'Validation Error',
         description: 'Please fill in all required fields',
@@ -118,10 +110,8 @@ const PNLConfig: React.FC = () => {
     try {
       const configData = {
         role: formData.role,
-        min_sales: parseFloat(formData.min_sales),
-        max_sales: formData.max_sales ? parseFloat(formData.max_sales) : null,
-        roas_min: parseFloat(formData.roas_min),
-        roas_max: parseFloat(formData.roas_max),
+        min_gross_profit: parseFloat(formData.min_gross_profit),
+        max_gross_profit: formData.max_gross_profit ? parseFloat(formData.max_gross_profit) : null,
         commission_percent: parseFloat(formData.commission_percent),
         bonus_amount: parseFloat(formData.bonus_amount) || 0,
       };
@@ -254,8 +244,7 @@ const PNLConfig: React.FC = () => {
               <tr>
                 <th>No</th>
                 <th>Role</th>
-                <th>Sales Range</th>
-                <th>ROAS Range</th>
+                <th>Gross Profit Range</th>
                 <th>Commission %</th>
                 <th>Bonus</th>
                 <th className="text-center">Actions</th>
@@ -264,7 +253,7 @@ const PNLConfig: React.FC = () => {
             <tbody>
               {filteredConfigs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <td colSpan={6} className="text-center py-8 text-muted-foreground">
                     No configurations found. Click "Add Tier" to create one.
                   </td>
                 </tr>
@@ -282,9 +271,8 @@ const PNLConfig: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      {formatCurrency(config.min_sales)} - {config.max_sales ? formatCurrency(config.max_sales) : 'Above'}
+                      {formatCurrency(config.min_gross_profit)} - {config.max_gross_profit ? formatCurrency(config.max_gross_profit) : 'Above'}
                     </td>
-                    <td>{config.roas_min} - {config.roas_max}</td>
                     <td className="font-medium text-primary">{config.commission_percent}%</td>
                     <td className="font-medium text-green-600">{formatCurrency(config.bonus_amount)}</td>
                     <td>
@@ -320,26 +308,19 @@ const PNLConfig: React.FC = () => {
       {/* Legend/Info */}
       <div className="form-section">
         <h3 className="text-sm font-semibold text-foreground mb-3">How it works:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-blue-500 mt-0.5" />
             <div>
-              <p className="font-medium">Net Sales</p>
-              <p className="text-muted-foreground">Total from Shipped orders</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <TrendingUp className="w-4 h-4 text-purple-500 mt-0.5" />
-            <div>
-              <p className="font-medium">ROAS</p>
-              <p className="text-muted-foreground">Sales ÷ Ad Spend</p>
+              <p className="font-medium">Gross Profit</p>
+              <p className="text-muted-foreground">Collection - Spend - Cost Product - Postage</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Percent className="w-4 h-4 text-primary mt-0.5" />
             <div>
               <p className="font-medium">Commission</p>
-              <p className="text-muted-foreground">% of Net Sales</p>
+              <p className="text-muted-foreground">% of Gross Profit</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
@@ -379,48 +360,24 @@ const PNLConfig: React.FC = () => {
               </Select>
             </div>
 
-            {/* Sales Range */}
+            {/* Gross Profit Range */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Min Sales (RM) *</Label>
+                <Label>Min Gross Profit (RM) *</Label>
                 <Input
                   type="number"
                   placeholder="0"
-                  value={formData.min_sales}
-                  onChange={(e) => setFormData({ ...formData, min_sales: e.target.value })}
+                  value={formData.min_gross_profit}
+                  onChange={(e) => setFormData({ ...formData, min_gross_profit: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Max Sales (RM)</Label>
+                <Label>Max Gross Profit (RM)</Label>
                 <Input
                   type="number"
                   placeholder="Leave empty for no limit"
-                  value={formData.max_sales}
-                  onChange={(e) => setFormData({ ...formData, max_sales: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* ROAS Range */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>ROAS Min *</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="1.0"
-                  value={formData.roas_min}
-                  onChange={(e) => setFormData({ ...formData, roas_min: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>ROAS Max *</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="99.0"
-                  value={formData.roas_max}
-                  onChange={(e) => setFormData({ ...formData, roas_max: e.target.value })}
+                  value={formData.max_gross_profit}
+                  onChange={(e) => setFormData({ ...formData, max_gross_profit: e.target.value })}
                 />
               </div>
             </div>
