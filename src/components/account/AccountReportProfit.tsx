@@ -344,15 +344,15 @@ const AccountReportProfit: React.FC = () => {
       const idStaff = order.marketer_id_staff || "HQ";
 
       const name = profiles[idStaff] || idStaff;
-      const sale = parseFloat(order.total_sale) || 0;
+      const sale = Number(order.total_sale) || 0;
       const platform = order.jenis_platform || 'Facebook';
       const isMarketplace = platform === 'Shopee' || platform === 'Tiktok';
 
-      // Shopee/Tiktok: cost product = 0, postage = settlement fees (abs)
-      const costProduct = isMarketplace ? 0 : (parseFloat(order.cost_baseproduct) || 0);
+      // Cost product always applies. Shopee/Tiktok postage = settlement fees (abs).
+      const costProduct = Number(order.cost_baseproduct) || 0;
       const postage = isMarketplace
         ? Math.abs(Number(order.cost_postage) || 0)
-        : (parseFloat(order.cost_postage) || 0);
+        : (Number(order.cost_postage) || 0);
 
       initStats(idStaff, name);
 
@@ -374,9 +374,11 @@ const AccountReportProfit: React.FC = () => {
         stats[idStaff].postageDatabase += postage;
       } else if (platform === 'Shopee') {
         stats[idStaff].salesShopee += sale;
+        stats[idStaff].costProductShopee += costProduct;
         stats[idStaff].postageShopee += postage;
       } else if (platform === 'Tiktok') {
         stats[idStaff].salesTiktok += sale;
+        stats[idStaff].costProductTiktok += costProduct;
         stats[idStaff].postageTiktok += postage;
       } else if (platform === 'Google') {
         stats[idStaff].salesGoogle += sale;
