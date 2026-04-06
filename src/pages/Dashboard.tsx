@@ -368,8 +368,9 @@ const Dashboard: React.FC = () => {
       totalSpend,
       roas,
       roasCollection,
+      totalCostProduct,
+      totalPostage,
       grossProfitSales,
-      grossProfitCollection,
       salesFB,
       fbPercent,
       salesDatabase,
@@ -920,24 +921,32 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
           </div>
 
-          {/* GROSS PROFIT (SALES) */}
+          {/* COST PRODUCT */}
+          <div className="stat-card border-l-4 border-l-rose-400">
+            <div className="flex items-center gap-2 text-rose-500 mb-2">
+              <Package className="w-5 h-5" />
+              <span className="text-sm font-medium">COST PRODUCT</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCostProduct)}</p>
+          </div>
+
+          {/* POSTAGE */}
+          <div className="stat-card border-l-4 border-l-amber-400">
+            <div className="flex items-center gap-2 text-amber-500 mb-2">
+              <Truck className="w-5 h-5" />
+              <span className="text-sm font-medium">POSTAGE</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalPostage)}</p>
+          </div>
+
+          {/* GROSS PROFIT */}
           <div className="stat-card border-l-4 border-l-emerald-500">
             <div className="flex items-center gap-2 text-emerald-600 mb-2">
               <TrendingUp className="w-5 h-5" />
-              <span className="text-sm font-medium">GROSS PROFIT (SALES)</span>
+              <span className="text-sm font-medium">GROSS PROFIT</span>
             </div>
             <p className={`text-2xl font-bold ${marketerStats.grossProfitSales >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">Sales - Spend - Cost - Postage</p>
-          </div>
-
-          {/* GROSS PROFIT (COLLECTION) */}
-          <div className="stat-card border-l-4 border-l-teal-500">
-            <div className="flex items-center gap-2 text-teal-600 mb-2">
-              <TrendingUp className="w-5 h-5" />
-              <span className="text-sm font-medium">GROSS PROFIT (COLLECTION)</span>
-            </div>
-            <p className={`text-2xl font-bold ${marketerStats.grossProfitCollection >= 0 ? 'text-teal-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitCollection)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Collection - Spend - Cost - Postage</p>
           </div>
         </div>
 
