@@ -192,13 +192,12 @@ const Top10: React.FC = () => {
       const saleAmount = parseFloat(order.total_sale) || 0;
       stats[idStaff].totalSales += saleAmount;
 
-      // Accumulate cost product and postage
-      stats[idStaff].costProduct += Number((order as any).cost_baseproduct) || 0;
+      // Accumulate cost product and postage (skip Shopee/Tiktok - settlement is already NET)
       const platform = order.jenis_platform;
-      const postageVal = (platform === 'Shopee' || platform === 'Tiktok')
-        ? Math.abs(Number((order as any).cost_postage) || 0)
-        : (Number((order as any).cost_postage) || 0);
-      stats[idStaff].postage += postageVal;
+      if (platform !== 'Shopee' && platform !== 'Tiktok') {
+        stats[idStaff].costProduct += Number((order as any).cost_baseproduct) || 0;
+        stats[idStaff].postage += Number((order as any).cost_postage) || 0;
+      }
 
       // Count returns
       if (order.delivery_status?.toLowerCase().includes('return')) {

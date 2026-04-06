@@ -248,13 +248,14 @@ const Dashboard: React.FC = () => {
     const roasCollection = totalSpend > 0 ? totalCollection / totalSpend : 0;
 
     // Cost Product and Postage
-    const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
+    // Shopee/Tiktok: settlement price is already NET, skip cost product & postage
+    const totalCostProduct = filteredOrders.reduce((sum, o) => {
+      if (o.jenisPlatform === 'Shopee' || o.jenisPlatform === 'Tiktok') return sum;
+      return sum + (o.kosProduk || 0);
+    }, 0);
     const totalPostage = filteredOrders.reduce((sum, o) => {
-      const platform = o.jenisPlatform;
-      const p = (platform === 'Shopee' || platform === 'Tiktok')
-        ? Math.abs(o.kosPos || 0)
-        : (o.kosPos || 0);
-      return sum + p;
+      if (o.jenisPlatform === 'Shopee' || o.jenisPlatform === 'Tiktok') return sum;
+      return sum + (o.kosPos || 0);
     }, 0);
 
     // Gross Profit (Sales) = Total Sales - Spend - Cost Product - Postage

@@ -268,16 +268,19 @@ const AccountSalary = () => {
       .reduce((sum: number, spend: any) => sum + (Number(spend.total_spend) || 0), 0);
 
     // Cost product and postage from ALL orders (same as Report Profit)
+    // Shopee/Tiktok: settlement price is already NET, skip cost product & postage
     const costProduct = marketerOrders
-      .reduce((sum: number, order: any) => sum + (Number(order.cost_baseproduct) || 0), 0);
+      .reduce((sum: number, order: any) => {
+        const platform = order.jenis_platform;
+        if (platform === 'Shopee' || platform === 'Tiktok') return sum;
+        return sum + (Number(order.cost_baseproduct) || 0);
+      }, 0);
 
     const postage = marketerOrders
       .reduce((sum: number, order: any) => {
         const platform = order.jenis_platform;
-        const p = (platform === 'Shopee' || platform === 'Tiktok')
-          ? Math.abs(Number(order.cost_postage) || 0)
-          : (Number(order.cost_postage) || 0);
-        return sum + p;
+        if (platform === 'Shopee' || platform === 'Tiktok') return sum;
+        return sum + (Number(order.cost_postage) || 0);
       }, 0);
 
     const grossProfit = collection - totalSpend - costProduct - postage;
@@ -348,13 +351,15 @@ const AccountSalary = () => {
     // Managing Director: commission only (PNL based on company-wide gross profit), no bonus
     else if (user.role === "Managing Director") {
       const companySpend = spendsData.reduce((sum: number, s: any) => sum + (Number(s.total_spend) || 0), 0);
-      const companyCostProduct = ordersData.reduce((sum: number, o: any) => sum + (Number(o.cost_baseproduct) || 0), 0);
+      const companyCostProduct = ordersData.reduce((sum: number, o: any) => {
+        const platform = o.jenis_platform;
+        if (platform === 'Shopee' || platform === 'Tiktok') return sum;
+        return sum + (Number(o.cost_baseproduct) || 0);
+      }, 0);
       const companyPostage = ordersData.reduce((sum: number, o: any) => {
         const platform = o.jenis_platform;
-        const p = (platform === 'Shopee' || platform === 'Tiktok')
-          ? Math.abs(Number(o.cost_postage) || 0)
-          : (Number(o.cost_postage) || 0);
-        return sum + p;
+        if (platform === 'Shopee' || platform === 'Tiktok') return sum;
+        return sum + (Number(o.cost_postage) || 0);
       }, 0);
       const companyGrossProfit = totalCompanyCollection - companySpend - companyCostProduct - companyPostage;
       const pnlResult = calculatePNLCommissionBonus(companyGrossProfit);

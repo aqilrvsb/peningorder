@@ -210,13 +210,12 @@ const AccountReportSpend: React.FC = () => {
 
       stats[idStaff].totalSales += amount;
       stats[idStaff].totalLead += 1;
-      stats[idStaff].costProduct += Number(order.cost_baseproduct) || 0;
-
       const platform = order.jenis_platform;
-      const postageVal = (platform === 'Shopee' || platform === 'Tiktok')
-        ? Math.abs(Number(order.cost_postage) || 0)
-        : (Number(order.cost_postage) || 0);
-      stats[idStaff].postage += postageVal;
+      // Shopee/Tiktok: settlement price is already NET, skip cost product & postage
+      if (platform !== 'Shopee' && platform !== 'Tiktok') {
+        stats[idStaff].costProduct += Number(order.cost_baseproduct) || 0;
+        stats[idStaff].postage += Number(order.cost_postage) || 0;
+      }
 
       // Calculate collection (only successful deliveries)
       if (order.seo === "Successful Delivery") {

@@ -336,7 +336,12 @@ const AccountReportProfit: React.FC = () => {
 
       const name = profiles[idStaff] || idStaff;
       const sale = parseFloat(order.total_sale) || 0;
-      const costProduct = parseFloat(order.cost_baseproduct) || 0;
+      const platform = order.jenis_platform || 'Facebook';
+      const isMarketplace = platform === 'Shopee' || platform === 'Tiktok';
+
+      // Shopee/Tiktok: settlement price is already NET, so cost product & postage = 0
+      const costProduct = isMarketplace ? 0 : (parseFloat(order.cost_baseproduct) || 0);
+      const postage = isMarketplace ? 0 : (parseFloat(order.cost_postage) || 0);
 
       initStats(idStaff, name);
 
@@ -345,54 +350,24 @@ const AccountReportProfit: React.FC = () => {
         stats[idStaff].totalReturn += sale;
       }
       stats[idStaff].totalCostProduct += costProduct;
+      stats[idStaff].totalPostage += postage;
 
-      // Count by platform (sales and cost only) - default to Facebook if no platform set
-      const platform = order.jenis_platform || 'Facebook';
+      // Count by platform (sales, cost product, postage)
       if (platform === 'Facebook') {
         stats[idStaff].salesFB += sale;
         stats[idStaff].costProductFB += costProduct;
+        stats[idStaff].postageFB += postage;
       } else if (platform === 'Database') {
         stats[idStaff].salesDatabase += sale;
         stats[idStaff].costProductDatabase += costProduct;
+        stats[idStaff].postageDatabase += postage;
       } else if (platform === 'Shopee') {
         stats[idStaff].salesShopee += sale;
-        stats[idStaff].costProductShopee += costProduct;
       } else if (platform === 'Tiktok') {
         stats[idStaff].salesTiktok += sale;
-        stats[idStaff].costProductTiktok += costProduct;
       } else if (platform === 'Google') {
         stats[idStaff].salesGoogle += sale;
         stats[idStaff].costProductGoogle += costProduct;
-      }
-    });
-
-    // Process ALL orders including Return (for postage only)
-    // Shopee/Tiktok: use abs(cost_postage) as fees (same as Success Tracking)
-    // Others: use cost_postage as-is
-    filteredOrders.forEach(order => {
-      const idStaff = order.marketer_id_staff || "HQ";
-
-      const name = profiles[idStaff] || idStaff;
-      const rawPlatform = order.jenis_platform;
-      const platform = rawPlatform || 'Facebook';
-      const postage = (rawPlatform === 'Shopee' || rawPlatform === 'Tiktok')
-        ? Math.abs(Number(order.cost_postage) || 0)
-        : parseFloat(order.cost_postage) || 0;
-
-      initStats(idStaff, name);
-
-      stats[idStaff].totalPostage += postage;
-
-      // Count postage by platform - default to Facebook if no platform set
-      if (platform === 'Facebook') {
-        stats[idStaff].postageFB += postage;
-      } else if (platform === 'Database') {
-        stats[idStaff].postageDatabase += postage;
-      } else if (platform === 'Shopee') {
-        stats[idStaff].postageShopee += postage;
-      } else if (platform === 'Tiktok') {
-        stats[idStaff].postageTiktok += postage;
-      } else if (platform === 'Google') {
         stats[idStaff].postageGoogle += postage;
       }
     });
