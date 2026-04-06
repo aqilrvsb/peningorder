@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Search, Loader2, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar, Search, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
@@ -92,9 +93,17 @@ const AccountReportProfit: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Date filter state - default to current month (Malaysia timezone)
+  // pendingStart/End are what the user picks; startDate/endDate are applied on "Filter" click
+  const [pendingStart, setPendingStart] = useState(getMalaysiaStartOfMonth());
+  const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
+
+  const applyDateFilter = () => {
+    setStartDate(pendingStart);
+    setEndDate(pendingEnd);
+  };
 
   // Fetch profiles and expenses once on mount (small datasets)
   useEffect(() => {
@@ -565,14 +574,14 @@ const AccountReportProfit: React.FC = () => {
             <Calendar className="w-5 h-5" />
             <span className="font-medium text-foreground">Date Range:</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="space-y-1">
               <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
               <Input
                 id="startDate"
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={pendingStart}
+                onChange={(e) => setPendingStart(e.target.value)}
                 className="w-40"
               />
             </div>
@@ -581,11 +590,15 @@ const AccountReportProfit: React.FC = () => {
               <Input
                 id="endDate"
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={pendingEnd}
+                onChange={(e) => setPendingEnd(e.target.value)}
                 className="w-40"
               />
             </div>
+            <Button onClick={applyDateFilter} disabled={isLoading} size="sm" className="h-9">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
+              Filter
+            </Button>
           </div>
           <div className="relative w-full md:w-64 md:ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
