@@ -8,7 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const NINJAVAN_API = 'https://api.ninjavan.co/my';
 const INTRO_IMAGE_URL = 'https://wfvuxrhlrmpgzqgyjwxa.supabase.co/storage/v1/object/public/images/intro2.jpg';
 
 // WooCommerce Order interface
@@ -123,26 +122,14 @@ function verifyWebhookSignature(payload: string, signature: string, secret: stri
   }
 }
 
-// Get valid NinjaVan access token
-async function getNinjavanToken(supabase: any): Promise<string | null> {
+// Get valid Poslaju access token (with retry on expired)
+async function getPoslajuToken(supabase: any, config: any): Promise<string | null> {
   try {
-    // Get NinjaVan config (global config)
-    const { data: config, error: configError } = await supabase
-      .from('ninjavan_config')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
-
-    if (configError || !config) {
-      console.error('NinjaVan config not found:', configError);
-      return null;
-    }
-
     const now = new Date();
 
     // Check for valid (non-expired) token
     const { data: tokenData } = await supabase
-      .from('ninjavan_tokens')
+      .from('poslaju_tokens')
       .select('*')
       .gt('expires_at', now.toISOString())
       .order('created_at', { ascending: false })
@@ -150,24 +137,26 @@ async function getNinjavanToken(supabase: any): Promise<string | null> {
       .maybeSingle();
 
     if (tokenData && tokenData.access_token) {
-      console.log('Using existing NinjaVan token');
+      console.log('Using existing Poslaju token');
       return tokenData.access_token;
     }
 
-    // Get new token from NinjaVan OAuth
-    console.log('Getting new NinjaVan token');
-    const authResponse = await fetch(`${NINJAVAN_API}/2.0/oauth/access_token`, {
+    // Get new token from Pos Malaysia OAuth
+    console.log('Getting new Poslaju token');
+    const authBody = new URLSearchParams();
+    authBody.set('client_id', config.client_id);
+    authBody.set('client_secret', config.client_secret);
+    authBody.set('grant_type', 'client_credentials');
+
+    const authResponse = await fetch('https://posapi.pos.com.my/oauth2/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        grant_type: 'client_credentials'
-      })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: authBody.toString()
     });
 
     if (!authResponse.ok) {
-      console.error('NinjaVan auth failed');
+      const errorText = await authResponse.text();
+      console.error('Pos Malaysia auth failed:', authResponse.status, errorText);
       return null;
     }
 
@@ -177,20 +166,21 @@ async function getNinjavanToken(supabase: any): Promise<string | null> {
 
     // Store token
     const expiresAt = new Date(now.getTime() + ((expiresIn - 300) * 1000));
-    await supabase.from('ninjavan_tokens').insert({
+    await supabase.from('poslaju_tokens').delete().lt('expires_at', now.toISOString());
+    await supabase.from('poslaju_tokens').insert({
       access_token: accessToken,
       expires_at: expiresAt.toISOString()
     });
 
     return accessToken;
   } catch (error) {
-    console.error('Error getting NinjaVan token:', error);
+    console.error('Error getting Poslaju token:', error);
     return null;
   }
 }
 
-// Create NinjaVan order
-async function createNinjavanOrder(
+// Create Poslaju order
+async function createPoslajuOrder(
   supabase: any,
   config: any,
   orderData: {
@@ -209,120 +199,159 @@ async function createNinjavanOrder(
     marketerIdStaff: string;
     weight: number;
   }
-): Promise<{ success: boolean; trackingNumber?: string; error?: string }> {
+): Promise<{ success: boolean; trackingNumber?: string; pdfLink?: string; error?: string }> {
   try {
-    const accessToken = await getNinjavanToken(supabase);
+    let accessToken = await getPoslajuToken(supabase, config);
     if (!accessToken) {
-      return { success: false, error: 'Failed to get NinjaVan access token' };
-    }
-
-    // Prepare address
-    let address1 = orderData.address;
-    let address2 = '';
-    if (orderData.address.length > 100) {
-      address1 = orderData.address.substring(0, 100);
-      address2 = orderData.address.substring(100, 200);
+      return { success: false, error: 'Failed to get Poslaju access token' };
     }
 
     // Calculate dates in Malaysia timezone (UTC+8)
     const nowUTC = new Date();
-    const malaysiaOffset = 8 * 60 * 60 * 1000;
-    const malaysiaTime = new Date(nowUTC.getTime() + malaysiaOffset);
+    const malaysiaTime = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000));
     const pickupDate = malaysiaTime.toISOString().split('T')[0];
-    const deliveryTime = new Date(malaysiaTime.getTime() + 2 * 24 * 60 * 60 * 1000);
-    const deliveryDate = deliveryTime.toISOString().split('T')[0];
 
-    // COD amount (only for COD payments)
-    const codAmount = orderData.paymentMethod === 'COD' ? Math.round(orderData.price) : 0;
-
-    // Format: SKU - unit, id_staff, nota
+    // Delivery instructions
     const deliveryInstructions = `${orderData.bundleSku} - ${orderData.quantity}, ${orderData.marketerIdStaff}, ${orderData.nota}`;
 
-    const ninjavanPayload = {
-      service_type: "Parcel",
-      service_level: "Standard",
-      requested_tracking_number: orderData.idSale,
+    // COD
+    const isCOD = orderData.paymentMethod === 'COD';
+
+    const poslajuPayload: any = {
+      account_number: config.account_number,
+      product_code: '80000000',
+      item_type: '2',
+      parcel: 'domestic',
+      webhook: true,
+      service_level: 'Standard',
+      subscription_code: config.subscription_code,
+      platform: 'API',
+      mps: false,
       reference: {
-        merchant_order_number: `BISNESOWNER-DFR${orderData.idSale}`
+        merchant_order_number: 'C' + (orderData.idSale || ''),
+        merchant_reference_number: 'C' + (orderData.idSale || ''),
       },
-      from: {
+      pickup: {
+        required: true,
+        date: pickupDate,
+        timeslot: { start_time: '09:00', end_time: '18:00' },
+      },
+      sender: {
+        display_address: '',
         name: config.sender_name,
         phone_number: config.sender_phone,
         email: config.sender_email,
         address: {
           address1: config.sender_address1,
           address2: config.sender_address2 || '',
-          country: "MY",
-          postcode: config.sender_postcode,
+          area: config.sender_city,
           city: config.sender_city,
-          state: config.sender_state
-        }
+          state: config.sender_state,
+          address_type: 'Office',
+          country: 'MY',
+          postcode: config.sender_postcode,
+        },
       },
-      to: {
+      receiver: {
         name: orderData.customerName,
         phone_number: orderData.phone,
+        email: '',
         address: {
-          address1: address1,
-          address2: address2,
-          country: "MY",
-          postcode: orderData.postcode,
+          address1: orderData.address.substring(0, 200),
+          address2: orderData.address.length > 200 ? orderData.address.substring(200, 400) : '',
+          area: orderData.city,
           city: orderData.city,
-          state: orderData.state
-        }
+          state: orderData.state,
+          address_type: 'Others',
+          country: 'MY',
+          postcode: String(orderData.postcode),
+        },
       },
-      parcel_job: {
-        is_pickup_required: true,
-        pickup_service_type: "Scheduled",
-        pickup_service_level: "Standard",
-        pickup_date: pickupDate,
-        pickup_timeslot: {
-          start_time: "09:00",
-          end_time: "18:00",
-          timezone: "Asia/Kuala_Lumpur"
+      return_info: {
+        name: config.sender_name,
+        phone_number: config.sender_phone,
+        email: config.sender_email,
+        address: {
+          address1: config.sender_address1,
+          address2: config.sender_address2 || '',
+          area: config.sender_city,
+          city: config.sender_city,
+          state: config.sender_state,
+          address_type: 'Office',
+          country: 'MY',
+          postcode: config.sender_postcode,
         },
-        pickup_approx_volume: "Half-Van Load",
-        delivery_start_date: deliveryDate,
-        delivery_timeslot: {
-          start_time: "09:00",
-          end_time: "18:00",
-          timezone: "Asia/Kuala_Lumpur"
+      },
+      parcel_details: [
+        {
+          weight: orderData.weight,
+          length: 0.65,
+          width: 0.5,
+          height: 0.75,
+          item_count: 1,
+          parcel_notes: deliveryInstructions,
+          details: [
+            {
+              item_description: deliveryInstructions,
+              quantity: 1,
+              hscode: '',
+              value: orderData.price,
+            },
+          ],
         },
-        delivery_instructions: deliveryInstructions,
-        cash_on_delivery: codAmount,
-        insured_value: Math.round(orderData.price),
-        dimensions: {
-          weight: orderData.weight
-        }
-      }
+      ],
+      added_services: isCOD ? [{ added_code: 'COD', amount: String(orderData.price) }] : [],
     };
 
-    console.log('Sending to NinjaVan:', JSON.stringify(ninjavanPayload));
+    console.log('Sending to Poslaju:', JSON.stringify(poslajuPayload));
 
-    const orderResponse = await fetch(`${NINJAVAN_API}/4.1/orders`, {
+    // Send order to Pos Malaysia
+    let orderResponse = await fetch('https://posapi.pos.com.my/api/order/v2.1/create', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(ninjavanPayload)
+      body: JSON.stringify(poslajuPayload)
     });
 
-    const orderResult = await orderResponse.json();
-    console.log('NinjaVan response:', orderResult);
+    let orderResult = await orderResponse.json();
+    console.log('Poslaju response:', JSON.stringify(orderResult));
 
-    if (!orderResponse.ok) {
+    // If 401, refresh token and retry once
+    if (orderResponse.status === 401) {
+      console.log('Token expired (401), refreshing and retrying...');
+      await supabase.from('poslaju_tokens').delete().lt('expires_at', new Date().toISOString());
+      accessToken = await getPoslajuToken(supabase, config);
+      if (!accessToken) {
+        return { success: false, error: 'Failed to refresh Poslaju token' };
+      }
+
+      orderResponse = await fetch('https://posapi.pos.com.my/api/order/v2.1/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(poslajuPayload)
+      });
+      orderResult = await orderResponse.json();
+      console.log('Poslaju retry response:', JSON.stringify(orderResult));
+    }
+
+    if (!orderResponse.ok || orderResult.error) {
       return {
         success: false,
-        error: orderResult.message || 'Failed to create NinjaVan order'
+        error: orderResult.message || orderResult.error || 'Failed to create Poslaju order'
       };
     }
 
-    return {
-      success: true,
-      trackingNumber: orderResult.tracking_number
-    };
+    const trackingNumber = orderResult.data?.tracking_no || '';
+    const pdfLink = orderResult.data?.consignment?.pdf || '';
+
+    return { success: true, trackingNumber, pdfLink };
   } catch (error: any) {
-    console.error('NinjaVan order error:', error);
+    console.error('Poslaju order error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1001,8 +1030,6 @@ serve(async (req) => {
     // Determine payment method
     const isCOD = orderData.paymentMethod === 'COD';
     const typePayment = isCOD ? 'COD' : 'Online Payment';
-    // For WhatsApp display: "Ninjavan COD" or "Ninjavan Online Payment"
-    const kurierDisplay = isCOD ? 'Ninjavan COD' : 'Ninjavan Online Payment';
 
     // Generate Sale ID
     const idSale = await generateSaleId(supabase);
@@ -1017,20 +1044,21 @@ serve(async (req) => {
     const postageCost = isEastMY ? postageSsCost : postageSmCost;
     const totalBaseCost = baseCost * orderData.quantity;
 
-    // Get NinjaVan config
-    const { data: ninjavanConfig } = await supabase
-      .from('ninjavan_config')
+    // Get Poslaju config
+    const { data: poslajuConfig } = await supabase
+      .from('poslaju_config')
       .select('*')
       .limit(1)
       .maybeSingle();
 
-    // Create NinjaVan order
+    // Create Poslaju order
     let trackingNumber = '';
-    let ninjavanSuccess = false;
+    let pdfLink = '';
+    let courierSuccess = false;
 
-    if (ninjavanConfig) {
-      console.log('Creating NinjaVan order...');
-      const ninjavanResult = await createNinjavanOrder(supabase, ninjavanConfig, {
+    if (poslajuConfig) {
+      console.log('Creating Poslaju order...');
+      const poslajuResult = await createPoslajuOrder(supabase, poslajuConfig, {
         idSale,
         customerName: orderData.customerName,
         phone: orderData.customerPhone,
@@ -1047,12 +1075,13 @@ serve(async (req) => {
         weight: bundleWeight * orderData.quantity
       });
 
-      if (ninjavanResult.success && ninjavanResult.trackingNumber) {
-        trackingNumber = ninjavanResult.trackingNumber;
-        ninjavanSuccess = true;
-        console.log('NinjaVan order created, tracking:', trackingNumber);
+      if (poslajuResult.success && poslajuResult.trackingNumber) {
+        trackingNumber = poslajuResult.trackingNumber;
+        pdfLink = poslajuResult.pdfLink || '';
+        courierSuccess = true;
+        console.log('Poslaju order created, tracking:', trackingNumber);
       } else {
-        console.error('NinjaVan failed:', ninjavanResult.error);
+        console.error('Poslaju failed:', poslajuResult.error);
       }
     }
 
@@ -1074,15 +1103,16 @@ serve(async (req) => {
       city_customer: orderData.city,
       postcode_customer: orderData.postcode,
       state_customer: orderData.state,
-      kurier: isCOD ? 'Ninjavan COD' : 'Ninjavan CASH',
+      kurier: isCOD ? 'Poslaju COD' : 'Poslaju CASH',
       type_payment: typePayment,
       date_payment: !isCOD ? dateOrder : null,
       nota_staff: orderData.productNames,
       bundle_id: bundleId,
       cost_postage: postageCost,
       cost_baseproduct: totalBaseCost,
+      waybill_url: pdfLink || null,
       seos: 'Pending' // Delivery tracking status - starts as Pending
-      // Note: seo column is NOT set here - it will be updated by ninjavan-webhook
+      // Note: seo column is NOT set here - it will be updated by poslaju-webhook
       // when delivery is confirmed (Successful Delivery) or returned
     };
 
@@ -1189,7 +1219,7 @@ ALAMAT : ${fullAddress}
 NO TELEFON : ${orderData.customerPhone}
 PRODUK : ${productDisplay}
 HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
-CARA BAYARAN : ${kurierDisplay}
+CARA BAYARAN : ${isCOD ? 'Poslaju COD' : 'Poslaju Online Payment'}
 TRACKING : ${trackingNumber || '-'}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Kami Yer...
@@ -1223,7 +1253,7 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
         ...orderData,
         idSale,
         trackingNumber,
-        ninjavanSuccess,
+        courierSuccess,
         whatsappSent
       },
       response_status: 200,
@@ -1238,7 +1268,7 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
         order_id: newOrder.id,
         id_sale: idSale,
         tracking_number: trackingNumber,
-        ninjavan_success: ninjavanSuccess,
+        courier_success: courierSuccess,
         whatsapp_sent: whatsappSent
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
