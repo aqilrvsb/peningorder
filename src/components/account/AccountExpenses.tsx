@@ -82,6 +82,7 @@ const AccountExpenses = () => {
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
   const [filterCategory, setFilterCategory] = useState<"all" | CategoryType>("all");
+  const [filterPlatform, setFilterPlatform] = useState<"all" | string>("all");
   const [pageSize, setPageSize] = useState<number | "All">(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -178,10 +179,11 @@ const AccountExpenses = () => {
     return totals;
   }, [cashOutFlows]);
 
-  // Filter expenses by category
+  // Filter expenses by category and platform
   const filteredExpenses = expenses.filter((expense) => {
-    if (filterCategory === "all") return true;
-    return expense.category === filterCategory;
+    if (filterCategory !== "all" && expense.category !== filterCategory) return false;
+    if (filterPlatform !== "all" && (expense.platform || "").toUpperCase() !== filterPlatform) return false;
+    return true;
   });
 
   // Pagination
@@ -870,6 +872,20 @@ const AccountExpenses = () => {
                   <SelectItem value="all">All Categories</SelectItem>
                   {CATEGORY_OPTIONS.map((cat) => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Platform:</span>
+              <Select value={filterPlatform} onValueChange={(v) => { setFilterPlatform(v); setCurrentPage(1); }}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Platforms</SelectItem>
+                  {PLATFORM_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
