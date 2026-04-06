@@ -573,7 +573,7 @@ const SalarySlip = () => {
                       <span className="font-normal text-gray-600 ml-2">
                         ({salary.commissionPercent}%
                         {user?.role === "Customer Support" && " of Own Collection"}
-                        {(user?.role === "marketer" || user?.role === "admin") && ` of Collection - ROAS: ${marketerStats.roas.toFixed(2)}`}
+                        {(user?.role === "marketer" || user?.role === "admin") && ` of Gross Profit`}
                         )
                       </span>
                     )}
@@ -589,7 +589,9 @@ const SalarySlip = () => {
                       <div className="flex justify-between">
                         <span>Collection: {formatCurrency(marketerStats.collection)}</span>
                         <span>Spend: {formatCurrency(marketerStats.totalSpend)}</span>
-                        <span>ROAS: {marketerStats.roas.toFixed(2)}x</span>
+                        <span>Cost Product: {formatCurrency(marketerStats.costProduct)}</span>
+                        <span>Postage: {formatCurrency(marketerStats.postage)}</span>
+                        <span className="font-semibold">Gross Profit: {formatCurrency(marketerStats.grossProfit)}</span>
                       </div>
                     </td>
                   </tr>
