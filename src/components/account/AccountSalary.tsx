@@ -206,7 +206,7 @@ const AccountSalary = () => {
       return await fetchAllRows(() =>
         (supabase as any)
           .from("customer_purchases")
-          .select("id, marketer_id_staff, total_sale, seo, date_order")
+          .select("id, marketer_id_staff, total_sale, seo, date_order, cost_baseproduct, cost_postage, jenis_platform")
           .gte("date_order", startDate)
           .lte("date_order", endDate)
       );
