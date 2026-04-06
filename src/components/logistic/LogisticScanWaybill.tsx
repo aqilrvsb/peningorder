@@ -809,9 +809,9 @@ const LogisticScanWaybill = () => {
         const isTiktok = w.platform === "Tiktok";
         const kurierValue = isTiktok ? "Kurier Tiktok" : "Kurier Shopee";
 
-        // Look up bundle base_cost for cost_baseproduct
+        // Look up bundle base_cost for cost_baseproduct (same as OrderForm - base_cost only, not multiplied by quantity)
         const bundle = w.bundle_id ? allBundles.find((b: any) => b.id === w.bundle_id) : null;
-        const baseCost = bundle ? (Number(bundle.base_cost) || 0) * (w.quantity || 1) : 0;
+        const baseCost = bundle ? (Number(bundle.base_cost) || 0) : 0;
 
         const { error } = await supabase
           .from("customer_purchases")
