@@ -65,7 +65,7 @@ const LogisticScanWaybill = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku")
+        .select("id, name, sku, base_cost")
         .eq("is_active", true);
       if (error) throw error;
       return data || [];
@@ -809,6 +809,10 @@ const LogisticScanWaybill = () => {
         const isTiktok = w.platform === "Tiktok";
         const kurierValue = isTiktok ? "Kurier Tiktok" : "Kurier Shopee";
 
+        // Look up bundle base_cost for cost_baseproduct
+        const bundle = w.bundle_id ? allBundles.find((b: any) => b.id === w.bundle_id) : null;
+        const baseCost = bundle ? (Number(bundle.base_cost) || 0) * (w.quantity || 1) : 0;
+
         const { error } = await supabase
           .from("customer_purchases")
           .insert({
@@ -821,6 +825,7 @@ const LogisticScanWaybill = () => {
             state_customer: w.state,
             unit: w.quantity,
             total_sale: w.total_price,
+            cost_baseproduct: baseCost,
             type_payment: w.payment_method || "COD",
             jenis_closing: w.jenis_closing || "Shop",
             jenis_platform: w.platform,
