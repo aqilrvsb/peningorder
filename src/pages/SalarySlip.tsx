@@ -12,7 +12,7 @@ const SALARY_HIERARCHY: Record<string, number> = {
   "Business Support Exec": 1700,
   "Multimedia": 1500,
   "Customer Support": 1200,
-  "marketer": 1200,
+  "marketer": 1500,
   "admin": 1200,
   "Logistic": 1000,
 };
