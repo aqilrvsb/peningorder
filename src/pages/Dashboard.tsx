@@ -247,6 +247,22 @@ const Dashboard: React.FC = () => {
     // ROAS COLLECTION = Total Collection / Total Spend
     const roasCollection = totalSpend > 0 ? totalCollection / totalSpend : 0;
 
+    // Cost Product and Postage
+    const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
+    const totalPostage = filteredOrders.reduce((sum, o) => {
+      const platform = o.jenisPlatform;
+      const p = (platform === 'Shopee' || platform === 'Tiktok')
+        ? Math.abs(o.kosPos || 0)
+        : (o.kosPos || 0);
+      return sum + p;
+    }, 0);
+
+    // Gross Profit (Sales) = Total Sales - Spend - Cost Product - Postage
+    const grossProfitSales = totalSales - totalSpend - totalCostProduct - totalPostage;
+
+    // Gross Profit (Collection) = Total Collection - Spend - Cost Product - Postage
+    const grossProfitCollection = totalCollection - totalSpend - totalCostProduct - totalPostage;
+
     // Sales by Platform
     const salesFB = filteredOrders.filter(o => o.jenisPlatform === 'Facebook').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesDatabase = filteredOrders.filter(o => o.jenisPlatform === 'Database').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
@@ -352,6 +368,8 @@ const Dashboard: React.FC = () => {
       totalSpend,
       roas,
       roasCollection,
+      grossProfitSales,
+      grossProfitCollection,
       salesFB,
       fbPercent,
       salesDatabase,
@@ -900,6 +918,26 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{marketerStats.roasCollection.toFixed(2)}x</p>
             <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
+          </div>
+
+          {/* GROSS PROFIT (SALES) */}
+          <div className="stat-card border-l-4 border-l-emerald-500">
+            <div className="flex items-center gap-2 text-emerald-600 mb-2">
+              <TrendingUp className="w-5 h-5" />
+              <span className="text-sm font-medium">GROSS PROFIT (SALES)</span>
+            </div>
+            <p className={`text-2xl font-bold ${marketerStats.grossProfitSales >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitSales)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Sales - Spend - Cost - Postage</p>
+          </div>
+
+          {/* GROSS PROFIT (COLLECTION) */}
+          <div className="stat-card border-l-4 border-l-teal-500">
+            <div className="flex items-center gap-2 text-teal-600 mb-2">
+              <TrendingUp className="w-5 h-5" />
+              <span className="text-sm font-medium">GROSS PROFIT (COLLECTION)</span>
+            </div>
+            <p className={`text-2xl font-bold ${marketerStats.grossProfitCollection >= 0 ? 'text-teal-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitCollection)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Collection - Spend - Cost - Postage</p>
           </div>
         </div>
 

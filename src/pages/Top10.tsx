@@ -24,6 +24,10 @@ interface MarketerStats {
   platformShopee: number;
   platformGoogle: number;
   platformDatabase: number;
+  // Cost & Gross Profit
+  costProduct: number;
+  postage: number;
+  grossProfit: number;
   // Closing type sales
   closingManual: number;
   closingWaBot: number;
@@ -171,6 +175,10 @@ const Top10: React.FC = () => {
           platformShopee: 0,
           platformGoogle: 0,
           platformDatabase: 0,
+          // Cost & Gross Profit
+          costProduct: 0,
+          postage: 0,
+          grossProfit: 0,
           // Closing type sales
           closingManual: 0,
           closingWaBot: 0,
@@ -183,6 +191,14 @@ const Top10: React.FC = () => {
       // Count sales amount (using total_sale from database)
       const saleAmount = parseFloat(order.total_sale) || 0;
       stats[idStaff].totalSales += saleAmount;
+
+      // Accumulate cost product and postage
+      stats[idStaff].costProduct += Number((order as any).cost_baseproduct) || 0;
+      const platform = order.jenis_platform;
+      const postageVal = (platform === 'Shopee' || platform === 'Tiktok')
+        ? Math.abs(Number((order as any).cost_postage) || 0)
+        : (Number((order as any).cost_postage) || 0);
+      stats[idStaff].postage += postageVal;
 
       // Count returns
       if (order.delivery_status?.toLowerCase().includes('return')) {
@@ -251,6 +267,7 @@ const Top10: React.FC = () => {
         ...stat,
         rank: index + 1,
         roas: stat.spend > 0 ? stat.totalSales / stat.spend : 0,
+        grossProfit: stat.totalSales - stat.spend - stat.costProduct - stat.postage,
       }));
 
     return sortedStats;
@@ -453,6 +470,9 @@ const Top10: React.FC = () => {
                 <th className="text-right">TOTAL SALES</th>
                 <th className="text-right">RETURN</th>
                 <th className="text-right">ROAS</th>
+                <th className="text-right">COST PRODUCT</th>
+                <th className="text-right">POSTAGE</th>
+                <th className="text-right text-emerald-600">GROSS PROFIT</th>
                 <th className="text-right text-green-600">Customer NP</th>
                 <th className="text-right text-purple-600">Customer EP</th>
                 <th className="text-right text-amber-600">Customer EC</th>
@@ -486,6 +506,9 @@ const Top10: React.FC = () => {
                   <td className="text-right font-semibold text-primary">{formatNumber(stat.totalSales)}</td>
                   <td className="text-right text-destructive">{formatNumber(stat.returns)}</td>
                   <td className="text-right">{formatNumber(stat.roas)}</td>
+                  <td className="text-right">{formatNumber(stat.costProduct)}</td>
+                  <td className="text-right">{formatNumber(stat.postage)}</td>
+                  <td className={`text-right font-semibold ${stat.grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatNumber(stat.grossProfit)}</td>
                   <td className="text-right text-green-600">{formatSalesWithPercent(stat.customerNP, stat.totalSales)}</td>
                   <td className="text-right text-purple-600">{formatSalesWithPercent(stat.customerEP, stat.totalSales)}</td>
                   <td className="text-right text-amber-600">{formatSalesWithPercent(stat.customerEC, stat.totalSales)}</td>
@@ -503,7 +526,7 @@ const Top10: React.FC = () => {
               ))}
               {filteredStats.length === 0 && (
                 <tr>
-                  <td colSpan={21} className="text-center py-8 text-muted-foreground">
+                  <td colSpan={24} className="text-center py-8 text-muted-foreground">
                     No marketers found for the selected date range
                   </td>
                 </tr>
