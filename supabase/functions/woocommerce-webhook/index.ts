@@ -901,6 +901,7 @@ serve(async (req) => {
     let hqCost = 0;
     let postageSmCost = 0;
     let postageSsCost = 0;
+    let postageCodCost = 0;
 
     // Extract SET identifier from product name (case insensitive)
     // Handles: "SET A", "SET B", "SET C", "SET D", "SET BUNDLE"
@@ -964,7 +965,7 @@ serve(async (req) => {
     // First try logistic_bundles for this marketer
     let { data: allBundles } = await supabase
       .from('logistic_bundles')
-      .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss')
+      .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod')
       .eq('is_active', true)
       .eq('logistic_id', marketerLookup.id);
 
@@ -973,7 +974,7 @@ serve(async (req) => {
       console.log('No logistic_bundles for marketer, trying all logistic_bundles');
       const { data: allLogisticBundles } = await supabase
         .from('logistic_bundles')
-        .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss')
+        .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod')
         .eq('is_active', true);
       allBundles = allLogisticBundles;
     }
@@ -1015,6 +1016,7 @@ serve(async (req) => {
         hqCost = matchingBundle.hq_cost || 0;
         postageSmCost = matchingBundle.kos_postage_sm || 0;
         postageSsCost = matchingBundle.kos_postage_ss || 0;
+        postageCodCost = matchingBundle.postage_cod || 0;
         console.log('Bundle found:', { bundleId, bundleName, bundleSku, setIdentifier, unitCount });
       } else {
         console.warn(`No bundle found with setIdentifier: ${setIdentifier}, unitCount: ${unitCount}`);
@@ -1043,7 +1045,8 @@ serve(async (req) => {
 
     // Calculate costs
     const isEastMY = isEastMalaysia(orderData.state);
-    const postageCost = isEastMY ? postageSsCost : postageSmCost;
+    const basePostage = isEastMY ? postageSsCost : postageSmCost;
+    const postageCost = basePostage + (isCOD ? postageCodCost : 0);
     const totalBaseCost = baseCost * orderData.quantity;
     const totalHqCost = hqCost * orderData.quantity;
 
