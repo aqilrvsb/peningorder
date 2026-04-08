@@ -100,6 +100,7 @@ const OrderForm: React.FC = () => {
       units: 1, // Default to 1 unit per bundle
       // Cost fields for order calculation
       baseCost: Number(lb.base_cost) || 0,
+      hqCost: Number(lb.hq_cost) || 0,
       kosPostageSm: Number(lb.kos_postage_sm) || 0,
       kosPostageSs: Number(lb.kos_postage_ss) || 0,
       postageCod: Number(lb.postage_cod) || 0,
@@ -1006,6 +1007,7 @@ const OrderForm: React.FC = () => {
 
         // Calculate costs from bundle
         const costBaseproduct = selectedBundle?.baseCost || 0;
+        const costHq = selectedBundle?.hqCost || 0;
         // Determine postage based on state: Sabah/Sarawak use SS, others use SM
         const isSabahSarawak = formData.negeri === 'SABAH' || formData.negeri === 'SARAWAK';
         const basePostage = isSabahSarawak
@@ -1035,6 +1037,7 @@ const OrderForm: React.FC = () => {
               total_sale: formData.hargaJualan, // NEW: total_sale
               cost_postage: costPostage, // Calculated from bundle
               cost_baseproduct: costBaseproduct, // From bundle base_cost
+              cost_hq: costHq, // From bundle hq_cost
               kurier,
               tracking_number: trackingNumber,
               delivery_status: isMarketplaceCourier ? 'Shipped' : 'Pending',

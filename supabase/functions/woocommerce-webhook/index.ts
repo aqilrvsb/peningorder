@@ -898,6 +898,7 @@ serve(async (req) => {
     let bundleSku = orderData.sku || 'WEBSITE';
     let bundleWeight = 0.5;
     let baseCost = 0;
+    let hqCost = 0;
     let postageSmCost = 0;
     let postageSsCost = 0;
 
@@ -963,7 +964,7 @@ serve(async (req) => {
     // First try logistic_bundles for this marketer
     let { data: allBundles } = await supabase
       .from('logistic_bundles')
-      .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
+      .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss')
       .eq('is_active', true)
       .eq('logistic_id', marketerLookup.id);
 
@@ -972,7 +973,7 @@ serve(async (req) => {
       console.log('No logistic_bundles for marketer, trying all logistic_bundles');
       const { data: allLogisticBundles } = await supabase
         .from('logistic_bundles')
-        .select('id, name, sku, weight, base_cost, kos_postage_sm, kos_postage_ss')
+        .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss')
         .eq('is_active', true);
       allBundles = allLogisticBundles;
     }
@@ -1011,6 +1012,7 @@ serve(async (req) => {
         bundleSku = matchingBundle.sku;
         bundleWeight = matchingBundle.weight || 0.5;
         baseCost = matchingBundle.base_cost || 0;
+        hqCost = matchingBundle.hq_cost || 0;
         postageSmCost = matchingBundle.kos_postage_sm || 0;
         postageSsCost = matchingBundle.kos_postage_ss || 0;
         console.log('Bundle found:', { bundleId, bundleName, bundleSku, setIdentifier, unitCount });
@@ -1043,6 +1045,7 @@ serve(async (req) => {
     const isEastMY = isEastMalaysia(orderData.state);
     const postageCost = isEastMY ? postageSsCost : postageSmCost;
     const totalBaseCost = baseCost * orderData.quantity;
+    const totalHqCost = hqCost * orderData.quantity;
 
     // Get Poslaju config
     const { data: poslajuConfig } = await supabase
@@ -1110,6 +1113,7 @@ serve(async (req) => {
       bundle_id: bundleId,
       cost_postage: postageCost,
       cost_baseproduct: totalBaseCost,
+      cost_hq: totalHqCost,
       waybill_url: pdfLink || null,
       seos: 'Pending' // Delivery tracking status - starts as Pending
       // Note: seo column is NOT set here - it will be updated by poslaju-webhook

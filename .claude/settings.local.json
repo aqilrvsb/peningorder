@@ -18,7 +18,8 @@
       "Bash(agent-browser snapshot:*)",
       "Bash(agent-browser fill:*)",
       "Bash(agent-browser click:*)",
-      "Bash(agent-browser get:*)"
+      "Bash(agent-browser get:*)",
+      "Bash(xargs grep -l \"0.10\\\\|10%\")"
     ],
     "deny": [],
     "ask": []

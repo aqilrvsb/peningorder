@@ -68,6 +68,7 @@ const LogisticBundleManagement = () => {
   const [bundleDescription, setBundleDescription] = useState("");
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
   const [baseCost, setBaseCost] = useState<number>(0);
+  const [hqCost, setHqCost] = useState<number>(0);
   const [kosPostageSm, setKosPostageSm] = useState<number>(0);
   const [kosPostageSs, setKosPostageSs] = useState<number>(0);
   // Single set of prices (no platform differentiation)
@@ -128,6 +129,7 @@ const LogisticBundleManagement = () => {
     setBundleDescription("");
     setBundleItems([]);
     setBaseCost(0);
+    setHqCost(0);
     setKosPostageSm(0);
     setKosPostageSs(0);
     setPriceNp(0);
@@ -154,6 +156,7 @@ const LogisticBundleManagement = () => {
     setBundleName(bundle.name);
     setBundleDescription(bundle.description || "");
     setBaseCost(Number(bundle.base_cost) || 0);
+    setHqCost(Number(bundle.hq_cost) || 0);
     setKosPostageSm(Number(bundle.kos_postage_sm) || 0);
     setKosPostageSs(Number(bundle.kos_postage_ss) || 0);
     // Single set of prices (use online prices as the standard, fallback to 0)
@@ -273,6 +276,7 @@ const LogisticBundleManagement = () => {
             description: bundleDescription.trim() || null,
             sku: generatedSku,
             base_cost: baseCost,
+            hq_cost: hqCost,
             kos_postage_sm: kosPostageSm,
             kos_postage_ss: kosPostageSs,
             price_online_np: priceNp,
@@ -303,6 +307,7 @@ const LogisticBundleManagement = () => {
             description: bundleDescription.trim() || null,
             sku: generatedSku,
             base_cost: baseCost,
+            hq_cost: hqCost,
             kos_postage_sm: kosPostageSm,
             kos_postage_ss: kosPostageSs,
             price_online_np: priceNp,
@@ -420,6 +425,7 @@ const LogisticBundleManagement = () => {
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Base Cost</TableHead>
+                  <TableHead className="text-center">HQ Cost</TableHead>
                   <TableHead className="text-center">Postage SM</TableHead>
                   <TableHead className="text-center">Postage SS</TableHead>
                   <TableHead className="text-center">Postage COD</TableHead>
@@ -463,6 +469,9 @@ const LogisticBundleManagement = () => {
                     </TableCell>
                     <TableCell className="text-center font-medium text-red-600">
                       RM {Number(bundle.base_cost || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-purple-600">
+                      RM {Number(bundle.hq_cost || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-center font-medium text-blue-600">
                       RM {Number(bundle.kos_postage_sm || 0).toFixed(2)}
@@ -651,7 +660,7 @@ const LogisticBundleManagement = () => {
               <p className="text-xs text-muted-foreground">
                 Base cost is auto-calculated from product costs. Postage costs are for Semenanjung (SM) and Sabah/Sarawak (SS).
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="baseCost" className="text-red-600 font-medium">Base Cost (RM)</Label>
                   <Input
@@ -665,6 +674,20 @@ const LogisticBundleManagement = () => {
                     className="border-red-300 focus:border-red-500"
                   />
                   <p className="text-xs text-muted-foreground">Combined product cost</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hqCost" className="text-purple-600 font-medium">HQ Cost (RM)</Label>
+                  <Input
+                    id="hqCost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={hqCost || ""}
+                    onChange={(e) => setHqCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-purple-300 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional HQ cost</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="kosPostageSm" className="text-blue-600 font-medium">Kos Postage SM (RM)</Label>

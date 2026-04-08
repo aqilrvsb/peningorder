@@ -99,6 +99,8 @@ const AccountReportProfit: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
+  const [profitBy, setProfitBy] = useState<'sales' | 'collection'>('sales');
+  const [cogsBy, setCogsBy] = useState<'base_cost' | 'hq_cost'>('base_cost');
 
   const applyDateFilter = () => {
     setStartDate(pendingStart);
@@ -348,8 +350,10 @@ const AccountReportProfit: React.FC = () => {
       const platform = order.jenis_platform || 'Facebook';
       const isMarketplace = platform === 'Shopee' || platform === 'Tiktok';
 
-      // Cost product always applies. Shopee/Tiktok postage = settlement fees (abs).
-      const costProduct = Number(order.cost_baseproduct) || 0;
+      // Cost product uses base_cost or hq_cost based on dropdown
+      const costProduct = cogsBy === 'hq_cost'
+        ? (Number(order.cost_hq) || 0)
+        : (Number(order.cost_baseproduct) || 0);
       const postage = isMarketplace
         ? Math.abs(Number(order.cost_postage) || 0)
         : (Number(order.cost_postage) || 0);
