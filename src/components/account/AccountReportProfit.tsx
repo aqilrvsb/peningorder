@@ -564,7 +564,7 @@ const AccountReportProfit: React.FC = () => {
         profit: revGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle - expensesByPlatform.google,
       },
     };
-  }, [totals, expensesByPlatform]);
+  }, [totals, expensesByPlatform, profitBy]);
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-MY', {
