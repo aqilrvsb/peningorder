@@ -100,12 +100,16 @@ const AccountReportProfit: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingProfitBy, setPendingProfitBy] = useState<'sales' | 'collection'>('sales');
+  const [pendingCogsBy, setPendingCogsBy] = useState<'base_cost' | 'hq_cost'>('base_cost');
   const [profitBy, setProfitBy] = useState<'sales' | 'collection'>('sales');
   const [cogsBy, setCogsBy] = useState<'base_cost' | 'hq_cost'>('base_cost');
 
-  const applyDateFilter = () => {
+  const applyFilter = () => {
     setStartDate(pendingStart);
     setEndDate(pendingEnd);
+    setProfitBy(pendingProfitBy);
+    setCogsBy(pendingCogsBy);
   };
 
   // Fetch profiles and expenses once on mount (small datasets)
@@ -622,12 +626,8 @@ const AccountReportProfit: React.FC = () => {
                 className="w-40"
               />
             </div>
-            <Button onClick={applyDateFilter} disabled={isLoading} size="sm" className="h-9">
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
-              Filter
-            </Button>
-            <Select value={profitBy} onValueChange={(v: 'sales' | 'collection') => setProfitBy(v)}>
-              <SelectTrigger className="w-36 h-9">
+            <Select value={pendingProfitBy} onValueChange={(v: 'sales' | 'collection') => setPendingProfitBy(v)}>
+              <SelectTrigger className="w-40 h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -635,8 +635,8 @@ const AccountReportProfit: React.FC = () => {
                 <SelectItem value="collection">Profit by Collection</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={cogsBy} onValueChange={(v: 'base_cost' | 'hq_cost') => setCogsBy(v)}>
-              <SelectTrigger className="w-36 h-9">
+            <Select value={pendingCogsBy} onValueChange={(v: 'base_cost' | 'hq_cost') => setPendingCogsBy(v)}>
+              <SelectTrigger className="w-40 h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -644,6 +644,10 @@ const AccountReportProfit: React.FC = () => {
                 <SelectItem value="hq_cost">COGS: HQ Cost</SelectItem>
               </SelectContent>
             </Select>
+            <Button onClick={applyFilter} disabled={isLoading} size="sm" className="h-9">
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
+              Filter
+            </Button>
           </div>
           <div className="relative w-full md:w-64 md:ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
