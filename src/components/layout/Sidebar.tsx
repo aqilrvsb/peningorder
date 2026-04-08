@@ -35,6 +35,7 @@ import {
   FilePlus,
   Database,
   ScanLine,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -235,6 +236,12 @@ const navItems: NavItem[] = [
     label: 'Customer HQ',
     path: '/dashboard/logistics/customers',
     icon: <Users className="w-5 h-5" />,
+    roles: ['logistic'],
+  },
+  {
+    label: 'Update Cost Product',
+    path: '/dashboard/logistics/update-cost-product',
+    icon: <RefreshCw className="w-5 h-5" />,
     roles: ['logistic'],
   },
   {

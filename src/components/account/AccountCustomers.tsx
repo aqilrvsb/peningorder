@@ -542,6 +542,9 @@ const AccountCustomers = () => {
                     <th className="p-2 text-left">Unit</th>
                     <th className="p-2 text-left">Tracking</th>
                     <th className="p-2 text-left">Total Sales</th>
+                    <th className="p-2 text-left">Cost Product</th>
+                    <th className="p-2 text-left">HQ Cost</th>
+                    <th className="p-2 text-left">Cost Postage</th>
                     <th className="p-2 text-left">Cara Bayaran</th>
                     <th className="p-2 text-left">Delivery Status</th>
                     <th className="p-2 text-left">Jenis Platform</th>
@@ -603,6 +606,9 @@ const AccountCustomers = () => {
                           ) : "-"}
                         </td>
                         <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
+                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_hq || 0).toFixed(2)}</td>
+                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_postage || 0).toFixed(2)}</td>
                         <td className="p-2">
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                             {order.type_payment || "-"}

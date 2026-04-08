@@ -47,6 +47,7 @@ import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
 import LogisticScanWaybill from "./components/logistic/LogisticScanWaybill";
+import LogisticUpdateCostProduct from "./components/logistic/LogisticUpdateCostProduct";
 // Marketer components
 import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
 import MarketerReward from "./components/marketer/MarketerReward";
@@ -130,6 +131,7 @@ const App = () => (
                   <Route path="logistics/pending-tracking" element={<LogisticPendingTracking />} />
                   {/* New Logistic Role routes - Customer HQ */}
                   <Route path="logistics/customers" element={<LogisticCustomers />} />
+                  <Route path="logistics/update-cost-product" element={<LogisticUpdateCostProduct />} />
                   <Route path="logistics/ninjavan-settings" element={<NinjavanSettings />} />
                   {/* Account Role routes */}
                   <Route path="account/pengesahan" element={<AccountPengesahan />} />
