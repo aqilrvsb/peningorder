@@ -425,7 +425,7 @@ const LogisticBundleManagement = () => {
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Base Cost</TableHead>
-                  <TableHead className="text-center">HQ Cost</TableHead>
+                  <TableHead className="text-center">HQ Cost (Kilang)</TableHead>
                   <TableHead className="text-center">Postage SM</TableHead>
                   <TableHead className="text-center">Postage SS</TableHead>
                   <TableHead className="text-center">Postage COD</TableHead>
@@ -676,7 +676,7 @@ const LogisticBundleManagement = () => {
                   <p className="text-xs text-muted-foreground">Combined product cost</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="hqCost" className="text-purple-600 font-medium">HQ Cost (RM)</Label>
+                  <Label htmlFor="hqCost" className="text-purple-600 font-medium">HQ Cost Kilang (RM)</Label>
                   <Input
                     id="hqCost"
                     type="number"
