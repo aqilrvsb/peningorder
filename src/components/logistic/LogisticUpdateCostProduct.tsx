@@ -32,68 +32,18 @@ const LogisticUpdateCostProduct = () => {
     setResult(null);
 
     try {
-      // 1. Fetch all orders in date range that have a bundle_id
-      const { data: orders, error: ordersError } = await supabase
-        .from("customer_purchases")
-        .select("id, bundle_id, unit, kurier")
-        .gte("date_order", startDate)
-        .lte("date_order", endDate)
-        .not("bundle_id", "is", null);
+      // Use database function (SECURITY DEFINER) to bypass RLS and update in a single query
+      const { data: updatedCount, error: rpcError } = await (supabase as any).rpc('update_cost_product', {
+        p_cost_type: costType,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
 
-      if (ordersError) throw ordersError;
+      if (rpcError) throw rpcError;
 
-      if (!orders || orders.length === 0) {
-        toast.info("No orders found in the selected date range with bundles");
-        setResult({ updated: 0, skipped: 0, errors: 0 });
-        setIsUpdating(false);
-        return;
-      }
-
-      // 2. Get unique bundle IDs and fetch their costs
-      const bundleIds = [...new Set(orders.map((o: any) => o.bundle_id).filter(Boolean))];
-      const { data: bundles, error: bundlesError } = await supabase
-        .from("logistic_bundles")
-        .select("id, base_cost, hq_cost")
-        .in("id", bundleIds);
-
-      if (bundlesError) throw bundlesError;
-
-      const bundleMap = new Map<string, { base_cost: number; hq_cost: number }>();
-      for (const b of bundles || []) {
-        bundleMap.set(b.id, { base_cost: Number(b.base_cost) || 0, hq_cost: Number(b.hq_cost) || 0 });
-      }
-
-      // 3. Update each order
-      let updated = 0;
-      let skipped = 0;
-      let errors = 0;
-
-      for (const order of orders) {
-        const bundle = bundleMap.get(order.bundle_id);
-        if (!bundle) {
-          skipped++;
-          continue;
-        }
-
-        const qty = Number(order.unit) || 1;
-        const costValue = (costType === "hq_cost" ? bundle.hq_cost : bundle.base_cost) * qty;
-        const updateField = costType === "hq_cost" ? "cost_hq" : "cost_baseproduct";
-
-        const { error: updateError } = await supabase
-          .from("customer_purchases")
-          .update({ [updateField]: costValue })
-          .eq("id", order.id);
-
-        if (updateError) {
-          errors++;
-          console.error("Update error for order:", order.id, updateError);
-        } else {
-          updated++;
-        }
-      }
-
-      setResult({ updated, skipped, errors });
-      toast.success(`Updated ${updated} order(s). Skipped: ${skipped}. Errors: ${errors}`);
+      const count = Number(updatedCount) || 0;
+      setResult({ updated: count, skipped: 0, errors: 0 });
+      toast.success(`Updated ${count} order(s) successfully`);
     } catch (error: any) {
       console.error("Update cost product error:", error);
       toast.error(error.message || "Failed to update cost product");
