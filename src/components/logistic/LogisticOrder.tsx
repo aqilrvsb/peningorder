@@ -92,7 +92,7 @@ const LogisticOrder = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku")
+        .select("id, name, sku, base_cost, hq_cost, weight")
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (error) throw error;
@@ -574,9 +574,14 @@ const LogisticOrder = () => {
         updated_at: new Date().toISOString(),
       };
 
-      // If bundle changed
+      // If bundle changed, update bundle_id and recalculate costs
       if (editForm.productId && editForm.productId !== editingOrder.bundle_id) {
         updateData.bundle_id = editForm.productId;
+        const newBundle = allProducts.find((p: any) => p.id === editForm.productId);
+        if (newBundle) {
+          updateData.cost_baseproduct = Number(newBundle.base_cost) || 0;
+          updateData.cost_hq = Number(newBundle.hq_cost) || 0;
+        }
       }
 
       // Clear tracking number if it was cancelled
