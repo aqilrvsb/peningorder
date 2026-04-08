@@ -35,7 +35,7 @@ const LogisticUpdateCostProduct = () => {
       // 1. Fetch all orders in date range that have a bundle_id
       const { data: orders, error: ordersError } = await supabase
         .from("customer_purchases")
-        .select("id, bundle_id, unit")
+        .select("id, bundle_id, unit, kurier")
         .gte("date_order", startDate)
         .lte("date_order", endDate)
         .not("bundle_id", "is", null);
@@ -75,7 +75,8 @@ const LogisticUpdateCostProduct = () => {
           continue;
         }
 
-        const costValue = costType === "hq_cost" ? bundle.hq_cost : bundle.base_cost;
+        const qty = Number(order.unit) || 1;
+        const costValue = (costType === "hq_cost" ? bundle.hq_cost : bundle.base_cost) * qty;
         const updateField = costType === "hq_cost" ? "cost_hq" : "cost_baseproduct";
 
         const { error: updateError } = await supabase
@@ -164,7 +165,7 @@ const LogisticUpdateCostProduct = () => {
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
               <li>Fetches all orders in the date range that have a bundle assigned</li>
               <li>Looks up each bundle's <strong>{costType === "hq_cost" ? "HQ Cost" : "Base Cost"}</strong></li>
-              <li>Updates the order's <strong>{costType === "hq_cost" ? "cost_hq" : "cost_baseproduct"}</strong> field with the bundle's cost</li>
+              <li>Updates the order's <strong>{costType === "hq_cost" ? "cost_hq" : "cost_baseproduct"}</strong> = bundle cost × order unit quantity</li>
               <li>Orders without a bundle are skipped</li>
             </ul>
           </div>
