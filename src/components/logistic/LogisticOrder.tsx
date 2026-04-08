@@ -167,7 +167,11 @@ const LogisticOrder = () => {
   };
 
   // All platforms now use NinjaVan
-  const isNinjavanPlatform = () => true;
+  // Check if order uses Poslaju or NinjaVan based on kurier field
+  const isPoslajuOrder = (order?: any) => {
+    const kurier = order?.kurier || editForm?.kurier || '';
+    return kurier.includes('Poslaju');
+  };
 
   // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
@@ -389,7 +393,7 @@ const LogisticOrder = () => {
 
       // Cancel NinjaVan tracking for orders that have tracking numbers (NinjaVan platform only)
       for (const order of selectedOrdersList) {
-        if (order.tracking_number && isNinjavanPlatform()) {
+        if (order.tracking_number && order.kurier?.includes('Ninjavan')) {
           try {
             await supabase.functions.invoke("ninjavan-cancel", {
               body: { trackingNumber: order.tracking_number, profileId: user?.id },
@@ -501,9 +505,10 @@ const LogisticOrder = () => {
     }
   };
 
-  // Check if order needs tracking generation (NinjaVan platforms without tracking)
+  // Check if order needs tracking generation (courier orders without tracking)
   const needsTrackingGeneration = (order: any) => {
-    return isNinjavanPlatform() && !order.tracking_number;
+    const kurier = order.kurier || '';
+    return (kurier.includes('Poslaju') || kurier.includes('Ninjavan')) && !order.tracking_number;
   };
 
   // Open edit dialog - using new schema field names
@@ -535,11 +540,12 @@ const LogisticOrder = () => {
     try {
       const { data: session } = await supabase.auth.getSession();
       const hasExistingTracking = !!editingOrder.tracking_number;
-      const isNinjavan = isNinjavanPlatform();
+      const isPoslaju = isPoslajuOrder(editingOrder);
+      const isNinjavan = editingOrder?.kurier?.includes('Ninjavan');
 
-      // Step 1: If has existing tracking, cancel it first
+      // Step 1: If has existing NinjaVan tracking, cancel it first
       if (hasExistingTracking && isNinjavan) {
-        toast.info("Cancelling existing tracking...");
+        toast.info("Cancelling existing NinjaVan tracking...");
         const cancelResponse = await supabase.functions.invoke("ninjavan-cancel", {
           body: { trackingNumber: editingOrder.tracking_number, profileId: user?.id },
           headers: { Authorization: `Bearer ${session?.session?.access_token}` },
@@ -585,8 +591,11 @@ const LogisticOrder = () => {
 
       if (updateError) throw updateError;
 
-      // Step 3: Generate new tracking for NinjaVan platforms
-      if (isNinjavan) {
+      // Step 3: Generate new tracking based on selected courier
+      const selectedKurier = editForm.kurier || '';
+      const shouldGenerateTracking = selectedKurier.includes('Poslaju') || selectedKurier.includes('Ninjavan');
+
+      if (shouldGenerateTracking) {
         toast.info("Generating new tracking...");
 
         const bundle = allProducts.find((p: any) => p.id === editForm.productId) || editingOrder.bundle;
@@ -605,9 +614,14 @@ const LogisticOrder = () => {
           productSku: bundle?.sku || "",
           quantity: editForm.quantity,
           nota: editForm.notaStaff,
+          marketerIdStaff: editingOrder.marketer_id_staff || user?.username || '',
+          idSale: editingOrder.id_sale || '',
+          weight: bundle?.weight || 0.5,
         };
 
-        const response = await supabase.functions.invoke("ninjavan-order", {
+        // Use Poslaju or NinjaVan based on selected courier
+        const functionName = selectedKurier.includes('Poslaju') ? "poslaju-order" : "ninjavan-order";
+        const response = await supabase.functions.invoke(functionName, {
           body: orderData,
           headers: { Authorization: `Bearer ${session?.session?.access_token}` },
         });
@@ -622,10 +636,14 @@ const LogisticOrder = () => {
           throw new Error(result.error || "Failed to get tracking number");
         }
 
-        // Update order with new tracking number
+        // Update order with new tracking number (and waybill URL for Poslaju)
+        const trackingUpdate: any = { tracking_number: result.trackingNumber };
+        if (result.pdfLink) {
+          trackingUpdate.waybill_url = result.pdfLink;
+        }
         await supabase
           .from("customer_purchases")
-          .update({ tracking_number: result.trackingNumber })
+          .update(trackingUpdate)
           .eq("id", editingOrder.id);
 
         toast.success(`Order updated! New tracking: ${result.trackingNumber}`);
@@ -1152,10 +1170,10 @@ const LogisticOrder = () => {
                   <SelectValue placeholder="Select kurier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
-                  <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
                   <SelectItem value="Poslaju COD">Poslaju COD</SelectItem>
                   <SelectItem value="Poslaju CASH">Poslaju CASH</SelectItem>
+                  <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
+                  <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
                   <SelectItem value="Kurier Tiktok">Kurier Tiktok</SelectItem>
                   <SelectItem value="Kurier Shopee">Kurier Shopee</SelectItem>
                 </SelectContent>
@@ -1191,10 +1209,10 @@ const LogisticOrder = () => {
               />
             </div>
 
-            {editingOrder && isNinjavanPlatform() && (
+            {editingOrder && (editForm.kurier?.includes('Poslaju') || editForm.kurier?.includes('Ninjavan')) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> This is a NinjaVan order ({getOrderPlatform(editingOrder)}).
+                  <strong>Note:</strong> This is a {editForm.kurier?.includes('Poslaju') ? 'Poslaju' : 'NinjaVan'} order ({getOrderPlatform(editingOrder)}).
                   {editingOrder.tracking_number ? (
                     <> Current tracking <span className="font-mono">{editingOrder.tracking_number}</span> will be cancelled and a new one will be generated.</>
                   ) : (

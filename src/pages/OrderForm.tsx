@@ -31,7 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Shop'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Ninjavan', 'Poslaju', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -151,7 +151,7 @@ const OrderForm: React.FC = () => {
     quantity: 1,
     hargaJualan: 0,
     caraBayaran: '',
-    deliveryMethod: 'Ninjavan',
+    deliveryMethod: 'Poslaju',
     jenisBayaran: '',
     pilihBank: '',
     nota: '',
@@ -183,7 +183,7 @@ const OrderForm: React.FC = () => {
         quantity: 1, // Always 1 for edit mode
         hargaJualan: editOrder.hargaJualanSebenar || 0,
         caraBayaran: editOrder.caraBayaran || '',
-        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'Self Pickup' : (editOrder.kurier?.includes('Poslaju') ? 'Poslaju' : 'Ninjavan'),
+        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'Self Pickup' : (editOrder.kurier?.includes('Ninjavan') ? 'Ninjavan' : 'Poslaju'),
         jenisBayaran: editOrder.jenisBayaran || '',
         pilihBank: editOrder.bank || '',
         nota: editOrder.notaStaff || '',
@@ -687,8 +687,8 @@ const OrderForm: React.FC = () => {
     } else if (isPoslaju) {
       kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
     } else {
-      // Default to Ninjavan
-      kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
+      // Default to Poslaju
+      kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
     }
     
     // Set date_order to today's date (Malaysia timezone)

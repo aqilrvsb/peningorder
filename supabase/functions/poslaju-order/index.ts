@@ -466,8 +466,8 @@ serve(async (req) => {
     if (orderData.marketerIdStaff && orderData.phone && trackingNumber) {
       const productDesc = orderData.productName || orderData.produk || 'your order';
       const whatsappMessage = isCOD
-        ? `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n💰 Jumlah COD: RM${orderData.price}\n\nSila track penghantaran anda di:\nhttps://www.pos.com.my/track-trace-item?trackingNo=${trackingNumber}\n\nTerima kasih! 🙏`
-        : `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n\nSila track penghantaran anda di:\nhttps://www.pos.com.my/track-trace-item?trackingNo=${trackingNumber}\n\nTerima kasih! 🙏`;
+        ? `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n💰 Jumlah COD: RM${orderData.price}\n\nSila track penghantaran anda di:\nhttps://tracking.pos.com.my/tracking/${trackingNumber}\n\nTerima kasih! 🙏`
+        : `Assalamualaikum ${orderData.customerName},\n\nPesanan anda telah dihantar!\n\n📦 Produk: ${productDesc}\n🚚 Tracking: ${trackingNumber}\n\nSila track penghantaran anda di:\nhttps://tracking.pos.com.my/tracking/${trackingNumber}\n\nTerima kasih! 🙏`;
 
       const waResult = await sendWhatsAppImage(
         supabase,

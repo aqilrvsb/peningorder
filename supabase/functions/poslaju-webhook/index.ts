@@ -133,7 +133,7 @@ function getWhatsAppMessage(
   idSale: string,
   reasonDescription?: string
 ): string | null {
-  const trackUrl = `https://www.pos.com.my/track-trace-item?trackingNo=${trackingNumber}`;
+  const trackUrl = `https://tracking.pos.com.my/tracking/${trackingNumber}`;
 
   // Successful Delivery
   if (eventCode === 'LM_SUCCESS' || eventCode === 'WD_SUCCESS') {
