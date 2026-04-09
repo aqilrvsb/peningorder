@@ -15,7 +15,9 @@ interface Order {
   total_sale: number;
   jenis_platform: string;
   delivery_status: string;
+  seo: string;
   cost_baseproduct: number;
+  cost_hq: number;
   cost_postage: number;
 }
 
@@ -47,6 +49,7 @@ interface MarketerProfitStats {
   idStaff: string;
   name: string;
   totalSales: number;
+  totalCollection: number;
   totalReturn: number;
   totalSpend: number;
   totalCostProduct: number;
@@ -56,30 +59,35 @@ interface MarketerProfitStats {
   profit: number;
   // Facebook
   salesFB: number;
+  collectionFB: number;
   spendFB: number;
   costProductFB: number;
   postageFB: number;
   profitFB: number;
   // Database
   salesDatabase: number;
+  collectionDatabase: number;
   spendDatabase: number;
   costProductDatabase: number;
   postageDatabase: number;
   profitDatabase: number;
   // Shopee
   salesShopee: number;
+  collectionShopee: number;
   spendShopee: number;
   costProductShopee: number;
   postageShopee: number;
   profitShopee: number;
   // Tiktok
   salesTiktok: number;
+  collectionTiktok: number;
   spendTiktok: number;
   costProductTiktok: number;
   postageTiktok: number;
   profitTiktok: number;
   // Google
   salesGoogle: number;
+  collectionGoogle: number;
   spendGoogle: number;
   costProductGoogle: number;
   postageGoogle: number;
@@ -439,7 +447,9 @@ const AccountReportProfit: React.FC = () => {
       stat.personalExpenses = personalExpensesByMarketer[stat.idStaff] || 0;
 
       const revenue = profitBy === 'collection' ? stat.totalCollection : stat.totalSales;
-      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
+      // Exclude Shopee/Tiktok postage (fees) from profit — their sales is already NET
+      const nonMarketplacePostage = stat.postageFB + stat.postageDatabase + stat.postageGoogle;
+      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - nonMarketplacePostage - stat.personalExpenses;
 
       // Platform profit uses same profitBy logic
       const revFB = profitBy === 'collection' ? stat.collectionFB : stat.salesFB;
@@ -450,8 +460,9 @@ const AccountReportProfit: React.FC = () => {
 
       stat.profitFB = revFB - stat.spendFB - stat.costProductFB - stat.postageFB;
       stat.profitDatabase = revDB - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
-      stat.profitShopee = revShopee - stat.spendShopee - stat.costProductShopee - stat.postageShopee;
-      stat.profitTiktok = revTiktok - stat.spendTiktok - stat.costProductTiktok - stat.postageTiktok;
+      // Shopee/Tiktok: sales is already NET after fees, so don't deduct postage (fees) from profit
+      stat.profitShopee = revShopee - stat.costProductShopee;
+      stat.profitTiktok = revTiktok - stat.costProductTiktok;
       stat.profitGoogle = revGoogle - stat.spendGoogle - stat.costProductGoogle - stat.postageGoogle;
     });
 
@@ -503,7 +514,9 @@ const AccountReportProfit: React.FC = () => {
 
     const roas = base.totalSpend > 0 ? base.totalSales / base.totalSpend : 0;
     const revenue = profitBy === 'collection' ? base.totalCollection : base.totalSales;
-    const profit = revenue - base.totalSpend - base.totalCostProduct - base.totalPostage - totalExpenses.total;
+    // Exclude Shopee/Tiktok postage (fees) from profit — their sales is already NET
+    const nonMarketplacePostage = base.postageFB + base.postageDatabase + base.postageGoogle;
+    const profit = revenue - base.totalSpend - base.totalCostProduct - nonMarketplacePostage - totalExpenses.total;
 
     return { ...base, roas, profit };
   }, [filteredStats, totalExpenses, profitBy]);
@@ -545,7 +558,8 @@ const AccountReportProfit: React.FC = () => {
         postage: totals.postageShopee,
         expenses: expensesByPlatform.shopee,
         roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
-        profit: revShopee - totals.spendShopee - totals.costProductShopee - totals.postageShopee - expensesByPlatform.shopee,
+        // Shopee: sales is already NET after fees, don't deduct postage/fees from profit
+        profit: revShopee - totals.costProductShopee - expensesByPlatform.shopee,
       },
       tiktok: {
         sales: totals.salesTiktok,
@@ -555,7 +569,8 @@ const AccountReportProfit: React.FC = () => {
         postage: totals.postageTiktok,
         expenses: expensesByPlatform.tiktok,
         roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
-        profit: revTiktok - totals.spendTiktok - totals.costProductTiktok - totals.postageTiktok - expensesByPlatform.tiktok,
+        // Tiktok: sales is already NET after fees, don't deduct postage/fees from profit
+        profit: revTiktok - totals.costProductTiktok - expensesByPlatform.tiktok,
       },
       google: {
         sales: totals.salesGoogle,
