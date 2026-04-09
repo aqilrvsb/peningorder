@@ -133,7 +133,7 @@ const LogisticProcessed = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku")
+        .select("id, name, sku, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod")
         .order("name");
       if (error) throw error;
       return data || [];
@@ -207,8 +207,21 @@ const LogisticProcessed = () => {
         updated_at: new Date().toISOString(),
       };
 
-      if (editForm.productId && editForm.productId !== editingOrder.bundle_id) {
-        updateData.bundle_id = editForm.productId;
+      // Always update bundle and recalculate costs (no API call)
+      const bundleId = editForm.productId || editingOrder.bundle_id;
+      if (bundleId) {
+        updateData.bundle_id = bundleId;
+        const bundle = allProducts.find((p: any) => p.id === bundleId);
+        if (bundle) {
+          const qty = Number(editForm.quantity) || 1;
+          const isEastMY = ['Sabah', 'Sarawak', 'SABAH', 'SARAWAK', 'Labuan', 'LABUAN'].includes(editForm.state || '');
+          const basePostage = isEastMY ? (Number(bundle.kos_postage_ss) || 0) : (Number(bundle.kos_postage_sm) || 0);
+          const codFee = editForm.paymentMethod === 'COD' ? (Number(bundle.postage_cod) || 0) : 0;
+
+          updateData.cost_baseproduct = (Number(bundle.base_cost) || 0) * qty;
+          updateData.cost_hq = (Number(bundle.hq_cost) || 0) * qty;
+          updateData.cost_postage = basePostage + codFee;
+        }
       }
 
       const { error: updateError } = await supabase
