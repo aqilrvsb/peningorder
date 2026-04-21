@@ -195,7 +195,7 @@ const ClaimSummaryInvoice = () => {
               PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,
             </p>
             <p className="text-sm text-black">22000 JERTEH, TERENGGANU</p>
-            <p className="text-sm text-black">TEL: 016-2569963 (HR)</p>
+            <p className="text-sm text-black">TEL: 019-7238956 (HR)</p>
           </div>
         </div>
 

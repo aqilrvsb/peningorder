@@ -594,7 +594,7 @@ const AccountClaim = () => {
     doc.setFont("helvetica", "normal");
     doc.text("PT 2811, TINGKAT 1 TAMAN D'SAID KG PADANG LANDAK, MUKIM PELAGAT,", 60, 28);
     doc.text("22000 JERTEH, TERENGGANU", 60, 34);
-    doc.text("TEL: 016-2569963 (HR)", 60, 40);
+    doc.text("TEL: 019-7238956 (HR)", 60, 40);
 
     // Employee Details Section
     const detailsStartY = 60;
