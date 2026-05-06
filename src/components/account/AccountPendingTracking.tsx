@@ -73,6 +73,7 @@ const AccountPendingTracking = () => {
   // XLSX import states (marketplace)
   const [xlsxFile, setXlsxFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ stage: '', current: 0, total: 0 });
 
   // Individual update states
   const [individualStatus, setIndividualStatus] = useState<"Success" | "Return">("Success");
@@ -481,6 +482,7 @@ const AccountPendingTracking = () => {
     }
 
     setIsImporting(true);
+    setImportProgress({ stage: 'Reading file...', current: 0, total: 0 });
     try {
       const data = await xlsxFile.arrayBuffer();
       const workbook = XLSX.read(data);
@@ -523,6 +525,7 @@ const AccountPendingTracking = () => {
       const pendingMap = new Map<string, string>();
       const BATCH_SIZE = 500;
 
+      setImportProgress({ stage: 'Looking up pending orders', current: 0, total: trackingNumbers.length });
       for (let i = 0; i < trackingNumbers.length; i += BATCH_SIZE) {
         const batch = trackingNumbers.slice(i, i + BATCH_SIZE);
         const { data: pendingOrders } = await supabase
@@ -535,11 +538,14 @@ const AccountPendingTracking = () => {
         for (const o of pendingOrders || []) {
           pendingMap.set(o.tracking_number, o.id);
         }
+        setImportProgress({ stage: 'Looking up pending orders', current: Math.min(i + BATCH_SIZE, trackingNumbers.length), total: trackingNumbers.length });
       }
 
       let matched = 0;
       const notFoundList: { tracking: string; price: number; fees: number }[] = [];
-      for (const item of updates) {
+      setImportProgress({ stage: 'Updating orders', current: 0, total: updates.length });
+      for (let idx = 0; idx < updates.length; idx++) {
+        const item = updates[idx];
         const orderId = pendingMap.get(item.tracking);
         if (orderId) {
           await supabase
@@ -555,6 +561,10 @@ const AccountPendingTracking = () => {
         } else {
           notFoundList.push({ tracking: item.tracking, price: item.price, fees: item.fees });
         }
+        // Update progress every 10 items to avoid too many re-renders
+        if ((idx + 1) % 10 === 0 || idx === updates.length - 1) {
+          setImportProgress({ stage: 'Updating orders', current: idx + 1, total: updates.length });
+        }
       }
 
       toast.success(`${matched} order(s) updated.`);
@@ -564,6 +574,7 @@ const AccountPendingTracking = () => {
         const existingMap = new Map<string, any>();
         const BATCH_SIZE = 500;
 
+        setImportProgress({ stage: 'Categorizing not-found orders', current: 0, total: trackingNums.length });
         for (let i = 0; i < trackingNums.length; i += BATCH_SIZE) {
           const batch = trackingNums.slice(i, i + BATCH_SIZE);
           const { data: existingOrders } = await supabase
@@ -574,6 +585,7 @@ const AccountPendingTracking = () => {
           for (const o of existingOrders || []) {
             existingMap.set(o.tracking_number, o);
           }
+          setImportProgress({ stage: 'Categorizing not-found orders', current: Math.min(i + BATCH_SIZE, trackingNums.length), total: trackingNums.length });
         }
 
         const collected: { tracking: string; platform: string }[] = [];
@@ -605,6 +617,7 @@ const AccountPendingTracking = () => {
       toast.error(error.message || "Failed to import XLSX");
     } finally {
       setIsImporting(false);
+      setImportProgress({ stage: '', current: 0, total: 0 });
     }
   };
 
@@ -855,10 +868,36 @@ const AccountPendingTracking = () => {
                   Import & Update
                 </Button>
               </div>
-              {xlsxFile && (
+              {xlsxFile && !isImporting && (
                 <p className="text-xs text-muted-foreground">
                   Selected: {xlsxFile.name}
                 </p>
+              )}
+              {isImporting && (
+                <div className="space-y-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                    <p className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                      {importProgress.stage || 'Processing...'}
+                      {importProgress.total > 0 && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {importProgress.current} / {importProgress.total}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {importProgress.total > 0 && (
+                    <div className="w-full h-2 bg-purple-200 dark:bg-purple-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-purple-600 transition-all duration-200"
+                        style={{ width: `${Math.min(100, (importProgress.current / importProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground italic">
+                    Please don't close this tab. The process continues in background even if you switch tabs.
+                  </p>
+                </div>
               )}
             </div>
           )}
