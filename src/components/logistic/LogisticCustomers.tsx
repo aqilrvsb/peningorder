@@ -177,6 +177,7 @@ const LogisticCustomers = () => {
   // Calculate statistics - using new schema field names
   const filteredPurchases = purchases || [];
   const totalCustomers = new Set(filteredPurchases.map(p => p.phone_customer)).size || 0;
+  const totalNoPhone = filteredPurchases.filter(p => !p.phone_customer || p.phone_customer === '' || p.phone_customer === '-').length;
   const totalUnitsPurchased = filteredPurchases.reduce((sum, p) => sum + (p.unit || 0), 0) || 0;
   const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_sale) || 0), 0);
 
@@ -264,6 +265,7 @@ const LogisticCustomers = () => {
 
   const stats = [
     { title: "Total Customers", value: totalCustomers, icon: Users, color: "text-blue-600" },
+    { title: "Total No Phone", value: totalNoPhone, icon: Users, color: "text-rose-600" },
     { title: "Total Transactions", value: totalTransactions, icon: ShoppingCart, color: "text-purple-600" },
     { title: "Total Units Sold", value: totalUnitsPurchased, icon: Package, color: "text-emerald-600" },
     { title: "Total Revenue", value: `RM ${totalPrice.toFixed(2)}`, icon: DollarSign, color: "text-green-600" },
