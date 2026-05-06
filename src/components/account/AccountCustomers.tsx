@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { getMalaysiaDate } from "@/lib/utils";
+import { getMalaysiaDate, fetchAllRows } from "@/lib/utils";
 
 const AccountCustomers = () => {
   const { user } = useAuth();
@@ -77,28 +77,30 @@ const AccountCustomers = () => {
   const { data: purchases, isLoading } = useQuery({
     queryKey: ["customer_purchases_account", startDate, endDate, platformFilter, isQuickSearchActive],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select(`
-          *,
-          bundle:logistic_bundles(name, sku)
-        `)
-        .order("date_processed", { ascending: false, nullsFirst: false });
+      // Use fetchAllRows to bypass the 1000-row limit and get ALL data
+      const data = await fetchAllRows(() => {
+        let query = supabase
+          .from("customer_purchases")
+          .select(`
+            *,
+            bundle:logistic_bundles(name, sku)
+          `)
+          .order("date_processed", { ascending: false, nullsFirst: false });
 
-      if (!isQuickSearchActive) {
-        if (startDate) {
-          query = query.gte("date_processed", startDate);
+        if (!isQuickSearchActive) {
+          if (startDate) {
+            query = query.gte("date_processed", startDate);
+          }
+          if (endDate) {
+            query = query.lte("date_processed", endDate);
+          }
         }
-        if (endDate) {
-          query = query.lte("date_processed", endDate);
+        if (platformFilter !== "all") {
+          query = query.eq("jenis_platform", platformFilter);
         }
-      }
-      if (platformFilter !== "all") {
-        query = query.eq("jenis_platform", platformFilter);
-      }
 
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
+        return query;
+      });
       return data;
     },
   });
