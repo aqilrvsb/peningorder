@@ -30,6 +30,7 @@ import {
   CheckCircle,
   Receipt,
   Download,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -44,6 +45,8 @@ const AccountSuccessTracking = () => {
 
   // Filter states
   const [search, setSearch] = useState("");
+  const [pendingStart, setPendingStart] = useState(firstDay);
+  const [pendingEnd, setPendingEnd] = useState(lastDay);
   const [startDate, setStartDate] = useState(firstDay);
   const [endDate, setEndDate] = useState(lastDay);
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -401,6 +404,13 @@ const AccountSuccessTracking = () => {
     setSelectedOrders(new Set());
   };
 
+  const applyDateFilter = () => {
+    setStartDate(pendingStart);
+    setEndDate(pendingEnd);
+    setTrackingSearch("");
+    handleFilterChange();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -544,6 +554,8 @@ const AccountSuccessTracking = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && search.trim()) {
                       setTrackingSearch(search.trim());
+                      setPendingStart("");
+                      setPendingEnd("");
                       setStartDate("");
                       setEndDate("");
                       handleFilterChange();
@@ -557,6 +569,8 @@ const AccountSuccessTracking = () => {
                 onClick={() => {
                   if (search.trim()) {
                     setTrackingSearch(search.trim());
+                    setPendingStart("");
+                    setPendingEnd("");
                     setStartDate("");
                     setEndDate("");
                     handleFilterChange();
@@ -573,6 +587,8 @@ const AccountSuccessTracking = () => {
                   onClick={() => {
                     setTrackingSearch("");
                     setSearch("");
+                    setPendingStart(firstDay);
+                    setPendingEnd(lastDay);
                     setStartDate(firstDay);
                     setEndDate(lastDay);
                     handleFilterChange();
@@ -585,16 +601,20 @@ const AccountSuccessTracking = () => {
               <div className="flex gap-2">
                 <Input
                   type="date"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); setTrackingSearch(""); handleFilterChange(); }}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="w-40"
                 />
                 <Input
                   type="date"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); setTrackingSearch(""); handleFilterChange(); }}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="w-40"
                 />
+                <Button size="sm" onClick={applyDateFilter}>
+                  <Filter className="w-4 h-4 mr-1" />
+                  Apply Filter
+                </Button>
               </div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
                 <SelectTrigger className="w-36">

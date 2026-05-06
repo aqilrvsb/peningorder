@@ -26,6 +26,7 @@ import {
   Wallet,
   Save,
   MessageCircle,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +38,8 @@ const LogisticPendingTracking = () => {
 
   // Filter states
   const [search, setSearch] = useState("");
+  const [pendingStart, setPendingStart] = useState(getMalaysiaStartOfMonth());
+  const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -368,6 +371,12 @@ const LogisticPendingTracking = () => {
     setSelectedOrders(new Set());
   };
 
+  const applyDateFilter = () => {
+    setStartDate(pendingStart);
+    setEndDate(pendingEnd);
+    handleFilterChange();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -492,16 +501,20 @@ const LogisticPendingTracking = () => {
             </div>
             <Input
               type="date"
-              value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
+              value={pendingStart}
+              onChange={(e) => setPendingStart(e.target.value)}
               className="w-36 h-9"
             />
             <Input
               type="date"
-              value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
+              value={pendingEnd}
+              onChange={(e) => setPendingEnd(e.target.value)}
               className="w-36 h-9"
             />
+            <Button size="sm" onClick={applyDateFilter} className="h-9">
+              <Filter className="w-4 h-4 mr-1" />
+              Apply Filter
+            </Button>
             <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
               <SelectTrigger className="w-36 h-9">
                 <SelectValue placeholder="Platform" />

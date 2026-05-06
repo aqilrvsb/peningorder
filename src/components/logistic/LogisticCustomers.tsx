@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { Users, ShoppingCart, DollarSign, Package, Plus, Loader2, FileText, Trash2, Search, XCircle, Download } from "lucide-react";
+import { Users, ShoppingCart, DollarSign, Package, Plus, Loader2, FileText, Trash2, Search, XCircle, Download, Filter } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -31,8 +31,16 @@ const LogisticCustomers = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const today = getMalaysiaDate();
+  const [pendingStart, setPendingStart] = useState(today);
+  const [pendingEnd, setPendingEnd] = useState(today);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+
+  const applyDateFilter = () => {
+    setStartDate(pendingStart);
+    setEndDate(pendingEnd);
+    setIsQuickSearchActive(false);
+  };
   const [platformFilter, setPlatformFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -971,7 +979,7 @@ const LogisticCustomers = () => {
                 className="pl-10 h-9"
               />
             </div>
-            <Button size="sm" onClick={() => { setStartDate(""); setEndDate(""); handleQuickSearch(); }} className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Button size="sm" onClick={() => { setPendingStart(""); setPendingEnd(""); setStartDate(""); setEndDate(""); handleQuickSearch(); }} className="bg-blue-500 hover:bg-blue-600 text-white">
               <Search className="w-4 h-4 mr-1" />
               Search
             </Button>
@@ -983,22 +991,20 @@ const LogisticCustomers = () => {
             )}
             <Input
               type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setIsQuickSearchActive(false);
-              }}
+              value={pendingStart}
+              onChange={(e) => setPendingStart(e.target.value)}
               className="w-36 h-9"
             />
             <Input
               type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setIsQuickSearchActive(false);
-              }}
+              value={pendingEnd}
+              onChange={(e) => setPendingEnd(e.target.value)}
               className="w-36 h-9"
             />
+            <Button size="sm" onClick={applyDateFilter} className="h-9">
+              <Filter className="w-4 h-4 mr-1" />
+              Apply Filter
+            </Button>
             <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); setIsQuickSearchActive(false); }}>
               <SelectTrigger className="w-36 h-9">
                 <SelectValue placeholder="All Platform" />
