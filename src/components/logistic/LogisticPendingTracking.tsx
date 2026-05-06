@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
 import {
   Package,
   Clock,
@@ -82,26 +82,23 @@ const LogisticPendingTracking = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select(`
-          *,
-          bundle:logistic_bundles(name, sku)
-        `)
-        .eq("delivery_status", "Shipped")
-        .or("seo.is.null,seo.neq.Successful Delivery")
-        .order("date_order", { ascending: false });
+      // Use fetchAllRows to bypass the 1000-row limit
+      const data = await fetchAllRows(() => {
+        let query = supabase
+          .from("customer_purchases")
+          .select(`
+            *,
+            bundle:logistic_bundles(name, sku)
+          `)
+          .eq("delivery_status", "Shipped")
+          .or("seo.is.null,seo.neq.Successful Delivery")
+          .order("date_order", { ascending: false });
 
-      if (startDate) {
-        query = query.gte("date_order", startDate);
-      }
-      if (endDate) {
-        query = query.lte("date_order", endDate);
-      }
+        if (startDate) query = query.gte("date_order", startDate);
+        if (endDate) query = query.lte("date_order", endDate);
 
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
-
+        return query;
+      });
       return data || [];
     },
   });

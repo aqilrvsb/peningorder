@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,23 +91,23 @@ const AccountSuccessTracking = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-success-tracking", startDate, endDate, trackingSearch],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select(`*, bundle:logistic_bundles(name, sku)`)
-        .eq("delivery_status", "Shipped")
-        .eq("seo", "Successful Delivery")
-        .order("date_order", { ascending: false });
+      // Use fetchAllRows to bypass the 1000-row limit
+      const data = await fetchAllRows(() => {
+        let query = supabase
+          .from("customer_purchases")
+          .select(`*, bundle:logistic_bundles(name, sku)`)
+          .eq("delivery_status", "Shipped")
+          .eq("seo", "Successful Delivery")
+          .order("date_order", { ascending: false });
 
-      if (trackingSearch) {
-        // Search by tracking number — ignore date range
-        query = query.eq("tracking_number", trackingSearch);
-      } else {
-        if (startDate) query = query.gte("date_order", startDate);
-        if (endDate) query = query.lte("date_order", endDate);
-      }
-
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
+        if (trackingSearch) {
+          query = query.eq("tracking_number", trackingSearch);
+        } else {
+          if (startDate) query = query.gte("date_order", startDate);
+          if (endDate) query = query.lte("date_order", endDate);
+        }
+        return query;
+      });
       return data || [];
     },
   });
@@ -116,17 +116,17 @@ const AccountSuccessTracking = () => {
   const { data: pendingOrders = [] } = useQuery({
     queryKey: ["account-pending-stats", startDate, endDate],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select("id, type_payment, total_sale, cost_postage, unit, jenis_platform")
-        .eq("delivery_status", "Shipped")
-        .or("seo.is.null,seo.neq.Successful Delivery");
+      const data = await fetchAllRows(() => {
+        let query = supabase
+          .from("customer_purchases")
+          .select("id, type_payment, total_sale, cost_postage, unit, jenis_platform")
+          .eq("delivery_status", "Shipped")
+          .or("seo.is.null,seo.neq.Successful Delivery");
 
-      if (startDate) query = query.gte("date_order", startDate);
-      if (endDate) query = query.lte("date_order", endDate);
-
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
+        if (startDate) query = query.gte("date_order", startDate);
+        if (endDate) query = query.lte("date_order", endDate);
+        return query;
+      });
       return data || [];
     },
   });
