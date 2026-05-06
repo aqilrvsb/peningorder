@@ -685,12 +685,19 @@ const LogisticScanWaybill = () => {
           .filter(t => t.length > 0);
 
         if (trackingNumbers.length > 0) {
-          const { data: existingOrders } = await supabase
-            .from("customer_purchases")
-            .select("tracking_number")
-            .in("tracking_number", trackingNumbers);
+          // Query DB in batches of 500 to avoid URL length limit
+          const existingOrders: any[] = [];
+          const SCAN_BATCH_SIZE = 500;
+          for (let i = 0; i < trackingNumbers.length; i += SCAN_BATCH_SIZE) {
+            const batch = trackingNumbers.slice(i, i + SCAN_BATCH_SIZE);
+            const { data } = await supabase
+              .from("customer_purchases")
+              .select("tracking_number")
+              .in("tracking_number", batch);
+            if (data) existingOrders.push(...data);
+          }
 
-          if (existingOrders && existingOrders.length > 0) {
+          if (existingOrders.length > 0) {
             const existingSet = new Set(
               existingOrders.map((o: any) => o.tracking_number)
             );

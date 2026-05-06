@@ -413,15 +413,21 @@ const AccountPendingTracking = () => {
       return;
     }
 
-    // Query DB directly for matching pending orders (not limited by current date/filter)
-    const { data: pendingOrders } = await supabase
-      .from("customer_purchases")
-      .select("id, tracking_number")
-      .eq("delivery_status", "Shipped")
-      .or("seo.is.null,seo.neq.Successful Delivery")
-      .in("tracking_number", trackingNumbers);
+    // Query DB in batches of 500 to avoid URL length limit
+    const pendingOrders: any[] = [];
+    const BULK_BATCH_SIZE = 500;
+    for (let i = 0; i < trackingNumbers.length; i += BULK_BATCH_SIZE) {
+      const batch = trackingNumbers.slice(i, i + BULK_BATCH_SIZE);
+      const { data } = await supabase
+        .from("customer_purchases")
+        .select("id, tracking_number")
+        .eq("delivery_status", "Shipped")
+        .or("seo.is.null,seo.neq.Successful Delivery")
+        .in("tracking_number", batch);
+      if (data) pendingOrders.push(...data);
+    }
 
-    if (!pendingOrders || pendingOrders.length === 0) {
+    if (pendingOrders.length === 0) {
       toast.error("No matching orders found for the tracking numbers");
       return;
     }
@@ -512,18 +518,23 @@ const AccountPendingTracking = () => {
         return;
       }
 
-      // Query DB directly for matching pending orders (not limited by current date/filter)
+      // Query DB in batches of 500 to avoid URL length limit
       const trackingNumbers = updates.map((u) => u.tracking);
-      const { data: pendingOrders } = await supabase
-        .from("customer_purchases")
-        .select("id, tracking_number")
-        .eq("delivery_status", "Shipped")
-        .or("seo.is.null,seo.neq.Successful Delivery")
-        .in("tracking_number", trackingNumbers);
-
       const pendingMap = new Map<string, string>();
-      for (const o of pendingOrders || []) {
-        pendingMap.set(o.tracking_number, o.id);
+      const BATCH_SIZE = 500;
+
+      for (let i = 0; i < trackingNumbers.length; i += BATCH_SIZE) {
+        const batch = trackingNumbers.slice(i, i + BATCH_SIZE);
+        const { data: pendingOrders } = await supabase
+          .from("customer_purchases")
+          .select("id, tracking_number")
+          .eq("delivery_status", "Shipped")
+          .or("seo.is.null,seo.neq.Successful Delivery")
+          .in("tracking_number", batch);
+
+        for (const o of pendingOrders || []) {
+          pendingMap.set(o.tracking_number, o.id);
+        }
       }
 
       let matched = 0;
@@ -548,16 +559,21 @@ const AccountPendingTracking = () => {
 
       toast.success(`${matched} order(s) updated.`);
       if (notFoundList.length > 0) {
-        // Query DB to categorize: already collected vs not in database
+        // Query DB in batches of 500 to avoid URL length limit
         const trackingNums = notFoundList.map((n) => n.tracking);
-        const { data: existingOrders } = await supabase
-          .from("customer_purchases")
-          .select("tracking_number, seo, jenis_platform")
-          .in("tracking_number", trackingNums);
-
         const existingMap = new Map<string, any>();
-        for (const o of existingOrders || []) {
-          existingMap.set(o.tracking_number, o);
+        const BATCH_SIZE = 500;
+
+        for (let i = 0; i < trackingNums.length; i += BATCH_SIZE) {
+          const batch = trackingNums.slice(i, i + BATCH_SIZE);
+          const { data: existingOrders } = await supabase
+            .from("customer_purchases")
+            .select("tracking_number, seo, jenis_platform")
+            .in("tracking_number", batch);
+
+          for (const o of existingOrders || []) {
+            existingMap.set(o.tracking_number, o);
+          }
         }
 
         const collected: { tracking: string; platform: string }[] = [];
