@@ -131,11 +131,22 @@ const LogisticPendingTracking = () => {
     currentPage * pageSize
   );
 
+  // Helper: extract first number from bundle SKU (e.g., "GSI-4 + SBNM-1" → 4)
+  const getFirstSkuQty = (sku: string | null | undefined): number => {
+    if (!sku) return 0;
+    const match = sku.match(/-(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+  const getUnitBundle = (order: any): number => {
+    return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
+  };
+
   // Counts
   const counts = {
     total: filteredOrders.length,
     cod: filteredOrders.filter((o: any) => o.type_payment === "COD").length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
+    totalUnitBundle: filteredOrders.reduce((sum: number, o: any) => sum + getUnitBundle(o), 0),
   };
 
   // Checkbox handlers
@@ -382,6 +393,13 @@ const LogisticPendingTracking = () => {
               <p className="text-xs text-muted-foreground">Collection</p>
             </div>
           </div>
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+            <Package className="w-5 h-5 text-amber-500" />
+            <div>
+              <p className="text-lg font-bold">{counts.totalUnitBundle}</p>
+              <p className="text-xs text-muted-foreground">Unit Bundle</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -552,6 +570,7 @@ const LogisticPendingTracking = () => {
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
                       <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Unit Bundle</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
@@ -590,6 +609,7 @@ const LogisticPendingTracking = () => {
                             <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
                           <td className="p-2 text-center">{order.unit || 1}</td>
+                          <td className="p-2 text-center font-medium text-amber-600">{getUnitBundle(order)}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>

@@ -13,11 +13,13 @@ interface Order {
   marketer_id_staff: string;
   date_order: string;
   total_sale: number;
+  unit: number;
   jenis_platform: string;
   delivery_status: string;
   seo: string;
   cost_baseproduct: number;
   cost_hq: number;
+  bundle?: { name?: string; sku?: string } | null;
   cost_postage: number;
 }
 
@@ -54,6 +56,7 @@ interface MarketerProfitStats {
   totalSpend: number;
   totalCostProduct: number;
   totalPostage: number;
+  totalUnitBundle: number;
   personalExpenses: number;
   roas: number;
   profit: number;
@@ -63,6 +66,7 @@ interface MarketerProfitStats {
   spendFB: number;
   costProductFB: number;
   postageFB: number;
+  unitBundleFB: number;
   profitFB: number;
   // Database
   salesDatabase: number;
@@ -70,6 +74,7 @@ interface MarketerProfitStats {
   spendDatabase: number;
   costProductDatabase: number;
   postageDatabase: number;
+  unitBundleDatabase: number;
   profitDatabase: number;
   // Shopee
   salesShopee: number;
@@ -77,6 +82,7 @@ interface MarketerProfitStats {
   spendShopee: number;
   costProductShopee: number;
   postageShopee: number;
+  unitBundleShopee: number;
   profitShopee: number;
   // Tiktok
   salesTiktok: number;
@@ -84,6 +90,7 @@ interface MarketerProfitStats {
   spendTiktok: number;
   costProductTiktok: number;
   postageTiktok: number;
+  unitBundleTiktok: number;
   profitTiktok: number;
   // Google
   salesGoogle: number;
@@ -91,6 +98,7 @@ interface MarketerProfitStats {
   spendGoogle: number;
   costProductGoogle: number;
   postageGoogle: number;
+  unitBundleGoogle: number;
   profitGoogle: number;
 }
 
@@ -162,7 +170,7 @@ const AccountReportProfit: React.FC = () => {
           fetchAllRows(() =>
             (supabase as any)
               .from('customer_purchases')
-              .select('*')
+              .select('*, bundle:logistic_bundles(name, sku)')
               .gte('date_order', startDate)
               .lte('date_order', endDate)
               .order('created_at', { ascending: false })
@@ -343,14 +351,15 @@ const AccountReportProfit: React.FC = () => {
           totalSpend: 0,
           totalCostProduct: 0,
           totalPostage: 0,
+          totalUnitBundle: 0,
           personalExpenses: 0,
           roas: 0,
           profit: 0,
-          salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, profitFB: 0,
-          salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, profitDatabase: 0,
-          salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, profitShopee: 0,
-          salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, profitTiktok: 0,
-          salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, profitGoogle: 0,
+          salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
+          salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
+          salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, unitBundleShopee: 0, profitShopee: 0,
+          salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0, profitTiktok: 0,
+          salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0, profitGoogle: 0,
         };
       }
     };
@@ -372,6 +381,11 @@ const AccountReportProfit: React.FC = () => {
         ? Math.abs(Number(order.cost_postage) || 0)
         : (Number(order.cost_postage) || 0);
 
+      // Unit Bundle = order.unit × first SKU number (e.g., "GSI-4 + ..." → 4)
+      const skuMatch = order.bundle?.sku?.match(/-(\d+)/);
+      const firstSkuQty = skuMatch ? parseInt(skuMatch[1], 10) : 0;
+      const unitBundle = (Number(order.unit) || 0) * firstSkuQty;
+
       initStats(idStaff, name);
 
       stats[idStaff].totalSales += sale;
@@ -383,6 +397,7 @@ const AccountReportProfit: React.FC = () => {
       }
       stats[idStaff].totalCostProduct += costProduct;
       stats[idStaff].totalPostage += postage;
+      stats[idStaff].totalUnitBundle += unitBundle;
 
       // Count by platform
       if (platform === 'Facebook') {
@@ -390,26 +405,31 @@ const AccountReportProfit: React.FC = () => {
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionFB += sale;
         stats[idStaff].costProductFB += costProduct;
         stats[idStaff].postageFB += postage;
+        stats[idStaff].unitBundleFB += unitBundle;
       } else if (platform === 'Database') {
         stats[idStaff].salesDatabase += sale;
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionDatabase += sale;
         stats[idStaff].costProductDatabase += costProduct;
         stats[idStaff].postageDatabase += postage;
+        stats[idStaff].unitBundleDatabase += unitBundle;
       } else if (platform === 'Shopee') {
         stats[idStaff].salesShopee += sale;
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionShopee += sale;
         stats[idStaff].costProductShopee += costProduct;
         stats[idStaff].postageShopee += postage;
+        stats[idStaff].unitBundleShopee += unitBundle;
       } else if (platform === 'Tiktok') {
         stats[idStaff].salesTiktok += sale;
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionTiktok += sale;
         stats[idStaff].costProductTiktok += costProduct;
         stats[idStaff].postageTiktok += postage;
+        stats[idStaff].unitBundleTiktok += unitBundle;
       } else if (platform === 'Google') {
         stats[idStaff].salesGoogle += sale;
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionGoogle += sale;
         stats[idStaff].costProductGoogle += costProduct;
         stats[idStaff].postageGoogle += postage;
+        stats[idStaff].unitBundleGoogle += unitBundle;
       }
     });
 
@@ -490,25 +510,26 @@ const AccountReportProfit: React.FC = () => {
         totalSpend: acc.totalSpend + stat.totalSpend,
         totalCostProduct: acc.totalCostProduct + stat.totalCostProduct,
         totalPostage: acc.totalPostage + stat.totalPostage,
+        totalUnitBundle: acc.totalUnitBundle + stat.totalUnitBundle,
         salesFB: acc.salesFB + stat.salesFB, collectionFB: acc.collectionFB + stat.collectionFB,
-        spendFB: acc.spendFB + stat.spendFB, costProductFB: acc.costProductFB + stat.costProductFB, postageFB: acc.postageFB + stat.postageFB,
+        spendFB: acc.spendFB + stat.spendFB, costProductFB: acc.costProductFB + stat.costProductFB, postageFB: acc.postageFB + stat.postageFB, unitBundleFB: acc.unitBundleFB + stat.unitBundleFB,
         salesDatabase: acc.salesDatabase + stat.salesDatabase, collectionDatabase: acc.collectionDatabase + stat.collectionDatabase,
-        spendDatabase: acc.spendDatabase + stat.spendDatabase, costProductDatabase: acc.costProductDatabase + stat.costProductDatabase, postageDatabase: acc.postageDatabase + stat.postageDatabase,
+        spendDatabase: acc.spendDatabase + stat.spendDatabase, costProductDatabase: acc.costProductDatabase + stat.costProductDatabase, postageDatabase: acc.postageDatabase + stat.postageDatabase, unitBundleDatabase: acc.unitBundleDatabase + stat.unitBundleDatabase,
         salesShopee: acc.salesShopee + stat.salesShopee, collectionShopee: acc.collectionShopee + stat.collectionShopee,
-        spendShopee: acc.spendShopee + stat.spendShopee, costProductShopee: acc.costProductShopee + stat.costProductShopee, postageShopee: acc.postageShopee + stat.postageShopee,
+        spendShopee: acc.spendShopee + stat.spendShopee, costProductShopee: acc.costProductShopee + stat.costProductShopee, postageShopee: acc.postageShopee + stat.postageShopee, unitBundleShopee: acc.unitBundleShopee + stat.unitBundleShopee,
         salesTiktok: acc.salesTiktok + stat.salesTiktok, collectionTiktok: acc.collectionTiktok + stat.collectionTiktok,
-        spendTiktok: acc.spendTiktok + stat.spendTiktok, costProductTiktok: acc.costProductTiktok + stat.costProductTiktok, postageTiktok: acc.postageTiktok + stat.postageTiktok,
+        spendTiktok: acc.spendTiktok + stat.spendTiktok, costProductTiktok: acc.costProductTiktok + stat.costProductTiktok, postageTiktok: acc.postageTiktok + stat.postageTiktok, unitBundleTiktok: acc.unitBundleTiktok + stat.unitBundleTiktok,
         salesGoogle: acc.salesGoogle + stat.salesGoogle, collectionGoogle: acc.collectionGoogle + stat.collectionGoogle,
-        spendGoogle: acc.spendGoogle + stat.spendGoogle, costProductGoogle: acc.costProductGoogle + stat.costProductGoogle, postageGoogle: acc.postageGoogle + stat.postageGoogle,
+        spendGoogle: acc.spendGoogle + stat.spendGoogle, costProductGoogle: acc.costProductGoogle + stat.costProductGoogle, postageGoogle: acc.postageGoogle + stat.postageGoogle, unitBundleGoogle: acc.unitBundleGoogle + stat.unitBundleGoogle,
       }),
       {
         totalSales: 0, totalCollection: 0,
-        totalReturn: 0, totalSpend: 0, totalCostProduct: 0, totalPostage: 0,
-        salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0,
-        salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0,
-        salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0,
-        salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0,
-        salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0,
+        totalReturn: 0, totalSpend: 0, totalCostProduct: 0, totalPostage: 0, totalUnitBundle: 0,
+        salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0,
+        salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0,
+        salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, unitBundleShopee: 0,
+        salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0,
+        salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0,
       }
     );
 
@@ -536,6 +557,7 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendFB,
         costProduct: totals.costProductFB,
         postage: totals.postageFB,
+        unitBundle: totals.unitBundleFB,
         expenses: expensesByPlatform.facebook,
         roas: totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0,
         profit: revFB - totals.spendFB - totals.costProductFB - totals.postageFB - expensesByPlatform.facebook,
@@ -546,6 +568,7 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendDatabase,
         costProduct: totals.costProductDatabase,
         postage: totals.postageDatabase,
+        unitBundle: totals.unitBundleDatabase,
         expenses: expensesByPlatform.database,
         roas: totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0,
         profit: revDB - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase - expensesByPlatform.database,
@@ -556,6 +579,7 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendShopee,
         costProduct: totals.costProductShopee,
         postage: totals.postageShopee,
+        unitBundle: totals.unitBundleShopee,
         expenses: expensesByPlatform.shopee,
         roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
         // Shopee: sales is already NET after fees, don't deduct postage/fees from profit
@@ -567,6 +591,7 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendTiktok,
         costProduct: totals.costProductTiktok,
         postage: totals.postageTiktok,
+        unitBundle: totals.unitBundleTiktok,
         expenses: expensesByPlatform.tiktok,
         roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
         // Tiktok: sales is already NET after fees, don't deduct postage/fees from profit
@@ -578,6 +603,7 @@ const AccountReportProfit: React.FC = () => {
         spend: totals.spendGoogle,
         costProduct: totals.costProductGoogle,
         postage: totals.postageGoogle,
+        unitBundle: totals.unitBundleGoogle,
         expenses: expensesByPlatform.google,
         roas: totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0,
         profit: revGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle - expensesByPlatform.google,
@@ -692,6 +718,13 @@ const AccountReportProfit: React.FC = () => {
           </div>
           <div className="text-lg font-bold text-green-600">RM {formatNumber(totals.totalCollection)}</div>
         </div>
+        <div className="stat-card border-l-4 border-l-amber-500">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
+            <Package className="w-3 h-3" />
+            Total Unit Bundle
+          </div>
+          <div className="text-lg font-bold text-amber-600">{totals.totalUnitBundle}</div>
+        </div>
         <div className="stat-card border-l-4 border-l-rose-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
             <RotateCcw className="w-3 h-3" />
@@ -782,6 +815,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.facebook.expenses)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.facebook.unitBundle}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
               </div>
@@ -824,6 +861,10 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Expenses:</span>
                 <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.tiktok.expenses)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.tiktok.unitBundle}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
@@ -870,6 +911,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.shopee.expenses)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.shopee.unitBundle}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.shopee.roas.toFixed(2)}x</span>
               </div>
@@ -912,6 +957,10 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Expenses:</span>
                 <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.database.expenses)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.database.unitBundle}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
@@ -958,6 +1007,10 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.google.expenses)}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="font-semibold text-amber-600">{platformTotals.google.unitBundle}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.google.roas.toFixed(2)}x</span>
               </div>
@@ -991,6 +1044,7 @@ const AccountReportProfit: React.FC = () => {
                 <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r">COST PRODUCT</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r">POSTAGE</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-pink-600 uppercase tracking-wider whitespace-nowrap border-r">EXPENSES</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">UNIT BUNDLE</th>
                 <th className="px-3 py-2 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap bg-green-50 dark:bg-green-950/30">PROFIT</th>
               </tr>
@@ -1011,6 +1065,7 @@ const AccountReportProfit: React.FC = () => {
                     <td className="px-3 py-2 text-sm text-right font-semibold text-purple-600 whitespace-nowrap border-r">{formatNumber(stat.totalCostProduct)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600 whitespace-nowrap border-r">{formatNumber(stat.totalPostage)}</td>
                     <td className="px-3 py-2 text-sm text-right font-semibold text-pink-600 whitespace-nowrap border-r">{formatNumber(stat.personalExpenses)}</td>
+                    <td className="px-3 py-2 text-sm text-right font-semibold text-amber-600 whitespace-nowrap border-r">{stat.totalUnitBundle}</td>
                     <td className="px-3 py-2 text-sm text-center font-bold text-amber-600 whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
                     <td className={`px-3 py-2 text-sm text-right font-bold whitespace-nowrap bg-green-50/50 dark:bg-green-950/20 ${marketerProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatNumber(marketerProfit)}

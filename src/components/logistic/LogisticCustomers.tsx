@@ -174,11 +174,24 @@ const LogisticCustomers = () => {
     },
   });
 
+  // Helper: extract first number from bundle SKU (e.g., "GSI-4 + SBNM-1" → 4)
+  const getFirstSkuQty = (sku: string | null | undefined): number => {
+    if (!sku) return 0;
+    const match = sku.match(/-(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  // Calculate Unit Bundle for an order: order.unit × first SKU number
+  const getUnitBundle = (order: any): number => {
+    return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
+  };
+
   // Calculate statistics - using new schema field names
   const filteredPurchases = purchases || [];
   const totalCustomers = new Set(filteredPurchases.map(p => p.phone_customer)).size || 0;
   const totalNoPhone = filteredPurchases.filter(p => !p.phone_customer || p.phone_customer === '' || p.phone_customer === '-').length;
   const totalUnitsPurchased = filteredPurchases.reduce((sum, p) => sum + (p.unit || 0), 0) || 0;
+  const totalUnitBundle = filteredPurchases.reduce((sum, p) => sum + getUnitBundle(p), 0);
   const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_sale) || 0), 0);
 
   // Group purchases by id for display - using new schema field names
@@ -265,9 +278,10 @@ const LogisticCustomers = () => {
 
   const stats = [
     { title: "Total Customers", value: totalCustomers, icon: Users, color: "text-blue-600" },
-    { title: "Total No Phone", value: totalNoPhone, icon: Users, color: "text-rose-600" },
+    { title: "Total Tiada Nombor", value: totalNoPhone, icon: Users, color: "text-rose-600" },
     { title: "Total Transactions", value: totalTransactions, icon: ShoppingCart, color: "text-purple-600" },
     { title: "Total Units Sold", value: totalUnitsPurchased, icon: Package, color: "text-emerald-600" },
+    { title: "Total Unit Bundle", value: totalUnitBundle, icon: Package, color: "text-amber-600" },
     { title: "Total Revenue", value: `RM ${totalPrice.toFixed(2)}`, icon: DollarSign, color: "text-green-600" },
   ];
 
@@ -288,6 +302,7 @@ const LogisticCustomers = () => {
       "Phone": order.phone_customer || "-",
       "Produk": order.bundle?.name || "-",
       "Unit": order.unit || 1,
+      "Unit Bundle": getUnitBundle(order),
       "Tracking": order.tracking_number || "-",
       "Total Sales": Number(order.total_sale || 0).toFixed(2),
       "Cost Product": Number(order.cost_baseproduct || 0).toFixed(2),
@@ -1027,6 +1042,7 @@ const LogisticCustomers = () => {
                     <th className="p-2 text-left">Phone</th>
                     <th className="p-2 text-left">Produk</th>
                     <th className="p-2 text-left">Unit</th>
+                    <th className="p-2 text-left">Unit Bundle</th>
                     <th className="p-2 text-left">Tracking</th>
                     <th className="p-2 text-left">Total Sales</th>
                     <th className="p-2 text-left">Cost Product</th>
@@ -1093,6 +1109,7 @@ const LogisticCustomers = () => {
                           <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                         </td>
                         <td className="p-2 text-center">{order.unit || 1}</td>
+                        <td className="p-2 text-center font-medium text-amber-600">{getUnitBundle(order)}</td>
                         <td className="p-2 whitespace-nowrap">
                           {order.tracking_number ? (
                             order.jenis_platform === "Tiktok" ? (

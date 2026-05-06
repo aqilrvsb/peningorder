@@ -68,6 +68,16 @@ const AccountSuccessTracking = () => {
     return Number(order.unit) || 1;
   };
 
+  // Helper: Unit Bundle = order.unit × first SKU number (e.g., "GSI-4 + ..." → 4)
+  const getFirstSkuQty = (sku: string | null | undefined): number => {
+    if (!sku) return 0;
+    const match = sku.match(/-(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+  const getUnitBundle = (order: any): number => {
+    return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
+  };
+
   // Helper to get fees: Shopee/Tiktok use actual fees (abs), others use COD=7, CASH=6
   const getOrderFees = (order: any): number => {
     const platform = getOrderPlatformName(order);
@@ -178,6 +188,7 @@ const AccountSuccessTracking = () => {
     cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
     totalFinalPrice: filteredOrders.reduce((sum: number, o: any) => sum + getOrderFinalPrice(o), 0),
     totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + getOrderUnits(o), 0),
+    totalUnitBundle: filteredOrders.reduce((sum: number, o: any) => sum + getUnitBundle(o), 0),
     totalFees: filteredOrders.reduce((sum: number, o: any) => sum + getOrderFees(o), 0),
   };
 
@@ -365,6 +376,7 @@ const AccountSuccessTracking = () => {
         "Phone": order.phone_customer || "-",
         "Product": order.nota_staff || order.bundle?.name || "-",
         "Unit": getOrderUnits(order),
+        "Unit Bundle": getUnitBundle(order),
         "Final Price": getOrderFinalPrice(order).toFixed(2),
         "Fees": getOrderFees(order).toFixed(2),
         "Total Sales": (getOrderFinalPrice(order) + getOrderFees(order)).toFixed(2),
@@ -424,6 +436,17 @@ const AccountSuccessTracking = () => {
                 <p className="text-2xl font-bold">{counts.totalUnits}</p>
                 <p className="text-sm text-muted-foreground">Total Unit</p>
                 <p className="mt-1 text-xs text-purple-600">Pending: {pending.totalUnits} ({pctPending(counts.totalUnits, pending.totalUnits)}%)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-amber-500" />
+              <div>
+                <p className="text-2xl font-bold">{counts.totalUnitBundle}</p>
+                <p className="text-sm text-muted-foreground">Total Unit Bundle</p>
               </div>
             </div>
           </CardContent>
@@ -657,6 +680,7 @@ const AccountSuccessTracking = () => {
                       <th className="p-3 text-left">Phone</th>
                       <th className="p-3 text-left min-w-[280px]">Product</th>
                       <th className="p-3 text-left">Unit</th>
+                      <th className="p-3 text-left">Unit Bundle</th>
                       <th className="p-3 text-left">Final Price</th>
                       <th className="p-3 text-left">Fees</th>
                       <th className="p-3 text-left">Total Sales</th>
@@ -689,6 +713,7 @@ const AccountSuccessTracking = () => {
                           <td className="p-3">{order.phone_customer || "-"}</td>
                           <td className="p-3 min-w-[280px]"><span className="line-clamp-3">{order.nota_staff || order.bundle?.name || "-"}</span></td>
                           <td className="p-3">{getOrderUnits(order)}</td>
+                          <td className="p-3 font-medium text-amber-600">{getUnitBundle(order)}</td>
                           <td className="p-3">RM {getOrderFinalPrice(order).toFixed(2)}</td>
                           <td className="p-3">RM {getOrderFees(order).toFixed(2)}</td>
                           <td className="p-3">RM {(getOrderFinalPrice(order) + getOrderFees(order)).toFixed(2)}</td>

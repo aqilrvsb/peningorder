@@ -119,6 +119,16 @@ const AccountPendingTracking = () => {
     return Number(order.unit) || 1;
   };
 
+  // Helper: Unit Bundle = order.unit × first SKU number (e.g., "GSI-4 + ..." → 4)
+  const getFirstSkuQty = (sku: string | null | undefined): number => {
+    if (!sku) return 0;
+    const match = sku.match(/-(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+  const getUnitBundle = (order: any): number => {
+    return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
+  };
+
   // Fetch pending tracking orders: Shipped + SEO not successful
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["account-pending-tracking", startDate, endDate, trackingSearch],
@@ -179,6 +189,7 @@ const AccountPendingTracking = () => {
     cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
     totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + getOrderUnits(o), 0),
+    totalUnitBundle: filteredOrders.reduce((sum: number, o: any) => sum + getUnitBundle(o), 0),
   };
 
   // Platform breakdown (Facebook, Tiktok, Shopee, Database, Google)
@@ -696,6 +707,7 @@ const AccountPendingTracking = () => {
       "Phone": order.phone_customer || "-",
       "Product": order.nota_staff || order.bundle?.name || "-",
       "Qty": order.unit || 1,
+      "Unit Bundle": getUnitBundle(order),
       "Final Price": Number(order.total_sale || 0).toFixed(2),
       "Fees": Number(order.cost_postage || 0).toFixed(2),
       "Total Sales": (Number(order.total_sale || 0) + Number(order.cost_postage || 0)).toFixed(2),
@@ -726,7 +738,7 @@ const AccountPendingTracking = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
@@ -749,6 +761,17 @@ const AccountPendingTracking = () => {
               <div>
                 <p className="text-2xl font-bold">{counts.totalUnits}</p>
                 <p className="text-sm text-muted-foreground">Total Unit</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-amber-500" />
+              <div>
+                <p className="text-2xl font-bold">{counts.totalUnitBundle}</p>
+                <p className="text-sm text-muted-foreground">Total Unit Bundle</p>
               </div>
             </div>
           </CardContent>
@@ -1108,6 +1131,7 @@ const AccountPendingTracking = () => {
                       <th className="p-3 text-left">Phone</th>
                       <th className="p-3 text-left min-w-[280px]">Product</th>
                       <th className="p-3 text-left">Qty</th>
+                      <th className="p-3 text-left">Unit Bundle</th>
                       <th className="p-3 text-left">Final Price</th>
                       <th className="p-3 text-left">Fees</th>
                       <th className="p-3 text-left">Total Sales</th>
@@ -1139,6 +1163,7 @@ const AccountPendingTracking = () => {
                           <td className="p-3">{order.phone_customer || "-"}</td>
                           <td className="p-3 min-w-[280px]"><span className="line-clamp-3">{order.nota_staff || order.bundle?.name || "-"}</span></td>
                           <td className="p-3">{order.unit || 1}</td>
+                          <td className="p-3 font-medium text-amber-600">{getUnitBundle(order)}</td>
                           <td className="p-3">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-3">{order.cost_postage ? `RM ${Number(order.cost_postage).toFixed(2)}` : "-"}</td>
                           <td className="p-3">RM {(Number(order.total_sale || 0) + Number(order.cost_postage || 0)).toFixed(2)}</td>
