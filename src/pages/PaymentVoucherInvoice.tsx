@@ -292,11 +292,12 @@ const PaymentVoucherInvoice = () => {
             paddingRight: "30px",
           }}>
             {/* Prepared by */}
-            <div>
+            <div style={{ textAlign: "center", width: "260px" }}>
               <p style={{
                 fontSize: "14px",
                 fontWeight: "bold",
                 marginBottom: "4px",
+                textAlign: "left",
               }}>
                 Prepared by:
               </p>
@@ -304,7 +305,7 @@ const PaymentVoucherInvoice = () => {
                 <img
                   src={sigAnggunBase64}
                   alt="Shuhada Signature"
-                  style={{ width: "130px", height: "auto", marginBottom: "2px" }}
+                  style={{ height: "50px", width: "auto", marginBottom: "2px", display: "inline-block" }}
                 />
               )}
               <p style={{
@@ -324,11 +325,12 @@ const PaymentVoucherInvoice = () => {
             </div>
 
             {/* Approved by */}
-            <div>
+            <div style={{ textAlign: "center", width: "260px" }}>
               <p style={{
                 fontSize: "14px",
                 fontWeight: "bold",
                 marginBottom: "4px",
+                textAlign: "left",
               }}>
                 Approved by:
               </p>
@@ -336,7 +338,7 @@ const PaymentVoucherInvoice = () => {
                 <img
                   src={sigFahmiBase64}
                   alt="Signature"
-                  style={{ width: "130px", height: "auto", marginBottom: "2px" }}
+                  style={{ height: "50px", width: "auto", marginBottom: "2px", display: "inline-block" }}
                 />
               )}
               <p style={{
