@@ -683,21 +683,29 @@ const AccountClaim = () => {
     doc.text(":", colonX, finalY + 16);
     doc.text(claim.bank_name, valueX, finalY + 16);
 
-    // Authorization Section (bottom right)
+    // Authorization Section (Prepared by left, Approved by right)
     const authY = finalY + 35;
     doc.setFontSize(9);
-    doc.text("Authorized by:", pageWidth - 75, authY);
-    doc.setFont("helvetica", "bold");
-    doc.text("Managing Director - DFR Empire", pageWidth - 75, authY + 6);
 
+    // Prepared by (left)
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Prepared by:", 15, authY);
     // Signature line
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.3);
-    doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
-
+    doc.line(15, authY + 20, 75, authY + 20);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
+    doc.text("(NIK NURSHUHADA BINTI NIK MOHD SAMRI)", 15, authY + 26);
+    doc.setFontSize(8);
+    doc.text("GENERAL MANAGER", 15, authY + 31);
+
+    // Approved by (right)
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Approved by:", pageWidth - 75, authY);
+    doc.line(pageWidth - 75, authY + 20, pageWidth - 15, authY + 20);
+    doc.text("(MUHAMMAD FAHMI BIN RAMELAN)", pageWidth - 75, authY + 26);
     doc.setFontSize(8);
     doc.text("DIRECTOR", pageWidth - 75, authY + 31);
 

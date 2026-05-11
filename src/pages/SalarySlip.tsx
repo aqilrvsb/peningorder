@@ -5,6 +5,7 @@ import { fetchAllRows } from "@/lib/utils";
 import { getDaysInMonth, getDay, format } from "date-fns";
 import dziLogo from "/dzi-logo.jpg";
 import signature from "/signature.jpg";
+import signatureShuhada from "/signature-shuhada.png";
 
 // Salary hierarchy by role
 const SALARY_HIERARCHY: Record<string, number> = {
@@ -634,19 +635,30 @@ const SalarySlip = () => {
           </div>
 
           {/* Authorization Section */}
-          <div className="flex justify-end">
-            <div className="text-center">
-              <p className="text-sm text-black mb-1">Authorized by:</p>
-              <p className="text-sm text-black mb-2">Managing Director – DFR Empire</p>
+          <div className="flex justify-between mt-8 px-4">
+            <div className="text-left" style={{ width: "260px" }}>
+              <p className="text-sm font-bold text-black mb-1">Prepared by:</p>
+              <img
+                src={signatureShuhada}
+                alt="Shuhada Signature"
+                style={{ height: "50px", width: "auto", marginBottom: "2px", display: "block" }}
+              />
+              <p className="text-sm font-bold text-black m-0">
+                (NIK NURSHUHADA BINTI NIK MOHD SAMRI)
+              </p>
+              <p className="text-xs text-black font-bold mt-0.5">GENERAL MANAGER</p>
+            </div>
+            <div className="text-left" style={{ width: "260px" }}>
+              <p className="text-sm font-bold text-black mb-1">Approved by:</p>
               <img
                 src={signature}
                 alt="Signature"
-                className="w-32 h-auto mx-auto mb-1"
+                style={{ height: "50px", width: "auto", marginBottom: "2px", display: "block" }}
               />
-              <p className="text-sm text-black border-t border-black pt-1">
-                Muhammad Fahmi Bin Ramelan
+              <p className="text-sm font-bold text-black m-0">
+                (MUHAMMAD FAHMI BIN RAMELAN)
               </p>
-              <p className="text-xs text-black font-semibold mt-0.5">DIRECTOR</p>
+              <p className="text-xs text-black font-bold mt-0.5">DIRECTOR</p>
             </div>
           </div>
         </div>
