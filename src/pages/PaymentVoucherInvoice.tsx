@@ -72,7 +72,7 @@ const PaymentVoucherInvoice = () => {
     const loadImages = async () => {
       const [logo, sigA, sigF] = await Promise.all([
         toBase64("/dzi-logo.jpg"),
-        toBase64("/sig.png"),
+        toBase64("/signature-shuhada.png"),
         toBase64("/signature.jpg"),
       ]);
       setLogoBase64(logo);
@@ -303,7 +303,7 @@ const PaymentVoucherInvoice = () => {
               {sigAnggunBase64 && (
                 <img
                   src={sigAnggunBase64}
-                  alt="Anggun Signature"
+                  alt="Shuhada Signature"
                   style={{ width: "130px", height: "auto", marginBottom: "2px" }}
                 />
               )}
@@ -312,7 +312,14 @@ const PaymentVoucherInvoice = () => {
                 fontWeight: "bold",
                 margin: 0,
               }}>
-                (WAN DAHLIA ANGGUN BINTI WAN MOHAMAD NAZERI)
+                (NIK NURSHUHADA BINTI NIK MOHD SAMRI)
+              </p>
+              <p style={{
+                fontSize: "11px",
+                fontWeight: "bold",
+                margin: "2px 0 0 0",
+              }}>
+                GENERAL MANAGER
               </p>
             </div>
 
@@ -338,6 +345,13 @@ const PaymentVoucherInvoice = () => {
                 margin: 0,
               }}>
                 (MUHAMMAD FAHMI BIN RAMELAN)
+              </p>
+              <p style={{
+                fontSize: "11px",
+                fontWeight: "bold",
+                margin: "2px 0 0 0",
+              }}>
+                DIRECTOR
               </p>
             </div>
           </div>

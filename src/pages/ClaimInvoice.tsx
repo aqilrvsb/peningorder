@@ -343,6 +343,7 @@ const ClaimInvoice = () => {
             <p className="text-sm text-black border-t border-black pt-1">
               Muhammad Fahmi Bin Ramelan
             </p>
+            <p className="text-xs text-black font-semibold mt-0.5">DIRECTOR</p>
           </div>
         </div>
       </div>

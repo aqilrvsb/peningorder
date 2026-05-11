@@ -698,6 +698,8 @@ const AccountClaim = () => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
     doc.text("Muhammad Fahmi Bin Ramelan", pageWidth - 75, authY + 26);
+    doc.setFontSize(8);
+    doc.text("DIRECTOR", pageWidth - 75, authY + 31);
 
     // Save PDF
     doc.save(`Claim_Slip_${claim.employee_name.replace(/\s+/g, "_")}_${claim.pay_date}.pdf`);
