@@ -143,6 +143,21 @@ CREATE TABLE public.invoice_settings (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT invoice_settings_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.invoices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  invoice_number text NOT NULL UNIQUE,
+  invoice_date date NOT NULL,
+  due_date date,
+  bill_to_name text NOT NULL,
+  bill_to_address text,
+  bill_to_phone text,
+  items jsonb NOT NULL DEFAULT '[]'::jsonb,
+  total numeric NOT NULL DEFAULT 0,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT invoices_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.logistic_bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,

@@ -312,6 +312,12 @@ const navItems: NavItem[] = [
     roles: ['account'],
   },
   {
+    label: 'Invoices',
+    path: '/dashboard/account/invoices',
+    icon: <FileText className="w-5 h-5" />,
+    roles: ['account'],
+  },
+  {
     label: 'PNL Config',
     path: '/dashboard/account/pnl-config',
     icon: <Receipt className="w-5 h-5" />,

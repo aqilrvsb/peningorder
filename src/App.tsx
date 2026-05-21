@@ -60,6 +60,8 @@ import AccountExpenses from "./components/account/AccountExpenses";
 import AccountReportSpend from "./components/account/AccountReportSpend";
 import AccountCustomers from "./components/account/AccountCustomers";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
+import AccountInvoices from "./components/account/AccountInvoices";
+import InvoiceView from "./pages/InvoiceView";
 import AccountReportProfit from "./components/account/AccountReportProfit";
 import AccountClaim from "./components/account/AccountClaim";
 import AccountSalary from "./components/account/AccountSalary";
@@ -93,6 +95,7 @@ const App = () => (
                 <Route path="/invoice" element={<Invoice />} />
                 <Route path="/invoice/claim-summary" element={<ClaimSummaryInvoice />} />
                 <Route path="/invoice/payment-voucher/:id" element={<PaymentVoucherInvoice />} />
+                <Route path="/invoice-view/:id" element={<InvoiceView />} />
                 <Route path="/invoice/:id" element={<ClaimInvoice />} />
                 <Route path="/salary/:userId/:year/:month" element={<SalarySlip />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
@@ -142,6 +145,7 @@ const App = () => (
                   <Route path="account/report-profit" element={<AccountReportProfit />} />
                   <Route path="account/customers" element={<AccountCustomers />} />
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
+                  <Route path="account/invoices" element={<AccountInvoices />} />
                   <Route path="account/pnl-config" element={<PNLConfig />} />
                   <Route path="account/claim" element={<AccountClaim />} />
                   <Route path="account/claim-summary" element={<AccountClaimSummary />} />
