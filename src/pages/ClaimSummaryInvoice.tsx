@@ -311,7 +311,7 @@ const ClaimSummaryInvoice = () => {
         </div>
 
         {/* Authorization Section */}
-        <div className="flex justify-between mt-8 px-4">
+        <div className="flex justify-between items-start mt-8 px-4">
           <div className="text-left" style={{ width: "260px" }}>
             <p className="text-sm font-bold text-black mb-1">Prepared by:</p>
             <img

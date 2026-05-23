@@ -288,6 +288,7 @@ const PaymentVoucherInvoice = () => {
           <div style={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "flex-start",
             paddingLeft: "30px",
             paddingRight: "30px",
           }}>
