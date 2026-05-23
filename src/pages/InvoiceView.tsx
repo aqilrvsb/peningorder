@@ -124,24 +124,24 @@ const InvoiceView = () => {
             <div>
               <p className="font-bold text-sm uppercase mb-2">{settings?.company_name || "COMPANY NAME"}</p>
               <p className="text-sm">
-                <span className="font-semibold underline">NAME</span> : {settings?.company_name || "-"}
+                <span className="font-semibold">NAME</span> : {settings?.company_name || "-"}
               </p>
               <p className="text-sm">
-                <span className="font-semibold underline">ADDRESS</span> : {settings?.address || "-"}
+                <span className="font-semibold">ADDRESS</span> : {settings?.address || "-"}
               </p>
               <p className="text-sm">
-                <span className="font-semibold underline">PHONE</span> : {settings?.phone || "-"}
+                <span className="font-semibold">PHONE</span> : {settings?.phone || "-"}
               </p>
             </div>
             <div>
               <p className="text-sm mb-1">
-                INVOICE <span className="font-semibold underline">NUMBER</span> : {invoice.invoice_number}
+                INVOICE <span className="font-semibold">NUMBER</span> : {invoice.invoice_number}
               </p>
               <p className="text-sm mb-1">
-                DATE OF <span className="font-semibold underline">INVOICE</span> : {invoice.invoice_date}
+                DATE OF <span className="font-semibold">INVOICE</span> : {invoice.invoice_date}
               </p>
               <p className="text-sm">
-                DUE DATE <span className="underline">:</span> {invoice.due_date || "-"}
+                DUE DATE : {invoice.due_date || "-"}
               </p>
             </div>
           </div>
@@ -150,13 +150,13 @@ const InvoiceView = () => {
           <div className="mb-6">
             <p className="font-bold text-sm uppercase mb-2">BILL TO</p>
             <p className="text-sm">
-              <span className="font-semibold underline">NAME</span> : {invoice.bill_to_name}
+              <span className="font-semibold">NAME</span> : {invoice.bill_to_name}
             </p>
             <p className="text-sm">
-              <span className="font-semibold underline">ADDRESS</span> : {invoice.bill_to_address || "-"}
+              <span className="font-semibold">ADDRESS</span> : {invoice.bill_to_address || "-"}
             </p>
             <p className="text-sm">
-              <span className="font-semibold underline">PHONE</span> : {invoice.bill_to_phone || "-"}
+              <span className="font-semibold">PHONE</span> : {invoice.bill_to_phone || "-"}
             </p>
           </div>
 
@@ -181,10 +181,10 @@ const InvoiceView = () => {
                   <td className="border border-black py-2 px-2 text-sm text-center">
                     {item.description ? item.quantity : ""}
                   </td>
-                  <td className="border border-black py-2 px-2 text-sm text-right">
+                  <td className="border border-black py-2 px-2 text-sm text-center">
                     {item.description ? item.unit_price.toFixed(2) : ""}
                   </td>
-                  <td className="border border-black py-2 px-2 text-sm text-right">
+                  <td className="border border-black py-2 px-2 text-sm text-center">
                     {item.description ? (item.quantity * item.unit_price).toFixed(2) : ""}
                   </td>
                 </tr>
@@ -196,7 +196,7 @@ const InvoiceView = () => {
                 <td colSpan={2} className="border border-black py-2 px-2 text-sm text-center">
                   TOTAL
                 </td>
-                <td className="border border-black py-2 px-2 text-sm text-right">
+                <td className="border border-black py-2 px-2 text-sm text-center">
                   RM {invoice.total.toFixed(2)}
                 </td>
               </tr>
