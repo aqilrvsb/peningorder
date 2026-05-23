@@ -47,6 +47,10 @@ const Profile: React.FC = () => {
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
   const [isUpdatingGroupLink, setIsUpdatingGroupLink] = useState(false);
 
+  // Test WhatsApp message state
+  const [testPhone, setTestPhone] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+
   // Device state (for marketers only)
   const [device, setDevice] = useState<DeviceSetting | null>(null);
   const [isLoadingDevice, setIsLoadingDevice] = useState(false);
@@ -508,6 +512,76 @@ const Profile: React.FC = () => {
     }
   };
 
+  // Normalize phone number to 60xxxxxxxxx format
+  const normalizeTestPhone = (raw: string): string => {
+    let phone = raw.trim().replace(/\D/g, "");
+    if (phone.startsWith("0")) {
+      phone = "6" + phone;
+    } else if (phone.startsWith("1")) {
+      phone = "60" + phone;
+    }
+    return phone;
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!device?.instance) {
+      toast({
+        title: 'Error',
+        description: 'No WhatsApp device instance configured. Please scan QR first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (device.status_wa !== 'connected') {
+      toast({
+        title: 'Error',
+        description: 'Device is not connected. Please scan QR to connect.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!testPhone.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a phone number.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      const normalizedPhone = normalizeTestPhone(testPhone);
+      const message = `Test message from DFR EMPIRE System\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\nDevice: ${device.id_device || '-'}\n\nIf you receive this, your WhatsApp device is working correctly! ✅`;
+
+      const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(normalizedPhone)}&message=${encodeURIComponent(message)}`;
+      const response = await fetch(apiUrl, { method: 'GET' });
+      const data = await response.json();
+
+      const success = data.status === true || data.success === true;
+      if (success) {
+        toast({
+          title: 'Success ✅',
+          description: `Test message sent to ${normalizedPhone}. Check WhatsApp.`,
+        });
+      } else {
+        toast({
+          title: 'Failed ❌',
+          description: data.message || 'WhatsApp sending failed. Device may not be working.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send test message',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -622,6 +696,44 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
+              {/* Send Test Message */}
+              {device.status_wa === 'connected' && (
+                <div className="border-t border-border pt-4 mt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Phone className="w-4 h-4 text-green-600" />
+                    <p className="text-sm font-semibold text-foreground">Send Test Message</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Test if your WhatsApp device is sending messages correctly.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Phone (e.g., 60123456789)"
+                      value={testPhone}
+                      onChange={(e) => setTestPhone(e.target.value)}
+                      className="bg-background flex-1"
+                    />
+                    <Button
+                      onClick={handleSendTestMessage}
+                      disabled={isSendingTest || !testPhone.trim()}
+                      className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+                    >
+                      {isSendingTest ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Phone className="w-4 h-4 mr-2" />
+                          Send Test
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 {device.status_wa !== 'connected' && (
