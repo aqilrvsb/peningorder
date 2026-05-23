@@ -554,7 +554,8 @@ const Profile: React.FC = () => {
       const normalizedPhone = normalizeTestPhone(testPhone);
       const message = `Test message from DFR EMPIRE System\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\nDevice: ${device.id_device || '-'}\n\nIf you receive this, your WhatsApp device is working correctly! ✅`;
 
-      const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(normalizedPhone)}&message=${encodeURIComponent(message)}`;
+      // Use proxy to avoid CORS
+      const apiUrl = `${WHACENTER_PROXY_URL}?endpoint=send&device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(normalizedPhone)}&message=${encodeURIComponent(message)}`;
       const response = await fetch(apiUrl, { method: 'GET' });
       const data = await response.json();
 
