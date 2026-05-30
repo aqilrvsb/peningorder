@@ -1,12 +1,18 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ChevronLeft, ChevronRight, FileText, DollarSign, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, ChevronLeft, ChevronRight, FileText, DollarSign, Users, Pencil, Save } from "lucide-react";
 import { getDaysInMonth, getDay } from "date-fns";
+import { toast } from "sonner";
 
 // Salary hierarchy by role
 const SALARY_HIERARCHY: Record<string, number> = {
@@ -65,10 +71,51 @@ interface PNLConfig {
   bonus_amount: number;
 }
 
+interface SalaryOverride {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  basic_salary: number | null;
+  allowance: number;
+  commission: number | null;
+  bonus: number | null;
+  leave_deduction_mode: 'auto' | 'manual';
+  leave_deduction_amount: number;
+  leave_entitlement: number;
+  leave_taken: number;
+  remark_basic: string | null;
+  remark_allowance: string | null;
+  remark_commission: string | null;
+  remark_bonus: string | null;
+  remark_leave: string | null;
+  notes: string | null;
+}
+
 const AccountSalary = () => {
+  const queryClient = useQueryClient();
   const currentDate = new Date();
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editBasicSalary, setEditBasicSalary] = useState("");
+  const [editAllowance, setEditAllowance] = useState("");
+  const [editCommission, setEditCommission] = useState("");
+  const [editBonus, setEditBonus] = useState("");
+  const [editLeaveMode, setEditLeaveMode] = useState<'auto' | 'manual'>('auto');
+  const [editLeaveAmount, setEditLeaveAmount] = useState("");
+  const [editLeaveEntitlement, setEditLeaveEntitlement] = useState("");
+  const [editLeaveTaken, setEditLeaveTaken] = useState("");
+  const [editRemarkBasic, setEditRemarkBasic] = useState("");
+  const [editRemarkAllowance, setEditRemarkAllowance] = useState("");
+  const [editRemarkCommission, setEditRemarkCommission] = useState("");
+  const [editRemarkBonus, setEditRemarkBonus] = useState("");
+  const [editRemarkLeave, setEditRemarkLeave] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [roleFilter, setRoleFilter] = useState("all");
 
   // Generate years for dropdown
@@ -196,6 +243,27 @@ const AccountSalary = () => {
     },
   });
 
+  // Fetch salary overrides for the selected month
+  const { data: overrides = [] } = useQuery({
+    queryKey: ["salary-overrides", selectedYear, selectedMonth],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("salary_overrides")
+        .select("*")
+        .eq("year", selectedYear)
+        .eq("month", selectedMonth);
+      if (error) throw error;
+      return (data || []) as SalaryOverride[];
+    },
+  });
+
+  // Build a quick lookup map by user_id
+  const overrideMap = useMemo(() => {
+    const map = new Map<string, SalaryOverride>();
+    for (const o of overrides) map.set(o.user_id, o);
+    return map;
+  }, [overrides]);
+
   // Fetch orders (for collection calculation) - use fetchAllRows to bypass server row limit
   const { data: ordersData = [], isLoading: isLoadingOrders } = useQuery({
     queryKey: ["salary-orders", selectedYear, selectedMonth],
@@ -312,13 +380,26 @@ const AccountSalary = () => {
   const calculateSalary = (user: UserProfile) => {
     const baseSalary = SALARY_HIERARCHY[user.role || ""] || 1200;
     const { present, totalWorking } = countAttendance(user.id);
+    const override = overrideMap.get(user.id);
 
     // Basic salary calculation
     // Managing Director gets full salary without attendance calculation
+    // If leave_deduction_mode is 'manual', use full base salary (auto-deduct disabled)
     const workingDays = totalWorking > 0 ? totalWorking : workingDaysInMonth;
-    const basicSalary = user.role === "Managing Director"
-      ? baseSalary
-      : (workingDays > 0 ? (present / workingDays) * baseSalary : 0);
+    let calculatedBasic: number;
+    if (user.role === "Managing Director") {
+      calculatedBasic = baseSalary;
+    } else if (override?.leave_deduction_mode === 'manual') {
+      // Manual mode: use full base salary; manual deduction applied later
+      calculatedBasic = baseSalary;
+    } else {
+      // Auto mode: deduct based on attendance
+      calculatedBasic = workingDays > 0 ? (present / workingDays) * baseSalary : 0;
+    }
+    // Apply override if set
+    const basicSalary = override?.basic_salary != null ? Number(override.basic_salary) : calculatedBasic;
+    const allowance = override?.allowance != null ? Number(override.allowance) : 0;
+    const manualLeaveDeduction = override?.leave_deduction_mode === 'manual' ? Number(override.leave_deduction_amount || 0) : 0;
 
     let commission = 0;
     let bonus = 0;
@@ -363,18 +444,98 @@ const AccountSalary = () => {
       // No commission and no bonus for these roles
     }
 
-    const totalEarnings = basicSalary + commission + bonus;
+    // Apply override for commission/bonus if set
+    if (override?.commission != null) commission = Number(override.commission);
+    if (override?.bonus != null) bonus = Number(override.bonus);
+
+    const totalEarnings = basicSalary + allowance + commission + bonus - manualLeaveDeduction;
 
     return {
       baseSalary,
       basicSalary,
+      allowance,
       commission,
       bonus,
+      manualLeaveDeduction,
       totalEarnings,
       daysWorked: present,
       totalWorkingDays: workingDays,
+      hasOverride: !!override,
     };
   };
+
+  // Open Edit Dialog for a user
+  const openEditDialog = (user: UserProfile) => {
+    const override = overrideMap.get(user.id);
+    const salary = calculateSalary(user);
+
+    setEditingUser(user);
+    setEditBasicSalary(override?.basic_salary != null ? String(override.basic_salary) : String(salary.basicSalary.toFixed(2)));
+    setEditAllowance(override?.allowance != null ? String(override.allowance) : "0");
+    setEditCommission(override?.commission != null ? String(override.commission) : String(salary.commission.toFixed(2)));
+    setEditBonus(override?.bonus != null ? String(override.bonus) : String(salary.bonus.toFixed(2)));
+    setEditLeaveMode(override?.leave_deduction_mode || 'auto');
+    setEditLeaveAmount(override?.leave_deduction_amount != null ? String(override.leave_deduction_amount) : "0");
+    setEditLeaveEntitlement(override?.leave_entitlement != null ? String(override.leave_entitlement) : "0");
+    setEditLeaveTaken(override?.leave_taken != null ? String(override.leave_taken) : "0");
+    setEditRemarkBasic(override?.remark_basic || "");
+    setEditRemarkAllowance(override?.remark_allowance || "");
+    setEditRemarkCommission(override?.remark_commission || "");
+    setEditRemarkBonus(override?.remark_bonus || "");
+    setEditRemarkLeave(override?.remark_leave || "");
+    setEditNotes(override?.notes || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveOverride = async () => {
+    if (!editingUser) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        user_id: editingUser.id,
+        year: selectedYear,
+        month: selectedMonth,
+        basic_salary: editBasicSalary === "" ? null : Number(editBasicSalary),
+        allowance: Number(editAllowance) || 0,
+        commission: editCommission === "" ? null : Number(editCommission),
+        bonus: editBonus === "" ? null : Number(editBonus),
+        leave_deduction_mode: editLeaveMode,
+        leave_deduction_amount: Number(editLeaveAmount) || 0,
+        leave_entitlement: Number(editLeaveEntitlement) || 0,
+        leave_taken: Number(editLeaveTaken) || 0,
+        remark_basic: editRemarkBasic.trim() || null,
+        remark_allowance: editRemarkAllowance.trim() || null,
+        remark_commission: editRemarkCommission.trim() || null,
+        remark_bonus: editRemarkBonus.trim() || null,
+        remark_leave: editRemarkLeave.trim() || null,
+        notes: editNotes.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await (supabase as any)
+        .from("salary_overrides")
+        .upsert(payload, { onConflict: 'user_id,year,month' });
+
+      if (error) throw error;
+      toast.success("Salary slip updated successfully");
+      setEditDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["salary-overrides", selectedYear, selectedMonth] });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Live preview total in dialog
+  const editTotal = useMemo(() => {
+    const basic = Number(editBasicSalary) || 0;
+    const allow = Number(editAllowance) || 0;
+    const comm = Number(editCommission) || 0;
+    const bon = Number(editBonus) || 0;
+    const leaveDeduction = editLeaveMode === 'manual' ? (Number(editLeaveAmount) || 0) : 0;
+    return basic + allow + comm + bon - leaveDeduction;
+  }, [editBasicSalary, editAllowance, editCommission, editBonus, editLeaveMode, editLeaveAmount]);
 
   // Filter users based on role
   const filteredUsers = users.filter((user: UserProfile) => {
@@ -607,15 +768,27 @@ const AccountSalary = () => {
                           </td>
                           <td className="text-right p-3 font-bold text-primary">{formatCurrency(salary.totalEarnings)}</td>
                           <td className="text-center p-3">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openSalarySlip(user.id)}
-                              className="gap-1"
-                            >
-                              <FileText className="w-4 h-4" />
-                              View Slip
-                            </Button>
+                            <div className="flex gap-1 justify-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openSalarySlip(user.id)}
+                                className="gap-1"
+                              >
+                                <FileText className="w-4 h-4" />
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditDialog(user)}
+                                className={`gap-1 ${salary.hasOverride ? 'border-purple-500 text-purple-700' : ''}`}
+                                title={salary.hasOverride ? 'Has override' : 'Edit slip'}
+                              >
+                                <Pencil className="w-4 h-4" />
+                                Edit
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -633,6 +806,229 @@ const AccountSalary = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Salary Slip Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Slip Gaji</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4">
+              {/* Employee Info */}
+              <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-bold">{editingUser.full_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {editingUser.idstaff || editingUser.username} — {editingUser.role}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Items Table — left 2 cols */}
+                <div className="lg:col-span-2 border rounded-lg p-3">
+                  <h3 className="font-semibold mb-2">Items</h3>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-1">Item</th>
+                        <th className="text-right p-1">Amount (RM)</th>
+                        <th className="text-left p-1">Remark / Adjustment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="p-1 font-medium">Basic Salary</td>
+                        <td className="p-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editBasicSalary}
+                            onChange={(e) => setEditBasicSalary(e.target.value)}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            placeholder="Auto"
+                            value={editRemarkBasic}
+                            onChange={(e) => setEditRemarkBasic(e.target.value)}
+                            className="h-8"
+                          />
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-1 font-medium">Allowance</td>
+                        <td className="p-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editAllowance}
+                            onChange={(e) => setEditAllowance(e.target.value)}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            placeholder="Auto"
+                            value={editRemarkAllowance}
+                            onChange={(e) => setEditRemarkAllowance(e.target.value)}
+                            className="h-8"
+                          />
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-1 font-medium">Commission</td>
+                        <td className="p-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editCommission}
+                            onChange={(e) => setEditCommission(e.target.value)}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            placeholder="Auto"
+                            value={editRemarkCommission}
+                            onChange={(e) => setEditRemarkCommission(e.target.value)}
+                            className="h-8"
+                          />
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-1 font-medium">Bonus</td>
+                        <td className="p-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editBonus}
+                            onChange={(e) => setEditBonus(e.target.value)}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            placeholder="Auto"
+                            value={editRemarkBonus}
+                            onChange={(e) => setEditRemarkBonus(e.target.value)}
+                            className="h-8"
+                          />
+                        </td>
+                      </tr>
+                      <tr className={`border-b ${editLeaveMode === 'manual' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                        <td className="p-1 font-medium text-red-600">Leave Deduction</td>
+                        <td className="p-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editLeaveAmount}
+                            onChange={(e) => setEditLeaveAmount(e.target.value)}
+                            disabled={editLeaveMode === 'auto'}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="p-1">
+                          <Input
+                            placeholder={editLeaveMode === 'auto' ? 'Auto (from attendance)' : 'Manual'}
+                            value={editRemarkLeave}
+                            onChange={(e) => setEditRemarkLeave(e.target.value)}
+                            className="h-8"
+                          />
+                        </td>
+                      </tr>
+                      <tr className="font-bold bg-muted/30">
+                        <td className="p-2">Total Earnings</td>
+                        <td className="p-2 text-right text-primary">
+                          RM {editTotal.toFixed(2)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Leave Summary & Mode — right col */}
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-3 bg-blue-50/30 dark:bg-blue-950/10">
+                    <h3 className="font-semibold mb-2">Leave Summary</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Entitlement (Days)</Label>
+                        <Input
+                          type="number"
+                          value={editLeaveEntitlement}
+                          onChange={(e) => setEditLeaveEntitlement(e.target.value)}
+                          className="h-7 w-20 text-right"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Taken (Days)</Label>
+                        <Input
+                          type="number"
+                          value={editLeaveTaken}
+                          onChange={(e) => setEditLeaveTaken(e.target.value)}
+                          className="h-7 w-20 text-right"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between font-semibold text-green-700 dark:text-green-400">
+                        <span className="text-xs">Balance (Days)</span>
+                        <span>{(Number(editLeaveEntitlement) || 0) - (Number(editLeaveTaken) || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-3">
+                    <h3 className="font-semibold mb-2">Leave Deduction Mode</h3>
+                    <RadioGroup value={editLeaveMode} onValueChange={(v) => setEditLeaveMode(v as 'auto' | 'manual')}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="auto" id="mode-auto" />
+                        <Label htmlFor="mode-auto" className="cursor-pointer text-sm">
+                          Auto Deduct (System)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="manual" id="mode-manual" />
+                        <Label htmlFor="mode-manual" className="cursor-pointer text-sm">
+                          Manual Deduction
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      Pilih Manual jika dah kira sendiri (supaya sistem tak tolak lagi)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <Label className="text-xs">Notes (optional)</Label>
+                <Textarea
+                  placeholder="Additional notes about this salary adjustment..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveOverride} disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

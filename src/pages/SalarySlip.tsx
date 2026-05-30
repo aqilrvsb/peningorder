@@ -74,6 +74,7 @@ const SalarySlip = () => {
     bank_name?: string;
     bank_account?: string;
   } | null>(null);
+  const [override, setOverride] = useState<any | null>(null);
 
   const selectedYear = parseInt(year || String(new Date().getFullYear()));
   const selectedMonth = parseInt(month || String(new Date().getMonth() + 1)) - 1;
@@ -241,6 +242,16 @@ const SalarySlip = () => {
 
         setPnlConfigs(pnl || []);
 
+        // Fetch salary override for this user/year/month
+        const { data: overrideRow } = await (supabase as any)
+          .from("salary_overrides")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("year", selectedYear)
+          .eq("month", selectedMonth)
+          .maybeSingle();
+        setOverride(overrideRow || null);
+
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -308,17 +319,24 @@ const SalarySlip = () => {
 
   // Calculate salary
   const calculateSalary = () => {
-    if (!user) return { basicSalary: 0, commission: 0, bonus: 0, totalEarnings: 0 };
+    if (!user) return { basicSalary: 0, commission: 0, bonus: 0, totalEarnings: 0, allowance: 0, manualLeaveDeduction: 0 };
 
     const baseSalary = SALARY_HIERARCHY[user.role || ""] || 1200;
     const { present, totalWorking } = attendanceData;
 
-    // Basic salary calculation
-    // Managing Director gets full salary without attendance calculation
+    // Basic salary calculation - if manual leave mode, use full base; otherwise calculate from attendance
     const workingDays = totalWorking > 0 ? totalWorking : workingDaysInMonth;
-    const basicSalary = user.role === "Managing Director"
-      ? baseSalary
-      : (workingDays > 0 ? (present / workingDays) * baseSalary : 0);
+    let calculatedBasic: number;
+    if (user.role === "Managing Director") {
+      calculatedBasic = baseSalary;
+    } else if (override?.leave_deduction_mode === 'manual') {
+      calculatedBasic = baseSalary;
+    } else {
+      calculatedBasic = workingDays > 0 ? (present / workingDays) * baseSalary : 0;
+    }
+    const basicSalary = override?.basic_salary != null ? Number(override.basic_salary) : calculatedBasic;
+    const allowance = override?.allowance != null ? Number(override.allowance) : 0;
+    const manualLeaveDeduction = override?.leave_deduction_mode === 'manual' ? Number(override.leave_deduction_amount || 0) : 0;
 
     let commission = 0;
     let bonus = 0;
@@ -366,14 +384,20 @@ const SalarySlip = () => {
       // No commission and no bonus for these roles
     }
 
-    const totalEarnings = basicSalary + commission + bonus;
+    // Apply commission/bonus overrides if set
+    if (override?.commission != null) commission = Number(override.commission);
+    if (override?.bonus != null) bonus = Number(override.bonus);
+
+    const totalEarnings = basicSalary + allowance + commission + bonus - manualLeaveDeduction;
 
     return {
       baseSalary,
       basicSalary,
+      allowance,
       commission,
       commissionPercent,
       bonus,
+      manualLeaveDeduction,
       totalEarnings,
       daysWorked: present,
       totalWorkingDays: workingDays,

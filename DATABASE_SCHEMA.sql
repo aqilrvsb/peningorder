@@ -158,6 +158,30 @@ CREATE TABLE public.invoices (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT invoices_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.salary_overrides (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  year integer NOT NULL,
+  month integer NOT NULL,
+  basic_salary numeric,
+  allowance numeric DEFAULT 0,
+  commission numeric,
+  bonus numeric,
+  leave_deduction_mode text NOT NULL DEFAULT 'auto' CHECK (leave_deduction_mode = ANY (ARRAY['auto'::text, 'manual'::text])),
+  leave_deduction_amount numeric DEFAULT 0,
+  leave_entitlement integer DEFAULT 0,
+  leave_taken integer DEFAULT 0,
+  remark_basic text,
+  remark_allowance text,
+  remark_commission text,
+  remark_bonus text,
+  remark_leave text,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT salary_overrides_pkey PRIMARY KEY (id),
+  CONSTRAINT salary_overrides_unique UNIQUE (user_id, year, month)
+);
 CREATE TABLE public.logistic_bundles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   logistic_id uuid NOT NULL,
