@@ -103,6 +103,7 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
+  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju'>('ninjavan');
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Payment details modal state
@@ -415,8 +416,11 @@ ${trackingUrl}`;
       // Determine COD based on cara_bayaran
       const isCOD = orderForTracking.caraBayaran === 'COD';
 
-      // Call Poslaju API (replaced NinjaVan)
-      const { data: poslajuResult, error: poslajuError } = await supabase.functions.invoke('poslaju-order', {
+      // Pick courier edge function based on user selection
+      const functionName = regenerateCourier === 'poslaju' ? 'poslaju-order' : 'ninjavan-order';
+      const courierLabel = regenerateCourier === 'poslaju' ? 'Poslaju' : 'Ninjavan';
+
+      const { data: courierResult, error: courierError } = await supabase.functions.invoke(functionName, {
         body: {
           idSale: idSale,
           customerName: orderForTracking.marketerName, // misleading field name - actually name_customer
@@ -432,20 +436,25 @@ ${trackingUrl}`;
         }
       });
 
-      if (poslajuError) throw poslajuError;
+      if (courierError) throw courierError;
 
-      if (poslajuResult?.error) {
-        throw new Error(poslajuResult.error);
+      if (courierResult?.error) {
+        throw new Error(courierResult.error);
       }
 
-      const trackingNumber = poslajuResult?.trackingNumber;
+      const trackingNumber = courierResult?.trackingNumber;
       if (!trackingNumber) {
-        throw new Error('No tracking number returned from Poslaju');
+        throw new Error(`No tracking number returned from ${courierLabel}`);
       }
 
-      // Update order with tracking number + waybill PDF
-      const updateData: any = { noTracking: trackingNumber };
-      if (poslajuResult?.pdfLink) updateData.waybillUrl = poslajuResult.pdfLink;
+      // Update order with tracking + kurier + waybill PDF
+      const updateData: any = {
+        noTracking: trackingNumber,
+        kurier: regenerateCourier === 'poslaju'
+          ? (isCOD ? 'Poslaju COD' : 'Poslaju CASH')
+          : (isCOD ? 'Ninjavan COD' : 'Ninjavan CASH'),
+      };
+      if (courierResult?.pdfLink) updateData.waybillUrl = courierResult.pdfLink;
       await updateOrder(orderForTracking.id, updateData);
       
       toast({
@@ -1064,18 +1073,32 @@ ${trackingUrl}`;
           <DialogHeader>
             <DialogTitle>Jana Tracking Number</DialogTitle>
             <DialogDescription>
-              Masukkan poskod untuk menjana tracking number Poslaju.
+              Pilih kurier dan masukkan poskod untuk menjana tracking number.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium text-foreground">Poskod</label>
-            <Input
-              type="text"
-              value={regeneratePoskod}
-              onChange={(e) => setRegeneratePoskod(e.target.value)}
-              placeholder="Masukkan poskod"
-              className="mt-1"
-            />
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">Kurier</label>
+              <Select value={regenerateCourier} onValueChange={(v) => setRegenerateCourier(v as 'ninjavan' | 'poslaju')}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Pilih kurier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ninjavan">Ninjavan</SelectItem>
+                  <SelectItem value="poslaju">Poslaju</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">Poskod</label>
+              <Input
+                type="text"
+                value={regeneratePoskod}
+                onChange={(e) => setRegeneratePoskod(e.target.value)}
+                placeholder="Masukkan poskod"
+                className="mt-1"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)} disabled={isRegenerating}>
