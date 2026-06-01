@@ -414,12 +414,12 @@ ${trackingUrl}`;
       
       // Determine COD based on cara_bayaran
       const isCOD = orderForTracking.caraBayaran === 'COD';
-      
-      // Call Ninjavan API with correct parameter names
-      const { data: ninjavanResult, error: ninjavanError } = await supabase.functions.invoke('ninjavan-order', {
+
+      // Call Poslaju API (replaced NinjaVan)
+      const { data: poslajuResult, error: poslajuError } = await supabase.functions.invoke('poslaju-order', {
         body: {
           idSale: idSale,
-          customerName: orderForTracking.marketerName,
+          customerName: orderForTracking.marketerName, // misleading field name - actually name_customer
           phone: orderForTracking.noPhone,
           address: orderForTracking.alamat,
           postcode: regeneratePoskod,
@@ -432,19 +432,21 @@ ${trackingUrl}`;
         }
       });
 
-      if (ninjavanError) throw ninjavanError;
-      
-      if (ninjavanResult?.error) {
-        throw new Error(ninjavanResult.error);
+      if (poslajuError) throw poslajuError;
+
+      if (poslajuResult?.error) {
+        throw new Error(poslajuResult.error);
       }
 
-      const trackingNumber = ninjavanResult?.trackingNumber;
+      const trackingNumber = poslajuResult?.trackingNumber;
       if (!trackingNumber) {
-        throw new Error('No tracking number returned from Ninjavan');
+        throw new Error('No tracking number returned from Poslaju');
       }
 
-      // Update order with tracking number
-      await updateOrder(orderForTracking.id, { noTracking: trackingNumber });
+      // Update order with tracking number + waybill PDF
+      const updateData: any = { noTracking: trackingNumber };
+      if (poslajuResult?.pdfLink) updateData.waybillUrl = poslajuResult.pdfLink;
+      await updateOrder(orderForTracking.id, updateData);
       
       toast({
         title: 'Berjaya',
@@ -1062,7 +1064,7 @@ ${trackingUrl}`;
           <DialogHeader>
             <DialogTitle>Jana Tracking Number</DialogTitle>
             <DialogDescription>
-              Masukkan poskod untuk menjana tracking number Ninjavan.
+              Masukkan poskod untuk menjana tracking number Poslaju.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
