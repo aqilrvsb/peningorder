@@ -480,9 +480,8 @@ const AccountReportProfit: React.FC = () => {
 
       stat.profitFB = revFB - stat.spendFB - stat.costProductFB - stat.postageFB;
       stat.profitDatabase = revDB - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
-      // Shopee/Tiktok: sales is already NET after fees, so don't deduct postage (fees) from profit
-      stat.profitShopee = revShopee - stat.costProductShopee;
-      stat.profitTiktok = revTiktok - stat.costProductTiktok;
+      stat.profitShopee = revShopee - stat.costProductShopee - stat.postageShopee;
+      stat.profitTiktok = revTiktok - stat.costProductTiktok - stat.postageTiktok;
       stat.profitGoogle = revGoogle - stat.spendGoogle - stat.costProductGoogle - stat.postageGoogle;
     });
 
@@ -582,8 +581,7 @@ const AccountReportProfit: React.FC = () => {
         unitBundle: totals.unitBundleShopee,
         expenses: expensesByPlatform.shopee,
         roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
-        // Shopee: sales is already NET after fees, don't deduct postage/fees from profit
-        profit: revShopee - totals.costProductShopee - expensesByPlatform.shopee,
+        profit: revShopee - totals.costProductShopee - totals.postageShopee - expensesByPlatform.shopee,
       },
       tiktok: {
         sales: totals.salesTiktok,
@@ -594,8 +592,7 @@ const AccountReportProfit: React.FC = () => {
         unitBundle: totals.unitBundleTiktok,
         expenses: expensesByPlatform.tiktok,
         roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
-        // Tiktok: sales is already NET after fees, don't deduct postage/fees from profit
-        profit: revTiktok - totals.costProductTiktok - expensesByPlatform.tiktok,
+        profit: revTiktok - totals.costProductTiktok - totals.postageTiktok - expensesByPlatform.tiktok,
       },
       google: {
         sales: totals.salesGoogle,
