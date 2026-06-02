@@ -686,8 +686,10 @@ const OrderForm: React.FC = () => {
       kurier = 'PICKUP';
     } else if (isPoslaju) {
       kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
+    } else if (isNinjavan) {
+      kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
     } else {
-      // Default to Poslaju
+      // Unknown delivery method — fallback to Poslaju
       kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
     }
     
