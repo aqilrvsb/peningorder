@@ -130,6 +130,7 @@ const AccountCustomers = () => {
   const totalUnitsPurchased = filteredPurchases.reduce((sum, p) => sum + (p.unit || 0), 0) || 0;
   const totalUnitBundle = filteredPurchases.reduce((sum, p) => sum + getUnitBundle(p), 0);
   const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_sale) || 0), 0);
+  const totalCostProduct = filteredPurchases.reduce((sum, p) => sum + (Number((p as any).cost_baseproduct) || 0), 0);
 
   // Group purchases by id for display - using new schema field names
   const groupedPurchases = (() => {
@@ -208,6 +209,7 @@ const AccountCustomers = () => {
     { title: "Total Units Sold", value: totalUnitsPurchased, icon: Package, color: "text-emerald-600" },
     { title: "Total Unit Bundle", value: totalUnitBundle, icon: Package, color: "text-amber-600" },
     { title: "Total Revenue", value: `RM ${totalPrice.toFixed(2)}`, icon: DollarSign, color: "text-green-600" },
+    { title: "Total Cost Product", value: `RM ${totalCostProduct.toFixed(2)}`, icon: DollarSign, color: "text-pink-600" },
   ];
 
   // Checkbox handlers
