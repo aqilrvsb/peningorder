@@ -80,6 +80,51 @@ const LogisticCustomers = () => {
   const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
   const [editingPhoneValue, setEditingPhoneValue] = useState<string>("");
 
+  // State for cost edit modal (cost_baseproduct / cost_hq / cost_postage)
+  const [costModalOpen, setCostModalOpen] = useState(false);
+  const [costEditPurchase, setCostEditPurchase] = useState<any>(null);
+  const [costEditField, setCostEditField] = useState<"cost_baseproduct" | "cost_hq" | "cost_postage">("cost_baseproduct");
+  const [costEditValue, setCostEditValue] = useState<string>("");
+  const [isSavingCost, setIsSavingCost] = useState(false);
+
+  const COST_FIELD_LABEL: Record<string, string> = {
+    cost_baseproduct: "Cost Product",
+    cost_hq: "HQ Cost",
+    cost_postage: "Cost Postage",
+  };
+
+  const openCostEdit = (purchase: any, field: "cost_baseproduct" | "cost_hq" | "cost_postage") => {
+    setCostEditPurchase(purchase);
+    setCostEditField(field);
+    setCostEditValue(String(Number(purchase[field] || 0)));
+    setCostModalOpen(true);
+  };
+
+  const saveCostEdit = async () => {
+    if (!costEditPurchase) return;
+    const parsed = Number(costEditValue);
+    if (isNaN(parsed)) {
+      toast.error("Please enter a valid number");
+      return;
+    }
+    setIsSavingCost(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("customer_purchases")
+        .update({ [costEditField]: parsed })
+        .eq("id", costEditPurchase.id);
+      if (error) throw error;
+      toast.success(`${COST_FIELD_LABEL[costEditField]} updated`);
+      setCostModalOpen(false);
+      setCostEditPurchase(null);
+      queryClient.invalidateQueries({ queryKey: ["customer_purchases"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update cost");
+    } finally {
+      setIsSavingCost(false);
+    }
+  };
+
   // Fetch profile for idstaff
   const { data: profile } = useQuery({
     queryKey: ["profile-logistic", user?.id],
@@ -1142,9 +1187,36 @@ const LogisticCustomers = () => {
                           ) : "-"}
                         </td>
                         <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
-                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
-                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_hq || 0).toFixed(2)}</td>
-                        <td className="p-2 whitespace-nowrap">RM {Number(order.cost_postage || 0).toFixed(2)}</td>
+                        <td className="p-2 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openCostEdit(order, "cost_baseproduct")}
+                            className="hover:underline hover:text-pink-600 cursor-pointer"
+                            title="Click to edit Cost Product"
+                          >
+                            RM {Number(order.cost_baseproduct || 0).toFixed(2)}
+                          </button>
+                        </td>
+                        <td className="p-2 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openCostEdit(order, "cost_hq")}
+                            className="hover:underline hover:text-pink-600 cursor-pointer"
+                            title="Click to edit HQ Cost"
+                          >
+                            RM {Number(order.cost_hq || 0).toFixed(2)}
+                          </button>
+                        </td>
+                        <td className="p-2 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openCostEdit(order, "cost_postage")}
+                            className="hover:underline hover:text-pink-600 cursor-pointer"
+                            title="Click to edit Cost Postage"
+                          >
+                            RM {Number(order.cost_postage || 0).toFixed(2)}
+                          </button>
+                        </td>
                         <td className="p-2">
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                             {order.type_payment || "-"}
@@ -1326,6 +1398,41 @@ const LogisticCustomers = () => {
             </Button>
             <Button onClick={saveDate}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cost Edit Modal */}
+      <Dialog open={costModalOpen} onOpenChange={setCostModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit {COST_FIELD_LABEL[costEditField]}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            {costEditPurchase && (
+              <p className="text-xs text-muted-foreground">
+                {costEditPurchase.name_customer} &middot; {costEditPurchase.tracking_number || "no tracking"}
+              </p>
+            )}
+            <label className="text-sm font-medium block">
+              {COST_FIELD_LABEL[costEditField]} (RM)
+            </label>
+            <Input
+              type="number"
+              step="0.01"
+              value={costEditValue}
+              onChange={(e) => setCostEditValue(e.target.value)}
+              placeholder="0.00"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCostModalOpen(false)} disabled={isSavingCost}>
+              Cancel
+            </Button>
+            <Button onClick={saveCostEdit} disabled={isSavingCost}>
+              {isSavingCost ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
