@@ -467,9 +467,7 @@ const AccountReportProfit: React.FC = () => {
       stat.personalExpenses = personalExpensesByMarketer[stat.idStaff] || 0;
 
       const revenue = profitBy === 'collection' ? stat.totalCollection : stat.totalSales;
-      // Exclude Shopee/Tiktok postage (fees) from profit — their sales is already NET
-      const nonMarketplacePostage = stat.postageFB + stat.postageDatabase + stat.postageGoogle;
-      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - nonMarketplacePostage - stat.personalExpenses;
+      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
 
       // Platform profit uses same profitBy logic
       const revFB = profitBy === 'collection' ? stat.collectionFB : stat.salesFB;
