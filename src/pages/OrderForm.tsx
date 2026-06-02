@@ -1078,6 +1078,7 @@ const OrderForm: React.FC = () => {
             hargaJualanSebenar: formData.hargaJualan,
             kosPos: costPostage,
             kosProduk: costBaseproduct,
+            kosHq: costHq,
             profit: formData.hargaJualan - costPostage - costBaseproduct,
             hargaJualanAgen: 0,
             tarikhTempahan,

@@ -24,6 +24,7 @@ export interface CustomerOrder {
   hargaJualanSebenar: number;
   kosPos: number;
   kosProduk: number;
+  kosHq?: number;
   profit: number;
   hargaJualanAgen: number;
   tarikhTempahan: string;

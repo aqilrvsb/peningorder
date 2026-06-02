@@ -158,6 +158,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       total_sale: order.hargaJualanSebenar, // NEW: total_sale
       cost_postage: order.kosPos, // NEW: cost_postage
       cost_baseproduct: order.kosProduk, // NEW: cost_baseproduct
+      cost_hq: order.kosHq ?? 0, // NEW: cost_hq from bundle.hq_cost
       kurier: order.kurier,
       tracking_number: order.noTracking,
       nota_staff: order.notaStaff,
