@@ -118,6 +118,8 @@ const LogisticCustomers = () => {
       setCostModalOpen(false);
       setCostEditPurchase(null);
       queryClient.invalidateQueries({ queryKey: ["customer_purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["customer_purchases_account"] });
+      queryClient.invalidateQueries({ queryKey: ["report-profit-orders"] });
     } catch (err: any) {
       toast.error(err.message || "Failed to update cost");
     } finally {

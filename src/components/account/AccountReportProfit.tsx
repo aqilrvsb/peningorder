@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -103,11 +104,8 @@ interface MarketerProfitStats {
 }
 
 const AccountReportProfit: React.FC = () => {
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [spends, setSpends] = useState<Spend[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
 
   // Date filter state - default to current month (Malaysia timezone)
   // pendingStart/End are what the user picks; startDate/endDate are applied on "Filter" click
@@ -161,40 +159,38 @@ const AccountReportProfit: React.FC = () => {
     fetchStaticData();
   }, []);
 
-  // Fetch orders and spends filtered by date range using pagination to bypass server row limits
-  useEffect(() => {
-    const fetchDateData = async () => {
-      setIsLoading(true);
-      try {
-        const [ordersData, spendsData] = await Promise.all([
-          fetchAllRows(() =>
-            (supabase as any)
-              .from('customer_purchases')
-              .select('*, bundle:logistic_bundles(name, sku)')
-              .gte('date_order', startDate)
-              .lte('date_order', endDate)
-              .order('created_at', { ascending: false })
-          ),
-          fetchAllRows(() =>
-            (supabase as any)
-              .from('spends')
-              .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
-              .gte('tarikh_spend', startDate)
-              .lte('tarikh_spend', endDate)
-              .order('created_at', { ascending: false })
-          ),
-        ]);
+  // Fetch orders + spends via React Query so edits in other tabs invalidate this view too
+  const { data: allOrders = [], isLoading: ordersLoading } = useQuery<Order[]>({
+    queryKey: ['report-profit-orders', startDate, endDate],
+    queryFn: async () => {
+      const data = await fetchAllRows(() =>
+        (supabase as any)
+          .from('customer_purchases')
+          .select('*, bundle:logistic_bundles(name, sku)')
+          .gte('date_order', startDate)
+          .lte('date_order', endDate)
+          .order('created_at', { ascending: false })
+      );
+      return data as Order[];
+    },
+  });
 
-        setAllOrders(ordersData);
-        setSpends(spendsData);
-      } catch (error) {
-        console.error('Error fetching date data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDateData();
-  }, [startDate, endDate]);
+  const { data: spends = [], isLoading: spendsLoading } = useQuery<Spend[]>({
+    queryKey: ['report-profit-spends', startDate, endDate],
+    queryFn: async () => {
+      const data = await fetchAllRows(() =>
+        (supabase as any)
+          .from('spends')
+          .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+          .gte('tarikh_spend', startDate)
+          .lte('tarikh_spend', endDate)
+          .order('created_at', { ascending: false })
+      );
+      return data as Spend[];
+    },
+  });
+
+  const isLoading = ordersLoading || spendsLoading;
 
   // Orders already filtered by date at DB level
   const filteredOrders = allOrders;
