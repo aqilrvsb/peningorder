@@ -522,7 +522,9 @@ const AccountPendingTracking = () => {
           }
         }
         const price = Number(row[2]) || 0;
-        const fees = Number(row[3]) || 0;
+        // TikTok/Shopee payout exports list seller fees as negative numbers
+        // (deductions from payout). We store postage as a positive cost.
+        const fees = Math.abs(Number(row[3]) || 0);
         if (tracking) {
           updates.push({ tracking, tarikh, price, fees });
         }
