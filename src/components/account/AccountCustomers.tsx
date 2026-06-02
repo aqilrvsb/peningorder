@@ -87,20 +87,33 @@ const AccountCustomers = () => {
   };
 
   const saveCostEdit = async () => {
-    if (!costEditPurchase) return;
-    const parsed = Number(costEditValue);
-    if (isNaN(parsed)) {
+    if (!costEditPurchase?.id) {
+      toast.error("Missing order id — please reopen the dialog");
+      return;
+    }
+    const trimmed = costEditValue.trim();
+    if (trimmed === "") {
+      toast.error("Please enter a value");
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (!isFinite(parsed)) {
       toast.error("Please enter a valid number");
       return;
     }
     setIsSavingCost(true);
     try {
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("customer_purchases")
         .update({ [costEditField]: parsed })
-        .eq("id", costEditPurchase.id);
+        .eq("id", costEditPurchase.id)
+        .select("id, " + costEditField);
       if (error) throw error;
-      toast.success(`${COST_FIELD_LABEL[costEditField]} updated`);
+      if (!data || data.length === 0) {
+        toast.error("Update did not match any row — possible RLS/permission issue");
+        return;
+      }
+      toast.success(`${COST_FIELD_LABEL[costEditField]} updated to RM ${parsed.toFixed(2)}`);
       setCostModalOpen(false);
       setCostEditPurchase(null);
       queryClient.invalidateQueries({ queryKey: ["customer_purchases_account"] });
