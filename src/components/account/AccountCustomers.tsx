@@ -131,6 +131,7 @@ const AccountCustomers = () => {
   const totalUnitBundle = filteredPurchases.reduce((sum, p) => sum + getUnitBundle(p), 0);
   const totalPrice = filteredPurchases.reduce((sum, p) => sum + (Number(p.total_sale) || 0), 0);
   const totalCostProduct = filteredPurchases.reduce((sum, p) => sum + (Number((p as any).cost_baseproduct) || 0), 0);
+  const totalCostPostage = filteredPurchases.reduce((sum, p) => sum + (Number((p as any).cost_postage) || 0), 0);
 
   // Group purchases by id for display - using new schema field names
   const groupedPurchases = (() => {
@@ -210,6 +211,7 @@ const AccountCustomers = () => {
     { title: "Total Unit Bundle", value: totalUnitBundle, icon: Package, color: "text-amber-600" },
     { title: "Total Revenue", value: `RM ${totalPrice.toFixed(2)}`, icon: DollarSign, color: "text-green-600" },
     { title: "Total Cost Product", value: `RM ${totalCostProduct.toFixed(2)}`, icon: DollarSign, color: "text-pink-600" },
+    { title: "Total Cost Postage", value: `RM ${totalCostPostage.toFixed(2)}`, icon: DollarSign, color: "text-orange-600" },
   ];
 
   // Checkbox handlers
