@@ -103,7 +103,7 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
-  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju'>('ninjavan');
+  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju'>('poslaju');
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Payment details modal state
