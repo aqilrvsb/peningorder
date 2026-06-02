@@ -532,9 +532,7 @@ const AccountReportProfit: React.FC = () => {
 
     const roas = base.totalSpend > 0 ? base.totalSales / base.totalSpend : 0;
     const revenue = profitBy === 'collection' ? base.totalCollection : base.totalSales;
-    // Exclude Shopee/Tiktok postage (fees) from profit — their sales is already NET
-    const nonMarketplacePostage = base.postageFB + base.postageDatabase + base.postageGoogle;
-    const profit = revenue - base.totalSpend - base.totalCostProduct - nonMarketplacePostage - totalExpenses.total;
+    const profit = revenue - base.totalSpend - base.totalCostProduct - base.totalPostage - totalExpenses.total;
 
     return { ...base, roas, profit };
   }, [filteredStats, totalExpenses, profitBy]);
