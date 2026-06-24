@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local database backups (contain sensitive data — never commit)
+*backup*.sql
+dfr-backup.sql
