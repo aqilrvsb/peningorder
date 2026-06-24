@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AUDIT_MODE } from "@/lib/audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -992,7 +993,7 @@ const LogisticScanWaybill = () => {
                 )}
               </CardTitle>
               <div className="flex gap-2">
-                {selectedCount > 0 && (
+                {!AUDIT_MODE && selectedCount > 0 && (
                   <Button
                     variant="destructive"
                     size="sm"

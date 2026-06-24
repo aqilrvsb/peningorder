@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AUDIT_MODE } from '@/lib/audit';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1014,13 +1015,15 @@ ${trackingUrl}`;
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => handleDeleteClick(order)}
-                              className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                              title="Delete Order"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!AUDIT_MODE && (
+                              <button
+                                onClick={() => handleDeleteClick(order)}
+                                className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                                title="Delete Order"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

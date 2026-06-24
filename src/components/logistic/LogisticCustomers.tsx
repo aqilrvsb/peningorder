@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import AddCustomerModal, { CustomerPurchaseData } from "./AddCustomerModal";
 import { getMalaysiaDate, fetchAllRows } from "@/lib/utils";
+import { AUDIT_MODE } from "@/lib/audit";
 import PaymentDetailsModal from "./PaymentDetailsModal";
 
 const LogisticCustomers = () => {
@@ -952,7 +953,7 @@ const LogisticCustomers = () => {
             Manage your customer purchases and track sales
           </p>
         </div>
-        {selectedOrders.size > 0 && (
+        {!AUDIT_MODE && selectedOrders.size > 0 && (
           <Button
             variant="destructive"
             size="sm"

@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
+import { AUDIT_MODE } from "@/lib/audit";
 import {
   Clock,
   Loader2,
@@ -813,14 +814,16 @@ const LogisticOrder = () => {
               <div className="flex-1" />
 
               <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={handleBulkDelete}
-                  disabled={selectedOrders.size === 0 || isDeleting}
-                >
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                  Delete ({selectedOrders.size})
-                </Button>
+                {!AUDIT_MODE && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleBulkDelete}
+                    disabled={selectedOrders.size === 0 || isDeleting}
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                    Delete ({selectedOrders.size})
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={handleBulkPrint}

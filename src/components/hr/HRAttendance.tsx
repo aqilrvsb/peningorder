@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AUDIT_MODE } from "@/lib/audit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -578,13 +579,15 @@ const HRAttendance = () => {
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteStaff(user)}
-                                  className="p-1 rounded hover:bg-red-100 text-red-600"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                {!AUDIT_MODE && (
+                                  <button
+                                    onClick={() => handleDeleteStaff(user)}
+                                    className="p-1 rounded hover:bg-red-100 text-red-600"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>

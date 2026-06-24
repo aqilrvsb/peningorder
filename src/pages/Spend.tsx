@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AUDIT_MODE } from '@/lib/audit';
 import { useAuth } from '@/context/AuthContext';
 import { useBundles } from '@/context/BundleContext';
 import { Button } from '@/components/ui/button';
@@ -467,13 +468,15 @@ const Spend: React.FC = () => {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleDeleteClick(spend.id)}
-                        className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!AUDIT_MODE && (
+                        <button
+                          onClick={() => handleDeleteClick(spend.id)}
+                          className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

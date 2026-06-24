@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AUDIT_MODE } from '@/lib/audit';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -597,14 +598,16 @@ const ProductTab: React.FC = () => {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDelete(product.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {!AUDIT_MODE && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(product.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getMalaysiaDate } from "@/lib/utils";
+import { AUDIT_MODE } from "@/lib/audit";
 
 interface InvoiceItem {
   description: string;
@@ -291,14 +292,16 @@ const AccountInvoices = () => {
                           <Button size="sm" variant="outline" onClick={() => openEditDialog(inv)}>
                             Edit
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600"
-                            onClick={() => handleDelete(inv.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {!AUDIT_MODE && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600"
+                              onClick={() => handleDelete(inv.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -434,14 +437,16 @@ const AccountInvoices = () => {
                           {calcItemTotal(item).toFixed(2)}
                         </td>
                         <td className="p-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-red-600"
-                            onClick={() => removeItem(idx)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          {!AUDIT_MODE && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-red-600"
+                              onClick={() => removeItem(idx)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}

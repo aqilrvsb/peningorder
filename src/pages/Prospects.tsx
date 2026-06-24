@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
+import { AUDIT_MODE } from '@/lib/audit';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -596,7 +597,7 @@ const Prospects: React.FC = () => {
               {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               Import Excel
             </Button>
-            {selectedProspectIds.length > 0 && (
+            {!AUDIT_MODE && selectedProspectIds.length > 0 && (
               <Button variant="destructive" onClick={handleBulkDeleteClick}>
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete ({selectedProspectIds.length})
@@ -910,13 +911,15 @@ const Prospects: React.FC = () => {
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDeleteClick(prospect.id)}
-                          className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {!AUDIT_MODE && (
+                          <button
+                            onClick={() => handleDeleteClick(prospect.id)}
+                            className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

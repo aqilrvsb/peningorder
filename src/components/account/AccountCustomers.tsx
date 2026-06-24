@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { getMalaysiaDate, fetchAllRows } from "@/lib/utils";
+import { AUDIT_MODE } from "@/lib/audit";
 
 const AccountCustomers = () => {
   const { user } = useAuth();
@@ -474,7 +475,7 @@ const AccountCustomers = () => {
             View customer purchases and track sales
           </p>
         </div>
-        {selectedOrders.size > 0 && (
+        {!AUDIT_MODE && selectedOrders.size > 0 && (
           <Button
             variant="destructive"
             size="sm"

@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { getMalaysiaDate } from "@/lib/utils";
+import { AUDIT_MODE } from "@/lib/audit";
 import {
   Loader2,
   Plus,
@@ -990,14 +991,16 @@ const AccountExpenses = () => {
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDelete(expense.id, expense.attachment_url)}
-                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                {!AUDIT_MODE && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(expense.id, expense.attachment_url)}
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
