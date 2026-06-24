@@ -23,11 +23,17 @@ private. `.gitignore` already excludes it.
 
 1. **Create the new Supabase project** (or pick an empty one).
 2. **Get its DB credentials** from
-   `Project Settings → Database → Connection string`:
-   - You need the **Session Pooler** URL (port 5432, IPv4) — works from machines
-     without IPv6.
-   - For `ap-southeast-1` region it looks like:
-     `postgresql://postgres.<NEW-REF>:<NEW-PASSWORD>@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres`
+   `Project Settings → Database → Connection string`. Use the **Session Pooler**
+   (port 5432, IPv4 — works on networks without IPv6). The connection has four
+   parts:
+
+   | Field | Value |
+   |---|---|
+   | host | `aws-1-ap-southeast-1.pooler.supabase.com` (region-dependent) |
+   | port | `5432` |
+   | user | `postgres` + `.` + new project ref |
+   | password | from the new project's Database settings |
+   | database | `postgres` |
 3. **Run the restore from this folder** (PowerShell, no admin needed):
 
 ```powershell
@@ -35,14 +41,17 @@ private. `.gitignore` already excludes it.
 #   npm install -g pg-bin   (bundles psql.exe)
 # OR full install: https://www.postgresql.org/download/windows/
 
-# Set credentials for the NEW project
-$env:PGPASSWORD = "NEW-PROJECT-DB-PASSWORD"
+# Set credentials for the NEW project (read password from a local file
+# instead of pasting it inline so it never lands in shell history)
+$env:PGPASSWORD = (Get-Content "C:\path\to\new-project-password.txt" -Raw).Trim()
+
+$newProjectRef = "ABCDEF...your-new-project-ref"
 
 # Run the backup file
 psql `
-  --host=aws-1-ap-southeast-1.pooler.supabase.com `
+  --host="aws-1-ap-southeast-1.pooler.supabase.com" `
   --port=5432 `
-  --username=postgres.NEW-PROJECT-REF `
+  --username="postgres.$newProjectRef" `
   --dbname=postgres `
   --file=dfr-backup.sql `
   --single-transaction `
