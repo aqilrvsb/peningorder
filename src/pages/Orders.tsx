@@ -487,24 +487,27 @@ ${trackingUrl}`;
 
     setIsDeleting(true);
     try {
-      const isNinjavanOrder = orderToDelete.platform !== 'Shopee' && orderToDelete.platform !== 'Tiktok';
+      // Any parcel-daily-managed courier: cancel at PD first to refund credit
+      const isCourierOrder = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'].includes(orderToDelete.platform);
 
-      // If it's a Ninjavan order and has tracking number, cancel via API first
-      if (isNinjavanOrder && orderToDelete.trackingNo) {
+      if (isCourierOrder && (orderToDelete.trackingNo || orderToDelete.id)) {
         try {
-          const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('ninjavan-cancel', {
-            body: { trackingNumber: orderToDelete.trackingNo }
+          const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('parceldaily-cancel', {
+            body: {
+              purchaseId: Number(orderToDelete.id),
+              trackingNumber: orderToDelete.trackingNo || undefined,
+            },
           });
 
           if (cancelError) {
-            console.error('Ninjavan cancel error:', cancelError);
+            console.error('Parcel Daily cancel error:', cancelError);
             toast({
               title: 'Amaran',
-              description: 'Gagal membatalkan order di Ninjavan. Order akan dipadam dari sistem sahaja.',
+              description: 'Gagal membatalkan order di Parcel Daily. Order tetap dipadam dari sistem.',
               variant: 'destructive',
             });
           } else if (cancelResult?.error) {
-            console.error('Ninjavan cancel API error:', cancelResult.error);
+            console.error('Parcel Daily cancel API error:', cancelResult.error);
             toast({
               title: 'Amaran',
               description: cancelResult.error,
@@ -513,7 +516,7 @@ ${trackingUrl}`;
           } else {
             toast({
               title: 'Berjaya',
-              description: 'Order Ninjavan telah dibatalkan.',
+              description: 'Order dibatalkan. Kredit (jika ada) akan dikembalikan.',
             });
           }
         } catch (err) {
