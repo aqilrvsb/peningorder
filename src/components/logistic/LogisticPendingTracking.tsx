@@ -6,8 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, getMalaysiaDate, fetchAllRows } from "@/lib/utils";
 import {
   Package,
   Clock,
@@ -24,9 +22,9 @@ import {
   Search,
   DollarSign,
   Wallet,
-  Save,
   MessageCircle,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,19 +47,9 @@ const LogisticPendingTracking = () => {
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
-  // Bulk update states
-  const [bulkStatus, setBulkStatus] = useState<"Success" | "Return">("Success");
-  const [bulkDate, setBulkDate] = useState("");
-  const [bulkTrackingList, setBulkTrackingList] = useState("");
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
-
-  // Individual update states
-  const [individualStatus, setIndividualStatus] = useState<"Success" | "Return">("Success");
-  const [individualDate, setIndividualDate] = useState("");
-  const [isIndividualUpdating, setIsIndividualUpdating] = useState(false);
-
   // Loading states
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Fetch all profiles for marketer name and whatsapp lookup
   const { data: profiles = [] } = useQuery({
@@ -82,7 +70,7 @@ const LogisticPendingTracking = () => {
   // Fetch pending tracking orders (Shipped + SEO not successful) - includes both COD and CASH
   // All platforms now use NinjaVan (including Tiktok)
   // Filter by date_order (not date_processed)
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
     queryFn: async () => {
       // Use fetchAllRows to bypass the 1000-row limit
@@ -94,7 +82,6 @@ const LogisticPendingTracking = () => {
             bundle:logistic_bundles(name, sku)
           `)
           .eq("delivery_status", "Shipped")
-          .or("seo.is.null,seo.neq.Successful Delivery")
           .order("date_order", { ascending: false });
 
         if (startDate) query = query.gte("date_order", startDate);
@@ -235,134 +222,14 @@ const LogisticPendingTracking = () => {
     }
   };
 
-  // Bulk update by tracking numbers
-  const handleBulkUpdate = async () => {
-    if (!bulkTrackingList.trim()) {
-      toast.error("Please enter tracking numbers");
-      return;
-    }
-    if (!bulkDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
-    const trackingNumbers = bulkTrackingList
-      .split("\n")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    if (trackingNumbers.length === 0) {
-      toast.error("No valid tracking numbers found");
-      return;
-    }
-
-    // Find orders matching the tracking numbers
-    const ordersToUpdate = filteredOrders.filter((o: any) =>
-      trackingNumbers.includes(o.tracking_number)
-    );
-
-    if (ordersToUpdate.length === 0) {
-      toast.error("No matching orders found for the tracking numbers");
-      return;
-    }
-
-    setIsBulkUpdating(true);
-
+  // Sync: reload latest orders from DB (status is auto-updated by webhook)
+  const handleSync = async () => {
+    setIsSyncing(true);
     try {
-      let updateData: any;
-      if (bulkStatus === "Success") {
-        updateData = {
-          seo: "Successful Delivery",
-          seos: "Successful Delivery",
-          date_payment: bulkDate,
-          delivery_status: "Shipped",
-        };
-      } else {
-        updateData = {
-          seo: "Return",
-          seos: "Return",
-          date_return: bulkDate,
-          delivery_status: "Return",
-        };
-      }
-
-      const updatePromises = ordersToUpdate.map((order: any) =>
-        supabase
-          .from("customer_purchases")
-          .update(updateData)
-          .eq("id", order.id)
-      );
-
-      await Promise.all(updatePromises);
-
-      toast.success(`${ordersToUpdate.length} order(s) updated to ${bulkStatus}`);
-      setBulkTrackingList("");
-      setBulkDate("");
-      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update orders");
+      await refetch();
+      toast.success("Synced");
     } finally {
-      setIsBulkUpdating(false);
-    }
-  };
-
-  // Individual update by selected orders (checkbox selection)
-  const handleIndividualUpdate = async () => {
-    if (selectedOrders.size === 0) {
-      toast.error("Please select orders to update");
-      return;
-    }
-    if (!individualDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
-    const ordersToUpdate = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
-
-    if (ordersToUpdate.length === 0) {
-      toast.error("No orders selected");
-      return;
-    }
-
-    setIsIndividualUpdating(true);
-
-    try {
-      let updateData: any;
-      if (individualStatus === "Success") {
-        updateData = {
-          seo: "Successful Delivery",
-          seos: "Successful Delivery",
-          date_payment: individualDate,
-          delivery_status: "Shipped",
-        };
-      } else {
-        updateData = {
-          seo: "Return",
-          seos: "Return",
-          date_return: individualDate,
-          delivery_status: "Return",
-        };
-      }
-
-      const updatePromises = ordersToUpdate.map((order: any) =>
-        supabase
-          .from("customer_purchases")
-          .update(updateData)
-          .eq("id", order.id)
-      );
-
-      await Promise.all(updatePromises);
-
-      toast.success(`${ordersToUpdate.length} order(s) updated to ${individualStatus}`);
-      setSelectedOrders(new Set());
-      setIndividualDate("");
-      queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
-      queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update orders");
-    } finally {
-      setIsIndividualUpdating(false);
+      setIsSyncing(false);
     }
   };
 
@@ -409,82 +276,12 @@ const LogisticPendingTracking = () => {
               <p className="text-xs text-muted-foreground">Unit Bundle</p>
             </div>
           </div>
+          <Button variant="outline" onClick={handleSync} disabled={isSyncing} className="self-center">
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+            Sync
+          </Button>
         </div>
       </div>
-
-      {/* Combined Update Section */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Bulk Update by Tracking */}
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Bulk Update by Tracking Number</h3>
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Enter tracking numbers (one per line)..."
-                  value={bulkTrackingList}
-                  onChange={(e) => setBulkTrackingList(e.target.value)}
-                  rows={2}
-                  className="flex-1"
-                />
-                <div className="flex flex-col gap-2 w-36">
-                  <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Success">Success</SelectItem>
-                      <SelectItem value="Return">Return</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <input
-                    type="date"
-                    value={bulkDate}
-                    onChange={(e) => setBulkDate(e.target.value)}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker()}
-                    className="h-8 px-2 py-1 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} size="sm" className="self-end">
-                  {isBulkUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            {/* Update by Selection */}
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Update by Selection</h3>
-              <div className="flex gap-3 items-center">
-                <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
-                  <SelectTrigger className="h-10 w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Success">Success</SelectItem>
-                    <SelectItem value="Return">Return</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input
-                  type="date"
-                  value={individualDate}
-                  onChange={(e) => setIndividualDate(e.target.value)}
-                  onClick={(e) => (e.target as HTMLInputElement).showPicker()}
-                  style={{ minWidth: '180px' }}
-                  className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <Button
-                  onClick={handleIndividualUpdate}
-                  disabled={isIndividualUpdating || selectedOrders.size === 0}
-                  className="h-10 px-6"
-                >
-                  {isIndividualUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Update ({selectedOrders.size})
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Filters */}
       <Card>

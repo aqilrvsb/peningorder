@@ -24,7 +24,6 @@ import {
   UserCircle,
   RotateCcw,
   FileSpreadsheet,
-  Receipt,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -72,10 +71,7 @@ const logisticItems: NavItem[] = [
 // ============ ACCOUNT ROLE ============
 const accountItems: NavItem[] = [
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
-  { label: 'Pending Tracking', path: '/dashboard/account/pending-tracking', icon: <Clock className="w-5 h-5" /> },
-  { label: 'Success Tracking', path: '/dashboard/account/success-tracking', icon: <CheckCircle className="w-5 h-5" /> },
-  { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <Settings className="w-5 h-5" /> },
-  { label: 'Invoices', path: '/dashboard/account/invoices', icon: <Receipt className="w-5 h-5" /> },
+  { label: 'Pending COD Collection', path: '/dashboard/account/pending-tracking', icon: <Clock className="w-5 h-5" /> },
 ];
 
 type GroupKey = 'marketer' | 'logistic' | 'account';

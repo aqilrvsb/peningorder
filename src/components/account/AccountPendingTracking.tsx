@@ -29,13 +29,11 @@ import {
   Loader2,
   Printer,
   Search,
-  DollarSign,
   Wallet,
-  Save,
   RotateCcw,
-  Upload,
   Download,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -63,34 +61,9 @@ const AccountPendingTracking = () => {
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
-  // Bulk update mode: "online" (FB/Database/Google) or "marketplace" (Tiktok XLSX)
-  const [bulkMode, setBulkMode] = useState<"online" | "marketplace">("online");
-
-  // Bulk update states (online)
-  const [bulkStatus, setBulkStatus] = useState<"Success" | "Return">("Success");
-  const [bulkDate, setBulkDate] = useState("");
-  const [bulkTrackingList, setBulkTrackingList] = useState("");
-  const [bulkReasonReturn, setBulkReasonReturn] = useState("");
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
-
-  // XLSX import states (marketplace)
-  const [xlsxFile, setXlsxFile] = useState<File | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState({ stage: '', current: 0, total: 0 });
-
-  // Individual update states
-  const [individualStatus, setIndividualStatus] = useState<"Success" | "Return">("Success");
-  const [individualDate, setIndividualDate] = useState("");
-  const [individualReasonReturn, setIndividualReasonReturn] = useState("");
-  const [isIndividualUpdating, setIsIndividualUpdating] = useState(false);
-
   // Loading states
   const [isPrinting, setIsPrinting] = useState(false);
-
-  // Not-found tracking dialog
-  const [notFoundDialogOpen, setNotFoundDialogOpen] = useState(false);
-  const [alreadyCollectedTrackings, setAlreadyCollectedTrackings] = useState<{ tracking: string; platform: string }[]>([]);
-  const [notInDbTrackings, setNotInDbTrackings] = useState<{ tracking: string; price: number; fees: number }[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Return dialog state
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -132,20 +105,20 @@ const AccountPendingTracking = () => {
     return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
   };
 
-  // Fetch pending tracking orders: Shipped + SEO not successful
-  const { data: orders = [], isLoading } = useQuery({
+  // Fetch pending COD collection orders: delivered (Success) but not yet remitted
+  const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["account-pending-tracking", startDate, endDate, trackingSearch],
     queryFn: async () => {
       // Use fetchAllRows to bypass the 1000-row limit
       const data = await fetchAllRows(() => {
-        // Pending collection = COD orders not yet remitted (no date_payment),
-        // excluding returns. CASH is auto-collected so it never appears here.
+        // Pending COD collection = COD orders delivered (Success) but not yet
+        // remitted (no date_payment). Status is auto-updated by webhook.
         let query = supabase
           .from("customer_purchases")
           .select(`*, bundle:logistic_bundles(name, sku)`)
+          .eq("delivery_status", "Success")
           .eq("type_payment", "COD")
           .is("date_payment", null)
-          .not("delivery_status", "in", "(Return,Failed)")
           .order("date_order", { ascending: false });
 
         if (trackingSearch) {
@@ -410,294 +383,14 @@ const AccountPendingTracking = () => {
     }
   };
 
-  // Bulk update by tracking numbers
-  const handleBulkUpdate = async () => {
-    if (!bulkTrackingList.trim()) {
-      toast.error("Please enter tracking numbers");
-      return;
-    }
-    if (!bulkDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
-    const trackingNumbers = bulkTrackingList
-      .split("\n")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    if (trackingNumbers.length === 0) {
-      toast.error("No valid tracking numbers found");
-      return;
-    }
-
-    // Query DB in batches of 500 to avoid URL length limit
-    const pendingOrders: any[] = [];
-    const BULK_BATCH_SIZE = 500;
-    for (let i = 0; i < trackingNumbers.length; i += BULK_BATCH_SIZE) {
-      const batch = trackingNumbers.slice(i, i + BULK_BATCH_SIZE);
-      const { data } = await supabase
-        .from("customer_purchases")
-        .select("id, tracking_number")
-        .eq("type_payment", "COD")
-        .is("date_payment", null)
-        .not("delivery_status", "in", "(Return,Failed)")
-        .in("tracking_number", batch);
-      if (data) pendingOrders.push(...data);
-    }
-
-    if (pendingOrders.length === 0) {
-      toast.error("No matching orders found for the tracking numbers");
-      return;
-    }
-
-    setIsBulkUpdating(true);
-
+  // Sync: reload latest orders from DB (status is auto-updated by webhook)
+  const handleSync = async () => {
+    setIsSyncing(true);
     try {
-      let updateData: any;
-      if (bulkStatus === "Success") {
-        updateData = {
-          seo: "Successful Delivery",
-          date_payment: bulkDate,
-          delivery_status: "Shipped",
-        };
-      } else {
-        updateData = {
-          seo: "Return",
-          date_return: bulkDate,
-          delivery_status: "Return",
-          reason_return: bulkReasonReturn || null,
-        };
-      }
-
-      const updatePromises = pendingOrders.map((order: any) =>
-        supabase
-          .from("customer_purchases")
-          .update(updateData)
-          .eq("id", order.id)
-      );
-
-      await Promise.all(updatePromises);
-
-      toast.success(`${pendingOrders.length} order(s) updated to ${bulkStatus}`);
-      setBulkTrackingList("");
-      setBulkDate("");
-      setBulkReasonReturn("");
-      queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
-      queryClient.invalidateQueries({ queryKey: ["account-return"] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update orders");
+      await refetch();
+      toast.success("Synced");
     } finally {
-      setIsBulkUpdating(false);
-    }
-  };
-
-  // XLSX import for Tiktok bulk update
-  const handleXlsxImport = async () => {
-    if (!xlsxFile) {
-      toast.error("Please select an XLSX file");
-      return;
-    }
-
-    setIsImporting(true);
-    setImportProgress({ stage: 'Reading file...', current: 0, total: 0 });
-    try {
-      const data = await xlsxFile.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-      // Skip header row, parse data rows
-      const updates: { tracking: string; tarikh: string; price: number; fees: number }[] = [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row[0]) continue;
-        const tracking = String(row[0]).trim();
-        // Handle date: could be YYYY/MM/DD or serial number
-        let tarikh = "";
-        if (row[1]) {
-          if (typeof row[1] === "number") {
-            // Excel serial date
-            const d = XLSX.SSF.parse_date_code(row[1]);
-            tarikh = `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-          } else {
-            // String like "2026/02/23" -> "2026-02-23"
-            tarikh = String(row[1]).replace(/\//g, "-").trim();
-          }
-        }
-        const price = Number(row[2]) || 0;
-        // TikTok payout exports list seller fees as negative numbers
-        // (deductions from payout). We store postage as a positive cost.
-        const fees = Math.abs(Number(row[3]) || 0);
-        if (tracking) {
-          updates.push({ tracking, tarikh, price, fees });
-        }
-      }
-
-      if (updates.length === 0) {
-        toast.error("No valid rows found in the file");
-        setIsImporting(false);
-        return;
-      }
-
-      // Query DB in batches of 500 to avoid URL length limit
-      const trackingNumbers = updates.map((u) => u.tracking);
-      const pendingMap = new Map<string, string>();
-      const BATCH_SIZE = 500;
-
-      setImportProgress({ stage: 'Looking up pending orders', current: 0, total: trackingNumbers.length });
-      for (let i = 0; i < trackingNumbers.length; i += BATCH_SIZE) {
-        const batch = trackingNumbers.slice(i, i + BATCH_SIZE);
-        const { data: pendingOrders } = await supabase
-          .from("customer_purchases")
-          .select("id, tracking_number")
-          .eq("type_payment", "COD")
-          .is("date_payment", null)
-          .not("delivery_status", "in", "(Return,Failed)")
-          .in("tracking_number", batch);
-
-        for (const o of pendingOrders || []) {
-          pendingMap.set(o.tracking_number, o.id);
-        }
-        setImportProgress({ stage: 'Looking up pending orders', current: Math.min(i + BATCH_SIZE, trackingNumbers.length), total: trackingNumbers.length });
-      }
-
-      let matched = 0;
-      const notFoundList: { tracking: string; price: number; fees: number }[] = [];
-      setImportProgress({ stage: 'Updating orders', current: 0, total: updates.length });
-      for (let idx = 0; idx < updates.length; idx++) {
-        const item = updates[idx];
-        const orderId = pendingMap.get(item.tracking);
-        if (orderId) {
-          await supabase
-            .from("customer_purchases")
-            .update({
-              date_payment: item.tarikh || null,
-              total_sale: item.price,
-              cost_postage: item.fees,
-              seo: "Successful Delivery",
-            })
-            .eq("id", orderId);
-          matched++;
-        } else {
-          notFoundList.push({ tracking: item.tracking, price: item.price, fees: item.fees });
-        }
-        // Update progress every 10 items to avoid too many re-renders
-        if ((idx + 1) % 10 === 0 || idx === updates.length - 1) {
-          setImportProgress({ stage: 'Updating orders', current: idx + 1, total: updates.length });
-        }
-      }
-
-      toast.success(`${matched} order(s) updated.`);
-      if (notFoundList.length > 0) {
-        // Query DB in batches of 500 to avoid URL length limit
-        const trackingNums = notFoundList.map((n) => n.tracking);
-        const existingMap = new Map<string, any>();
-        const BATCH_SIZE = 500;
-
-        setImportProgress({ stage: 'Categorizing not-found orders', current: 0, total: trackingNums.length });
-        for (let i = 0; i < trackingNums.length; i += BATCH_SIZE) {
-          const batch = trackingNums.slice(i, i + BATCH_SIZE);
-          const { data: existingOrders } = await supabase
-            .from("customer_purchases")
-            .select("tracking_number, seo, jenis_platform")
-            .in("tracking_number", batch);
-
-          for (const o of existingOrders || []) {
-            existingMap.set(o.tracking_number, o);
-          }
-          setImportProgress({ stage: 'Categorizing not-found orders', current: Math.min(i + BATCH_SIZE, trackingNums.length), total: trackingNums.length });
-        }
-
-        const collected: { tracking: string; platform: string }[] = [];
-        const notInDb: { tracking: string; price: number; fees: number }[] = [];
-        for (const item of notFoundList) {
-          const order = existingMap.get(item.tracking);
-          if (order) {
-            // Determine platform
-            let plat = "Unknown";
-            if (order.jenis_platform) {
-              plat = order.jenis_platform;
-            }
-            collected.push({ tracking: item.tracking, platform: plat });
-          } else {
-            notInDb.push(item);
-          }
-        }
-
-        setAlreadyCollectedTrackings(collected);
-        setNotInDbTrackings(notInDb);
-        setNotFoundDialogOpen(true);
-      }
-      setXlsxFile(null);
-      // Reset file input
-      const fileInput = document.getElementById("xlsx-file-input") as HTMLInputElement;
-      if (fileInput) fileInput.value = "";
-      queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to import XLSX");
-    } finally {
-      setIsImporting(false);
-      setImportProgress({ stage: '', current: 0, total: 0 });
-    }
-  };
-
-  // Individual update by selected orders (checkbox selection)
-  const handleIndividualUpdate = async () => {
-    if (selectedOrders.size === 0) {
-      toast.error("Please select orders to update");
-      return;
-    }
-    if (!individualDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
-    const ordersToUpdate = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
-
-    if (ordersToUpdate.length === 0) {
-      toast.error("No orders selected");
-      return;
-    }
-
-    setIsIndividualUpdating(true);
-
-    try {
-      let updateData: any;
-      if (individualStatus === "Success") {
-        updateData = {
-          seo: "Successful Delivery",
-          date_payment: individualDate,
-          delivery_status: "Shipped",
-        };
-      } else {
-        updateData = {
-          seo: "Return",
-          date_return: individualDate,
-          delivery_status: "Return",
-          reason_return: individualReasonReturn || null,
-        };
-      }
-
-      const updatePromises = ordersToUpdate.map((order: any) =>
-        supabase
-          .from("customer_purchases")
-          .update(updateData)
-          .eq("id", order.id)
-      );
-
-      await Promise.all(updatePromises);
-
-      toast.success(`${ordersToUpdate.length} order(s) updated to ${individualStatus}`);
-      setSelectedOrders(new Set());
-      setIndividualDate("");
-      setIndividualReasonReturn("");
-      queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
-      queryClient.invalidateQueries({ queryKey: ["account-return"] });
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update orders");
-    } finally {
-      setIsIndividualUpdating(false);
+      setIsSyncing(false);
     }
   };
 
@@ -747,11 +440,17 @@ const AccountPendingTracking = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Pending Tracking</h1>
-        <p className="text-muted-foreground mt-2">
-          Track shipped orders awaiting collection
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Pending COD Collection</h1>
+          <p className="text-muted-foreground mt-2">
+            COD orders delivered but not yet collected
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+          Sync
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -813,190 +512,6 @@ const AccountPendingTracking = () => {
           </Card>
         ))}
       </div>
-
-      {/* Bulk Update Section */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4 mb-4">
-            <h3 className="font-semibold">Bulk Update</h3>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant={bulkMode === "online" ? "default" : "outline"}
-                onClick={() => setBulkMode("online")}
-              >
-                Online (FB/DB/Google)
-              </Button>
-              <Button
-                size="sm"
-                variant={bulkMode === "marketplace" ? "default" : "outline"}
-                onClick={() => setBulkMode("marketplace")}
-              >
-                Tiktok
-              </Button>
-            </div>
-          </div>
-
-          {bulkMode === "online" ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <Label>Tracking Numbers (one per line)</Label>
-                <Textarea
-                  placeholder="Enter tracking numbers..."
-                  value={bulkTrackingList}
-                  onChange={(e) => setBulkTrackingList(e.target.value)}
-                  rows={4}
-                />
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <Label>Status</Label>
-                  <Select value={bulkStatus} onValueChange={(v) => setBulkStatus(v as "Success" | "Return")}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Success">Success</SelectItem>
-                      <SelectItem value="Return">Return</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={bulkDate}
-                    onChange={(e) => setBulkDate(e.target.value)}
-                  />
-                </div>
-                {bulkStatus === "Return" && (
-                  <div>
-                    <Label>Reason Return</Label>
-                    <Input
-                      placeholder="Enter reason for return..."
-                      value={bulkReasonReturn}
-                      onChange={(e) => setBulkReasonReturn(e.target.value)}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleBulkUpdate} disabled={isBulkUpdating} className="w-full">
-                  {isBulkUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                  Update Orders
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Import XLSX file from Tiktok settlement. Columns: Tracking No | Date | Total Price | Fees
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-1">
-                  <Label>Settlement File (.xlsx)</Label>
-                  <Input
-                    id="xlsx-file-input"
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => setXlsxFile(e.target.files?.[0] || null)}
-                    className="cursor-pointer"
-                  />
-                </div>
-                <Button onClick={handleXlsxImport} disabled={isImporting || !xlsxFile} className="w-full sm:w-auto">
-                  {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                  Import & Update
-                </Button>
-              </div>
-              {xlsxFile && !isImporting && (
-                <p className="text-xs text-muted-foreground">
-                  Selected: {xlsxFile.name}
-                </p>
-              )}
-              {isImporting && (
-                <div className="space-y-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
-                    <p className="text-sm font-medium text-purple-700 dark:text-purple-400">
-                      {importProgress.stage || 'Processing...'}
-                      {importProgress.total > 0 && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {importProgress.current} / {importProgress.total}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {importProgress.total > 0 && (
-                    <div className="w-full h-2 bg-purple-200 dark:bg-purple-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-purple-600 transition-all duration-200"
-                        style={{ width: `${Math.min(100, (importProgress.current / importProgress.total) * 100)}%` }}
-                      />
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground italic">
-                    Please don't close this tab. The process continues in background even if you switch tabs.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Individual Update by Selection */}
-      <Card>
-        <CardContent className="pt-6">
-          <h3 className="font-semibold mb-4">Update by Selection</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Select orders from the table below using checkboxes, then update them here
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
-            <div className="flex-1 sm:flex-none">
-              <Label>Selected Orders</Label>
-              <div className="text-2xl font-bold text-primary">{selectedOrders.size}</div>
-            </div>
-            <div className="w-full sm:w-40">
-              <Label>Status</Label>
-              <Select value={individualStatus} onValueChange={(v) => setIndividualStatus(v as "Success" | "Return")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Success">Success</SelectItem>
-                  <SelectItem value="Return">Return</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full sm:w-40">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={individualDate}
-                onChange={(e) => setIndividualDate(e.target.value)}
-              />
-            </div>
-            {individualStatus === "Return" && (
-              <div className="w-full sm:w-48">
-                <Label>Reason Return</Label>
-                <Input
-                  placeholder="Enter reason..."
-                  value={individualReasonReturn}
-                  onChange={(e) => setIndividualReasonReturn(e.target.value)}
-                />
-              </div>
-            )}
-            <Button
-              onClick={handleIndividualUpdate}
-              disabled={isIndividualUpdating || selectedOrders.size === 0}
-              className="w-full sm:w-auto"
-            >
-              {isIndividualUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              Update Selected ({selectedOrders.size})
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Filters */}
       <Card>
@@ -1325,83 +840,6 @@ const AccountPendingTracking = () => {
             >
               {isReturning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
               Confirm Return
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Not Found Tracking Dialog */}
-      <Dialog open={notFoundDialogOpen} onOpenChange={setNotFoundDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="text-red-600">
-              {alreadyCollectedTrackings.length + notInDbTrackings.length} Tracking(s) Not Updated
-            </DialogTitle>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[55vh] space-y-4 py-2">
-            {alreadyCollectedTrackings.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-green-700 mb-2">
-                  Already Collection Success ({alreadyCollectedTrackings.length})
-                </p>
-                <div className="space-y-1.5">
-                  {alreadyCollectedTrackings.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded border border-green-200 bg-green-50">
-                      <span className="font-mono text-sm">{item.tracking}</span>
-                      {item.platform.toLowerCase().includes("tiktok") ? (
-                        <a
-                          href={`https://seller-my.tiktok.com/order?search=${encodeURIComponent(item.tracking)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        >
-                          Tiktok
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{item.platform}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {notInDbTrackings.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-red-700">
-                    Not Exist in Database ({notInDbTrackings.length})
-                  </p>
-                  <div className="flex gap-3 text-xs">
-                    <span className="font-semibold">Settlement: <span className="text-red-700">RM {notInDbTrackings.reduce((s, i) => s + i.price, 0).toFixed(2)}</span></span>
-                    <span className="font-semibold">Fees: <span className="text-red-700">RM {notInDbTrackings.reduce((s, i) => s + i.fees, 0).toFixed(2)}</span></span>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {notInDbTrackings.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded border border-red-200 bg-red-50">
-                      <div>
-                        <span className="font-mono text-sm">{item.tracking}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">RM {item.price.toFixed(2)} | Fees: RM {item.fees.toFixed(2)}</span>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <a
-                          href={`https://seller-my.tiktok.com/order?search=${encodeURIComponent(item.tracking)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-                        >
-                          Tiktok
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNotFoundDialogOpen(false)}>
-              Close
             </Button>
           </DialogFooter>
         </DialogContent>
