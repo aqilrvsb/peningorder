@@ -1108,7 +1108,6 @@ const LogisticCustomers = () => {
                     <th className="p-2 text-left">Jenis Customer</th>
                     <th className="p-2 text-left">Negeri</th>
                     <th className="p-2 text-left">Alamat</th>
-                    <th className="p-2 text-left">Nota</th>
                     <th className="p-2 text-left">Waybill</th>
                     <th className="p-2 text-left">SEO</th>
                     <th className="p-2 text-left">Action</th>
@@ -1242,9 +1241,6 @@ const LogisticCustomers = () => {
                           </div>
                         </td>
                         <td className="p-2">
-                          <p className="text-xs truncate max-w-[100px]">{order.nota_staff || "-"}</p>
-                        </td>
-                        <td className="p-2">
                           {order.waybill_url ? (
                             <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
                               View
@@ -1272,7 +1268,7 @@ const LogisticCustomers = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={22} className="text-center py-12 text-muted-foreground">
+                      <td colSpan={21} className="text-center py-12 text-muted-foreground">
                         No customer purchases found.
                       </td>
                     </tr>

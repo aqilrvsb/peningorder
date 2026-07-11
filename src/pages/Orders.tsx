@@ -55,16 +55,19 @@ interface OrderForTracking {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
-const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Remaining", "Return", "Success", "Failed"];
-const COLLECTION_STATUS_OPTIONS = ["All", "null", "Pending", "Success", "Return"];
+const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success"];
+const COLLECTION_STATUS_OPTIONS = ["All", "Pending", "Success", "Return"];
 
-// Helper to get collection status based on delivery_status and seo
-// Collection has 3 statuses: Pending, Success, Return
-const getCollectionStatus = (deliveryStatus: string, seo: string | null): string => {
-  if (deliveryStatus === 'Return' || deliveryStatus === 'Failed') return 'Return';
-  if (deliveryStatus === 'Shipped' && seo === 'Successful Delivery') return 'Success';
-  // All other cases (Pending delivery_status, or Shipped but not collected yet) = Pending
-  return 'Pending';
+// Collection = did we get the money?
+//   CASH  -> collected upfront (Success) as soon as the order exists
+//   COD   -> Success only after Parcel Daily REMITS the money to us
+//            (COD_REMITTED webhook stamps date_payment); Pending until then
+//   Return/Failed delivery -> Return (no money)
+const getCollectionStatus = (order: { deliveryStatus?: string; caraBayaran?: string; tarikhBayaran?: string; kurier?: string }): string => {
+  if (order.deliveryStatus === 'Return' || order.deliveryStatus === 'Failed') return 'Return';
+  const isCod = order.caraBayaran === 'COD' || order.kurier?.includes('COD');
+  if (!isCod) return 'Success';            // CASH = paid upfront
+  return order.tarikhBayaran ? 'Success' : 'Pending'; // COD = only after remittance
 };
 
 // Helper to get Malaysia date (UTC+8)
@@ -123,22 +126,14 @@ const Orders: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Delivery status filter
-      if (deliveryStatusFilter !== "All") {
-        if (deliveryStatusFilter === "Remaining") {
-          // Remaining = Shipped but seo !== 'Successful Delivery'
-          if (!(order.deliveryStatus === 'Shipped' && order.seo !== 'Successful Delivery')) {
-            return false;
-          }
-        } else if (order.deliveryStatus !== deliveryStatusFilter) {
-          return false;
-        }
+      // Delivery status filter (Pending / Shipped / Return / Success)
+      if (deliveryStatusFilter !== "All" && order.deliveryStatus !== deliveryStatusFilter) {
+        return false;
       }
 
       // Collection status filter
       if (collectionFilter !== "All") {
-        const orderCollectionStatus = getCollectionStatus(order.deliveryStatus, order.seo);
-        if (orderCollectionStatus !== collectionFilter) {
+        if (getCollectionStatus(order) !== collectionFilter) {
           return false;
         }
       }
@@ -175,13 +170,13 @@ const Orders: React.FC = () => {
     const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
     const totalShipped = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
 
-    // Remaining = Shipped but seo !== 'Successful Delivery'
-    const remainingOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped' && o.seo !== 'Successful Delivery');
+    // Remaining = still in transit (Shipped, not yet delivered)
+    const remainingOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped');
     const totalRemaining = remainingOrders.length;
     const totalSalesRemaining = remainingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Success = Shipped and seo === 'Successful Delivery'
-    const successOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped' && o.seo === 'Successful Delivery');
+    // Success = delivered (webhook set delivery_status = Success when seo = Successful Delivery)
+    const successOrders = filteredOrders.filter(o => o.deliveryStatus === 'Success');
     const totalSuccess = successOrders.length;
     const totalSalesSuccess = successOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -190,8 +185,8 @@ const Orders: React.FC = () => {
     const totalReturn = returnOrders.length;
     const totalSalesReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Total Collection (seo === 'Successful Delivery')
-    const collectionOrders = filteredOrders.filter(o => o.seo === 'Successful Delivery');
+    // Total Collection = money actually in hand (CASH upfront + COD remitted)
+    const collectionOrders = filteredOrders.filter(o => getCollectionStatus(o) === 'Success');
     const totalCollection = collectionOrders.length;
     const totalSalesCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -966,7 +961,6 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Negeri</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SEO</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Collection</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
@@ -1061,7 +1055,6 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.negeri}</td>
                     <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.alamat}</td>
-                    <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">{order.notaStaff || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         order.seos === 'Successful Delivery' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
@@ -1074,7 +1067,7 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const collectionStatus = getCollectionStatus(order.deliveryStatus, order.seo);
+                        const collectionStatus = getCollectionStatus(order);
                         return (
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                             collectionStatus === 'Success' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
@@ -1135,7 +1128,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 22 : 23} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 21 : 22} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

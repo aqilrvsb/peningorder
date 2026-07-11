@@ -33,7 +33,7 @@ export interface CustomerOrder {
   tarikhTempahan: string;
   kurier: string;
   noTracking: string;
-  statusParcel: 'Pending' | 'Processing' | 'Shipped' | 'Success' | 'Failed';
+  statusParcel: 'Pending' | 'Shipped' | 'Return' | 'Success' | 'Failed';
   notaStaff: string;
   beratParcel: number;
   createdAt: string;
@@ -77,7 +77,7 @@ export const KURIER_OPTIONS = [
 ];
 
 export const STATUS_OPTIONS: CustomerOrder['statusParcel'][] = [
-  'Pending', 'Processing', 'Shipped', 'Success', 'Failed'
+  'Pending', 'Shipped', 'Return', 'Success'
 ];
 
 export const NICHE_OPTIONS = [
