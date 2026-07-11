@@ -44,7 +44,7 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     fullName: profile.full_name || '',
     businessName: profile.business_name || '',
     idstaff: profile.idstaff || '',
-    role: (roles?.[0]?.role || 'admin') as UserRole,
+    role: (roles?.[0]?.role || 'client') as UserRole,
   };
 }
 

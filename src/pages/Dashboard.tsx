@@ -83,8 +83,8 @@ const Dashboard: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
 
-  // Check user role — individual mode: every tenant is 'admin' and gets the marketer dashboard
-  const isMarketer = profile?.role === 'marketer' || profile?.role === 'admin';
+  // Check user role — individual mode: every tenant ('client') gets the marketer dashboard
+  const isMarketer = profile?.role === 'marketer' || profile?.role === 'admin' || profile?.role === 'client' || profile?.role === 'superadmin';
   const isLogistic = profile?.role === 'logistic';
   const isBOD = profile?.role === 'bod';
   const isAccount = profile?.role === 'account';

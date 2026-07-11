@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { fetchAllRows } from '@/lib/utils';
 
 // Roles that can see all data (not filtered by their own idstaff)
-const ADMIN_ROLES = ['admin', 'bod', 'logistic', 'account'];
+const ADMIN_ROLES = ['client', 'admin', 'bod', 'logistic', 'account', 'superadmin'];
 
 interface CustomerOrder {
   id: string; noTempahan: string; idSale: string; marketerIdStaff: string; marketerName: string; noPhone: string;

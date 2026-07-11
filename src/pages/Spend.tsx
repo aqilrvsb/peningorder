@@ -80,7 +80,7 @@ const Spend: React.FC = () => {
     tarikhSpend: '',
   });
 
-  const canCreate = profile?.role === 'marketer' || profile?.role === 'admin';
+  const canCreate = profile?.role === 'marketer' || profile?.role === 'admin' || profile?.role === 'client' || profile?.role === 'superadmin';
 
   // Check if current user is marketer (should only see their own data)
   const isMarketer = profile?.role === 'marketer';

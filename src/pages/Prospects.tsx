@@ -77,7 +77,7 @@ const Prospects: React.FC = () => {
     adminIdStaff: '',
   });
 
-  const canCreate = profile?.role === 'marketer' || profile?.role === 'admin';
+  const canCreate = profile?.role === 'marketer' || profile?.role === 'admin' || profile?.role === 'client' || profile?.role === 'superadmin';
 
   // Filter prospects based on search and date range
   const filteredProspects = useMemo(() => {
