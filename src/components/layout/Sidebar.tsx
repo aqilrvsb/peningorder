@@ -78,10 +78,6 @@ const logisticItems: NavItem[] = [
 // ============ ACCOUNT ROLE ============
 const accountItems: NavItem[] = [
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
-  { label: 'Report Spend', path: '/dashboard/account/report-spend', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Pengesahan', path: '/dashboard/account/pengesahan', icon: <Clock className="w-5 h-5" /> },
-  { label: 'Approved', path: '/dashboard/account/approved', icon: <CheckCircle className="w-5 h-5" /> },
-  { label: 'Rejected', path: '/dashboard/account/rejected', icon: <XCircle className="w-5 h-5" /> },
   { label: 'Expenses', path: '/dashboard/account/expenses', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/account/pending-tracking', icon: <Clock className="w-5 h-5" /> },
   { label: 'Success Tracking', path: '/dashboard/account/success-tracking', icon: <CheckCircle className="w-5 h-5" /> },
