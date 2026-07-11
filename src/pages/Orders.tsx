@@ -170,25 +170,26 @@ const Orders: React.FC = () => {
     const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
     const totalShipped = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
 
-    // Remaining = still in transit (Shipped, not yet delivered)
-    const remainingOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped');
-    const totalRemaining = remainingOrders.length;
-    const totalSalesRemaining = remainingOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-
     // Success = delivered (webhook set delivery_status = Success when seo = Successful Delivery)
     const successOrders = filteredOrders.filter(o => o.deliveryStatus === 'Success');
     const totalSuccess = successOrders.length;
     const totalSalesSuccess = successOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Return
-    const returnOrders = filteredOrders.filter(o => o.deliveryStatus === 'Failed' || o.deliveryStatus === 'Return');
+    // Return (no money — parcel came back)
+    const returnOrders = filteredOrders.filter(o => getCollectionStatus(o) === 'Return');
     const totalReturn = returnOrders.length;
     const totalSalesReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Total Collection = money actually in hand (CASH upfront + COD remitted)
+    // Collection = money in hand (CASH upfront + COD remitted)
     const collectionOrders = filteredOrders.filter(o => getCollectionStatus(o) === 'Success');
     const totalCollection = collectionOrders.length;
     const totalSalesCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
+    // Remaining = outstanding money = Total Sales - Collection - Return
+    //   (these three partition every order: COD not-yet-remitted = Pending = Remaining)
+    const remainingOrders = filteredOrders.filter(o => getCollectionStatus(o) === 'Pending');
+    const totalRemaining = remainingOrders.length;
+    const totalSalesRemaining = totalSales - totalSalesCollection - totalSalesReturn;
 
     // Cost Product and Cost Postage totals
     const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
