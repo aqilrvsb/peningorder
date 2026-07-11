@@ -15,6 +15,46 @@ const corsHeaders = {
 //   CANCEL_STATUS_UPDATED — cancellation
 //   (Checkout) data payload after successful pay: connoteURL + orderId + tracking (data.consign_no)
 
+// WhatsApp digits for Whacenter: "0139876543" -> "60139876543"
+const waPhone = (raw: string): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("60")) return digits;
+  if (digits.startsWith("0")) return "60" + digits.slice(1);
+  return "60" + digits;
+};
+
+// Fire-and-forget customer notification via the tenant's own Whacenter device.
+// Never throws — a WhatsApp failure must not break webhook processing.
+async function sendWhatsApp(
+  supabase: any,
+  ownerUserId: string | null | undefined,
+  customerPhone: string | null | undefined,
+  message: string,
+): Promise<string> {
+  try {
+    if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
+    const { data: device } = await supabase
+      .from("device_setting")
+      .select("instance, status_wa")
+      .eq("user_id", ownerUserId)
+      .maybeSingle();
+    if (!device?.instance) return "wa_skipped_no_device";
+
+    const number = waPhone(customerPhone);
+    if (!number) return "wa_skipped_bad_phone";
+
+    const url = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(number)}&message=${encodeURIComponent(message)}`;
+    const res = await fetch(url, { method: "GET" });
+    const txt = await res.text();
+    console.log(`[whatsapp] send status=${res.status} body=${txt.slice(0, 200)}`);
+    return res.ok ? "wa_sent" : `wa_failed_${res.status}`;
+  } catch (err) {
+    console.error("[whatsapp] send error:", err);
+    return "wa_error";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -52,7 +92,7 @@ serve(async (req) => {
     // 1) Try to locate the customer_purchases row this webhook is about.
     //    We stamp orderId at create-time and tracking_number after CHECKOUT/STATUS webhooks.
     const findRow = async (): Promise<any> => {
-      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale";
+      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, owner_user_id";
       if (consignNo) {
         const r = await supabase.from("customer_purchases").select(cols).eq("tracking_number", consignNo).maybeSingle();
         if (r.data) return r.data;
@@ -93,6 +133,16 @@ serve(async (req) => {
           })
           .eq("id", matched.id);
         action = "checkout_updated";
+
+        // Notify customer via the tenant's WhatsApp device
+        const courierName = (matched.kurier || "").replace(/\s+(COD|CASH)$/i, "") || "kurier";
+        const waMsg =
+          `Salam ${matched.name_customer || ""}! 📦\n\n` +
+          `Pesanan anda telah dihantar ke ${courierName}.\n\n` +
+          `No Tracking: ${trackingNumber}\n\n` +
+          `Terima kasih kerana membeli dengan kami! 🙏`;
+        const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+        action = `${action}+${waResult}`;
       } else if (trackingNumber && orderId) {
         // Order row exists but we didn't find it — try id_sale match again with orderId
         await supabase
@@ -121,6 +171,16 @@ serve(async (req) => {
           })
           .eq("id", matched.id);
         action = "status_updated";
+
+        // Delivered → thank-you WhatsApp (only on the transition, not repeats)
+        if (isDelivered && matched.delivery_status !== "Success") {
+          const waMsg =
+            `Salam ${matched.name_customer || ""}! ✅\n\n` +
+            `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah BERJAYA dihantar.\n\n` +
+            `Terima kasih kerana membeli dengan kami! 🙏`;
+          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+          action = `${action}+${waResult}`;
+        }
       }
     } else if (event === "COD_REMITTED") {
       if (matched) {

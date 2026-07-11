@@ -83,10 +83,11 @@ const Profile: React.FC = () => {
 
   // Load device for marketer
   useEffect(() => {
-    if (isMarketer && profile?.id) {
+    // Individual mode: every tenant gets a WhatsApp device
+    if (profile?.id) {
       loadDevice();
     }
-  }, [isMarketer, profile?.id]);
+  }, [profile?.id]);
 
   const loadDevice = async () => {
     if (!profile?.id) return;
@@ -607,8 +608,8 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* Device Settings - Marketers Only */}
-      {isMarketer && (
+      {/* WhatsApp Device — every tenant (used for customer notifications) */}
+      {true && (
         <div className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
