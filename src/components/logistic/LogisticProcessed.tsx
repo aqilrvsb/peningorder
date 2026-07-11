@@ -39,7 +39,7 @@ import { toast } from "sonner";
 import Swal from "sweetalert2";
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
-const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
+const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
 const LogisticProcessed = () => {
@@ -161,7 +161,7 @@ const LogisticProcessed = () => {
     "Sarawak", "Selangor", "Terengganu", "Kuala Lumpur", "Labuan", "Putrajaya"
   ];
 
-  const KURIER_OPTIONS = ["Ninjavan COD", "Ninjavan CASH", "Poslaju COD", "Poslaju CASH", "Kurier Tiktok", "Kurier Shopee"];
+  const KURIER_OPTIONS = ["Ninjavan COD", "Ninjavan CASH", "Poslaju COD", "Poslaju CASH", "Kurier Tiktok"];
 
   // Open edit dialog
   const handleOpenEdit = (order: any) => {
@@ -370,12 +370,12 @@ const LogisticProcessed = () => {
 
     const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
-    // Separate NinjaVan orders and Shopee/Tiktok orders
+    // Separate NinjaVan orders and Tiktok orders
     const ninjavanOrdersForPrint = selectedOrdersList.filter(
-      (o: any) => getOrderPlatform(o) !== "Shopee" && getOrderPlatform(o) !== "Tiktok" && o.tracking_number
+      (o: any) => getOrderPlatform(o) !== "Tiktok" && o.tracking_number
     );
     const marketplaceOrders = selectedOrdersList.filter(
-      (o: any) => (getOrderPlatform(o) === "Shopee" || getOrderPlatform(o) === "Tiktok") && o.waybill_url
+      (o: any) => getOrderPlatform(o) === "Tiktok" && o.waybill_url
     );
 
     if (ninjavanOrdersForPrint.length === 0 && marketplaceOrders.length === 0) {
@@ -405,7 +405,7 @@ const LogisticProcessed = () => {
         }
       }
 
-      // Handle Shopee/Tiktok orders (merge waybills)
+      // Handle Tiktok orders (merge waybills)
       if (marketplaceOrders.length > 0) {
         const waybillUrls = marketplaceOrders.map((o: any) => o.waybill_url);
 
@@ -415,12 +415,12 @@ const LogisticProcessed = () => {
 
         if (response.error) {
           console.error("Marketplace waybill error:", response.error);
-          toast.error("Failed to fetch Shopee/Tiktok waybills");
+          toast.error("Failed to fetch Tiktok waybills");
         } else if (response.data) {
           const blob = new Blob([response.data], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           window.open(url, "_blank");
-          toast.success(`Shopee/Tiktok waybill for ${waybillUrls.length} order(s) opened`);
+          toast.success(`Tiktok waybill for ${waybillUrls.length} order(s) opened`);
         }
       }
     } catch (error: any) {
@@ -742,7 +742,7 @@ const LogisticProcessed = () => {
                           <td className="p-2">
                             <span className={`text-xs font-medium ${
                               getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
-                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
+                              getOrderPlatform(order) === "Threads" ? "text-slate-500" :
                               getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
                               getOrderPlatform(order) === "Google" ? "text-green-600" :
                               getOrderPlatform(order) === "Database" ? "text-purple-600" :

@@ -77,14 +77,14 @@ interface MarketerProfitStats {
   postageDatabase: number;
   unitBundleDatabase: number;
   profitDatabase: number;
-  // Shopee
-  salesShopee: number;
-  collectionShopee: number;
-  spendShopee: number;
-  costProductShopee: number;
-  postageShopee: number;
-  unitBundleShopee: number;
-  profitShopee: number;
+  // Threads
+  salesThreads: number;
+  collectionThreads: number;
+  spendThreads: number;
+  costProductThreads: number;
+  postageThreads: number;
+  unitBundleThreads: number;
+  profitThreads: number;
   // Tiktok
   salesTiktok: number;
   collectionTiktok: number;
@@ -268,7 +268,7 @@ const AccountReportProfit: React.FC = () => {
 
   // Calculate company expenses by platform (from expenses table platform field)
   const expensesByPlatform = useMemo(() => {
-    const platformMap: Record<string, number> = { facebook: 0, tiktok: 0, shopee: 0, database: 0, google: 0 };
+    const platformMap: Record<string, number> = { facebook: 0, tiktok: 0, threads: 0, database: 0, google: 0 };
 
     // Helper to normalize platform string to key
     const normalizePlatform = (p: string | null): string | null => {
@@ -276,7 +276,7 @@ const AccountReportProfit: React.FC = () => {
       const lower = p.toLowerCase();
       if (lower === 'facebook') return 'facebook';
       if (lower === 'tiktok') return 'tiktok';
-      if (lower === 'shopee') return 'shopee';
+      if (lower === 'threads') return 'threads';
       if (lower === 'database') return 'database';
       if (lower === 'google') return 'google';
       return null;
@@ -353,7 +353,7 @@ const AccountReportProfit: React.FC = () => {
           profit: 0,
           salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
           salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
-          salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, unitBundleShopee: 0, profitShopee: 0,
+          salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0, profitThreads: 0,
           salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0, profitTiktok: 0,
           salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0, profitGoogle: 0,
         };
@@ -367,7 +367,7 @@ const AccountReportProfit: React.FC = () => {
       const name = profiles[idStaff] || idStaff;
       const sale = Number(order.total_sale) || 0;
       const platform = order.jenis_platform || 'Facebook';
-      const isMarketplace = platform === 'Shopee' || platform === 'Tiktok';
+      const isMarketplace = platform === 'Tiktok';
 
       // Cost product uses base_cost or hq_cost based on dropdown
       const costProduct = cogsBy === 'hq_cost'
@@ -408,12 +408,12 @@ const AccountReportProfit: React.FC = () => {
         stats[idStaff].costProductDatabase += costProduct;
         stats[idStaff].postageDatabase += postage;
         stats[idStaff].unitBundleDatabase += unitBundle;
-      } else if (platform === 'Shopee') {
-        stats[idStaff].salesShopee += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionShopee += sale;
-        stats[idStaff].costProductShopee += costProduct;
-        stats[idStaff].postageShopee += postage;
-        stats[idStaff].unitBundleShopee += unitBundle;
+      } else if (platform === 'Threads') {
+        stats[idStaff].salesThreads += sale;
+        if (order.seo === 'Successful Delivery') stats[idStaff].collectionThreads += sale;
+        stats[idStaff].costProductThreads += costProduct;
+        stats[idStaff].postageThreads += postage;
+        stats[idStaff].unitBundleThreads += unitBundle;
       } else if (platform === 'Tiktok') {
         stats[idStaff].salesTiktok += sale;
         if (order.seo === 'Successful Delivery') stats[idStaff].collectionTiktok += sale;
@@ -447,8 +447,8 @@ const AccountReportProfit: React.FC = () => {
         stats[idStaff].spendFB += amount;
       } else if (platform === 'Database') {
         stats[idStaff].spendDatabase += amount;
-      } else if (platform === 'Shopee') {
-        stats[idStaff].spendShopee += amount;
+      } else if (platform === 'Threads') {
+        stats[idStaff].spendThreads += amount;
       } else if (platform === 'Tiktok') {
         stats[idStaff].spendTiktok += amount;
       } else if (platform === 'Google') {
@@ -468,13 +468,13 @@ const AccountReportProfit: React.FC = () => {
       // Platform profit uses same profitBy logic
       const revFB = profitBy === 'collection' ? stat.collectionFB : stat.salesFB;
       const revDB = profitBy === 'collection' ? stat.collectionDatabase : stat.salesDatabase;
-      const revShopee = profitBy === 'collection' ? stat.collectionShopee : stat.salesShopee;
+      const revThreads = profitBy === 'collection' ? stat.collectionThreads : stat.salesThreads;
       const revTiktok = profitBy === 'collection' ? stat.collectionTiktok : stat.salesTiktok;
       const revGoogle = profitBy === 'collection' ? stat.collectionGoogle : stat.salesGoogle;
 
       stat.profitFB = revFB - stat.spendFB - stat.costProductFB - stat.postageFB;
       stat.profitDatabase = revDB - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
-      stat.profitShopee = revShopee - stat.costProductShopee - stat.postageShopee;
+      stat.profitThreads = revThreads - stat.spendThreads - stat.costProductThreads - stat.postageThreads;
       stat.profitTiktok = revTiktok - stat.costProductTiktok - stat.postageTiktok;
       stat.profitGoogle = revGoogle - stat.spendGoogle - stat.costProductGoogle - stat.postageGoogle;
     });
@@ -508,8 +508,8 @@ const AccountReportProfit: React.FC = () => {
         spendFB: acc.spendFB + stat.spendFB, costProductFB: acc.costProductFB + stat.costProductFB, postageFB: acc.postageFB + stat.postageFB, unitBundleFB: acc.unitBundleFB + stat.unitBundleFB,
         salesDatabase: acc.salesDatabase + stat.salesDatabase, collectionDatabase: acc.collectionDatabase + stat.collectionDatabase,
         spendDatabase: acc.spendDatabase + stat.spendDatabase, costProductDatabase: acc.costProductDatabase + stat.costProductDatabase, postageDatabase: acc.postageDatabase + stat.postageDatabase, unitBundleDatabase: acc.unitBundleDatabase + stat.unitBundleDatabase,
-        salesShopee: acc.salesShopee + stat.salesShopee, collectionShopee: acc.collectionShopee + stat.collectionShopee,
-        spendShopee: acc.spendShopee + stat.spendShopee, costProductShopee: acc.costProductShopee + stat.costProductShopee, postageShopee: acc.postageShopee + stat.postageShopee, unitBundleShopee: acc.unitBundleShopee + stat.unitBundleShopee,
+        salesThreads: acc.salesThreads + stat.salesThreads, collectionThreads: acc.collectionThreads + stat.collectionThreads,
+        spendThreads: acc.spendThreads + stat.spendThreads, costProductThreads: acc.costProductThreads + stat.costProductThreads, postageThreads: acc.postageThreads + stat.postageThreads, unitBundleThreads: acc.unitBundleThreads + stat.unitBundleThreads,
         salesTiktok: acc.salesTiktok + stat.salesTiktok, collectionTiktok: acc.collectionTiktok + stat.collectionTiktok,
         spendTiktok: acc.spendTiktok + stat.spendTiktok, costProductTiktok: acc.costProductTiktok + stat.costProductTiktok, postageTiktok: acc.postageTiktok + stat.postageTiktok, unitBundleTiktok: acc.unitBundleTiktok + stat.unitBundleTiktok,
         salesGoogle: acc.salesGoogle + stat.salesGoogle, collectionGoogle: acc.collectionGoogle + stat.collectionGoogle,
@@ -520,7 +520,7 @@ const AccountReportProfit: React.FC = () => {
         totalReturn: 0, totalSpend: 0, totalCostProduct: 0, totalPostage: 0, totalUnitBundle: 0,
         salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0,
         salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0,
-        salesShopee: 0, collectionShopee: 0, spendShopee: 0, costProductShopee: 0, postageShopee: 0, unitBundleShopee: 0,
+        salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0,
         salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0,
         salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0,
       }
@@ -537,7 +537,7 @@ const AccountReportProfit: React.FC = () => {
   const platformTotals = useMemo(() => {
     const revFB = profitBy === 'collection' ? totals.collectionFB : totals.salesFB;
     const revDB = profitBy === 'collection' ? totals.collectionDatabase : totals.salesDatabase;
-    const revShopee = profitBy === 'collection' ? totals.collectionShopee : totals.salesShopee;
+    const revThreads = profitBy === 'collection' ? totals.collectionThreads : totals.salesThreads;
     const revTiktok = profitBy === 'collection' ? totals.collectionTiktok : totals.salesTiktok;
     const revGoogle = profitBy === 'collection' ? totals.collectionGoogle : totals.salesGoogle;
 
@@ -564,16 +564,16 @@ const AccountReportProfit: React.FC = () => {
         roas: totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0,
         profit: revDB - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase - expensesByPlatform.database,
       },
-      shopee: {
-        sales: totals.salesShopee,
-        collection: totals.collectionShopee,
-        spend: totals.spendShopee,
-        costProduct: totals.costProductShopee,
-        postage: totals.postageShopee,
-        unitBundle: totals.unitBundleShopee,
-        expenses: expensesByPlatform.shopee,
-        roas: totals.spendShopee > 0 ? totals.salesShopee / totals.spendShopee : 0,
-        profit: revShopee - totals.costProductShopee - totals.postageShopee - expensesByPlatform.shopee,
+      threads: {
+        sales: totals.salesThreads,
+        collection: totals.collectionThreads,
+        spend: totals.spendThreads,
+        costProduct: totals.costProductThreads,
+        postage: totals.postageThreads,
+        unitBundle: totals.unitBundleThreads,
+        expenses: expensesByPlatform.threads,
+        roas: totals.spendThreads > 0 ? totals.salesThreads / totals.spendThreads : 0,
+        profit: revThreads - totals.spendThreads - totals.costProductThreads - totals.postageThreads - expensesByPlatform.threads,
       },
       tiktok: {
         sales: totals.salesTiktok,
@@ -868,49 +868,49 @@ const AccountReportProfit: React.FC = () => {
             </div>
           </div>
 
-          {/* Shopee */}
-          <div className="stat-card bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800">
-            <div className="flex items-center gap-2 text-orange-600 font-semibold mb-3">
+          {/* Threads */}
+          <div className="stat-card bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2 text-slate-600 font-semibold mb-3">
               <ShoppingBag className="w-5 h-5" />
-              SHOPEE
+              THREADS
             </div>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.sales)}</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.threads.sales)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.shopee.collection)}</span>
+                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.threads.collection)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.shopee.spend)}</span>
+                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.threads.spend)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.costProduct)}</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.threads.costProduct)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.shopee.postage)}</span>
+                <span className="font-semibold">RM {formatNumber(platformTotals.threads.postage)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.shopee.expenses)}</span>
+                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.threads.expenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.shopee.unitBundle}</span>
+                <span className="font-semibold text-amber-600">{platformTotals.threads.unitBundle}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.shopee.roas.toFixed(2)}x</span>
+                <span className="font-semibold text-amber-600">{platformTotals.threads.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-orange-200 dark:border-orange-800">
+              <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
                 <span className="font-semibold">Profit:</span>
-                <span className={`font-bold ${platformTotals.shopee.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  RM {formatNumber(platformTotals.shopee.profit)}
+                <span className={`font-bold ${platformTotals.threads.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  RM {formatNumber(platformTotals.threads.profit)}
                 </span>
               </div>
             </div>

@@ -46,10 +46,10 @@ const BundleTab: React.FC = () => {
     priceNormalNp: '0.00',
     priceNormalEp: '0.00',
     priceNormalEc: '0.00',
-    // Shopee prices by customer type
-    priceShopeeNp: '0.00',
-    priceShopeeEp: '0.00',
-    priceShopeeEc: '0.00',
+    // Threads prices by customer type
+    priceThreadsNp: '0.00',
+    priceThreadsEp: '0.00',
+    priceThreadsEc: '0.00',
     // TikTok prices by customer type
     priceTiktokNp: '0.00',
     priceTiktokEp: '0.00',
@@ -68,10 +68,10 @@ const BundleTab: React.FC = () => {
         priceNormalNp: parseFloat(formData.priceNormalNp) || 0,
         priceNormalEp: parseFloat(formData.priceNormalEp) || 0,
         priceNormalEc: parseFloat(formData.priceNormalEc) || 0,
-        // Shopee prices by customer type
-        priceShopeeNp: parseFloat(formData.priceShopeeNp) || 0,
-        priceShopeeEp: parseFloat(formData.priceShopeeEp) || 0,
-        priceShopeeEc: parseFloat(formData.priceShopeeEc) || 0,
+        // Threads prices by customer type
+        priceThreadsNp: parseFloat(formData.priceThreadsNp) || 0,
+        priceThreadsEp: parseFloat(formData.priceThreadsEp) || 0,
+        priceThreadsEc: parseFloat(formData.priceThreadsEc) || 0,
         // TikTok prices by customer type
         priceTiktokNp: parseFloat(formData.priceTiktokNp) || 0,
         priceTiktokEp: parseFloat(formData.priceTiktokEp) || 0,
@@ -86,10 +86,10 @@ const BundleTab: React.FC = () => {
         priceNormalNp: parseFloat(formData.priceNormalNp) || 0,
         priceNormalEp: parseFloat(formData.priceNormalEp) || 0,
         priceNormalEc: parseFloat(formData.priceNormalEc) || 0,
-        // Shopee prices by customer type
-        priceShopeeNp: parseFloat(formData.priceShopeeNp) || 0,
-        priceShopeeEp: parseFloat(formData.priceShopeeEp) || 0,
-        priceShopeeEc: parseFloat(formData.priceShopeeEc) || 0,
+        // Threads prices by customer type
+        priceThreadsNp: parseFloat(formData.priceThreadsNp) || 0,
+        priceThreadsEp: parseFloat(formData.priceThreadsEp) || 0,
+        priceThreadsEc: parseFloat(formData.priceThreadsEc) || 0,
         // TikTok prices by customer type
         priceTiktokNp: parseFloat(formData.priceTiktokNp) || 0,
         priceTiktokEp: parseFloat(formData.priceTiktokEp) || 0,
@@ -110,9 +110,9 @@ const BundleTab: React.FC = () => {
       priceNormalNp: '0.00',
       priceNormalEp: '0.00',
       priceNormalEc: '0.00',
-      priceShopeeNp: '0.00',
-      priceShopeeEp: '0.00',
-      priceShopeeEc: '0.00',
+      priceThreadsNp: '0.00',
+      priceThreadsEp: '0.00',
+      priceThreadsEc: '0.00',
       priceTiktokNp: '0.00',
       priceTiktokEp: '0.00',
       priceTiktokEc: '0.00',
@@ -129,9 +129,9 @@ const BundleTab: React.FC = () => {
       priceNormalNp: bundle.priceNormalNp.toFixed(2),
       priceNormalEp: bundle.priceNormalEp.toFixed(2),
       priceNormalEc: bundle.priceNormalEc.toFixed(2),
-      priceShopeeNp: bundle.priceShopeeNp.toFixed(2),
-      priceShopeeEp: bundle.priceShopeeEp.toFixed(2),
-      priceShopeeEc: bundle.priceShopeeEc.toFixed(2),
+      priceThreadsNp: bundle.priceThreadsNp.toFixed(2),
+      priceThreadsEp: bundle.priceThreadsEp.toFixed(2),
+      priceThreadsEc: bundle.priceThreadsEc.toFixed(2),
       priceTiktokNp: bundle.priceTiktokNp.toFixed(2),
       priceTiktokEp: bundle.priceTiktokEp.toFixed(2),
       priceTiktokEc: bundle.priceTiktokEc.toFixed(2),
@@ -267,9 +267,9 @@ const BundleTab: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Shopee Prices Section */}
+                  {/* Threads Prices Section */}
                   <div className="border rounded-lg p-4 space-y-3">
-                    <h4 className="font-semibold text-sm text-orange-600">Shopee Price</h4>
+                    <h4 className="font-semibold text-sm text-orange-600">Threads Price</h4>
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">NP (New Prospect)</Label>
@@ -277,8 +277,8 @@ const BundleTab: React.FC = () => {
                           type="number"
                           step="0.01"
                           placeholder="0.00"
-                          value={formData.priceShopeeNp}
-                          onChange={(e) => setFormData({ ...formData, priceShopeeNp: e.target.value })}
+                          value={formData.priceThreadsNp}
+                          onChange={(e) => setFormData({ ...formData, priceThreadsNp: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -287,8 +287,8 @@ const BundleTab: React.FC = () => {
                           type="number"
                           step="0.01"
                           placeholder="0.00"
-                          value={formData.priceShopeeEp}
-                          onChange={(e) => setFormData({ ...formData, priceShopeeEp: e.target.value })}
+                          value={formData.priceThreadsEp}
+                          onChange={(e) => setFormData({ ...formData, priceThreadsEp: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -297,8 +297,8 @@ const BundleTab: React.FC = () => {
                           type="number"
                           step="0.01"
                           placeholder="0.00"
-                          value={formData.priceShopeeEc}
-                          onChange={(e) => setFormData({ ...formData, priceShopeeEc: e.target.value })}
+                          value={formData.priceThreadsEc}
+                          onChange={(e) => setFormData({ ...formData, priceThreadsEc: e.target.value })}
                         />
                       </div>
                     </div>
@@ -360,7 +360,7 @@ const BundleTab: React.FC = () => {
                     <span className="text-blue-600">Normal Price</span>
                   </TableHead>
                   <TableHead className="text-center" colSpan={3}>
-                    <span className="text-orange-600">Shopee Price</span>
+                    <span className="text-orange-600">Threads Price</span>
                   </TableHead>
                   <TableHead className="text-center" colSpan={3}>
                     <span className="text-pink-600">TikTok Price</span>
@@ -398,10 +398,10 @@ const BundleTab: React.FC = () => {
                       <TableCell className="text-blue-600">RM {bundle.priceNormalNp.toFixed(2)}</TableCell>
                       <TableCell className="text-blue-600">RM {bundle.priceNormalEp.toFixed(2)}</TableCell>
                       <TableCell className="text-blue-600">RM {bundle.priceNormalEc.toFixed(2)}</TableCell>
-                      {/* Shopee prices */}
-                      <TableCell className="text-orange-600">RM {bundle.priceShopeeNp.toFixed(2)}</TableCell>
-                      <TableCell className="text-orange-600">RM {bundle.priceShopeeEp.toFixed(2)}</TableCell>
-                      <TableCell className="text-orange-600">RM {bundle.priceShopeeEc.toFixed(2)}</TableCell>
+                      {/* Threads prices */}
+                      <TableCell className="text-orange-600">RM {bundle.priceThreadsNp.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-600">RM {bundle.priceThreadsEp.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-600">RM {bundle.priceThreadsEc.toFixed(2)}</TableCell>
                       {/* TikTok prices */}
                       <TableCell className="text-pink-600">RM {bundle.priceTiktokNp.toFixed(2)}</TableCell>
                       <TableCell className="text-pink-600">RM {bundle.priceTiktokEp.toFixed(2)}</TableCell>

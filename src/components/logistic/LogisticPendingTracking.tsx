@@ -80,7 +80,7 @@ const LogisticPendingTracking = () => {
   const whatsappMap = new Map(profiles.map((p: any) => [p.username, p.whatsapp_number]));
 
   // Fetch pending tracking orders (Shipped + SEO not successful) - includes both COD and CASH
-  // All platforms now use NinjaVan (including Tiktok, Shopee)
+  // All platforms now use NinjaVan (including Tiktok)
   // Filter by date_order (not date_processed)
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-pending-tracking", startDate, endDate],
@@ -522,8 +522,8 @@ const LogisticPendingTracking = () => {
               <SelectContent>
                 <SelectItem value="all">All Platform</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
+                <SelectItem value="Threads">Threads</SelectItem>
                 <SelectItem value="Tiktok">TikTok</SelectItem>
-                <SelectItem value="Shopee">Shopee</SelectItem>
                 <SelectItem value="Database">Database</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
@@ -640,7 +640,7 @@ const LogisticPendingTracking = () => {
                           <td className="p-2">
                             <span className={`text-xs font-medium ${
                               order.jenis_platform === "Tiktok" ? "text-pink-600" :
-                              order.jenis_platform === "Shopee" ? "text-orange-500" :
+                              order.jenis_platform === "Threads" ? "text-slate-500" :
                               order.jenis_platform === "Facebook" ? "text-blue-600" :
                               order.jenis_platform === "Google" ? "text-green-600" :
                               order.jenis_platform === "Database" ? "text-purple-600" :

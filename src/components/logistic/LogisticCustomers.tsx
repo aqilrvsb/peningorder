@@ -339,8 +339,8 @@ const LogisticCustomers = () => {
 
   const platformStats = [
     { title: "Facebook", ...getPlatformStats("Facebook"), color: "bg-blue-100 text-blue-800" },
+    { title: "Threads", ...getPlatformStats("Threads"), color: "bg-slate-100 text-slate-800" },
     { title: "Tiktok", ...getPlatformStats("Tiktok"), color: "bg-pink-100 text-pink-800" },
-    { title: "Shopee", ...getPlatformStats("Shopee"), color: "bg-orange-100 text-orange-800" },
     { title: "Database", ...getPlatformStats("Database"), color: "bg-purple-100 text-purple-800" },
     { title: "Google", ...getPlatformStats("Google"), color: "bg-green-100 text-green-800" },
   ];
@@ -544,7 +544,7 @@ const LogisticCustomers = () => {
     enabled: !!user?.id,
   });
 
-  const MANUAL_TRACKING_SOURCES = ["Tiktok", "Shopee"];
+  const MANUAL_TRACKING_SOURCES = ["Tiktok"];
 
   const createCustomerPurchase = useMutation({
     mutationFn: async (data: CustomerPurchaseData) => {
@@ -644,7 +644,7 @@ const LogisticCustomers = () => {
       let ninjavanOrderId = null;
       let attachmentUrl = null;
 
-      // Upload PDF attachment for Tiktok/Shopee orders
+      // Upload PDF attachment for Tiktok orders
       if (usesManualTracking && data.attachmentFile) {
         const fileExt = data.attachmentFile.name.split('.').pop();
         const fileName = `${user?.id}/${Date.now()}_${data.trackingNumber}.${fileExt}`;
@@ -664,7 +664,7 @@ const LogisticCustomers = () => {
         }
       }
 
-      // Route non-Tiktok/Shopee sources through Parcel Daily (unified middleware)
+      // Route non-Tiktok sources through Parcel Daily (unified middleware)
       if (parceldailyConfig && usesNinjaVan) {
         try {
           const pdResponse = await supabase.functions.invoke("parceldaily-order", {
@@ -708,7 +708,7 @@ const LogisticCustomers = () => {
         jenisPlatform = orderFromValue;
       }
 
-      const isDirectShipped = orderFromValue === 'Tiktok' || orderFromValue === 'Shopee';
+      const isDirectShipped = orderFromValue === 'Tiktok';
       const deliveryStatus = isDirectShipped ? 'Shipped' : 'Pending';
       const dateProcessed = isDirectShipped ? (data.dateOrder || getMalaysiaDate()) : null;
 
@@ -1061,8 +1061,8 @@ const LogisticCustomers = () => {
               <SelectContent>
                 <SelectItem value="all">All Platform</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
+                <SelectItem value="Threads">Threads</SelectItem>
                 <SelectItem value="Tiktok">Tiktok</SelectItem>
-                <SelectItem value="Shopee">Shopee</SelectItem>
                 <SelectItem value="Database">Database</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
@@ -1176,15 +1176,6 @@ const LogisticCustomers = () => {
                               >
                                 {order.tracking_number}
                               </a>
-                            ) : order.jenis_platform === "Shopee" ? (
-                              <a
-                                href={`https://seller.shopee.com.my/portal/sale/order?search=${encodeURIComponent(order.tracking_number)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-orange-600 hover:underline font-mono text-xs"
-                              >
-                                {order.tracking_number}
-                              </a>
                             ) : (
                               <span className="font-mono text-xs">{order.tracking_number}</span>
                             )
@@ -1234,7 +1225,7 @@ const LogisticCustomers = () => {
                         <td className="p-2">
                           <span className={`text-xs font-medium ${
                             order.jenis_platform === "Tiktok" ? "text-pink-600" :
-                            order.jenis_platform === "Shopee" ? "text-orange-500" :
+                            order.jenis_platform === "Threads" ? "text-slate-500" :
                             order.jenis_platform === "Facebook" ? "text-blue-600" :
                             order.jenis_platform === "Google" ? "text-green-600" :
                             order.jenis_platform === "Database" ? "text-purple-600" :

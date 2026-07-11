@@ -13,10 +13,10 @@ export interface Bundle {
   priceNormalNp: number;
   priceNormalEp: number;
   priceNormalEc: number;
-  // Shopee prices by customer type
-  priceShopeeNp: number;
-  priceShopeeEp: number;
-  priceShopeeEc: number;
+  // Threads prices by customer type
+  priceThreadsNp: number;
+  priceThreadsEp: number;
+  priceThreadsEc: number;
   // TikTok prices by customer type
   priceTiktokNp: number;
   priceTiktokEp: number;

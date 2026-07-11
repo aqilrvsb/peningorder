@@ -63,7 +63,7 @@ const AccountPendingTracking = () => {
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
-  // Bulk update mode: "online" (FB/Database/Google) or "marketplace" (Shopee/Tiktok XLSX)
+  // Bulk update mode: "online" (FB/Database/Google) or "marketplace" (Tiktok XLSX)
   const [bulkMode, setBulkMode] = useState<"online" | "marketplace">("online");
 
   // Bulk update states (online)
@@ -195,8 +195,8 @@ const AccountPendingTracking = () => {
     totalUnitBundle: filteredOrders.reduce((sum: number, o: any) => sum + getUnitBundle(o), 0),
   };
 
-  // Platform breakdown (Facebook, Tiktok, Shopee, Database, Google)
-  const PLATFORM_NAMES = ["Facebook", "Tiktok", "Shopee", "Database", "Google"];
+  // Platform breakdown (Facebook, Threads, Tiktok, Database, Google)
+  const PLATFORM_NAMES = ["Facebook", "Threads", "Tiktok", "Database", "Google"];
   const platformStats = PLATFORM_NAMES.map((name) => {
     const platformOrders = filteredOrders.filter((o: any) => getOrderPlatformName(o) === name);
     return {
@@ -250,23 +250,23 @@ const AccountPendingTracking = () => {
       return null;
     };
 
-    // Separate NinjaVan, JNT, and Shopee/Tiktok orders
+    // Separate NinjaVan, JNT, and Tiktok orders
     const ninjavanOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "shopee" && platform !== "tiktok" && !isJntPlatform(o) && o.tracking_number;
+        return platform !== "tiktok" && !isJntPlatform(o) && o.tracking_number;
       }
     );
     const jntOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "shopee" && platform !== "tiktok" && isJntPlatform(o) && o.tracking_number;
+        return platform !== "tiktok" && isJntPlatform(o) && o.tracking_number;
       }
     );
     const marketplaceOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return (platform === "shopee" || platform === "tiktok") && o.waybill_url;
+        return platform === "tiktok" && o.waybill_url;
       }
     );
 
@@ -320,7 +320,7 @@ const AccountPendingTracking = () => {
         }
       }
 
-      // Handle Shopee/Tiktok orders (merge waybills)
+      // Handle Tiktok orders (merge waybills)
       if (marketplaceOrders.length > 0) {
         const waybillUrls = marketplaceOrders.map((o: any) => o.waybill_url);
 
@@ -331,12 +331,12 @@ const AccountPendingTracking = () => {
 
         if (response.error) {
           console.error("Marketplace waybill error:", response.error);
-          toast.error("Failed to fetch Shopee/Tiktok waybills");
+          toast.error("Failed to fetch Tiktok waybills");
         } else if (response.data) {
           const blob = new Blob([response.data], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           window.open(url, "_blank");
-          toast.success(`Shopee/Tiktok waybill for ${waybillUrls.length} order(s) opened`);
+          toast.success(`Tiktok waybill for ${waybillUrls.length} order(s) opened`);
         }
       }
     } catch (error: any) {
@@ -488,7 +488,7 @@ const AccountPendingTracking = () => {
     }
   };
 
-  // XLSX import for Shopee/Tiktok bulk update
+  // XLSX import for Tiktok bulk update
   const handleXlsxImport = async () => {
     if (!xlsxFile) {
       toast.error("Please select an XLSX file");
@@ -522,7 +522,7 @@ const AccountPendingTracking = () => {
           }
         }
         const price = Number(row[2]) || 0;
-        // TikTok/Shopee payout exports list seller fees as negative numbers
+        // TikTok payout exports list seller fees as negative numbers
         // (deductions from payout). We store postage as a positive cost.
         const fees = Math.abs(Number(row[3]) || 0);
         if (tracking) {
@@ -827,7 +827,7 @@ const AccountPendingTracking = () => {
                 variant={bulkMode === "marketplace" ? "default" : "outline"}
                 onClick={() => setBulkMode("marketplace")}
               >
-                Shopee / Tiktok
+                Tiktok
               </Button>
             </div>
           </div>
@@ -885,7 +885,7 @@ const AccountPendingTracking = () => {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Import XLSX file from Shopee/Tiktok settlement. Columns: Tracking No | Date | Total Price | Fees
+                Import XLSX file from Tiktok settlement. Columns: Tracking No | Date | Total Price | Fees
               </p>
               <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
@@ -1076,8 +1076,8 @@ const AccountPendingTracking = () => {
                 <SelectContent>
                   <SelectItem value="all">All Platform</SelectItem>
                   <SelectItem value="Facebook">Facebook</SelectItem>
+                  <SelectItem value="Threads">Threads</SelectItem>
                   <SelectItem value="Tiktok">TikTok</SelectItem>
-                  <SelectItem value="Shopee">Shopee</SelectItem>
                   <SelectItem value="Database">Database</SelectItem>
                   <SelectItem value="Google">Google</SelectItem>
                 </SelectContent>
@@ -1347,16 +1347,7 @@ const AccountPendingTracking = () => {
                   {alreadyCollectedTrackings.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded border border-green-200 bg-green-50">
                       <span className="font-mono text-sm">{item.tracking}</span>
-                      {item.platform.toLowerCase().includes("shopee") ? (
-                        <a
-                          href={`https://seller.shopee.com.my/portal/sale/order?search=${encodeURIComponent(item.tracking)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
-                        >
-                          Shopee
-                        </a>
-                      ) : item.platform.toLowerCase().includes("tiktok") ? (
+                      {item.platform.toLowerCase().includes("tiktok") ? (
                         <a
                           href={`https://seller-my.tiktok.com/order?search=${encodeURIComponent(item.tracking)}`}
                           target="_blank"
@@ -1392,14 +1383,6 @@ const AccountPendingTracking = () => {
                         <span className="ml-2 text-xs text-muted-foreground">RM {item.price.toFixed(2)} | Fees: RM {item.fees.toFixed(2)}</span>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <a
-                          href={`https://seller.shopee.com.my/portal/sale/order?search=${encodeURIComponent(item.tracking)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
-                        >
-                          Shopee
-                        </a>
                         <a
                           href={`https://seller-my.tiktok.com/order?search=${encodeURIComponent(item.tracking)}`}
                           target="_blank"

@@ -173,11 +173,11 @@ const ReportingSpend: React.FC = () => {
 
   // Aggregate spends by platform with closing breakdown (from spends table)
   const platformStats = useMemo(() => {
-    const platforms = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
+    const platforms = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
     const platformIcons: Record<string, { icon: React.ReactNode; color: string; bgColor: string; headerColor: string }> = {
       'Facebook': { icon: <Facebook className="w-5 h-5" />, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800', headerColor: 'bg-blue-100 dark:bg-blue-900/50' },
       'Tiktok': { icon: <Video className="w-5 h-5" />, color: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-50 dark:bg-pink-950/30 border-pink-200 dark:border-pink-800', headerColor: 'bg-pink-100 dark:bg-pink-900/50' },
-      'Shopee': { icon: <ShoppingBag className="w-5 h-5" />, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800', headerColor: 'bg-orange-100 dark:bg-orange-900/50' },
+      'Threads': { icon: <ShoppingBag className="w-5 h-5" />, color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-50 dark:bg-slate-950/30 border-slate-200 dark:border-slate-800', headerColor: 'bg-slate-100 dark:bg-slate-900/50' },
       'Database': { icon: <Database className="w-5 h-5" />, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800', headerColor: 'bg-purple-100 dark:bg-purple-900/50' },
       'Google': { icon: <Globe className="w-5 h-5" />, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800', headerColor: 'bg-green-100 dark:bg-green-900/50' },
     };
@@ -471,14 +471,6 @@ const ReportingSpend: React.FC = () => {
             <p className="text-xl font-bold text-rose-700 dark:text-rose-300">RM {closingStats.live.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground">{closingStats.totalSpend > 0 ? ((closingStats.live / closingStats.totalSpend) * 100).toFixed(1) : 0}%</p>
           </div>
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
-              <Store className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Shop</span>
-            </div>
-            <p className="text-xl font-bold text-amber-700 dark:text-amber-300">RM {closingStats.shop.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">{closingStats.totalSpend > 0 ? ((closingStats.shop / closingStats.totalSpend) * 100).toFixed(1) : 0}%</p>
-          </div>
         </div>
       </div>
 
@@ -527,10 +519,6 @@ const ReportingSpend: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-rose-600 dark:text-rose-400">Live</span>
                   <span className="text-xs font-medium">RM {platform.closingBreakdown.live.toFixed(0)} <span className="text-muted-foreground">({platform.closingPct.livePct.toFixed(0)}%)</span></span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-amber-600 dark:text-amber-400">Shop</span>
-                  <span className="text-xs font-medium">RM {platform.closingBreakdown.shop.toFixed(0)} <span className="text-muted-foreground">({platform.closingPct.shopPct.toFixed(0)}%)</span></span>
                 </div>
               </div>
             </div>
@@ -601,7 +589,7 @@ const ReportingSpend: React.FC = () => {
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                       data.platform === 'Facebook' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                       data.platform === 'Tiktok' ? 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-400' :
-                      data.platform === 'Shopee' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                      data.platform === 'Threads' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
                       data.platform === 'Database' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
                       data.platform === 'Google' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                       'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'

@@ -40,7 +40,7 @@ import { toast } from "sonner";
 import Swal from "sweetalert2";
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
-const PLATFORM_OPTIONS = ["All", "Tiktok", "Shopee", "Facebook", "Database", "Google"];
+const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
 const LogisticOrder = () => {
@@ -210,7 +210,7 @@ const LogisticOrder = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Counts - all platforms now use NinjaVan (including Shopee and Tiktok)
+  // Counts - all platforms now use NinjaVan (including Tiktok)
   const counts = {
     total: orders.length,
     ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
@@ -301,7 +301,7 @@ const LogisticOrder = () => {
       (o: any) => o.kurier?.includes('Ninjavan') && o.tracking_number
     );
     const pdfUrlOrders = selectedOrdersList.filter(
-      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Shopee" || getOrderPlatform(o) === "Tiktok") && o.waybill_url
+      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Tiktok") && o.waybill_url
     );
 
     if (ninjavanOrdersForPrint.length === 0 && pdfUrlOrders.length === 0) {
@@ -331,7 +331,7 @@ const LogisticOrder = () => {
         }
       }
 
-      // Handle Poslaju/Shopee/Tiktok orders (merge existing PDF URLs)
+      // Handle Poslaju/Tiktok orders (merge existing PDF URLs)
       if (pdfUrlOrders.length > 0) {
         const waybillUrls = pdfUrlOrders.map((o: any) => o.waybill_url);
 
@@ -962,7 +962,7 @@ const LogisticOrder = () => {
                           <td className="p-2">
                             <span className={`text-xs font-medium ${
                               getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
-                              getOrderPlatform(order) === "Shopee" ? "text-orange-500" :
+                              getOrderPlatform(order) === "Threads" ? "text-slate-500" :
                               getOrderPlatform(order) === "Facebook" ? "text-blue-600" :
                               getOrderPlatform(order) === "Google" ? "text-green-600" :
                               getOrderPlatform(order) === "Database" ? "text-purple-600" :
@@ -1188,7 +1188,6 @@ const LogisticOrder = () => {
                   <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
                   <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
                   <SelectItem value="Kurier Tiktok">Kurier Tiktok</SelectItem>
-                  <SelectItem value="Kurier Shopee">Kurier Shopee</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -1000,7 +1000,7 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
                         order.noTracking
-                      ) : order.jenisPlatform !== 'Shopee' && order.jenisPlatform !== 'Tiktok' ? (
+                      ) : order.jenisPlatform !== 'Tiktok' ? (
                         <button
                           onClick={() => handleRegenerateClick(order)}
                           className="p-1.5 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
@@ -1152,7 +1152,7 @@ ${trackingUrl}`;
             <AlertDialogTitle>Padam Order?</AlertDialogTitle>
             <AlertDialogDescription>
               Adakah anda pasti mahu memadam order ini? 
-              {orderToDelete?.trackingNo && orderToDelete.platform !== 'Shopee' && orderToDelete.platform !== 'Tiktok' && (
+              {orderToDelete?.trackingNo && orderToDelete.platform !== 'Tiktok' && (
                 <span className="block mt-2 text-orange-600 dark:text-orange-400">
                   Order Ninjavan (Tracking: {orderToDelete.trackingNo}) juga akan dibatalkan.
                 </span>

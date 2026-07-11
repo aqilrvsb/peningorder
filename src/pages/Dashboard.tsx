@@ -34,6 +34,7 @@ import {
   LineChart as LineChartIcon,
   Globe,
   CheckCircle,
+  AtSign,
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaDate, fetchAllRows } from '@/lib/utils';
@@ -246,10 +247,10 @@ const Dashboard: React.FC = () => {
     const roasCollection = totalSpend > 0 ? totalCollection / totalSpend : 0;
 
     // Cost Product and Postage
-    // Cost product always applies. Shopee/Tiktok postage = settlement fees (abs).
+    // Cost product always applies. Tiktok postage = settlement fees (abs).
     const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
     const totalPostage = filteredOrders.reduce((sum, o) => {
-      return sum + ((o.jenisPlatform === 'Shopee' || o.jenisPlatform === 'Tiktok')
+      return sum + (o.jenisPlatform === 'Tiktok'
         ? Math.abs(o.kosPos || 0)
         : (o.kosPos || 0));
     }, 0);
@@ -263,7 +264,7 @@ const Dashboard: React.FC = () => {
     // Sales by Platform
     const salesFB = filteredOrders.filter(o => o.jenisPlatform === 'Facebook').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesDatabase = filteredOrders.filter(o => o.jenisPlatform === 'Database').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    const salesShopee = filteredOrders.filter(o => o.jenisPlatform === 'Shopee').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const salesThreads = filteredOrders.filter(o => o.jenisPlatform === 'Threads').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesTiktok = filteredOrders.filter(o => o.jenisPlatform === 'Tiktok').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const salesGoogle = filteredOrders.filter(o => o.jenisPlatform === 'Google').reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -301,13 +302,13 @@ const Dashboard: React.FC = () => {
 
     const closingFB = getClosingByPlatform('Facebook', salesFB);
     const closingDatabase = getClosingByPlatform('Database', salesDatabase);
-    const closingShopee = getClosingByPlatform('Shopee', salesShopee);
+    const closingThreads = getClosingByPlatform('Threads', salesThreads);
     const closingTiktok = getClosingByPlatform('Tiktok', salesTiktok);
     const closingGoogle = getClosingByPlatform('Google', salesGoogle);
 
     const customerFB = getCustomerByPlatform('Facebook', salesFB);
     const customerDatabase = getCustomerByPlatform('Database', salesDatabase);
-    const customerShopee = getCustomerByPlatform('Shopee', salesShopee);
+    const customerThreads = getCustomerByPlatform('Threads', salesThreads);
     const customerTiktok = getCustomerByPlatform('Tiktok', salesTiktok);
     const customerGoogle = getCustomerByPlatform('Google', salesGoogle);
 
@@ -343,7 +344,7 @@ const Dashboard: React.FC = () => {
     const returnPercent = totalSales > 0 ? (totalReturn / totalSales) * 100 : 0;
     const fbPercent = totalSales > 0 ? (salesFB / totalSales) * 100 : 0;
     const dbPercent = totalSales > 0 ? (salesDatabase / totalSales) * 100 : 0;
-    const shopeePercent = totalSales > 0 ? (salesShopee / totalSales) * 100 : 0;
+    const threadsPercent = totalSales > 0 ? (salesThreads / totalSales) * 100 : 0;
     const tiktokPercent = totalSales > 0 ? (salesTiktok / totalSales) * 100 : 0;
     const googlePercent = totalSales > 0 ? (salesGoogle / totalSales) * 100 : 0;
     const npPercent = totalSales > 0 ? (salesNP / totalSales) * 100 : 0;
@@ -372,20 +373,20 @@ const Dashboard: React.FC = () => {
       fbPercent,
       salesDatabase,
       dbPercent,
-      salesShopee,
-      shopeePercent,
+      salesThreads,
+      threadsPercent,
       salesTiktok,
       tiktokPercent,
       salesGoogle,
       googlePercent,
       closingFB,
       closingDatabase,
-      closingShopee,
+      closingThreads,
       closingTiktok,
       closingGoogle,
       customerFB,
       customerDatabase,
-      customerShopee,
+      customerThreads,
       customerTiktok,
       customerGoogle,
       salesNP,
@@ -606,7 +607,7 @@ const Dashboard: React.FC = () => {
     const returnPercent = totalSales > 0 ? (totalReturn / totalSales) * 100 : 0;
     const fbPercent = totalSales > 0 ? (salesFB / totalSales) * 100 : 0;
     const dbPercent = totalSales > 0 ? (salesDatabase / totalSales) * 100 : 0;
-    const shopeePercent = totalSales > 0 ? (salesShopee / totalSales) * 100 : 0;
+    const threadsPercent = totalSales > 0 ? (salesThreads / totalSales) * 100 : 0;
     const tiktokPercent = totalSales > 0 ? (salesTiktok / totalSales) * 100 : 0;
     const googlePercent = totalSales > 0 ? (salesGoogle / totalSales) * 100 : 0;
     const npPercent = totalSales > 0 ? (salesNP / totalSales) * 100 : 0;
@@ -631,20 +632,20 @@ const Dashboard: React.FC = () => {
       fbPercent,
       salesDatabase,
       dbPercent,
-      salesShopee,
-      shopeePercent,
+      salesThreads,
+      threadsPercent,
       salesTiktok,
       tiktokPercent,
       salesGoogle,
       googlePercent,
       closingFB,
       closingDatabase,
-      closingShopee,
+      closingThreads,
       closingTiktok,
       closingGoogle,
       customerFB,
       customerDatabase,
-      customerShopee,
+      customerThreads,
       customerTiktok,
       customerGoogle,
       salesNP,
@@ -991,26 +992,24 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Sales Shopee */}
+          {/* Sales Threads */}
           <div className="stat-card">
-            <div className="flex items-center gap-2 text-orange-600 mb-2">
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES SHOPEE</span>
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 mb-2">
+              <AtSign className="w-5 h-5" />
+              <span className="text-sm font-medium">SALES THREADS</span>
             </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesShopee)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.shopeePercent)}</p>
+            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesThreads)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.threadsPercent)}</p>
             <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingShopee.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingShopee.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingShopee.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingShopee.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.callPct)})</span></p>
-              <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(marketerStats.closingShopee.live)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(marketerStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingShopee.shopPct)})</span></p>
+              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingThreads.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.manualPct)})</span></p>
+              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingThreads.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.waBotPct)})</span></p>
+              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingThreads.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.websitePct)})</span></p>
+              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingThreads.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.callPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerShopee.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerShopee.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerShopee.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerShopee.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerShopee.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerShopee.ecPct)})</span></p>
+              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerThreads.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.npPct)})</span></p>
+              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerThreads.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.epPct)})</span></p>
+              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerThreads.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.ecPct)})</span></p>
             </div>
           </div>
 
@@ -1028,7 +1027,6 @@ const Dashboard: React.FC = () => {
               <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingTiktok.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.websitePct)})</span></p>
               <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingTiktok.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.callPct)})</span></p>
               <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(marketerStats.closingTiktok.live)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(marketerStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.shopPct)})</span></p>
             </div>
             <div className="mt-2 pt-2 border-t border-border space-y-1">
               <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerTiktok.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerTiktok.npPct)})</span></p>
@@ -1060,7 +1058,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Closing Summary Row (All Platforms) */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {/* Closing Manual */}
           <div className="stat-card">
             <div className="flex items-center gap-2 text-slate-600 mb-2">
@@ -1109,16 +1107,6 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesLive)}</p>
             <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.livePercent)}</p>
-          </div>
-
-          {/* Closing Shop */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-orange-500 mb-2">
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING SHOP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesShop)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.shopPercent)}</p>
           </div>
         </div>
 

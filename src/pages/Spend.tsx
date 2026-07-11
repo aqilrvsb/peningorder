@@ -45,8 +45,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday } from '@/lib/utils';
 
-const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
-const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live', 'Shop'];
+const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
+const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live'];
 
 interface Spend {
   id: string;
@@ -395,9 +395,9 @@ const Spend: React.FC = () => {
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <DollarSign className="w-4 h-4 text-red-500" />
-            <span className="text-xs uppercase font-medium">Total Spend Shopee</span>
+            <span className="text-xs uppercase font-medium">Total Spend Threads</span>
           </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Shopee'] || 0).toFixed(2)}</p>
+          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Threads'] || 0).toFixed(2)}</p>
         </div>
       </div>
 

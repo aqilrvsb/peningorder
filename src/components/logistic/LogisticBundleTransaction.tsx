@@ -18,7 +18,7 @@ import { getMalaysiaDate } from "@/lib/utils";
 
 // Detail modal type
 type DetailModalType = "success" | "return" | "remaining" | null;
-type PlatformType = "all" | "tiktok" | "shopee" | "facebook" | "database" | "google";
+type PlatformType = "all" | "tiktok" | "threads" | "facebook" | "database" | "google";
 
 // Transaction Bundle tab - Bundle-level based on logistic_bundles table
 // WITH Total Sales
@@ -96,7 +96,7 @@ const LogisticBundleTransaction = () => {
       returnUnits: number;
       totalSales: number;
       tiktok: { units: number; success: number; returnUnits: number; sales: number };
-      shopee: { units: number; success: number; returnUnits: number; sales: number };
+      threads: { units: number; success: number; returnUnits: number; sales: number };
       facebook: { units: number; success: number; returnUnits: number; sales: number };
       database: { units: number; success: number; returnUnits: number; sales: number };
       google: { units: number; success: number; returnUnits: number; sales: number };
@@ -113,7 +113,7 @@ const LogisticBundleTransaction = () => {
         returnUnits: 0,
         totalSales: 0,
         tiktok: { units: 0, success: 0, returnUnits: 0, sales: 0 },
-        shopee: { units: 0, success: 0, returnUnits: 0, sales: 0 },
+        threads: { units: 0, success: 0, returnUnits: 0, sales: 0 },
         facebook: { units: 0, success: 0, returnUnits: 0, sales: 0 },
         database: { units: 0, success: 0, returnUnits: 0, sales: 0 },
         google: { units: 0, success: 0, returnUnits: 0, sales: 0 },
@@ -150,7 +150,7 @@ const LogisticBundleTransaction = () => {
       // Platform breakdown
       const getPlatformEntry = () => {
         if (p.jenis_platform === "Tiktok") return entry.tiktok;
-        if (p.jenis_platform === "Shopee") return entry.shopee;
+        if (p.jenis_platform === "Threads") return entry.threads;
         if (p.jenis_platform === "Facebook") return entry.facebook;
         if (p.jenis_platform === "Database") return entry.database;
         if (p.jenis_platform === "Google") return entry.google;
@@ -175,9 +175,9 @@ const LogisticBundleTransaction = () => {
     // Convert to array and calculate percentages and remaining
     return Array.from(bundleMap.values())
       .map((bundle) => {
-        const totalPlatformUnits = bundle.tiktok.units + bundle.shopee.units + bundle.facebook.units + bundle.database.units + bundle.google.units;
+        const totalPlatformUnits = bundle.tiktok.units + bundle.threads.units + bundle.facebook.units + bundle.database.units + bundle.google.units;
         const tiktokPct = totalPlatformUnits > 0 ? (bundle.tiktok.units / totalPlatformUnits) * 100 : 0;
-        const shopeePct = totalPlatformUnits > 0 ? (bundle.shopee.units / totalPlatformUnits) * 100 : 0;
+        const threadsPct = totalPlatformUnits > 0 ? (bundle.threads.units / totalPlatformUnits) * 100 : 0;
         const facebookPct = totalPlatformUnits > 0 ? (bundle.facebook.units / totalPlatformUnits) * 100 : 0;
         const databasePct = totalPlatformUnits > 0 ? (bundle.database.units / totalPlatformUnits) * 100 : 0;
         const googlePct = totalPlatformUnits > 0 ? (bundle.google.units / totalPlatformUnits) * 100 : 0;
@@ -185,7 +185,7 @@ const LogisticBundleTransaction = () => {
         // Remaining = Shipped - Success - Return
         const remaining = bundle.shippedUnits - bundle.successUnits - bundle.returnUnits;
         const tiktokRemaining = bundle.tiktok.units - bundle.tiktok.success - bundle.tiktok.returnUnits;
-        const shopeeRemaining = bundle.shopee.units - bundle.shopee.success - bundle.shopee.returnUnits;
+        const threadsRemaining = bundle.threads.units - bundle.threads.success - bundle.threads.returnUnits;
         const facebookRemaining = bundle.facebook.units - bundle.facebook.success - bundle.facebook.returnUnits;
         const databaseRemaining = bundle.database.units - bundle.database.success - bundle.database.returnUnits;
         const googleRemaining = bundle.google.units - bundle.google.success - bundle.google.returnUnits;
@@ -194,7 +194,7 @@ const LogisticBundleTransaction = () => {
           ...bundle,
           remaining,
           tiktok: { ...bundle.tiktok, pct: tiktokPct, remaining: tiktokRemaining },
-          shopee: { ...bundle.shopee, pct: shopeePct, remaining: shopeeRemaining },
+          threads: { ...bundle.threads, pct: threadsPct, remaining: threadsRemaining },
           facebook: { ...bundle.facebook, pct: facebookPct, remaining: facebookRemaining },
           database: { ...bundle.database, pct: databasePct, remaining: databaseRemaining },
           google: { ...bundle.google, pct: googlePct, remaining: googleRemaining },
@@ -207,7 +207,7 @@ const LogisticBundleTransaction = () => {
   const matchesPlatform = (order: any, platform: PlatformType): boolean => {
     if (platform === "all") return true;
     if (platform === "tiktok") return order.jenis_platform === "Tiktok";
-    if (platform === "shopee") return order.jenis_platform === "Shopee";
+    if (platform === "threads") return order.jenis_platform === "Threads";
     if (platform === "facebook") return order.jenis_platform === "Facebook";
     if (platform === "database") return order.jenis_platform === "Database";
     if (platform === "google") return order.jenis_platform === "Google";
@@ -252,8 +252,8 @@ const LogisticBundleTransaction = () => {
     const totalSales = bundleTransactions.reduce((sum, b) => sum + b.totalSales, 0);
     const totalTiktok = bundleTransactions.reduce((sum, b) => sum + b.tiktok.units, 0);
     const totalTiktokSales = bundleTransactions.reduce((sum, b) => sum + b.tiktok.sales, 0);
-    const totalShopee = bundleTransactions.reduce((sum, b) => sum + b.shopee.units, 0);
-    const totalShopeeSales = bundleTransactions.reduce((sum, b) => sum + b.shopee.sales, 0);
+    const totalThreads = bundleTransactions.reduce((sum, b) => sum + b.threads.units, 0);
+    const totalThreadsSales = bundleTransactions.reduce((sum, b) => sum + b.threads.sales, 0);
     const totalFacebook = bundleTransactions.reduce((sum, b) => sum + b.facebook.units, 0);
     const totalFacebookSales = bundleTransactions.reduce((sum, b) => sum + b.facebook.sales, 0);
     const totalDatabase = bundleTransactions.reduce((sum, b) => sum + b.database.units, 0);
@@ -269,8 +269,8 @@ const LogisticBundleTransaction = () => {
       totalSales,
       totalTiktok,
       totalTiktokSales,
-      totalShopee,
-      totalShopeeSales,
+      totalThreads,
+      totalThreadsSales,
       totalFacebook,
       totalFacebookSales,
       totalDatabase,
@@ -285,7 +285,7 @@ const LogisticBundleTransaction = () => {
 
   const getPlatformLabel = () => {
     if (modalPlatform === "tiktok") return " (Tiktok)";
-    if (modalPlatform === "shopee") return " (Shopee)";
+    if (modalPlatform === "threads") return " (Threads)";
     if (modalPlatform === "facebook") return " (Facebook)";
     if (modalPlatform === "database") return " (Database)";
     if (modalPlatform === "google") return " (Google)";
@@ -432,10 +432,10 @@ const LogisticBundleTransaction = () => {
           <CardContent className="p-3">
             <div className="flex items-center gap-2 text-orange-500 mb-1">
               <ShoppingBag className="w-4 h-4" />
-              <span className="text-xs font-medium">Shopee</span>
+              <span className="text-xs font-medium">Threads</span>
             </div>
-            <p className="text-xl font-bold">{summaryStats.totalShopee}</p>
-            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalShopeeSales)}</div>
+            <p className="text-xl font-bold">{summaryStats.totalThreads}</p>
+            <div className="text-xs text-muted-foreground mt-1">{formatCurrency(summaryStats.totalThreadsSales)}</div>
           </CardContent>
         </Card>
 
@@ -511,7 +511,7 @@ const LogisticBundleTransaction = () => {
                   <TableHead className="text-center bg-orange-50" colSpan={6}>
                     <div className="flex items-center justify-center gap-1">
                       <ShoppingBag className="w-3 h-3" />
-                      Shopee
+                      Threads
                     </div>
                   </TableHead>
                   <TableHead className="text-center bg-blue-50" colSpan={6}>
@@ -548,7 +548,7 @@ const LogisticBundleTransaction = () => {
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Remain</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">Sales</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-pink-50">%</TableHead>
-                  {/* Shopee sub-headers */}
+                  {/* Threads sub-headers */}
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Order</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Success</TableHead>
                   <TableHead className="text-center text-xs text-muted-foreground bg-orange-50">Return</TableHead>
@@ -662,46 +662,46 @@ const LogisticBundleTransaction = () => {
                       </TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatCurrency(bundle.tiktok.sales)}</TableCell>
                       <TableCell className="text-center bg-pink-50/50 text-xs">{formatPercent(bundle.tiktok.pct)}</TableCell>
-                      {/* Shopee */}
-                      <TableCell className="text-center bg-orange-50/50">{bundle.shopee.units}</TableCell>
+                      {/* Threads */}
+                      <TableCell className="text-center bg-orange-50/50">{bundle.threads.units}</TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-green-600">
-                        {bundle.shopee.success > 0 ? (
+                        {bundle.threads.success > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "success", "shopee")}
+                            onClick={() => openModal(bundle.id, bundle.name, "success", "threads")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.shopee.success}
+                            {bundle.threads.success}
                           </button>
                         ) : (
-                          bundle.shopee.success
+                          bundle.threads.success
                         )}
                       </TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-orange-600">
-                        {bundle.shopee.returnUnits > 0 ? (
+                        {bundle.threads.returnUnits > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "return", "shopee")}
+                            onClick={() => openModal(bundle.id, bundle.name, "return", "threads")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.shopee.returnUnits}
+                            {bundle.threads.returnUnits}
                           </button>
                         ) : (
-                          bundle.shopee.returnUnits
+                          bundle.threads.returnUnits
                         )}
                       </TableCell>
                       <TableCell className="text-center bg-orange-50/50 text-amber-600">
-                        {bundle.shopee.remaining > 0 ? (
+                        {bundle.threads.remaining > 0 ? (
                           <button
-                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "shopee")}
+                            onClick={() => openModal(bundle.id, bundle.name, "remaining", "threads")}
                             className="hover:underline cursor-pointer"
                           >
-                            {bundle.shopee.remaining}
+                            {bundle.threads.remaining}
                           </button>
                         ) : (
-                          bundle.shopee.remaining
+                          bundle.threads.remaining
                         )}
                       </TableCell>
-                      <TableCell className="text-center bg-orange-50/50 text-xs">{formatCurrency(bundle.shopee.sales)}</TableCell>
-                      <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(bundle.shopee.pct)}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-xs">{formatCurrency(bundle.threads.sales)}</TableCell>
+                      <TableCell className="text-center bg-orange-50/50 text-xs">{formatPercent(bundle.threads.pct)}</TableCell>
                       {/* Facebook */}
                       <TableCell className="text-center bg-blue-50/50">{bundle.facebook.units}</TableCell>
                       <TableCell className="text-center bg-blue-50/50 text-green-600">

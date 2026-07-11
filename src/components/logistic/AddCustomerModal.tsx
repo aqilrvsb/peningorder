@@ -101,23 +101,22 @@ const CLOSING_TYPES = [
   "Call",
   "Manual",
   "Live",
-  "Shop",
   "Walk In",
 ];
 
 const ORDER_FROM_OPTIONS = [
   "Facebook",
+  "Threads",
   "Tiktok",
-  "Shopee",
   "Database",
   "Google",
 ];
 
 // These sources require manual tracking number and PDF attachment (no NinjaVan, phone optional)
-const MANUAL_TRACKING_SOURCES = ["Tiktok", "Shopee"];
+const MANUAL_TRACKING_SOURCES = ["Tiktok"];
 
 // These sources use NinjaVan for shipping (phone REQUIRED for shipping)
-const NINJAVAN_SOURCES = ["Facebook", "Database", "Google"];
+const NINJAVAN_SOURCES = ["Facebook", "Threads", "Database", "Google"];
 
 const AddCustomerModal = ({
   open,
@@ -156,7 +155,7 @@ const AddCustomerModal = ({
     setBundleId(id);
   };
 
-  // Check if order source requires manual tracking (Tiktok/Shopee)
+  // Check if order source requires manual tracking (Tiktok)
   const requiresManualTracking = MANUAL_TRACKING_SOURCES.includes(orderFrom);
   // Check if order source uses NinjaVan (Facebook, Database, Google)
   const usesNinjaVan = orderFrom && NINJAVAN_SOURCES.includes(orderFrom);
@@ -205,7 +204,7 @@ const AddCustomerModal = ({
       return;
     }
 
-    // For Tiktok/Shopee: require tracking number (PDF attachment optional)
+    // For Tiktok: require tracking number (PDF attachment optional)
     if (requiresManualTracking && !trackingNumber) {
       return;
     }
@@ -401,7 +400,7 @@ const AddCustomerModal = ({
             </Select>
             {requiresManualTracking && (
               <p className="text-xs text-orange-600">
-                Tiktok/Shopee orders require manual tracking number and PDF attachment.
+                Tiktok orders require manual tracking number and PDF attachment.
               </p>
             )}
             {usesNinjaVan && (
@@ -566,7 +565,7 @@ const AddCustomerModal = ({
             />
           </div>
 
-          {/* Tracking Number - Optional for all, but shows hint for Tiktok/Shopee */}
+          {/* Tracking Number - Optional for all, but shows hint for Tiktok */}
           <div className="space-y-2">
             <Label htmlFor="tracking-number">
               Tracking Number {requiresManualTracking ? "*" : usesNinjaVan ? "(Auto-generated)" : "(Optional)"}
@@ -577,7 +576,7 @@ const AddCustomerModal = ({
               onChange={(e) => setTrackingNumber(e.target.value)}
               placeholder={
                 requiresManualTracking
-                  ? "Enter tracking number from Tiktok/Shopee"
+                  ? "Enter tracking number from Tiktok"
                   : usesNinjaVan
                   ? "Will be auto-generated"
                   : "Enter tracking number (optional)"
@@ -591,7 +590,7 @@ const AddCustomerModal = ({
             )}
           </div>
 
-          {/* PDF Attachment - For Tiktok/Shopee (optional now) */}
+          {/* PDF Attachment - For Tiktok (optional now) */}
           {requiresManualTracking && (
             <div className="space-y-2">
               <Label htmlFor="attachment">PDF Attachment (Optional)</Label>
@@ -634,7 +633,7 @@ const AddCustomerModal = ({
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Upload the shipping label PDF from Tiktok/Shopee.
+                Upload the shipping label PDF from Tiktok.
               </p>
             </div>
           )}

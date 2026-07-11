@@ -27,11 +27,11 @@ import { format } from 'date-fns';
 import { cn, getMalaysiaDate, getMalaysiaYesterday } from '@/lib/utils';
 import { put } from '@vercel/blob';
 
-const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
+const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
-const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Shop'];
+const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'Self Pickup', 'Kurier Tiktok'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -1249,8 +1249,8 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  const isTiktokShopee = formData.jenisPlatform === 'Tiktok' || formData.jenisPlatform === 'Shopee';
-  const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok' || formData.deliveryMethod === 'Kurier Shopee';
+  const isTiktokShopee = formData.jenisPlatform === 'Tiktok';
+  const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok';
   const isPickupUI = formData.deliveryMethod === 'Self Pickup';
   const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupUI) && !isMarketplaceCourier;
 
@@ -1333,7 +1333,7 @@ const OrderForm: React.FC = () => {
                   <SelectValue placeholder="Pilih Jenis Closing" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(formData.jenisPlatform === 'Shopee' || formData.jenisPlatform === 'Tiktok'
+                  {(formData.jenisPlatform === 'Tiktok'
                     ? JENIS_CLOSING_MARKETPLACE_OPTIONS
                     : JENIS_CLOSING_OPTIONS
                   ).map((opt) => (

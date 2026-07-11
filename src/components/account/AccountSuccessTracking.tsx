@@ -81,20 +81,20 @@ const AccountSuccessTracking = () => {
     return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
   };
 
-  // Helper to get fees: Shopee/Tiktok use actual fees (abs), others use COD=7, CASH=6
+  // Helper to get fees: Tiktok uses actual fees (abs), others use COD=7, CASH=6
   const getOrderFees = (order: any): number => {
     const platform = getOrderPlatformName(order);
-    if (platform === "Shopee" || platform === "Tiktok") {
+    if (platform === "Tiktok") {
       return Math.abs(Number(order.cost_postage) || 0);
     }
     return order.type_payment === "COD" ? 7 : 6;
   };
 
-  // Helper to get Final Price: for non-Tiktok/Shopee, subtract fees from total_sale
+  // Helper to get Final Price: for non-Tiktok, subtract fees from total_sale
   const getOrderFinalPrice = (order: any): number => {
     const platform = getOrderPlatformName(order);
     const totalSale = Number(order.total_sale) || 0;
-    if (platform === "Shopee" || platform === "Tiktok") {
+    if (platform === "Tiktok") {
       return totalSale;
     }
     return totalSale - getOrderFees(order);
@@ -208,8 +208,8 @@ const AccountSuccessTracking = () => {
     return total > 0 ? ((pend / total) * 100).toFixed(1) : "0.0";
   };
 
-  // Platform breakdown (Facebook, Tiktok, Shopee, Database, Google, Others)
-  const PLATFORM_NAMES = ["Facebook", "Tiktok", "Shopee", "Database", "Google"];
+  // Platform breakdown (Facebook, Threads, Tiktok, Database, Google, Others)
+  const PLATFORM_NAMES = ["Facebook", "Threads", "Tiktok", "Database", "Google"];
   const buildPlatformStats = (name: string, ordersList: any[], pendList: any[]) => {
     return {
       name,
@@ -278,23 +278,23 @@ const AccountSuccessTracking = () => {
       return null;
     };
 
-    // Separate NinjaVan, JNT, and Shopee/Tiktok orders
+    // Separate NinjaVan, JNT, and Tiktok orders
     const ninjavanOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "shopee" && platform !== "tiktok" && !isJntPlatform(o) && o.tracking_number;
+        return platform !== "tiktok" && !isJntPlatform(o) && o.tracking_number;
       }
     );
     const jntOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "shopee" && platform !== "tiktok" && isJntPlatform(o) && o.tracking_number;
+        return platform !== "tiktok" && isJntPlatform(o) && o.tracking_number;
       }
     );
     const marketplaceOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return (platform === "shopee" || platform === "tiktok") && o.waybill_url;
+        return platform === "tiktok" && o.waybill_url;
       }
     );
 
@@ -347,12 +347,12 @@ const AccountSuccessTracking = () => {
           headers: { Authorization: `Bearer ${session?.session?.access_token}` },
         });
         if (response.error) {
-          toast.error("Failed to fetch Shopee/Tiktok waybills");
+          toast.error("Failed to fetch Tiktok waybills");
         } else if (response.data) {
           const blob = new Blob([response.data], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           window.open(url, "_blank");
-          toast.success(`Shopee/Tiktok waybill for ${waybillUrls.length} order(s) opened`);
+          toast.success(`Tiktok waybill for ${waybillUrls.length} order(s) opened`);
         }
       }
     } catch (error: any) {
@@ -623,8 +623,8 @@ const AccountSuccessTracking = () => {
                 <SelectContent>
                   <SelectItem value="all">All Platform</SelectItem>
                   <SelectItem value="Facebook">Facebook</SelectItem>
+                  <SelectItem value="Threads">Threads</SelectItem>
                   <SelectItem value="Tiktok">TikTok</SelectItem>
-                  <SelectItem value="Shopee">Shopee</SelectItem>
                   <SelectItem value="Database">Database</SelectItem>
                   <SelectItem value="Google">Google</SelectItem>
                 </SelectContent>
