@@ -665,7 +665,6 @@ const Profile: React.FC = () => {
               </div>
             )}
             <p className="text-muted-foreground">ID Staff: {profile?.idstaff}</p>
-            <p className="text-sm text-muted-foreground capitalize">Role: {profile?.role}</p>
           </div>
         </div>
       </div>
