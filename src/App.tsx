@@ -24,10 +24,6 @@ import InvoiceView from "./pages/InvoiceView";
 import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
 // Logistic Role components
 import LogisticProductManagement from "./components/logistic/LogisticProductManagement";
-import LogisticProductTransaction from "./components/logistic/LogisticProductTransaction";
-import LogisticBundleTransaction from "./components/logistic/LogisticBundleTransaction";
-import LogisticStockIn from "./components/logistic/LogisticStockIn";
-import LogisticStockOut from "./components/logistic/LogisticStockOut";
 import LogisticBundleManagement from "./components/logistic/LogisticBundleManagement";
 import LogisticOrder from "./components/logistic/LogisticOrder";
 import LogisticProcessed from "./components/logistic/LogisticProcessed";
@@ -70,10 +66,6 @@ const App = () => (
                   {/* Logistic Role - Inventory */}
                   <Route path="logistics/inventory-product" element={<LogisticProductManagement />} />
                   <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
-                  <Route path="logistics/stock-in" element={<LogisticStockIn />} />
-                  <Route path="logistics/stock-out" element={<LogisticStockOut />} />
-                  <Route path="logistics/inventory-transaction" element={<LogisticProductTransaction />} />
-                  <Route path="logistics/inventory-transaction-bundle" element={<LogisticBundleTransaction />} />
                   {/* Logistic Role - Orders */}
                   <Route path="logistics/order" element={<LogisticOrder />} />
                   <Route path="logistics/processed" element={<LogisticProcessed />} />
