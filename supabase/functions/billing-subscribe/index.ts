@@ -26,7 +26,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const chipKey = Deno.env.get("CHIP_API_KEY")!;
     const chipBrand = Deno.env.get("CHIP_BRAND_ID")!;
-    const appOrigin = Deno.env.get("APP_ORIGIN") || "https://peningorder.vercel.app";
+    const appOrigin = Deno.env.get("APP_ORIGIN") || "https://peningorder.com";
     if (!chipKey || !chipBrand) {
       return fail("Server misconfigured: CHIP_API_KEY / CHIP_BRAND_ID missing", 500);
     }

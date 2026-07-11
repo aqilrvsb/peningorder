@@ -32,6 +32,7 @@ interface ParcelDailyConfig {
   sender_country_code: string;
   is_next_day_remittance: boolean;
   is_notify: 'SMS' | 'WhatsApp' | 'None';
+  default_courier: 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
 }
 
 const emptyConfig: ParcelDailyConfig = {
@@ -50,6 +51,7 @@ const emptyConfig: ParcelDailyConfig = {
   sender_country_code: '+60',
   is_next_day_remittance: true,
   is_notify: 'SMS',
+  default_courier: 'poslaju',
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -137,6 +139,7 @@ const CourierSettings: React.FC = () => {
         sender_country_code: formData.sender_country_code || '+60',
         is_next_day_remittance: formData.is_next_day_remittance,
         is_notify: formData.is_notify,
+        default_courier: formData.default_courier,
       };
 
       if (configId) {
@@ -348,6 +351,22 @@ const CourierSettings: React.FC = () => {
                   <SelectItem value="false">Standard</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <FormLabel>Default Courier (auto orders)</FormLabel>
+              <Select
+                value={formData.default_courier}
+                onValueChange={(v) => setField('default_courier', v as ParcelDailyConfig['default_courier'])}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="poslaju">Poslaju</SelectItem>
+                  <SelectItem value="ninjavan">Ninjavan</SelectItem>
+                  <SelectItem value="jnt">JNT</SelectItem>
+                  <SelectItem value="dhl">DHL</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Used for WooCommerce / Shoppego auto orders</p>
             </div>
           </div>
         </div>

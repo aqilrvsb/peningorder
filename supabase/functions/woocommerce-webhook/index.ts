@@ -1044,52 +1044,38 @@ serve(async (req) => {
     const dateOrder = malaysiaTime.toISOString().split('T')[0];
 
     // Calculate costs
-    const isEastMY = isEastMalaysia(orderData.state);
-    const basePostage = isEastMY ? postageSsCost : postageSmCost;
-    const postageCost = basePostage + (isCOD ? postageCodCost : 0);
     const totalBaseCost = baseCost * orderData.quantity;
     const totalHqCost = hqCost * orderData.quantity;
+    // Postage is priced by Parcel Daily at processing time (Order tab), not estimated here.
+    const postageCost = 0;
 
-    // Get Poslaju config
-    const { data: poslajuConfig } = await supabase
-      .from('poslaju_config')
-      .select('*')
-      .limit(1)
+    // Resolve the tenant (owner_user_id) + their default courier from the
+    // marketer_id (idstaff, e.g. PO-0002). The webhook creates a PENDING order;
+    // tracking + waybill are generated later via the Order tab (Parcel Daily).
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('idstaff', marketerIdStaff)
       .maybeSingle();
+    const ownerUserId = ownerProfile?.id || null;
 
-    // Create Poslaju order
-    let trackingNumber = '';
-    let pdfLink = '';
-    let courierSuccess = false;
+    const { data: pdConfig } = ownerUserId
+      ? await supabase
+          .from('parceldaily_config')
+          .select('default_courier')
+          .eq('owner_user_id', ownerUserId)
+          .maybeSingle()
+      : { data: null };
 
-    if (poslajuConfig) {
-      console.log('Creating Poslaju order...');
-      const poslajuResult = await createPoslajuOrder(supabase, poslajuConfig, {
-        idSale,
-        customerName: orderData.customerName,
-        phone: orderData.customerPhone,
-        address: orderData.address,
-        postcode: orderData.postcode,
-        city: orderData.city,
-        state: orderData.state,
-        price: orderData.totalPrice,
-        paymentMethod: typePayment,
-        bundleSku,
-        quantity: orderData.quantity,
-        nota: orderData.productNames,
-        marketerIdStaff,
-        weight: bundleWeight * orderData.quantity
-      });
+    const COURIER_LABELS: Record<string, string> = {
+      ninjavan: 'Ninjavan', poslaju: 'Poslaju', jnt: 'JNT', dhl: 'DHL',
+    };
+    const defaultCourier = (pdConfig?.default_courier || 'poslaju').toLowerCase();
+    const courierLabel = COURIER_LABELS[defaultCourier] || 'Poslaju';
 
-      if (poslajuResult.success && poslajuResult.trackingNumber) {
-        trackingNumber = poslajuResult.trackingNumber;
-        pdfLink = poslajuResult.pdfLink || '';
-        courierSuccess = true;
-        console.log('Poslaju order created, tracking:', trackingNumber);
-      } else {
-        console.error('Poslaju failed:', poslajuResult.error);
-      }
-    }
+    // No shipment yet — order enters as Pending for the Order tab to process.
+    const trackingNumber = '';
+    const pdfLink = '';
 
     // Build insert data - common fields for both platforms
     const insertData: any = {
@@ -1109,7 +1095,7 @@ serve(async (req) => {
       city_customer: orderData.city,
       postcode_customer: orderData.postcode,
       state_customer: orderData.state,
-      kurier: isCOD ? 'Poslaju COD' : 'Poslaju CASH',
+      kurier: `${courierLabel} ${isCOD ? 'COD' : 'CASH'}`,
       type_payment: typePayment,
       date_payment: !isCOD ? dateOrder : null,
       nota_staff: orderData.productNames,
@@ -1118,9 +1104,8 @@ serve(async (req) => {
       cost_baseproduct: totalBaseCost,
       cost_hq: totalHqCost,
       waybill_url: pdfLink || null,
+      owner_user_id: ownerUserId, // multi-tenant: scope to the tenant
       seos: 'Pending' // Delivery tracking status - starts as Pending
-      // Note: seo column is NOT set here - it will be updated by poslaju-webhook
-      // when delivery is confirmed (Successful Delivery) or returned
     };
 
     // Set platform-specific order ID field
@@ -1260,7 +1245,6 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
         ...orderData,
         idSale,
         trackingNumber,
-        courierSuccess,
         whatsappSent
       },
       response_status: 200,
@@ -1275,7 +1259,7 @@ Oh Yaaa! Jangan Lupa Save Nombor Saya Yer...`;
         order_id: newOrder.id,
         id_sale: idSale,
         tracking_number: trackingNumber,
-        courier_success: courierSuccess,
+        courier_success: false,
         whatsapp_sent: whatsappSent
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
