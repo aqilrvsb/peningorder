@@ -24,14 +24,14 @@ import { toast } from '@/hooks/use-toast';
 import { NEGERI_OPTIONS } from '@/types';
 import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn, getMalaysiaDate, getMalaysiaYesterday } from '@/lib/utils';
+import { cn, getMalaysiaDate, getMalaysiaYesterday, postcodeToNegeri } from '@/lib/utils';
 import { put } from '@vercel/blob';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'Self Pickup', 'Kurier Tiktok'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -441,6 +441,16 @@ const OrderForm: React.FC = () => {
   const postageCostInfo = getPostageCost(formData.produk, formData.negeri, formData.caraBayaran);
   const currentMinPrice = (minPricePerUnit * (formData.quantity || 1)) + postageCostInfo.total;
   const isPriceBelowMinimum = formData.hargaJualan > 0 && formData.hargaJualan < currentMinPrice;
+
+  // Auto-fill Negeri from a 5-digit Malaysian postcode. State is deterministic
+  // from the postcode prefix (instant, offline, reliable). Daerah stays manual
+  // — no free source maps postcode -> city without a full dataset.
+  const [isLookingUpPoscode] = useState(false);
+  const lookupPostcode = (pc: string) => {
+    if (!/^\d{5}$/.test(pc)) return;
+    const state = postcodeToNegeri(pc);
+    if (state) setFormData((prev) => ({ ...prev, negeri: state }));
+  };
 
   const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => {
@@ -1390,13 +1400,20 @@ const OrderForm: React.FC = () => {
             {/* Poskod */}
             <div>
               <FormLabel required>Poskod</FormLabel>
-              <Input
-                type="number"
-                placeholder="Masukkan poskod"
-                value={formData.poskod}
-                onChange={(e) => handleChange('poskod', e.target.value)}
-                className="bg-background"
-              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="Masukkan poskod"
+                  value={formData.poskod}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    handleChange('poskod', v);
+                    lookupPostcode(v);
+                  }}
+                  className="bg-background"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Negeri diisi automatik dari poskod</p>
             </div>
 
             {/* Daerah */}
@@ -1550,17 +1567,6 @@ const OrderForm: React.FC = () => {
               </div>
             )}
 
-            {/* Nota - Always visible */}
-            <div className="lg:col-span-2">
-              <FormLabel>Nota</FormLabel>
-              <Textarea
-                placeholder="Masukkan nota tambahan (optional)"
-                value={formData.nota}
-                onChange={(e) => handleChange('nota', e.target.value)}
-                className="bg-background resize-none"
-                rows={3}
-              />
-            </div>
           </div>
         </div>
 

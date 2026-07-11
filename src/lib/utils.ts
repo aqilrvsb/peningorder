@@ -86,3 +86,30 @@ export function getMalaysiaEndOfMonth(): string {
   const monthStr = month.toString().padStart(2, "0");
   return `${year}-${monthStr}-${lastDay.toString().padStart(2, "0")}`;
 }
+
+// Map a 5-digit Malaysian postcode to its state (negeri), matching the
+// uppercase values in NEGERI_OPTIONS. State is deterministic from the
+// postcode prefix. Returns null for unknown/invalid postcodes.
+export function postcodeToNegeri(postcode: string): string | null {
+  if (!/^\d{5}$/.test(postcode)) return null;
+  const n = parseInt(postcode, 10);
+  const inRange = (a: number, b: number) => n >= a && n <= b;
+
+  if (inRange(1000, 2999)) return "PERLIS";
+  if (inRange(5000, 9999)) return "KEDAH";
+  if (inRange(10000, 14999)) return "PULAU PINANG";
+  if (inRange(15000, 18999)) return "KELANTAN";
+  if (inRange(20000, 24999)) return "TERENGGANU";
+  if (inRange(25000, 28999) || inRange(39000, 39999) || inRange(49000, 49999) || inRange(69000, 69999)) return "PAHANG";
+  if (inRange(30000, 36999)) return "PERAK";
+  if (inRange(40000, 48999) || inRange(63000, 68999)) return "SELANGOR";
+  if (inRange(62000, 62999)) return "PUTRAJAYA";
+  if (inRange(50000, 60999)) return "KUALA LUMPUR";
+  if (inRange(70000, 73999)) return "NEGERI SEMBILAN";
+  if (inRange(75000, 78999)) return "MELAKA";
+  if (inRange(79000, 86999)) return "JOHOR";
+  if (inRange(87000, 87999)) return "LABUAN";
+  if (inRange(88000, 91999)) return "SABAH";
+  if (inRange(93000, 98999)) return "SARAWAK";
+  return null;
+}
