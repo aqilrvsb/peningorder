@@ -229,13 +229,22 @@ const Dashboard: React.FC = () => {
     // Total Sales
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Total Collection (orders with seo === 'Successful Delivery')
-    const collectionOrders = filteredOrders.filter(o => o.seo === 'Successful Delivery');
+    // Collection = money in hand. CASH = paid upfront; COD = only after remittance
+    // (date_payment stamped by the COD_REMITTED webhook). Returns = no money.
+    const isCollected = (o: any) => {
+      if (o.deliveryStatus === 'Return' || o.deliveryStatus === 'Failed') return false;
+      const isCod = o.caraBayaran === 'COD' || o.kurier?.includes('COD');
+      return !isCod || !!o.tarikhBayaran;
+    };
+    const collectionOrders = filteredOrders.filter(isCollected);
     const totalCollection = collectionOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
-    // Return (only orders with deliveryStatus = 'Return')
-    const returnOrders = filteredOrders.filter(o => o.deliveryStatus === 'Return');
+    // Return (parcel came back)
+    const returnOrders = filteredOrders.filter(o => o.deliveryStatus === 'Return' || o.deliveryStatus === 'Failed');
     const totalReturn = returnOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
+    // Remaining = outstanding money = Total Sales - Collection - Return (COD not yet remitted)
+    const totalRemaining = totalSales - totalCollection - totalReturn;
 
     // Total Spend
     const totalSpend = filteredSpends.reduce((sum, s) => sum + (Number(s.total_spend) || 0), 0);
@@ -361,6 +370,7 @@ const Dashboard: React.FC = () => {
       totalSales,
       totalCollection,
       collectionPercent,
+      totalRemaining,
       totalReturn,
       returnPercent,
       totalSpend,
@@ -877,6 +887,16 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCollection)}</p>
             <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.collectionPercent)}</p>
+          </div>
+
+          {/* Remaining = Total Sales - Collection - Return (outstanding COD) */}
+          <div className="stat-card border-l-4 border-l-purple-500">
+            <div className="flex items-center gap-2 text-purple-600 mb-2">
+              <Clock className="w-5 h-5" />
+              <span className="text-sm font-medium">REMAINING</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalRemaining)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Sales − Collection − Return</p>
           </div>
 
           {/* Return */}

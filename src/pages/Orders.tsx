@@ -716,6 +716,15 @@ ${trackingUrl}`;
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {stats.totalSalesCollection.toLocaleString()}</p>
         </div>
 
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+            <Clock className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Remaining</span>
+          </div>
+          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
+          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {stats.totalSalesRemaining.toLocaleString()}</p>
+        </div>
+
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Package className="w-4 h-4 text-purple-500" />
@@ -738,15 +747,6 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Shipped</span>
           </div>
           <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
-        </div>
-
-        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
-            <Clock className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Remaining</span>
-          </div>
-          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {stats.totalSalesRemaining.toLocaleString()}</p>
         </div>
 
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">

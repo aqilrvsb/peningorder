@@ -91,13 +91,24 @@ const OrderForm: React.FC = () => {
     },
   });
 
+  // Unit = quantity of the MAIN (first) product in the bundle.
+  // Bundle SKU format is "PRODUCTSKU-QTY + PRODUCTSKU-QTY" (e.g. "GSI-2 + SBN-1").
+  // We take the first segment's trailing number as the unit (product SKUs may
+  // themselves contain dashes, so we read the LAST "-" chunk of the first part).
+  const mainProductUnit = (sku: string): number => {
+    const firstPart = (sku || '').split('+')[0].trim(); // "GSI-2"
+    const segs = firstPart.split('-');
+    const qty = parseInt(segs[segs.length - 1], 10);
+    return Number.isFinite(qty) && qty > 0 ? qty : 1;
+  };
+
   // Map logistic bundles to the format expected by the order form
   const activeBundles = logisticBundles.map((lb: any) => {
     return {
       id: lb.id,
       name: lb.name,
       sku: lb.sku || '', // Bundle SKU for NinjaVan delivery instructions
-      units: 1, // Default to 1 unit per bundle
+      units: mainProductUnit(lb.sku || ''), // unit = main (first) product's qty
       // Cost fields for order calculation
       baseCost: Number(lb.base_cost) || 0,
       hqCost: Number(lb.hq_cost) || 0,
