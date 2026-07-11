@@ -296,33 +296,47 @@ serve(async (req) => {
     }
 
     // 2) Checkout Order (pay + book the shipment)
-    const payRes = await fetch(`${apiBase}/v1/partner/order/pay`, {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({ orderId }),
-    });
-    const payText = await payRes.text();
-    let payResult: any;
-    try {
-      payResult = JSON.parse(payText);
-    } catch {
-      payResult = { raw: payText };
-    }
-    console.log(
-      `[parceldaily] pay status=${payRes.status} body=${payText.slice(0, 500)}`,
-    );
-
-    if (!payRes.ok) {
-      const msg =
-        payResult?.message ||
-        payResult?.error ||
-        `Checkout failed (HTTP ${payRes.status})`;
-      return fail(`Parcel Daily checkout: ${msg}`, {
-        details: payResult,
-        orderId,
-        courier,
+    // NOTE: PD's pay endpoint sometimes returns HTTP 400 / times out even though
+    // the checkout actually succeeded server-side (observed on dhl/ninjavan).
+    // So on failure we retry once — if the retry says "already been checked out",
+    // the original pay DID succeed and we treat it as success.
+    const doPay = async (): Promise<{ ok: boolean; result: any; status: number }> => {
+      const res = await fetch(`${apiBase}/v1/partner/order/pay`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ orderId }),
       });
+      const txt = await res.text();
+      let result: any;
+      try {
+        result = JSON.parse(txt);
+      } catch {
+        result = { raw: txt };
+      }
+      console.log(`[parceldaily] pay status=${res.status} body=${txt.slice(0, 300)}`);
+      return { ok: res.ok, result, status: res.status };
+    };
+
+    let pay = await doPay();
+    if (!pay.ok) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const retry = await doPay();
+      const alreadyPaid = String(retry.result?.message || "").toLowerCase().includes("already been checked out");
+      if (retry.ok || alreadyPaid) {
+        pay = { ok: true, result: retry.ok ? retry.result : { data: { status: "checkout_pending" } }, status: 200 };
+      } else {
+        const msg =
+          retry.result?.message ||
+          retry.result?.error ||
+          `Checkout failed (HTTP ${retry.status})`;
+        return fail(`Parcel Daily checkout: ${msg}`, {
+          details: retry.result,
+          orderId,
+          courier,
+        });
+      }
     }
+    const payResult = pay.result;
 
     // After pay, tracking number arrives via Checkout Webhook (async).
     // Return orderId immediately; caller stores it and waits for webhook to fill tracking.
