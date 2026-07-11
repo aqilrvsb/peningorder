@@ -607,7 +607,7 @@ const Dashboard: React.FC = () => {
     const returnPercent = totalSales > 0 ? (totalReturn / totalSales) * 100 : 0;
     const fbPercent = totalSales > 0 ? (salesFB / totalSales) * 100 : 0;
     const dbPercent = totalSales > 0 ? (salesDatabase / totalSales) * 100 : 0;
-    const threadsPercent = totalSales > 0 ? (salesThreads / totalSales) * 100 : 0;
+    const shopeePercent = totalSales > 0 ? (salesShopee / totalSales) * 100 : 0;
     const tiktokPercent = totalSales > 0 ? (salesTiktok / totalSales) * 100 : 0;
     const googlePercent = totalSales > 0 ? (salesGoogle / totalSales) * 100 : 0;
     const npPercent = totalSales > 0 ? (salesNP / totalSales) * 100 : 0;
@@ -632,20 +632,20 @@ const Dashboard: React.FC = () => {
       fbPercent,
       salesDatabase,
       dbPercent,
-      salesThreads,
-      threadsPercent,
+      salesShopee,
+      shopeePercent,
       salesTiktok,
       tiktokPercent,
       salesGoogle,
       googlePercent,
       closingFB,
       closingDatabase,
-      closingThreads,
+      closingShopee,
       closingTiktok,
       closingGoogle,
       customerFB,
       customerDatabase,
-      customerThreads,
+      customerShopee,
       customerTiktok,
       customerGoogle,
       salesNP,
