@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { fetchAllRows } from '@/lib/utils';
+import { fetchAllRows, getMalaysiaStartOfMonth } from '@/lib/utils';
 
 // Roles that can see all data (not filtered by their own idstaff)
 const ADMIN_ROLES = ['client', 'admin', 'bod', 'logistic', 'account', 'superadmin'];
@@ -35,6 +35,8 @@ interface DataContextType {
   updateProspect: (id: string, prospect: Partial<Prospect>) => Promise<void>;
   deleteProspect: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  /** Widen the server-side date window when a page filters earlier than what's loaded */
+  ensureOrdersFrom: (startDate: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -115,13 +117,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     countOrder: d.count_order || 0, profile: d.profile || '', createdBy: d.created_by || '',
   });
 
+  // PERF: orders are fetched server-side from this date onward (default: start of
+  // current month). At 10K orders/day a tenant accumulates ~300K rows/month —
+  // downloading the full history to the browser is not viable. Pages that filter
+  // to an earlier date call ensureOrdersFrom() which widens the window and refetches.
+  const [ordersFrom, setOrdersFrom] = useState<string>(getMalaysiaStartOfMonth());
+  const ensureOrdersFrom = (startDate: string) => {
+    const from = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : '2000-01-01';
+    setOrdersFrom((cur) => (from < cur ? from : cur));
+  };
+
   const refreshData = async () => {
     if (!isAuthenticated) { setOrders([]); setProspects([]); setIsLoading(false); return; }
     setIsLoading(true);
     try {
-      // Build query functions for pagination - filter by idstaff if user is a marketer or admin
       const buildOrdersQuery = () => {
-        let q = queryTable('customer_purchases').select('*, bundle:logistic_bundles(name)').order('created_at', { ascending: false });
+        let q = queryTable('customer_purchases')
+          .select('*, bundle:logistic_bundles(name)')
+          .gte('date_order', ordersFrom)
+          .order('created_at', { ascending: false });
         if (shouldFilterByIdStaff && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
         return q;
       };
@@ -141,7 +155,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   };
 
-  useEffect(() => { refreshData(); }, [isAuthenticated, shouldFilterByIdStaff, userIdStaff]);
+  useEffect(() => { refreshData(); }, [isAuthenticated, shouldFilterByIdStaff, userIdStaff, ordersFrom]);
 
   const addOrder = async (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => {
     // New schema field mapping for insert
@@ -252,7 +266,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <DataContext.Provider value={{ orders, prospects, isLoading, addOrder, updateOrder, deleteOrder, addProspect, updateProspect, deleteProspect, refreshData }}>
+    <DataContext.Provider value={{ orders, prospects, isLoading, addOrder, updateOrder, deleteOrder, addProspect, updateProspect, deleteProspect, refreshData, ensureOrdersFrom }}>
       {children}
     </DataContext.Provider>
   );

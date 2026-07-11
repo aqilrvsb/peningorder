@@ -123,6 +123,8 @@ serve(async (req) => {
       const d = payload.data || payload;
       const trackingNumber = d.consign_no || d.trackingNumber || consignNo;
       const connoteURL = d.connoteURL || d.thermalConnoteURL;
+      // Malaysia date (UTC+8) — date_processed drives the Processed tab
+      const malaysiaDate = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
       if (matched && trackingNumber) {
         await supabase
           .from("customer_purchases")
@@ -130,6 +132,7 @@ serve(async (req) => {
             tracking_number: trackingNumber,
             waybill_url: connoteURL || null,
             delivery_status: "Shipped",
+            date_processed: malaysiaDate,
           })
           .eq("id", matched.id);
         action = "checkout_updated";
@@ -151,6 +154,7 @@ serve(async (req) => {
             tracking_number: trackingNumber,
             waybill_url: connoteURL || null,
             delivery_status: "Shipped",
+            date_processed: malaysiaDate,
           })
           .eq("id_sale", orderId);
         action = "checkout_updated_by_orderid";

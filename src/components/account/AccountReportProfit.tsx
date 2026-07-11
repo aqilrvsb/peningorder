@@ -211,10 +211,9 @@ const AccountReportProfit: React.FC = () => {
       const costProduct = Number(order.cost_baseproduct) || 0;
       const postage = Number(order.cost_postage) || 0;
 
-      // Unit Bundle = order.unit × first SKU number (e.g., "GSI-4 + ..." → 4)
-      const skuMatch = order.bundle?.sku?.match(/-(\d+)/);
-      const firstSkuQty = skuMatch ? parseInt(skuMatch[1], 10) : 0;
-      const unitBundle = (Number(order.unit) || 0) * firstSkuQty;
+      // Unit Bundle = order.unit (already the MAIN product qty from the bundle SKU,
+      // set at key-in time — do not multiply by the SKU number again)
+      const unitBundle = Number(order.unit) || 0;
 
       initStats(idStaff, name);
 

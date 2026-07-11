@@ -62,13 +62,15 @@ interface PlatformSpend {
 }
 
 const ReportingSpend: React.FC = () => {
-  const { prospects, orders } = useData();
+  const { prospects, orders, ensureOrdersFrom } = useData();
   const { products } = useBundles();
   const { profile } = useAuth();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [logisticBundles, setLogisticBundles] = useState<LogisticBundle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState(getMalaysiaYesterday());
+  // Widen the server-side orders window when filtering earlier than loaded
+  React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
   const [endDate, setEndDate] = useState(getMalaysiaYesterday());
 
   // Check if current user is marketer (should only see their own data)

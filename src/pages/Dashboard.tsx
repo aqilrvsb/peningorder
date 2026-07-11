@@ -74,7 +74,7 @@ interface Spend {
 
 const Dashboard: React.FC = () => {
   const { profile } = useAuth();
-  const { orders, prospects, isLoading } = useData();
+  const { orders, prospects, isLoading, ensureOrdersFrom } = useData();
   const navigate = useNavigate();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [spendsLoading, setSpendsLoading] = useState(true);
@@ -89,6 +89,9 @@ const Dashboard: React.FC = () => {
   const isBOD = profile?.role === 'bod';
   const isAccount = profile?.role === 'account';
   const userIdStaff = profile?.idstaff;
+
+  // Widen the server-side fetch window if the user filters earlier than loaded
+  useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
 
   // Redirect account role to Report Profit page
   useEffect(() => {

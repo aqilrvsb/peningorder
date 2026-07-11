@@ -88,7 +88,7 @@ const getMalaysiaStartOfMonth = () => {
 
 const Orders: React.FC = () => {
   const navigate = useNavigate();
-  const { orders, updateOrder, deleteOrder, refreshData } = useData();
+  const { orders, updateOrder, deleteOrder, refreshData, ensureOrdersFrom } = useData();
   const { bundles, products } = useBundles();
   const { profile } = useAuth();
   const isMarketer = profile?.role === 'marketer';
@@ -123,6 +123,9 @@ const Orders: React.FC = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+
+  // Widen the server-side fetch window if the user filters earlier than loaded
+  React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
