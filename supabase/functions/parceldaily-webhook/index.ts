@@ -68,6 +68,16 @@ serve(async (req) => {
         .maybeSingle();
       matched = r.data;
     }
+    // Frontend also stores the Parcel Daily orderId in tracking_number
+    // (as a placeholder until this webhook replaces it with the real consign_no).
+    if (!matched && orderId) {
+      const r = await supabase
+        .from("customer_purchases")
+        .select("id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale")
+        .eq("tracking_number", orderId)
+        .maybeSingle();
+      matched = r.data;
+    }
 
     // 2) Dispatch by event
     let action = "none";
