@@ -249,7 +249,7 @@ const Orders: React.FC = () => {
       : `https://www.ninjavan.co/en-my/tracking?id=${tracking}`;
 
     // Build message with order details
-    const message = `DFR NOTIFICATION ORDER
+    const message = `PENINGORDER NOTIFICATION
 
 Nama Pelanggan : ${order.marketerName || "-"}
 Phone : ${order.noPhone || "-"}

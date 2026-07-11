@@ -198,7 +198,7 @@ const Profile: React.FC = () => {
 
     setIsGeneratingDevice(true);
     try {
-      const idDevice = `DFR_${profile.idstaff}`;
+      const idDevice = `PO_${profile.idstaff}`;
 
       // Step 1: Create device in Whacenter via proxy
       const addDeviceUrl = `${WHACENTER_PROXY_URL}?endpoint=addDevice&name=${encodeURIComponent(idDevice)}&number=${encodeURIComponent(deviceForm.phoneNumber)}`;
@@ -271,7 +271,7 @@ const Profile: React.FC = () => {
       await fetch(deleteUrl);
 
       // Step 2: Create new device in Whacenter
-      const idDevice = device.id_device || `DFR_${profile?.idstaff}`;
+      const idDevice = device.id_device || `PO_${profile?.idstaff}`;
       const phoneNumber = device.phone_number || '';
 
       console.log('Creating new device:', idDevice);
@@ -556,7 +556,7 @@ const Profile: React.FC = () => {
     setIsSendingTest(true);
     try {
       const normalizedPhone = normalizeTestPhone(testPhone);
-      const message = `Test message from DFR EMPIRE System\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\nDevice: ${device.id_device || '-'}\n\nIf you receive this, your WhatsApp device is working correctly! ✅`;
+      const message = `Test message from Peningorder\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\nDevice: ${device.id_device || '-'}\n\nIf you receive this, your WhatsApp device is working correctly! ✅`;
 
       // Use proxy to avoid CORS
       const apiUrl = `${WHACENTER_PROXY_URL}?endpoint=send&device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(normalizedPhone)}&message=${encodeURIComponent(message)}`;

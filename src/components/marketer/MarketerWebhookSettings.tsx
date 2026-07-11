@@ -218,7 +218,7 @@ const MarketerWebhookSettings = () => {
                       Click "Add webhook" and fill in the following:
                     </p>
                     <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
-                      <li>Name: DFR Empire Order</li>
+                      <li>Name: Peningorder Order</li>
                       <li>Status: Active</li>
                       <li>Topic: Order updated</li>
                       <li>Delivery URL: Copy from above</li>
@@ -234,7 +234,7 @@ const MarketerWebhookSettings = () => {
                   <div>
                     <p className="font-medium">Configure Product SKUs</p>
                     <p className="text-sm text-muted-foreground">
-                      Make sure your WooCommerce products have SKUs that match your bundles in DFR Empire.
+                      Make sure your WooCommerce products have SKUs that match your bundles in Peningorder.
                       Format: <code className="bg-muted px-1 rounded">BUNDLE-SKU-QUANTITY</code> (e.g., ZP250-6 for 6 units)
                     </p>
                   </div>
@@ -248,7 +248,7 @@ const MarketerWebhookSettings = () => {
                     <p className="font-medium">Test Your Webhook</p>
                     <p className="text-sm text-muted-foreground">
                       Create a test order on your website. When payment is confirmed (status: processing),
-                      the order will automatically appear in your DFR Empire dashboard with tracking number.
+                      the order will automatically appear in your Peningorder dashboard with tracking number.
                     </p>
                   </div>
                 </div>
@@ -371,7 +371,7 @@ const MarketerWebhookSettings = () => {
                   <div>
                     <p className="font-medium">Configure Product SKUs</p>
                     <p className="text-sm text-muted-foreground">
-                      Make sure your Shoppego products have SKUs that match your bundles in DFR Empire.
+                      Make sure your Shoppego products have SKUs that match your bundles in Peningorder.
                       Format: <code className="bg-muted px-1 rounded">BUNDLE-SKU-QUANTITY</code> (e.g., ZP250-6 for 6 units)
                     </p>
                   </div>
@@ -385,7 +385,7 @@ const MarketerWebhookSettings = () => {
                     <p className="font-medium">Test Your Webhook</p>
                     <p className="text-sm text-muted-foreground">
                       Create a test checkout on your Shoppego store. When checkout is completed,
-                      the order will automatically appear in your DFR Empire dashboard with tracking number.
+                      the order will automatically appear in your Peningorder dashboard with tracking number.
                     </p>
                   </div>
                 </div>
