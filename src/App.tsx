@@ -23,6 +23,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NinjavanSettings from "./pages/NinjavanSettings";
 import CourierSettings from "./pages/CourierSettings";
+import Billing from "./pages/Billing";
 import Top10 from "./pages/Top10";
 import ReportSales from "./pages/ReportSales";
 import ReportLeads from "./pages/ReportLeads";
@@ -139,6 +140,7 @@ const App = () => (
                   <Route path="logistics/ninjavan-settings" element={<NinjavanSettings />} />
                   <Route path="logistics/courier-settings" element={<CourierSettings />} />
                   <Route path="settings/courier" element={<CourierSettings />} />
+                  <Route path="billing" element={<Billing />} />
                   {/* Account Role routes */}
                   <Route path="account/pengesahan" element={<AccountPengesahan />} />
                   <Route path="account/approved" element={<AccountApproved />} />
