@@ -87,8 +87,6 @@ const accountItems: NavItem[] = [
   { label: 'Success Tracking', path: '/dashboard/account/success-tracking', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <Settings className="w-5 h-5" /> },
   { label: 'Invoices', path: '/dashboard/account/invoices', icon: <Receipt className="w-5 h-5" /> },
-  { label: 'Claim Summary', path: '/dashboard/account/claim-summary', icon: <FileText className="w-5 h-5" /> },
-  { label: 'Cash Flow', path: '/dashboard/account/cash-flow', icon: <TrendingUp className="w-5 h-5" /> },
 ];
 
 type GroupKey = 'marketer' | 'logistic' | 'account';
