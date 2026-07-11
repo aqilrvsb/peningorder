@@ -190,6 +190,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.dateReturn !== undefined) upd.date_return = data.dateReturn;
     if (data.receiptImageUrl !== undefined) upd.receipt_payment_url = data.receiptImageUrl;
     if (data.seo !== undefined) upd.seo = data.seo;
+    // Courier regeneration flow (Orders.tsx) — these were previously dropped silently
+    if ((data as any).idSale !== undefined) upd.id_sale = (data as any).idSale;
+    if (data.kurier !== undefined) upd.kurier = data.kurier;
+    if ((data as any).waybillUrl !== undefined) upd.waybill_url = (data as any).waybillUrl;
+    if (data.kosPos !== undefined) upd.cost_postage = data.kosPos;
     upd.updated_at = new Date().toISOString();
     const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;

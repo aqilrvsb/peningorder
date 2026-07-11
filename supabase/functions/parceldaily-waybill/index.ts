@@ -44,7 +44,7 @@ serve(async (req) => {
     const body: {
       mode?: "urls" | "single" | "bulk";
       trackingNumbers?: string[];
-      purchaseIds?: number[];
+      purchaseIds?: string[]; // customer_purchases.id is a UUID
       callbackUrl?: string;
       thermal?: boolean;
     } = await req.json();
@@ -56,7 +56,7 @@ serve(async (req) => {
 
     // MODE: urls — instant lookup from our DB (no Parcel Daily call)
     if (mode === "urls") {
-      const ids = (body.purchaseIds || []).map((v) => Number(v)).filter((n) => Number.isFinite(n));
+      const ids = (body.purchaseIds || []).map((v) => String(v).trim()).filter(Boolean);
       const tns = (body.trackingNumbers || []).map((t) => String(t).trim()).filter(Boolean);
       if (!ids.length && !tns.length) {
         return fail("purchaseIds[] or trackingNumbers[] is required for mode='urls'");

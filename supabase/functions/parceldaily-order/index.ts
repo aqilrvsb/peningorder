@@ -330,6 +330,7 @@ serve(async (req) => {
       success: true,
       orderId,
       courier,
+      shippingPrice, // caller stores this in customer_purchases.cost_postage
       status: payResult?.data?.status || "checkout_pending",
       message:
         "Order created and checked out. Tracking number will arrive via webhook.",

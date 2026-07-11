@@ -708,6 +708,7 @@ const OrderForm: React.FC = () => {
       let orderNumber = isEditMode ? editOrder.noTempahan : generateOrderNumber();
       let idSale = isEditMode ? editOrder.idSale : '';
       let trackingNumber = '';
+      let pdShippingPrice: number | null = null; // real cost from PD quote
 
       // Generate new sale ID for new orders (all platforms now use NinjaVan)
       if (!isEditMode) {
@@ -791,6 +792,7 @@ const OrderForm: React.FC = () => {
               // Parcel Daily returns orderId immediately; real tracking arrives via webhook.
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
               if (kurierResult?.pdfLink) editWaybillPdfUrl = kurierResult.pdfLink;
+              if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
               toast({
                 title: `${kurierName} Berjaya`,
                 description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
@@ -889,6 +891,8 @@ const OrderForm: React.FC = () => {
             receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
             waybill_url: newWaybillUrl || null,
             bundle_id: editBundleId, // Save selected product/bundle
+            // Real shipping cost from the fresh PD quote (only when a new shipment was created)
+            ...(pdShippingPrice != null && { cost_postage: pdShippingPrice }),
             updated_at: new Date().toISOString(),
           })
           .eq('id', editOrder.id);
@@ -965,6 +969,8 @@ const OrderForm: React.FC = () => {
             } else if (kurierResult?.orderId) {
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
               if (kurierResult?.pdfLink) waybillPdfUrl = kurierResult.pdfLink;
+              // Real shipping cost from PD quote — overrides bundle estimate below
+              if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
               toast({
                 title: `${kurierName} Berjaya`,
                 description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
@@ -1027,7 +1033,8 @@ const OrderForm: React.FC = () => {
           : (selectedBundle?.kosPostageSm || 0);
         // Add COD fee if payment method is COD
         const codFee = formData.caraBayaran === 'COD' ? (selectedBundle?.postageCod || 0) : 0;
-        const costPostage = basePostage + codFee;
+        // Prefer the REAL shipping cost from the Parcel Daily quote over the bundle estimate
+        const costPostage = pdShippingPrice ?? (basePostage + codFee);
 
         // Customer type is already NP/EP/EC from the Check button
         const finalCustomerType = formData.jenisCustomer;

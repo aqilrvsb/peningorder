@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer
 } from 'lucide-react';
 import { put } from '@vercel/blob';
 import {
@@ -100,6 +100,10 @@ const Orders: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  // Bulk waybill print state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkPrinting, setIsBulkPrinting] = useState(false);
+
   // Regenerate tracking state
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
@@ -398,6 +402,67 @@ ${trackingUrl}`;
     setRegenerateDialogOpen(true);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (pageOrders: typeof orders) => {
+    setSelectedIds((prev) => {
+      const pageIds = pageOrders.map((o) => o.id);
+      const allSelected = pageIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  // Bulk waybill print: fetch stored waybill URLs (instant, from CHECKOUT webhook)
+  // and open each PDF in its own tab for printing.
+  const handleBulkPrintWaybills = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkPrinting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('parceldaily-waybill', {
+        body: { mode: 'urls', purchaseIds: Array.from(selectedIds) },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      const waybills: Array<{ waybillUrl: string; trackingNumber: string }> = data?.waybills || [];
+      const missing: Array<{ trackingNumber: string; status: string }> = data?.missing || [];
+
+      if (waybills.length === 0) {
+        toast({
+          title: 'Tiada Waybill',
+          description: 'Order dipilih belum ada waybill. Tunggu webhook CHECKOUT (30-60 saat selepas jana tracking).',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Open each waybill PDF in a new tab (browser may ask to allow pop-ups once)
+      waybills.forEach((w) => window.open(w.waybillUrl, '_blank', 'noopener'));
+
+      toast({
+        title: `${waybills.length} Waybill Dibuka`,
+        description: missing.length > 0
+          ? `${missing.length} order belum ada waybill (masih pending).`
+          : 'Semua waybill dibuka dalam tab baru. Print dari tab masing-masing.',
+      });
+    } catch (err: any) {
+      console.error('Bulk print error:', err);
+      toast({ title: 'Error', description: err.message || 'Gagal dapatkan waybill.', variant: 'destructive' });
+    } finally {
+      setIsBulkPrinting(false);
+    }
+  };
+
   const handleConfirmRegenerate = async () => {
     if (!orderForTracking) return;
     
@@ -459,6 +524,8 @@ ${trackingUrl}`;
         kurier: `${courierLabel} ${isCOD ? 'COD' : 'CASH'}`,
       };
       if (courierResult?.pdfLink) updateData.waybillUrl = courierResult.pdfLink;
+      // Real shipping cost from PD quote — feeds profit reports
+      if (courierResult?.shippingPrice != null) updateData.kosPos = Number(courierResult.shippingPrice);
       await updateOrder(orderForTracking.id, updateData);
       
       toast({
@@ -846,6 +913,18 @@ ${trackingUrl}`;
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
+            <Button
+              onClick={handleBulkPrintWaybills}
+              disabled={selectedIds.size === 0 || isBulkPrinting}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {isBulkPrinting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4 mr-2" />
+              )}
+              Print Waybills{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            </Button>
           </div>
         </div>
       </div>
@@ -856,6 +935,15 @@ ${trackingUrl}`;
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all on page"
+                    className="w-4 h-4 rounded border-border accent-indigo-600 cursor-pointer"
+                    checked={paginatedOrders.length > 0 && paginatedOrders.every((o) => selectedIds.has(o.id))}
+                    onChange={() => toggleSelectAll(paginatedOrders)}
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Id Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
@@ -889,6 +977,15 @@ ${trackingUrl}`;
               {paginatedOrders.length > 0 ? (
                 paginatedOrders.map((order, idx) => (
                   <tr key={order.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select order ${order.idSale || order.id}`}
+                        className="w-4 h-4 rounded border-border accent-indigo-600 cursor-pointer"
+                        checked={selectedIds.has(order.id)}
+                        onChange={() => toggleSelect(order.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground">{pageSize === "All" ? idx + 1 : (currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
@@ -1038,7 +1135,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 21 : 22} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 22 : 23} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>
