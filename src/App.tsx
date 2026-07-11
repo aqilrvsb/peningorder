@@ -30,7 +30,6 @@ import LogisticProcessed from "./components/logistic/LogisticProcessed";
 import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 // Account Role components
-import AccountExpenses from "./components/account/AccountExpenses";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
 import AccountInvoices from "./components/account/AccountInvoices";
 import AccountReportProfit from "./components/account/AccountReportProfit";
@@ -73,7 +72,6 @@ const App = () => (
                   <Route path="settings/courier" element={<CourierSettings />} />
                   {/* Account Role */}
                   <Route path="account/report-profit" element={<AccountReportProfit />} />
-                  <Route path="account/expenses" element={<AccountExpenses />} />
                   <Route path="account/pending-tracking" element={<AccountPendingTracking />} />
                   <Route path="account/success-tracking" element={<AccountSuccessTracking />} />
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />

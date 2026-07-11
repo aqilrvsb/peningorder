@@ -4,9 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Search, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, CreditCard, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
+import { Calendar, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
 
@@ -33,17 +32,6 @@ interface Spend {
   tarikh_spend: string;
 }
 
-interface Expense {
-  id: string;
-  type: 'VAR' | 'FIX';
-  role: 'company' | 'personal';
-  marketer_id_staff: string | null;
-  description: string;
-  total: number;
-  date: string;
-  platform: string | null;
-}
-
 interface Profile {
   idstaff: string;
   full_name: string;
@@ -59,7 +47,6 @@ interface MarketerProfitStats {
   totalCostProduct: number;
   totalPostage: number;
   totalUnitBundle: number;
-  personalExpenses: number;
   roas: number;
   profit: number;
   // Facebook
@@ -105,7 +92,6 @@ interface MarketerProfitStats {
 }
 
 const AccountReportProfit: React.FC = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
 
   // Date filter state - default to current month (Malaysia timezone)
@@ -114,37 +100,24 @@ const AccountReportProfit: React.FC = () => {
   const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
-  const [searchTerm, setSearchTerm] = useState('');
   const [pendingProfitBy, setPendingProfitBy] = useState<'sales' | 'collection'>('sales');
-  const [pendingCogsBy, setPendingCogsBy] = useState<'base_cost' | 'hq_cost'>('base_cost');
   const [profitBy, setProfitBy] = useState<'sales' | 'collection'>('sales');
-  const [cogsBy, setCogsBy] = useState<'base_cost' | 'hq_cost'>('base_cost');
 
   const applyFilter = () => {
     setStartDate(pendingStart);
     setEndDate(pendingEnd);
     setProfitBy(pendingProfitBy);
-    setCogsBy(pendingCogsBy);
   };
 
-  // Fetch profiles and expenses once on mount (small datasets)
+  // Fetch profiles once on mount (small dataset)
   useEffect(() => {
     const fetchStaticData = async () => {
       try {
-        const [expensesRes, profilesRes] = await Promise.all([
-          (supabase as any)
-            .from('expenses')
-            .select('id, type, role, marketer_id_staff, description, total, date, platform')
-            .order('date', { ascending: false }),
-          (supabase as any)
-            .from('profiles')
-            .select('idstaff, full_name'),
-        ]);
+        const profilesRes = await (supabase as any)
+          .from('profiles')
+          .select('idstaff, full_name');
 
-        if (expensesRes.error) throw expensesRes.error;
         if (profilesRes.error) throw profilesRes.error;
-
-        setExpenses(expensesRes.data || []);
 
         const profileMap: Record<string, string> = {};
         (profilesRes.data || []).forEach((p: Profile) => {
@@ -199,140 +172,6 @@ const AccountReportProfit: React.FC = () => {
   // Spends already filtered by date at DB level
   const filteredSpends = spends;
 
-  // Filter VAR expenses by date range (one-time expenses)
-  const filteredVarExpenses = useMemo(() => {
-    return expenses.filter(expense => {
-      if (!expense.date || expense.type !== 'VAR') return false;
-      try {
-        const expenseDate = parseISO(expense.date);
-        return isWithinInterval(expenseDate, {
-          start: parseISO(startDate),
-          end: parseISO(endDate)
-        });
-      } catch {
-        return false;
-      }
-    });
-  }, [expenses, startDate, endDate]);
-
-  // Calculate FIX expenses (monthly recurring) - multiply by months in range
-  const calculateFixExpenseTotal = useMemo(() => {
-    const fixExpenses = expenses.filter(e => e.type === 'FIX');
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    let companyFixTotal = 0;
-    const personalFixMap: Record<string, number> = {};
-
-    fixExpenses.forEach(expense => {
-      const expenseDate = new Date(expense.date);
-
-      // Only count if expense date is before or within the range
-      if (expenseDate <= end) {
-        // Start counting from the later of: expense date or start date
-        const countStart = expenseDate > start ? expenseDate : start;
-
-        // Calculate months between countStart and end
-        const startYear = countStart.getFullYear();
-        const startMonth = countStart.getMonth();
-        const endYear = end.getFullYear();
-        const endMonth = end.getMonth();
-
-        const monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-
-        if (monthsDiff > 0) {
-          const totalForPeriod = (Number(expense.total) || 0) * monthsDiff;
-
-          if (!expense.role || expense.role === 'company') {
-            companyFixTotal += totalForPeriod;
-          } else if (expense.role === 'personal' && expense.marketer_id_staff) {
-            personalFixMap[expense.marketer_id_staff] = (personalFixMap[expense.marketer_id_staff] || 0) + totalForPeriod;
-          }
-        }
-      }
-    });
-
-    return { companyFixTotal, personalFixMap };
-  }, [expenses, startDate, endDate]);
-
-  // Calculate total expenses (VAR and FIX) - COMPANY ONLY
-  const totalExpenses = useMemo(() => {
-    // VAR expenses (one-time) - company only
-    const companyVarExpenses = filteredVarExpenses.filter(e => !e.role || e.role === 'company');
-    const varTotal = companyVarExpenses.reduce((sum, e) => sum + (Number(e.total) || 0), 0);
-
-    // FIX expenses (monthly) - already calculated with months multiplier
-    const fixTotal = calculateFixExpenseTotal.companyFixTotal;
-
-    return { var: varTotal, fix: fixTotal, total: varTotal + fixTotal };
-  }, [filteredVarExpenses, calculateFixExpenseTotal]);
-
-  // Calculate company expenses by platform (from expenses table platform field)
-  const expensesByPlatform = useMemo(() => {
-    const platformMap: Record<string, number> = { facebook: 0, tiktok: 0, threads: 0, database: 0, google: 0 };
-
-    // Helper to normalize platform string to key
-    const normalizePlatform = (p: string | null): string | null => {
-      if (!p) return null;
-      const lower = p.toLowerCase();
-      if (lower === 'facebook') return 'facebook';
-      if (lower === 'tiktok') return 'tiktok';
-      if (lower === 'threads') return 'threads';
-      if (lower === 'database') return 'database';
-      if (lower === 'google') return 'google';
-      return null;
-    };
-
-    // VAR company expenses with platform
-    filteredVarExpenses
-      .filter(e => !e.role || e.role === 'company')
-      .forEach(e => {
-        const key = normalizePlatform(e.platform);
-        if (key) platformMap[key] += Number(e.total) || 0;
-      });
-
-    // FIX company expenses with platform - multiply by months in range
-    const fixExpenses = expenses.filter(e => e.type === 'FIX' && (!e.role || e.role === 'company'));
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    fixExpenses.forEach(expense => {
-      const key = normalizePlatform(expense.platform);
-      if (!key) return;
-
-      const expenseDate = new Date(expense.date);
-      if (expenseDate <= end) {
-        const countStart = expenseDate > start ? expenseDate : start;
-        const monthsDiff = (end.getFullYear() - countStart.getFullYear()) * 12 + (end.getMonth() - countStart.getMonth()) + 1;
-        if (monthsDiff > 0) {
-          platformMap[key] += (Number(expense.total) || 0) * monthsDiff;
-        }
-      }
-    });
-
-    return platformMap;
-  }, [filteredVarExpenses, expenses, startDate, endDate]);
-
-  // Calculate personal expenses by marketer
-  const personalExpensesByMarketer = useMemo(() => {
-    const expenseMap: Record<string, number> = {};
-
-    // Add VAR expenses (one-time)
-    filteredVarExpenses
-      .filter(e => e.role === 'personal' && e.marketer_id_staff)
-      .forEach(e => {
-        const idStaff = e.marketer_id_staff!;
-        expenseMap[idStaff] = (expenseMap[idStaff] || 0) + (Number(e.total) || 0);
-      });
-
-    // Add FIX expenses (monthly - already calculated with months multiplier)
-    Object.entries(calculateFixExpenseTotal.personalFixMap).forEach(([idStaff, total]) => {
-      expenseMap[idStaff] = (expenseMap[idStaff] || 0) + total;
-    });
-
-    return expenseMap;
-  }, [filteredVarExpenses, calculateFixExpenseTotal]);
-
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {
     const stats: Record<string, MarketerProfitStats> = {};
@@ -349,7 +188,6 @@ const AccountReportProfit: React.FC = () => {
           totalCostProduct: 0,
           totalPostage: 0,
           totalUnitBundle: 0,
-          personalExpenses: 0,
           roas: 0,
           profit: 0,
           salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
@@ -368,15 +206,10 @@ const AccountReportProfit: React.FC = () => {
       const name = profiles[idStaff] || idStaff;
       const sale = Number(order.total_sale) || 0;
       const platform = order.jenis_platform || 'Facebook';
-      const isMarketplace = platform === 'Tiktok';
 
-      // Cost product uses base_cost or hq_cost based on dropdown
-      const costProduct = cogsBy === 'hq_cost'
-        ? (Number(order.cost_hq) || 0)
-        : (Number(order.cost_baseproduct) || 0);
-      const postage = isMarketplace
-        ? Math.abs(Number(order.cost_postage) || 0)
-        : (Number(order.cost_postage) || 0);
+      // Cost product always uses base_cost
+      const costProduct = Number(order.cost_baseproduct) || 0;
+      const postage = Number(order.cost_postage) || 0;
 
       // Unit Bundle = order.unit × first SKU number (e.g., "GSI-4 + ..." → 4)
       const skuMatch = order.bundle?.sku?.match(/-(\d+)/);
@@ -461,10 +294,9 @@ const AccountReportProfit: React.FC = () => {
     // profitBy dropdown: 'sales' uses totalSales, 'collection' uses totalCollection
     Object.values(stats).forEach(stat => {
       stat.roas = stat.totalSpend > 0 ? stat.totalSales / stat.totalSpend : 0;
-      stat.personalExpenses = personalExpensesByMarketer[stat.idStaff] || 0;
 
       const revenue = profitBy === 'collection' ? stat.totalCollection : stat.totalSales;
-      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
+      stat.profit = revenue - stat.totalSpend - stat.totalCostProduct - stat.totalPostage;
 
       // Platform profit uses same profitBy logic
       const revFB = profitBy === 'collection' ? stat.collectionFB : stat.salesFB;
@@ -476,23 +308,15 @@ const AccountReportProfit: React.FC = () => {
       stat.profitFB = revFB - stat.spendFB - stat.costProductFB - stat.postageFB;
       stat.profitDatabase = revDB - stat.spendDatabase - stat.costProductDatabase - stat.postageDatabase;
       stat.profitThreads = revThreads - stat.spendThreads - stat.costProductThreads - stat.postageThreads;
-      stat.profitTiktok = revTiktok - stat.costProductTiktok - stat.postageTiktok;
+      stat.profitTiktok = revTiktok - stat.spendTiktok - stat.costProductTiktok - stat.postageTiktok;
       stat.profitGoogle = revGoogle - stat.spendGoogle - stat.costProductGoogle - stat.postageGoogle;
     });
 
     // Convert to array and sort by total sales (highest first)
     return Object.values(stats).sort((a, b) => b.totalSales - a.totalSales);
-  }, [filteredOrders, filteredSpends, profiles, personalExpensesByMarketer, profitBy, cogsBy]);
+  }, [filteredOrders, filteredSpends, profiles, profitBy]);
 
-  // Filter by search term
-  const filteredStats = useMemo(() => {
-    if (!searchTerm) return marketerStats;
-    const term = searchTerm.toLowerCase();
-    return marketerStats.filter(stat =>
-      stat.idStaff.toLowerCase().includes(term) ||
-      stat.name.toLowerCase().includes(term)
-    );
-  }, [marketerStats, searchTerm]);
+  const filteredStats = marketerStats;
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -529,12 +353,12 @@ const AccountReportProfit: React.FC = () => {
 
     const roas = base.totalSpend > 0 ? base.totalSales / base.totalSpend : 0;
     const revenue = profitBy === 'collection' ? base.totalCollection : base.totalSales;
-    const profit = revenue - base.totalSpend - base.totalCostProduct - base.totalPostage - totalExpenses.total;
+    const profit = revenue - base.totalSpend - base.totalCostProduct - base.totalPostage;
 
     return { ...base, roas, profit };
-  }, [filteredStats, totalExpenses, profitBy]);
+  }, [filteredStats, profitBy]);
 
-  // Platform totals with profit (including expenses per platform)
+  // Platform totals with profit
   const platformTotals = useMemo(() => {
     const revFB = profitBy === 'collection' ? totals.collectionFB : totals.salesFB;
     const revDB = profitBy === 'collection' ? totals.collectionDatabase : totals.salesDatabase;
@@ -550,9 +374,8 @@ const AccountReportProfit: React.FC = () => {
         costProduct: totals.costProductFB,
         postage: totals.postageFB,
         unitBundle: totals.unitBundleFB,
-        expenses: expensesByPlatform.facebook,
         roas: totals.spendFB > 0 ? totals.salesFB / totals.spendFB : 0,
-        profit: revFB - totals.spendFB - totals.costProductFB - totals.postageFB - expensesByPlatform.facebook,
+        profit: revFB - totals.spendFB - totals.costProductFB - totals.postageFB,
       },
       database: {
         sales: totals.salesDatabase,
@@ -561,9 +384,8 @@ const AccountReportProfit: React.FC = () => {
         costProduct: totals.costProductDatabase,
         postage: totals.postageDatabase,
         unitBundle: totals.unitBundleDatabase,
-        expenses: expensesByPlatform.database,
         roas: totals.spendDatabase > 0 ? totals.salesDatabase / totals.spendDatabase : 0,
-        profit: revDB - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase - expensesByPlatform.database,
+        profit: revDB - totals.spendDatabase - totals.costProductDatabase - totals.postageDatabase,
       },
       threads: {
         sales: totals.salesThreads,
@@ -572,9 +394,8 @@ const AccountReportProfit: React.FC = () => {
         costProduct: totals.costProductThreads,
         postage: totals.postageThreads,
         unitBundle: totals.unitBundleThreads,
-        expenses: expensesByPlatform.threads,
         roas: totals.spendThreads > 0 ? totals.salesThreads / totals.spendThreads : 0,
-        profit: revThreads - totals.spendThreads - totals.costProductThreads - totals.postageThreads - expensesByPlatform.threads,
+        profit: revThreads - totals.spendThreads - totals.costProductThreads - totals.postageThreads,
       },
       tiktok: {
         sales: totals.salesTiktok,
@@ -583,9 +404,8 @@ const AccountReportProfit: React.FC = () => {
         costProduct: totals.costProductTiktok,
         postage: totals.postageTiktok,
         unitBundle: totals.unitBundleTiktok,
-        expenses: expensesByPlatform.tiktok,
         roas: totals.spendTiktok > 0 ? totals.salesTiktok / totals.spendTiktok : 0,
-        profit: revTiktok - totals.costProductTiktok - totals.postageTiktok - expensesByPlatform.tiktok,
+        profit: revTiktok - totals.spendTiktok - totals.costProductTiktok - totals.postageTiktok,
       },
       google: {
         sales: totals.salesGoogle,
@@ -594,12 +414,11 @@ const AccountReportProfit: React.FC = () => {
         costProduct: totals.costProductGoogle,
         postage: totals.postageGoogle,
         unitBundle: totals.unitBundleGoogle,
-        expenses: expensesByPlatform.google,
         roas: totals.spendGoogle > 0 ? totals.salesGoogle / totals.spendGoogle : 0,
-        profit: revGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle - expensesByPlatform.google,
+        profit: revGoogle - totals.spendGoogle - totals.costProductGoogle - totals.postageGoogle,
       },
     };
-  }, [totals, expensesByPlatform, profitBy]);
+  }, [totals, profitBy]);
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-MY', {
@@ -666,28 +485,10 @@ const AccountReportProfit: React.FC = () => {
                 <SelectItem value="collection">Profit by Collection</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={pendingCogsBy} onValueChange={(v: 'base_cost' | 'hq_cost') => setPendingCogsBy(v)}>
-              <SelectTrigger className="w-40 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="base_cost">COGS: Base Cost</SelectItem>
-                <SelectItem value="hq_cost">COGS: HQ Cost</SelectItem>
-              </SelectContent>
-            </Select>
             <Button onClick={applyFilter} disabled={isLoading} size="sm" className="h-9">
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
               Filter
             </Button>
-          </div>
-          <div className="relative w-full md:w-64 md:ml-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search marketer..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
           </div>
         </div>
       </div>
@@ -743,14 +544,6 @@ const AccountReportProfit: React.FC = () => {
           </div>
           <div className="text-lg font-bold text-orange-600">RM {formatNumber(totals.totalPostage)}</div>
         </div>
-        <div className="stat-card border-l-4 border-l-pink-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <CreditCard className="w-3 h-3" />
-            Expenses (Company)
-          </div>
-          <div className="text-lg font-bold text-pink-600">RM {formatNumber(totalExpenses.total)}</div>
-          <div className="text-[10px] text-muted-foreground">VAR: {formatNumber(totalExpenses.var)} | FIX: {formatNumber(totalExpenses.fix)}</div>
-        </div>
         <div className="stat-card border-l-4 border-l-amber-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
             <TrendingUp className="w-3 h-3" />
@@ -801,10 +594,6 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.facebook.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.facebook.expenses)}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.facebook.unitBundle}</span>
               </div>
@@ -847,10 +636,6 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Postage:</span>
                 <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.postage)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.tiktok.expenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
@@ -897,10 +682,6 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.threads.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.threads.expenses)}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.threads.unitBundle}</span>
               </div>
@@ -943,10 +724,6 @@ const AccountReportProfit: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Postage:</span>
                 <span className="font-semibold">RM {formatNumber(platformTotals.database.postage)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.database.expenses)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
@@ -993,10 +770,6 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.google.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-pink-600">RM {formatNumber(platformTotals.google.expenses)}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Unit Bundle:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.google.unitBundle}</span>
               </div>
@@ -1012,66 +785,6 @@ const AccountReportProfit: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Profit Report Table by Marketer */}
-      <div className="form-section">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Profit Report by Marketer
-        </h2>
-
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full min-w-[1500px] border-collapse">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">ID STAFF</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-r">NAME</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-blue-600 uppercase tracking-wider whitespace-nowrap border-r">SALES</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap border-r">COLLECTION</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-rose-600 uppercase tracking-wider whitespace-nowrap border-r">RETURN</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-red-600 uppercase tracking-wider whitespace-nowrap border-r">SPEND</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-purple-600 uppercase tracking-wider whitespace-nowrap border-r">COST PRODUCT</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-orange-600 uppercase tracking-wider whitespace-nowrap border-r">POSTAGE</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-pink-600 uppercase tracking-wider whitespace-nowrap border-r">EXPENSES</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">UNIT BUNDLE</th>
-                <th className="px-3 py-2 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider whitespace-nowrap border-r">ROAS</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-green-600 uppercase tracking-wider whitespace-nowrap bg-green-50 dark:bg-green-950/30">PROFIT</th>
-              </tr>
-            </thead>
-            <tbody className="bg-background divide-y divide-border">
-              {filteredStats.map((stat) => {
-                // Marketer profit includes personal expenses: Sales - Spend - Cost Product - Postage - Personal Expenses
-                const marketerProfit = stat.totalSales - stat.totalSpend - stat.totalCostProduct - stat.totalPostage - stat.personalExpenses;
-
-                return (
-                  <tr key={stat.idStaff} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-3 py-2 text-sm font-medium whitespace-nowrap border-r">{stat.idStaff}</td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap border-r">{stat.name}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-blue-600 whitespace-nowrap border-r">{formatNumber(stat.totalSales)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-green-600 whitespace-nowrap border-r">{formatNumber(stat.totalCollection)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-rose-600 whitespace-nowrap border-r">{formatNumber(stat.totalReturn)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-red-600 whitespace-nowrap border-r">{formatNumber(stat.totalSpend)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-purple-600 whitespace-nowrap border-r">{formatNumber(stat.totalCostProduct)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600 whitespace-nowrap border-r">{formatNumber(stat.totalPostage)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-pink-600 whitespace-nowrap border-r">{formatNumber(stat.personalExpenses)}</td>
-                    <td className="px-3 py-2 text-sm text-right font-semibold text-amber-600 whitespace-nowrap border-r">{stat.totalUnitBundle}</td>
-                    <td className="px-3 py-2 text-sm text-center font-bold text-amber-600 whitespace-nowrap border-r">{stat.roas.toFixed(2)}x</td>
-                    <td className={`px-3 py-2 text-sm text-right font-bold whitespace-nowrap bg-green-50/50 dark:bg-green-950/20 ${marketerProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatNumber(marketerProfit)}
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredStats.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
-                    No marketers found for the selected date range
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
