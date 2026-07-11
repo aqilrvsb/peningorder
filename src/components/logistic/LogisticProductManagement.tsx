@@ -373,7 +373,7 @@ const LogisticProductManagement = () => {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Product Name</TableHead>
-                  <TableHead>Base Cost</TableHead>
+                  <TableHead>Cost Product</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -451,7 +451,7 @@ const LogisticProductManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="newProductBaseCost">Base Cost (RM)</Label>
+              <Label htmlFor="newProductBaseCost">Cost Product (RM)</Label>
               <Input
                 id="newProductBaseCost"
                 type="number"
@@ -522,7 +522,7 @@ const LogisticProductManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editBaseCost">Base Cost (RM)</Label>
+              <Label htmlFor="editBaseCost">Cost Product (RM)</Label>
               <Input
                 id="editBaseCost"
                 type="number"

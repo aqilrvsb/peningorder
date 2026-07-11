@@ -1028,15 +1028,9 @@ const OrderForm: React.FC = () => {
         // Calculate costs from bundle
         const costBaseproduct = selectedBundle?.baseCost || 0;
         const costHq = selectedBundle?.hqCost || 0;
-        // Determine postage based on state: Sabah/Sarawak use SS, others use SM
-        const isSabahSarawak = formData.negeri === 'SABAH' || formData.negeri === 'SARAWAK';
-        const basePostage = isSabahSarawak
-          ? (selectedBundle?.kosPostageSs || 0)
-          : (selectedBundle?.kosPostageSm || 0);
-        // Add COD fee if payment method is COD
-        const codFee = formData.caraBayaran === 'COD' ? (selectedBundle?.postageCod || 0) : 0;
-        // Prefer the REAL shipping cost from the Parcel Daily quote over the bundle estimate
-        const costPostage = pdShippingPrice ?? (basePostage + codFee);
+        // Postage is the REAL price Parcel Daily charged (from the quote), stored per order.
+        // Non-courier orders (Self Pickup) have no PD price → 0.
+        const costPostage = pdShippingPrice ?? 0;
 
         // Customer type is already NP/EP/EC from the Check button
         const finalCustomerType = formData.jenisCustomer;

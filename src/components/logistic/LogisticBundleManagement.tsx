@@ -425,29 +425,10 @@ const LogisticBundleManagement = () => {
                 <TableRow>
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>SKU (Products)</TableHead>
-                  <TableHead className="text-center">Base Cost</TableHead>
-                  <TableHead className="text-center">HQ Cost (Kilang)</TableHead>
-                  <TableHead className="text-center">Postage SM</TableHead>
-                  <TableHead className="text-center">Postage SS</TableHead>
-                  <TableHead className="text-center">Postage COD</TableHead>
+                  <TableHead className="text-center">Cost Product</TableHead>
                   <TableHead className="text-center">Weight (KG)</TableHead>
-                  <TableHead className="text-center bg-blue-50" colSpan={3}>Minimum Price (RM)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead className="text-center text-xs bg-blue-50">NP</TableHead>
-                  <TableHead className="text-center text-xs bg-blue-50">EP</TableHead>
-                  <TableHead className="text-center text-xs bg-blue-50">EC</TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -471,30 +452,8 @@ const LogisticBundleManagement = () => {
                     <TableCell className="text-center font-medium text-red-600">
                       RM {Number(bundle.base_cost || 0).toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-center font-medium text-purple-600">
-                      RM {Number(bundle.hq_cost || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center font-medium text-blue-600">
-                      RM {Number(bundle.kos_postage_sm || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center font-medium text-orange-600">
-                      RM {Number(bundle.kos_postage_ss || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center font-medium text-purple-600">
-                      RM {Number(bundle.postage_cod || 0).toFixed(2)}
-                    </TableCell>
                     <TableCell className="text-center font-medium text-gray-600">
                       {Number(bundle.weight || 0.5).toFixed(2)}
-                    </TableCell>
-                    {/* Single set of prices (using online as reference) */}
-                    <TableCell className="text-center text-sm bg-blue-50/50">
-                      {Number(bundle.price_online_np || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center text-sm bg-blue-50/50">
-                      {Number(bundle.price_online_ep || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center text-sm bg-blue-50/50">
-                      {Number(bundle.price_online_ec || 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -661,11 +620,11 @@ const LogisticBundleManagement = () => {
             <div className="border rounded-lg p-4 space-y-4">
               <h3 className="font-semibold">Cost Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Base cost is auto-calculated from product costs. Postage costs are for Semenanjung (SM) and Sabah/Sarawak (SS).
+                Cost Product is auto-calculated from product costs. Weight is sent to Parcel Daily to price the shipment.
               </p>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="baseCost" className="text-red-600 font-medium">Base Cost (RM)</Label>
+                  <Label htmlFor="baseCost" className="text-red-600 font-medium">Cost Product (RM)</Label>
                   <Input
                     id="baseCost"
                     type="number"
@@ -679,62 +638,6 @@ const LogisticBundleManagement = () => {
                   <p className="text-xs text-muted-foreground">Combined product cost</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="hqCost" className="text-purple-600 font-medium">HQ Cost Kilang (RM)</Label>
-                  <Input
-                    id="hqCost"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={hqCost || ""}
-                    onChange={(e) => setHqCost(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="border-purple-300 focus:border-purple-500"
-                  />
-                  <p className="text-xs text-muted-foreground">Optional HQ cost</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kosPostageSm" className="text-blue-600 font-medium">Kos Postage SM (RM)</Label>
-                  <Input
-                    id="kosPostageSm"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={kosPostageSm || ""}
-                    onChange={(e) => setKosPostageSm(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="border-blue-300 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-muted-foreground">Semenanjung</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kosPostageSs" className="text-orange-600 font-medium">Kos Postage SS (RM)</Label>
-                  <Input
-                    id="kosPostageSs"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={kosPostageSs || ""}
-                    onChange={(e) => setKosPostageSs(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="border-orange-300 focus:border-orange-500"
-                  />
-                  <p className="text-xs text-muted-foreground">Sabah/Sarawak</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="postageCod" className="text-purple-600 font-medium">Postage COD (RM)</Label>
-                  <Input
-                    id="postageCod"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={postageCod || ""}
-                    onChange={(e) => setPostageCod(parseFloat(e.target.value) || 0)}
-                    placeholder="0.00"
-                    className="border-purple-300 focus:border-purple-500"
-                  />
-                  <p className="text-xs text-muted-foreground">Additional fee for COD</p>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="weight" className="text-gray-600 font-medium">Weight (KG)</Label>
                   <Input
                     id="weight"
@@ -746,61 +649,7 @@ const LogisticBundleManagement = () => {
                     placeholder="0.5"
                     className="border-gray-300 focus:border-gray-500"
                   />
-                  <p className="text-xs text-muted-foreground">For NinjaVan shipping</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Prices Section - Single set for all platforms */}
-            <div className="border rounded-lg p-4 space-y-4">
-              <h3 className="font-semibold">Minimum Prices (for Marketer)</h3>
-              <p className="text-xs text-muted-foreground">
-                Set minimum selling prices for each customer type. NP = New Prospect, EP = Existing Prospect, EC = Existing Customer.
-              </p>
-
-              {/* Single Price Section */}
-              <div className="bg-blue-50 rounded-lg p-3 space-y-3">
-                <h4 className="font-medium text-blue-800">Minimum Price (All Platforms)</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="priceNp" className="text-xs">NP (RM)</Label>
-                    <Input
-                      id="priceNp"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={priceNp || ""}
-                      onChange={(e) => setPriceNp(parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="priceEp" className="text-xs">EP (RM)</Label>
-                    <Input
-                      id="priceEp"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={priceEp || ""}
-                      onChange={(e) => setPriceEp(parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="priceEc" className="text-xs">EC (RM)</Label>
-                    <Input
-                      id="priceEc"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={priceEc || ""}
-                      onChange={(e) => setPriceEc(parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="h-9"
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground">Sent to Parcel Daily for postage pricing</p>
                 </div>
               </div>
             </div>
