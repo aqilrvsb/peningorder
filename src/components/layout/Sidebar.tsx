@@ -234,12 +234,12 @@ const Sidebar: React.FC = () => {
       {/* User Profile & Logout */}
       <div className="p-3 border-t border-border">
         <div className={cn('flex items-center gap-3 px-3 py-2 mb-2', collapsed && 'justify-center px-0')}>
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary flex-shrink-0">
-            {profile?.idstaff?.charAt(0) || 'U'}
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary flex-shrink-0 uppercase">
+            {profile?.email?.charAt(0) || 'U'}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{profile?.idstaff || 'User'}</p>
+              <p className="text-sm font-medium text-foreground truncate">{profile?.email || 'User'}</p>
             </div>
           )}
         </div>
