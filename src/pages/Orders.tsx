@@ -104,7 +104,7 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
-  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju'>('poslaju');
+  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju' | 'jnt' | 'dhl'>('poslaju');
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Payment details modal state
@@ -417,43 +417,46 @@ ${trackingUrl}`;
       // Determine COD based on cara_bayaran
       const isCOD = orderForTracking.caraBayaran === 'COD';
 
-      // Pick courier edge function based on user selection
-      const functionName = regenerateCourier === 'poslaju' ? 'poslaju-order' : 'ninjavan-order';
-      const courierLabel = regenerateCourier === 'poslaju' ? 'Poslaju' : 'Ninjavan';
+      // Route all couriers through Parcel Daily (unified middleware)
+      const COURIER_LABELS: Record<string, string> = {
+        ninjavan: 'Ninjavan',
+        poslaju: 'Poslaju',
+        jnt: 'JNT',
+        dhl: 'DHL',
+      };
+      const courierLabel = COURIER_LABELS[regenerateCourier] || regenerateCourier;
 
-      const { data: courierResult, error: courierError } = await supabase.functions.invoke(functionName, {
+      const { data: courierResult, error: courierError } = await supabase.functions.invoke('parceldaily-order', {
         body: {
           idSale: idSale,
+          courier: regenerateCourier,
           customerName: orderForTracking.marketerName, // misleading field name - actually name_customer
           phone: orderForTracking.noPhone,
           address: orderForTracking.alamat,
           postcode: regeneratePoskod,
           city: orderForTracking.bandar,
           state: orderForTracking.negeri,
-          caraBayaran: orderForTracking.caraBayaran,
-          produk: orderForTracking.produk,
+          paymentMethod: orderForTracking.caraBayaran,
+          productName: orderForTracking.produk,
           marketerIdStaff: orderForTracking.marketerIdStaff,
           price: orderForTracking.hargaJualanSebenar,
         }
       });
 
       if (courierError) throw courierError;
+      if (courierResult?.error) throw new Error(courierResult.error);
 
-      if (courierResult?.error) {
-        throw new Error(courierResult.error);
+      // Parcel Daily returns orderId immediately; tracking number arrives via checkout webhook.
+      // For now, store the ParcelDaily orderId as a placeholder; webhook will overwrite with real tracking.
+      const parcelDailyOrderId = courierResult?.orderId;
+      if (!parcelDailyOrderId) {
+        throw new Error(`Parcel Daily (${courierLabel}) did not return an orderId`);
       }
 
-      const trackingNumber = courierResult?.trackingNumber;
-      if (!trackingNumber) {
-        throw new Error(`No tracking number returned from ${courierLabel}`);
-      }
-
-      // Update order with tracking + kurier + waybill PDF
       const updateData: any = {
-        noTracking: trackingNumber,
-        kurier: regenerateCourier === 'poslaju'
-          ? (isCOD ? 'Poslaju COD' : 'Poslaju CASH')
-          : (isCOD ? 'Ninjavan COD' : 'Ninjavan CASH'),
+        idSale: parcelDailyOrderId,
+        noTracking: courierResult?.trackingNumber || parcelDailyOrderId,
+        kurier: `${courierLabel} ${isCOD ? 'COD' : 'CASH'}`,
       };
       if (courierResult?.pdfLink) updateData.waybillUrl = courierResult.pdfLink;
       await updateOrder(orderForTracking.id, updateData);
@@ -1082,13 +1085,15 @@ ${trackingUrl}`;
           <div className="py-4 space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground">Kurier</label>
-              <Select value={regenerateCourier} onValueChange={(v) => setRegenerateCourier(v as 'ninjavan' | 'poslaju')}>
+              <Select value={regenerateCourier} onValueChange={(v) => setRegenerateCourier(v as any)}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Pilih kurier" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ninjavan">Ninjavan</SelectItem>
                   <SelectItem value="poslaju">Poslaju</SelectItem>
+                  <SelectItem value="jnt">JNT Express</SelectItem>
+                  <SelectItem value="dhl">DHL</SelectItem>
                 </SelectContent>
               </Select>
             </div>

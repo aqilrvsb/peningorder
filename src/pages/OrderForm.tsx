@@ -31,7 +31,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Tiktok', 'Shopee', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live', 'Shop'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -674,22 +674,30 @@ const OrderForm: React.FC = () => {
       hour12: true,
     });
 
-    // Set kurier based on delivery method and cara bayaran
+    // Set kurier based on delivery method and cara bayaran (peningorder routes all through Parcel Daily)
     let kurier = '';
     const isPickup = formData.deliveryMethod === 'Self Pickup';
-    const isNinjavan = formData.deliveryMethod === 'Ninjavan';
-    const isPoslaju = formData.deliveryMethod === 'Poslaju';
+    const dmLower = (formData.deliveryMethod || '').toLowerCase();
+    const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl'; label: string }> = {
+      ninjavan: { code: 'ninjavan', label: 'Ninjavan' },
+      poslaju: { code: 'poslaju', label: 'Poslaju' },
+      jnt: { code: 'jnt', label: 'JNT' },
+      'jnt express': { code: 'jnt', label: 'JNT' },
+      dhl: { code: 'dhl', label: 'DHL' },
+    };
+    const pdMapped = PD_COURIER_MAP[dmLower];
+    const isParcelDaily = !!pdMapped;
+    const isNinjavan = pdMapped?.code === 'ninjavan';
+    const isPoslaju = pdMapped?.code === 'poslaju';
 
     if (isMarketplaceCourier) {
       kurier = formData.deliveryMethod; // 'Kurier Tiktok' or 'Kurier Shopee'
     } else if (isPickup) {
       kurier = 'PICKUP';
-    } else if (isPoslaju) {
-      kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
-    } else if (isNinjavan) {
-      kurier = formData.caraBayaran === 'COD' ? 'Ninjavan COD' : 'Ninjavan CASH';
+    } else if (pdMapped) {
+      kurier = `${pdMapped.label} ${formData.caraBayaran === 'COD' ? 'COD' : 'CASH'}`;
     } else {
-      // Unknown delivery method — fallback to Poslaju
+      // Unknown delivery method — fallback to Poslaju via Parcel Daily
       kurier = formData.caraBayaran === 'COD' ? 'Poslaju COD' : 'Poslaju CASH';
     }
     
@@ -753,37 +761,39 @@ const OrderForm: React.FC = () => {
           };
 
           try {
-            // Call appropriate API based on delivery method
-            const functionName = isPoslaju ? 'poslaju-order' : 'ninjavan-order';
-            const kurierName = isPoslaju ? 'Poslaju' : 'Ninjavan';
-
-            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke(functionName, {
-              body: orderBody
+            // Route via Parcel Daily (unified middleware for ninjavan / poslaju / jnt / dhl)
+            const kurierName = pdMapped?.label || 'Kurier';
+            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke('parceldaily-order', {
+              body: {
+                ...orderBody,
+                courier: pdMapped?.code || 'poslaju',
+                paymentMethod: formData.caraBayaran,
+                customerName: formData.namaPelanggan,
+                productName: formData.produk,
+              }
             });
 
             if (kurierError) {
-              console.error(`${kurierName} API error:`, kurierError);
+              console.error(`Parcel Daily (${kurierName}) API error:`, kurierError);
               toast({
                 title: 'Amaran',
                 description: `Order dikemaskini tetapi gagal hantar ke ${kurierName}.`,
                 variant: 'destructive',
               });
             } else if (kurierResult?.error) {
-              console.error(`${kurierName} error:`, kurierResult.error);
+              console.error(`Parcel Daily (${kurierName}) error:`, kurierResult.error);
               toast({
                 title: 'Amaran',
                 description: kurierResult.error,
                 variant: 'destructive',
               });
-            } else if (kurierResult?.trackingNumber) {
-              trackingNumber = kurierResult.trackingNumber;
-              // Save Poslaju PDF link if available
-              if (isPoslaju && kurierResult?.pdfLink) {
-                editWaybillPdfUrl = kurierResult.pdfLink;
-              }
+            } else if (kurierResult?.orderId) {
+              // Parcel Daily returns orderId immediately; real tracking arrives via webhook.
+              trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
+              if (kurierResult?.pdfLink) editWaybillPdfUrl = kurierResult.pdfLink;
               toast({
                 title: `${kurierName} Berjaya`,
-                description: `Tracking Number Baru: ${trackingNumber}`,
+                description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
               });
             }
           } catch (kurierErr) {
@@ -927,37 +937,37 @@ const OrderForm: React.FC = () => {
           };
 
           try {
-            // Call appropriate API based on delivery method
-            const functionName = isPoslaju ? 'poslaju-order' : 'ninjavan-order';
-            const kurierName = isPoslaju ? 'Poslaju' : 'Ninjavan';
-
-            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke(functionName, {
-              body: orderBody
+            const kurierName = pdMapped?.label || 'Kurier';
+            const { data: kurierResult, error: kurierError } = await supabase.functions.invoke('parceldaily-order', {
+              body: {
+                ...orderBody,
+                courier: pdMapped?.code || 'poslaju',
+                paymentMethod: formData.caraBayaran,
+                customerName: formData.namaPelanggan,
+                productName: formData.produk,
+              }
             });
 
             if (kurierError) {
-              console.error(`${kurierName} API error:`, kurierError);
+              console.error(`Parcel Daily (${kurierName}) API error:`, kurierError);
               toast({
                 title: 'Amaran',
                 description: `Order disimpan tetapi gagal hantar ke ${kurierName}. Sila hubungi logistik.`,
                 variant: 'destructive',
               });
             } else if (kurierResult?.error) {
-              console.error(`${kurierName} error:`, kurierResult.error);
+              console.error(`Parcel Daily (${kurierName}) error:`, kurierResult.error);
               toast({
                 title: 'Amaran',
                 description: kurierResult.error,
                 variant: 'destructive',
               });
-            } else if (kurierResult?.trackingNumber) {
-              trackingNumber = kurierResult.trackingNumber;
-              // Save Poslaju PDF link if available
-              if (isPoslaju && kurierResult?.pdfLink) {
-                waybillPdfUrl = kurierResult.pdfLink;
-              }
+            } else if (kurierResult?.orderId) {
+              trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
+              if (kurierResult?.pdfLink) waybillPdfUrl = kurierResult.pdfLink;
               toast({
                 title: `${kurierName} Berjaya`,
-                description: `Tracking Number: ${trackingNumber}`,
+                description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
               });
             }
           } catch (kurierErr) {
