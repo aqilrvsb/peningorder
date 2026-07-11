@@ -72,7 +72,7 @@ const logisticItems: NavItem[] = [
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
   { label: 'Customer HQ', path: '/dashboard/logistics/customers', icon: <Users className="w-5 h-5" /> },
   { label: 'Update Cost Product', path: '/dashboard/logistics/update-cost-product', icon: <RefreshCw className="w-5 h-5" /> },
-  { label: 'Ninjavan Settings', path: '/dashboard/logistics/ninjavan-settings', icon: <Settings className="w-5 h-5" /> },
+  { label: 'Courier Settings', path: '/dashboard/logistics/courier-settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 // ============ ACCOUNT ROLE ============

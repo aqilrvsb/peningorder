@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/types';
 
 interface UserProfile {
   id: string;
+  email: string;
   username: string;
   fullName: string;
+  businessName: string;
   idstaff: string;
   role: UserRole;
 }
@@ -13,122 +16,101 @@ interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   profile: UserProfile | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (idstaff: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (idstaff: string, password: string, fullName: string, role: UserRole) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    businessName: string,
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const SESSION_KEY = 'dfr_session';
+async function fetchProfile(userId: string): Promise<UserProfile | null> {
+  const [{ data: profile }, { data: roles }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    supabase.from('user_roles').select('role').eq('user_id', userId).limit(1),
+  ]);
+  if (!profile) return null;
+  return {
+    id: profile.id,
+    email: profile.email || '',
+    username: profile.username || '',
+    fullName: profile.full_name || '',
+    businessName: profile.business_name || '',
+    idstaff: profile.idstaff || '',
+    role: (roles?.[0]?.role || 'admin') as UserRole,
+  };
+}
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load session from localStorage on mount
   useEffect(() => {
-    const loadSession = () => {
-      try {
-        const savedSession = localStorage.getItem(SESSION_KEY);
-        if (savedSession) {
-          const parsed = JSON.parse(savedSession);
-          setUser(parsed);
-        }
-      } catch (error) {
-        console.error('Error loading session:', error);
-        localStorage.removeItem(SESSION_KEY);
+    // Restore existing session on mount
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (data.session) {
+        fetchProfile(data.session.user.id).then((p) => {
+          setUser(p);
+          setIsLoading(false);
+        });
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    };
+    });
 
-    loadSession();
+    // React to sign-in / sign-out / token refresh
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s) {
+        fetchProfile(s.user.id).then(setUser);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Save session to localStorage whenever user changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  }, [user]);
-
-  const signIn = async (idstaff: string, password: string): Promise<{ error: Error | null }> => {
-    try {
-      // Call the login_user function
-      // Password is also uppercase since password = Staff ID
-      const { data, error } = await supabase.rpc('login_user', {
-        p_idstaff: idstaff.toUpperCase(),
-        p_password: password.toUpperCase()
-      });
-
-      if (error) {
-        console.error('Login error:', error);
-        return { error: new Error('Invalid Staff ID or password') };
-      }
-
-      if (!data || data.length === 0) {
-        return { error: new Error('Invalid Staff ID or password') };
-      }
-
-      const userData = data[0];
-
-      if (!userData.is_active) {
-        return { error: new Error('Account is deactivated. Please contact admin.') };
-      }
-
-      const userProfile: UserProfile = {
-        id: userData.user_id,
-        username: userData.username,
-        fullName: userData.full_name,
-        idstaff: userData.idstaff,
-        role: userData.role as UserRole,
-      };
-
-      setUser(userProfile);
-      return { error: null };
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      return { error: new Error(error.message || 'An unexpected error occurred') };
-    }
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: new Error(error.message) };
+    return { error: null };
   };
 
-  const signUp = async (idstaff: string, password: string, fullName: string, role: UserRole): Promise<{ error: Error | null }> => {
-    try {
-      // Call the register_user function
-      // Password stored as uppercase for consistency
-      const { data, error } = await supabase.rpc('register_user', {
-        p_idstaff: idstaff.toUpperCase(),
-        p_password: password.toUpperCase(),
-        p_full_name: fullName,
-        p_role: role
-      });
-
-      if (error) {
-        console.error('Registration error:', error);
-        if (error.message.includes('already exists')) {
-          return { error: new Error('Staff ID already exists') };
-        }
-        return { error: new Error(error.message || 'Registration failed') };
-      }
-
-      if (!data || data.length === 0) {
-        return { error: new Error('Registration failed') };
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-      return { error: new Error(error.message || 'An unexpected error occurred') };
-    }
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    businessName: string,
+  ) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          business_name: businessName,
+          username: email.split('@')[0],
+        },
+      },
+    });
+    if (error) return { error: new Error(error.message) };
+    return { error: null };
   };
 
   const signOut = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem(SESSION_KEY);
+    setSession(null);
   };
 
   return (
@@ -136,11 +118,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         user,
         profile: user,
+        session,
         isAuthenticated: !!user,
         isLoading,
         signIn,
         signUp,
-        signOut
+        signOut,
       }}
     >
       {children}

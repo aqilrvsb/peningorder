@@ -16,30 +16,75 @@ const fail = (error: string, extra?: Record<string, unknown>) =>
     headers: jsonHeaders,
   });
 
-// Two modes:
-//   1) mode="single": returns a PDF URL for a single consign_no (uses POST /v1/partner/consign-pdf/)
-//   2) mode="bulk":   requests bulk PDF, returns immediately.
-//                     Actual URL arrives via webhook CONNOTE_LINK — caller polls the row.
-//
-// Payload shape:
-//   { mode: "single" | "bulk", trackingNumbers: string[], callbackUrl?: string, thermal?: boolean }
+// Three modes:
+//   1) mode="urls":   INSTANT. Returns waybill_url list from customer_purchases (populated by CHECKOUT webhook).
+//                     Payload: { mode: "urls", purchaseIds: number[] } OR { mode: "urls", trackingNumbers: string[] }
+//   2) mode="single": returns a PDF URL for a single consign_no via POST /v1/partner/consign-pdf/
+//   3) mode="bulk":   requests bulk PDF. URL arrives via CONNOTE_LINK webhook (async, ~30-60s).
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    // Use caller's JWT so RLS enforces owner_user_id = auth.uid()
+    const authHeader = req.headers.get("Authorization") || "";
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return fail("Not authenticated. Sign in and try again.");
+    }
 
     const body: {
-      mode?: "single" | "bulk";
+      mode?: "urls" | "single" | "bulk";
       trackingNumbers?: string[];
+      purchaseIds?: number[];
       callbackUrl?: string;
       thermal?: boolean;
     } = await req.json();
 
-    const mode = body.mode || (Array.isArray(body.trackingNumbers) && body.trackingNumbers.length === 1 ? "single" : "bulk");
+    const mode =
+      body.mode ||
+      (Array.isArray(body.purchaseIds) && body.purchaseIds.length ? "urls" : null) ||
+      (Array.isArray(body.trackingNumbers) && body.trackingNumbers.length === 1 ? "single" : "bulk");
+
+    // MODE: urls — instant lookup from our DB (no Parcel Daily call)
+    if (mode === "urls") {
+      const ids = (body.purchaseIds || []).map((v) => Number(v)).filter((n) => Number.isFinite(n));
+      const tns = (body.trackingNumbers || []).map((t) => String(t).trim()).filter(Boolean);
+      if (!ids.length && !tns.length) {
+        return fail("purchaseIds[] or trackingNumbers[] is required for mode='urls'");
+      }
+      let query = supabase
+        .from("customer_purchases")
+        .select("id, tracking_number, waybill_url, kurier, name_customer, delivery_status");
+      if (ids.length) query = query.in("id", ids);
+      else query = query.in("tracking_number", tns);
+      const { data: rows, error } = await query;
+      if (error) return fail(`DB lookup failed: ${error.message}`);
+      const withUrl = (rows || []).filter((r) => !!r.waybill_url);
+      const missing = (rows || []).filter((r) => !r.waybill_url);
+      return ok({
+        success: true,
+        mode: "urls",
+        count: withUrl.length,
+        waybills: withUrl.map((r) => ({
+          id: r.id,
+          trackingNumber: r.tracking_number,
+          waybillUrl: r.waybill_url,
+          courier: r.kurier,
+          customer: r.name_customer,
+        })),
+        missing: missing.map((r) => ({ id: r.id, trackingNumber: r.tracking_number, status: r.delivery_status })),
+      });
+    }
+
     const trackingNumbers = (body.trackingNumbers || []).map((t) => String(t).trim()).filter(Boolean);
     if (!trackingNumbers.length) {
       return fail("trackingNumbers[] is required");

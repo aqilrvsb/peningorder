@@ -64,8 +64,22 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    // Build supabase client with the caller's JWT so RLS applies (multi-tenant).
+    // Config lookup respects owner_user_id = auth.uid() automatically.
+    const authHeader = req.headers.get("Authorization") || "";
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Verify caller is authenticated
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return fail("Not authenticated. Sign in and try again.");
+    }
 
     const orderData: OrderData = await req.json();
 
