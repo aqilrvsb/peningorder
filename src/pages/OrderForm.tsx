@@ -442,14 +442,43 @@ const OrderForm: React.FC = () => {
   const currentMinPrice = (minPricePerUnit * (formData.quantity || 1)) + postageCostInfo.total;
   const isPriceBelowMinimum = formData.hargaJualan > 0 && formData.hargaJualan < currentMinPrice;
 
-  // Auto-fill Negeri from a 5-digit Malaysian postcode. State is deterministic
-  // from the postcode prefix (instant, offline, reliable). Daerah stays manual
-  // — no free source maps postcode -> city without a full dataset.
-  const [isLookingUpPoscode] = useState(false);
-  const lookupPostcode = (pc: string) => {
+  // Auto-fill Daerah + Negeri from a 5-digit Malaysian postcode.
+  // 1) Instant: Negeri from the local postcode-prefix map (always works, offline).
+  // 2) Then: Zippopotam.us (free, no key) fills Daerah (city) + refines Negeri.
+  const [isLookingUpPoscode, setIsLookingUpPoscode] = useState(false);
+  const lookupPostcode = async (pc: string) => {
     if (!/^\d{5}$/.test(pc)) return;
-    const state = postcodeToNegeri(pc);
-    if (state) setFormData((prev) => ({ ...prev, negeri: state }));
+
+    // Instant local fill for Negeri
+    const localState = postcodeToNegeri(pc);
+    if (localState) setFormData((prev) => ({ ...prev, negeri: prev.negeri || localState }));
+
+    // Fetch city + state from Zippopotam
+    setIsLookingUpPoscode(true);
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`https://api.zippopotam.us/MY/${pc}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) return; // unknown postcode — keep local negeri
+      const data = await res.json();
+      const place = data?.places?.[0];
+      if (!place) return;
+
+      const city = String(place['place name'] || '').trim();
+      const stateName = String(place['state'] || '').trim();
+      const matchedNegeri = NEGERI_OPTIONS.find((n) => n.toUpperCase() === stateName.toUpperCase());
+
+      setFormData((prev) => ({
+        ...prev,
+        daerah: city ? city.toUpperCase() : prev.daerah,
+        negeri: matchedNegeri || prev.negeri || localState || prev.negeri,
+      }));
+    } catch {
+      // silent — local negeri already set, never block the user
+    } finally {
+      setIsLookingUpPoscode(false);
+    }
   };
 
   const handleChange = (field: string, value: string | number) => {
@@ -1412,8 +1441,11 @@ const OrderForm: React.FC = () => {
                   }}
                   className="bg-background"
                 />
+                {isLookingUpPoscode && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Negeri diisi automatik dari poskod</p>
+              <p className="text-xs text-muted-foreground mt-1">Daerah &amp; Negeri diisi automatik dari poskod</p>
             </div>
 
             {/* Daerah */}
