@@ -443,9 +443,31 @@ const OrderForm: React.FC = () => {
   const isPriceBelowMinimum = formData.hargaJualan > 0 && formData.hargaJualan < currentMinPrice;
 
   // Auto-fill Daerah + Negeri from a 5-digit Malaysian postcode.
-  // 1) Instant: Negeri from the local postcode-prefix map (always works, offline).
-  // 2) Then: Zippopotam.us (free, no key) fills Daerah (city) + refines Negeri.
+  //   1) Instant: Negeri from the local postcode-prefix map (always works, offline).
+  //   2) Validate the postcode against Zippopotam. If the EXACT postcode isn't
+  //      found, retry with the area postcode (last 2 digits -> 00, e.g.
+  //      22250 -> 22200). Whichever resolves fills Daerah (city) + Negeri.
+  //   Client can still edit Daerah/Negeri manually afterwards.
+  //   (Parcel Daily's own postcode endpoint is unreliable/timing out, so we
+  //    validate against Zippopotam instead — same outcome, and PD accepts the
+  //    real postcode at order time regardless.)
   const [isLookingUpPoscode, setIsLookingUpPoscode] = useState(false);
+
+  const fetchZippo = async (pc: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(`https://api.zippopotam.us/MY/${pc}`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.places?.[0] || null;
+    } catch {
+      clearTimeout(timer);
+      return null;
+    }
+  };
+
   const lookupPostcode = async (pc: string) => {
     if (!/^\d{5}$/.test(pc)) return;
 
@@ -453,17 +475,18 @@ const OrderForm: React.FC = () => {
     const localState = postcodeToNegeri(pc);
     if (localState) setFormData((prev) => ({ ...prev, negeri: prev.negeri || localState }));
 
-    // Fetch city + state from Zippopotam
     setIsLookingUpPoscode(true);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(`https://api.zippopotam.us/MY/${pc}`, { signal: controller.signal });
-      clearTimeout(timer);
-      if (!res.ok) return; // unknown postcode — keep local negeri
-      const data = await res.json();
-      const place = data?.places?.[0];
-      if (!place) return;
+      // 1) Try the exact postcode
+      let place = await fetchZippo(pc);
+
+      // 2) Fallback: area postcode (last 2 digits -> 00), e.g. 22250 -> 22200
+      const areaPc = pc.slice(0, 3) + '00';
+      if (!place && areaPc !== pc) {
+        place = await fetchZippo(areaPc);
+      }
+
+      if (!place) return; // unknown even after fallback — keep local negeri
 
       const city = String(place['place name'] || '').trim();
       const stateName = String(place['state'] || '').trim();
