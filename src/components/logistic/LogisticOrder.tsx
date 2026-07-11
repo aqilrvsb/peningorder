@@ -476,7 +476,7 @@ const LogisticOrder = () => {
 
       const result = response.data;
       if (result?.error) throw new Error(result.error);
-      if (!result?.orderId) throw new Error("Parcel Daily did not return an orderId");
+      if (!result?.orderId) throw new Error("Courier did not return an orderId");
 
       // Store PD orderId as placeholder; the CHECKOUT webhook replaces it with the real tracking
       const trackingPlaceholder = result.trackingNumber || result.orderId;
@@ -644,7 +644,7 @@ const LogisticOrder = () => {
 
         const result = response.data;
         if (result?.error) throw new Error(result.error);
-        if (!result?.orderId) throw new Error("Parcel Daily did not return an orderId");
+        if (!result?.orderId) throw new Error("Courier did not return an orderId");
 
         // Store PD orderId as placeholder; CHECKOUT webhook replaces with real tracking + waybill
         const trackingUpdate: any = {
@@ -708,7 +708,7 @@ const LogisticOrder = () => {
               <DollarSign className="w-6 h-6 text-yellow-600" />
               <div>
                 <p className="text-xl font-bold">{counts.ninjavanCod}</p>
-                <p className="text-xs text-muted-foreground">Ninjavan COD</p>
+                <p className="text-xs text-muted-foreground">COD Orders</p>
               </div>
             </div>
           </CardContent>
@@ -719,7 +719,7 @@ const LogisticOrder = () => {
               <CreditCard className="w-6 h-6 text-green-500" />
               <div>
                 <p className="text-xl font-bold">{counts.ninjavanCash}</p>
-                <p className="text-xs text-muted-foreground">Ninjavan CASH</p>
+                <p className="text-xs text-muted-foreground">CASH Orders</p>
               </div>
             </div>
           </CardContent>

@@ -620,7 +620,7 @@ const LogisticBundleManagement = () => {
             <div className="border rounded-lg p-4 space-y-4">
               <h3 className="font-semibold">Cost Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Cost Product is auto-calculated from product costs. Weight is sent to Parcel Daily to price the shipment.
+                Cost Product is auto-calculated from product costs. Weight is sent to the courier to price the shipment.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -649,7 +649,7 @@ const LogisticBundleManagement = () => {
                     placeholder="0.5"
                     className="border-gray-300 focus:border-gray-500"
                   />
-                  <p className="text-xs text-muted-foreground">Sent to Parcel Daily for postage pricing</p>
+                  <p className="text-xs text-muted-foreground">Sent to courier for postage pricing</p>
                 </div>
               </div>
             </div>

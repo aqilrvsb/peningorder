@@ -511,7 +511,7 @@ ${trackingUrl}`;
       // For now, store the ParcelDaily orderId as a placeholder; webhook will overwrite with real tracking.
       const parcelDailyOrderId = courierResult?.orderId;
       if (!parcelDailyOrderId) {
-        throw new Error(`Parcel Daily (${courierLabel}) did not return an orderId`);
+        throw new Error(`Courier (${courierLabel}) did not return an orderId`);
       }
 
       const updateData: any = {
@@ -566,7 +566,7 @@ ${trackingUrl}`;
             console.error('Parcel Daily cancel error:', cancelError);
             toast({
               title: 'Amaran',
-              description: 'Gagal membatalkan order di Parcel Daily. Order tetap dipadam dari sistem.',
+              description: 'Gagal membatalkan order di courier. Order tetap dipadam dari sistem.',
               variant: 'destructive',
             });
           } else if (cancelResult?.error) {

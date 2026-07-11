@@ -111,7 +111,7 @@ const LogisticProcessed = () => {
           *,
           bundle:logistic_bundles(name, sku)
         `)
-        .eq("delivery_status", "Shipped")
+        .neq("delivery_status", "Pending")
         .order("date_processed", { ascending: false });
 
       if (startDate) {
@@ -518,7 +518,7 @@ const LogisticProcessed = () => {
               <DollarSign className="w-6 h-6 text-yellow-600" />
               <div>
                 <p className="text-xl font-bold">{counts.ninjavanCod}</p>
-                <p className="text-xs text-muted-foreground">Ninjavan COD</p>
+                <p className="text-xs text-muted-foreground">COD Orders</p>
               </div>
             </div>
           </CardContent>
@@ -529,7 +529,7 @@ const LogisticProcessed = () => {
               <CreditCard className="w-6 h-6 text-green-500" />
               <div>
                 <p className="text-xl font-bold">{counts.ninjavanCash}</p>
-                <p className="text-xs text-muted-foreground">Ninjavan CASH</p>
+                <p className="text-xs text-muted-foreground">CASH Orders</p>
               </div>
             </div>
           </CardContent>

@@ -29,8 +29,6 @@ import LogisticOrder from "./components/logistic/LogisticOrder";
 import LogisticProcessed from "./components/logistic/LogisticProcessed";
 import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
-import LogisticCustomers from "./components/logistic/LogisticCustomers";
-import LogisticUpdateCostProduct from "./components/logistic/LogisticUpdateCostProduct";
 // Account Role components
 import AccountExpenses from "./components/account/AccountExpenses";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
@@ -71,8 +69,6 @@ const App = () => (
                   <Route path="logistics/processed" element={<LogisticProcessed />} />
                   <Route path="logistics/return" element={<LogisticReturn />} />
                   <Route path="logistics/pending-tracking" element={<LogisticPendingTracking />} />
-                  <Route path="logistics/customers" element={<LogisticCustomers />} />
-                  <Route path="logistics/update-cost-product" element={<LogisticUpdateCostProduct />} />
                   <Route path="logistics/courier-settings" element={<CourierSettings />} />
                   <Route path="settings/courier" element={<CourierSettings />} />
                   {/* Account Role */}
