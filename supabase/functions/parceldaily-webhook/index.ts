@@ -49,34 +49,31 @@ serve(async (req) => {
   const orderId = payload?.orderId || payload?.data?.orderId || null;
 
   try {
-    // 1) Try to locate the customer_purchases row this webhook is about
+    // 1) Try to locate the customer_purchases row this webhook is about.
     //    We stamp orderId at create-time and tracking_number after CHECKOUT/STATUS webhooks.
-    let matched: any = null;
-    if (consignNo) {
-      const r = await supabase
-        .from("customer_purchases")
-        .select("id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale")
-        .eq("tracking_number", consignNo)
-        .maybeSingle();
-      matched = r.data;
-    }
-    if (!matched && orderId) {
-      const r = await supabase
-        .from("customer_purchases")
-        .select("id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale")
-        .eq("id_sale", orderId)
-        .maybeSingle();
-      matched = r.data;
-    }
-    // Frontend also stores the Parcel Daily orderId in tracking_number
-    // (as a placeholder until this webhook replaces it with the real consign_no).
-    if (!matched && orderId) {
-      const r = await supabase
-        .from("customer_purchases")
-        .select("id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale")
-        .eq("tracking_number", orderId)
-        .maybeSingle();
-      matched = r.data;
+    const findRow = async (): Promise<any> => {
+      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale";
+      if (consignNo) {
+        const r = await supabase.from("customer_purchases").select(cols).eq("tracking_number", consignNo).maybeSingle();
+        if (r.data) return r.data;
+      }
+      if (orderId) {
+        const r = await supabase.from("customer_purchases").select(cols).eq("id_sale", orderId).maybeSingle();
+        if (r.data) return r.data;
+        // Frontend also stores the PD orderId in tracking_number as a placeholder
+        const r2 = await supabase.from("customer_purchases").select(cols).eq("tracking_number", orderId).maybeSingle();
+        if (r2.data) return r2.data;
+      }
+      return null;
+    };
+
+    let matched: any = await findRow();
+    // RACE FIX: Parcel Daily's checkout webhook can arrive BEFORE the frontend
+    // has inserted the customer_purchases row (webhook ~seconds after pay, insert
+    // ~1-2s after the EF returns). Wait and retry the match once.
+    if (!matched && (consignNo || orderId)) {
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+      matched = await findRow();
     }
 
     // 2) Dispatch by event
