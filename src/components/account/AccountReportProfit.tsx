@@ -8,6 +8,7 @@ import { Calendar, Search, Loader2, Filter, TrendingUp, DollarSign, Package, Tru
 import { supabase } from '@/integrations/supabase/client';
 import { parseISO, isWithinInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
+import { isOrderCollected } from '@/lib/utils';
 
 interface Order {
   id: string;
@@ -385,7 +386,7 @@ const AccountReportProfit: React.FC = () => {
       initStats(idStaff, name);
 
       stats[idStaff].totalSales += sale;
-      if (order.seo === 'Successful Delivery') {
+      if (isOrderCollected(order)) {
         stats[idStaff].totalCollection += sale;
       }
       if (order.delivery_status === 'Return') {
@@ -398,31 +399,31 @@ const AccountReportProfit: React.FC = () => {
       // Count by platform
       if (platform === 'Facebook') {
         stats[idStaff].salesFB += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionFB += sale;
+        if (isOrderCollected(order)) stats[idStaff].collectionFB += sale;
         stats[idStaff].costProductFB += costProduct;
         stats[idStaff].postageFB += postage;
         stats[idStaff].unitBundleFB += unitBundle;
       } else if (platform === 'Database') {
         stats[idStaff].salesDatabase += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionDatabase += sale;
+        if (isOrderCollected(order)) stats[idStaff].collectionDatabase += sale;
         stats[idStaff].costProductDatabase += costProduct;
         stats[idStaff].postageDatabase += postage;
         stats[idStaff].unitBundleDatabase += unitBundle;
       } else if (platform === 'Threads') {
         stats[idStaff].salesThreads += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionThreads += sale;
+        if (isOrderCollected(order)) stats[idStaff].collectionThreads += sale;
         stats[idStaff].costProductThreads += costProduct;
         stats[idStaff].postageThreads += postage;
         stats[idStaff].unitBundleThreads += unitBundle;
       } else if (platform === 'Tiktok') {
         stats[idStaff].salesTiktok += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionTiktok += sale;
+        if (isOrderCollected(order)) stats[idStaff].collectionTiktok += sale;
         stats[idStaff].costProductTiktok += costProduct;
         stats[idStaff].postageTiktok += postage;
         stats[idStaff].unitBundleTiktok += unitBundle;
       } else if (platform === 'Google') {
         stats[idStaff].salesGoogle += sale;
-        if (order.seo === 'Successful Delivery') stats[idStaff].collectionGoogle += sale;
+        if (isOrderCollected(order)) stats[idStaff].collectionGoogle += sale;
         stats[idStaff].costProductGoogle += costProduct;
         stats[idStaff].postageGoogle += postage;
         stats[idStaff].unitBundleGoogle += unitBundle;

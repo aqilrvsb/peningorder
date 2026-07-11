@@ -106,11 +106,13 @@ const AccountSuccessTracking = () => {
     queryFn: async () => {
       // Use fetchAllRows to bypass the 1000-row limit
       const data = await fetchAllRows(() => {
+        // Collected orders = money in hand: CASH (paid upfront) OR
+        // COD that Parcel Daily has remitted (date_payment stamped). Exclude returns.
         let query = supabase
           .from("customer_purchases")
           .select(`*, bundle:logistic_bundles(name, sku)`)
-          .eq("delivery_status", "Shipped")
-          .eq("seo", "Successful Delivery")
+          .not("delivery_status", "in", "(Return,Failed)")
+          .or("type_payment.eq.CASH,date_payment.not.is.null")
           .order("date_order", { ascending: false });
 
         if (trackingSearch) {
@@ -130,11 +132,13 @@ const AccountSuccessTracking = () => {
     queryKey: ["account-pending-stats", startDate, endDate],
     queryFn: async () => {
       const data = await fetchAllRows(() => {
+        // Pending collection = COD not yet remitted (no date_payment), not returned
         let query = supabase
           .from("customer_purchases")
           .select("id, type_payment, total_sale, cost_postage, unit, jenis_platform")
-          .eq("delivery_status", "Shipped")
-          .or("seo.is.null,seo.neq.Successful Delivery");
+          .eq("type_payment", "COD")
+          .is("date_payment", null)
+          .not("delivery_status", "in", "(Return,Failed)");
 
         if (startDate) query = query.gte("date_order", startDate);
         if (endDate) query = query.lte("date_order", endDate);

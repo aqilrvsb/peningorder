@@ -113,3 +113,27 @@ export function postcodeToNegeri(postcode: string): string | null {
   if (inRange(93000, 98999)) return "SARAWAK";
   return null;
 }
+
+// Collection model — single source of truth used by History, Dashboard and
+// the Account tabs so all "collected money" numbers tally.
+//   CASH  -> collected upfront (Success) as soon as the order exists
+//   COD   -> collected only after Parcel Daily remits (date_payment stamped
+//            by the COD_REMITTED webhook)
+//   Return/Failed delivery -> not collected
+// Accepts either camelCase (mapped CustomerOrder) or snake_case (raw DB row).
+export function isOrderCollected(order: {
+  delivery_status?: string;
+  deliveryStatus?: string;
+  type_payment?: string;
+  caraBayaran?: string;
+  date_payment?: string | null;
+  tarikhBayaran?: string | null;
+  kurier?: string;
+}): boolean {
+  const status = order.delivery_status ?? order.deliveryStatus;
+  if (status === 'Return' || status === 'Failed') return false;
+  const pay = order.type_payment ?? order.caraBayaran;
+  const isCod = pay === 'COD' || (order.kurier || '').includes('COD');
+  if (!isCod) return true; // CASH = paid upfront
+  return !!(order.date_payment ?? order.tarikhBayaran); // COD = only after remittance
+}

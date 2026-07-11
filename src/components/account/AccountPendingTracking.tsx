@@ -138,11 +138,14 @@ const AccountPendingTracking = () => {
     queryFn: async () => {
       // Use fetchAllRows to bypass the 1000-row limit
       const data = await fetchAllRows(() => {
+        // Pending collection = COD orders not yet remitted (no date_payment),
+        // excluding returns. CASH is auto-collected so it never appears here.
         let query = supabase
           .from("customer_purchases")
           .select(`*, bundle:logistic_bundles(name, sku)`)
-          .eq("delivery_status", "Shipped")
-          .or("seo.is.null,seo.neq.Successful Delivery")
+          .eq("type_payment", "COD")
+          .is("date_payment", null)
+          .not("delivery_status", "in", "(Return,Failed)")
           .order("date_order", { ascending: false });
 
         if (trackingSearch) {
@@ -436,8 +439,9 @@ const AccountPendingTracking = () => {
       const { data } = await supabase
         .from("customer_purchases")
         .select("id, tracking_number")
-        .eq("delivery_status", "Shipped")
-        .or("seo.is.null,seo.neq.Successful Delivery")
+        .eq("type_payment", "COD")
+        .is("date_payment", null)
+        .not("delivery_status", "in", "(Return,Failed)")
         .in("tracking_number", batch);
       if (data) pendingOrders.push(...data);
     }
@@ -547,8 +551,9 @@ const AccountPendingTracking = () => {
         const { data: pendingOrders } = await supabase
           .from("customer_purchases")
           .select("id, tracking_number")
-          .eq("delivery_status", "Shipped")
-          .or("seo.is.null,seo.neq.Successful Delivery")
+          .eq("type_payment", "COD")
+          .is("date_payment", null)
+          .not("delivery_status", "in", "(Return,Failed)")
           .in("tracking_number", batch);
 
         for (const o of pendingOrders || []) {
