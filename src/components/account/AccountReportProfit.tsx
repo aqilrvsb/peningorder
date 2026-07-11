@@ -511,7 +511,7 @@ const AccountReportProfit: React.FC = () => {
         <div className="stat-card border-l-4 border-l-amber-500">
           <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
             <Package className="w-3 h-3" />
-            Total Unit Bundle
+            Total Unit
           </div>
           <div className="text-lg font-bold text-amber-600">{totals.totalUnitBundle}</div>
         </div>
@@ -593,7 +593,7 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.facebook.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="text-muted-foreground">Unit:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.facebook.unitBundle}</span>
               </div>
               <div className="flex justify-between">
@@ -637,7 +637,7 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="text-muted-foreground">Unit:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.tiktok.unitBundle}</span>
               </div>
               <div className="flex justify-between">
@@ -681,7 +681,7 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.threads.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="text-muted-foreground">Unit:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.threads.unitBundle}</span>
               </div>
               <div className="flex justify-between">
@@ -725,7 +725,7 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.database.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="text-muted-foreground">Unit:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.database.unitBundle}</span>
               </div>
               <div className="flex justify-between">
@@ -769,7 +769,7 @@ const AccountReportProfit: React.FC = () => {
                 <span className="font-semibold">RM {formatNumber(platformTotals.google.postage)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Unit Bundle:</span>
+                <span className="text-muted-foreground">Unit:</span>
                 <span className="font-semibold text-amber-600">{platformTotals.google.unitBundle}</span>
               </div>
               <div className="flex justify-between">
