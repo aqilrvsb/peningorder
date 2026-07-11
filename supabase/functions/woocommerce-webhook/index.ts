@@ -962,12 +962,12 @@ serve(async (req) => {
 
     console.log('Bundle lookup:', { setIdentifier, unitCount, productName: orderData.productNames, originalSku: orderData.sku });
 
-    // First try logistic_bundles for this marketer
+    // First try logistic_bundles for this tenant (owner_user_id)
     let { data: allBundles } = await supabase
       .from('logistic_bundles')
       .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod')
       .eq('is_active', true)
-      .eq('logistic_id', marketerLookup.id);
+      .eq('owner_user_id', marketerLookup.id);
 
     // If no bundles found for marketer, try ALL logistic_bundles as fallback
     if (!allBundles || allBundles.length === 0) {
@@ -1211,7 +1211,7 @@ ALAMAT : ${fullAddress}
 NO TELEFON : ${orderData.customerPhone}
 PRODUK : ${productDisplay}
 HARGA : RM${Number(orderData.totalPrice).toFixed(2)}
-CARA BAYARAN : ${isCOD ? 'Poslaju COD' : 'Poslaju Online Payment'}
+CARA BAYARAN : ${courierLabel} ${isCOD ? 'COD' : 'Online Payment'}
 TRACKING : ${trackingNumber || '-'}
 
 Sila Semak Maklumat berikut. Sekiranya Anda Dapati Ada Kesalahan Maklumat Sila Maklumkan Pada Kami Yer...
