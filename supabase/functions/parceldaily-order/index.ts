@@ -111,6 +111,13 @@ serve(async (req) => {
       "Parcel";
     const contentValue = Number(orderData.price) || 0;
 
+    // Notify features require receiver email. Account may force notifications on,
+    // so fall back to sender email (or a safe default) if none provided.
+    const receiverEmail =
+      clean(orderData.email) ||
+      clean(config.sender_email) ||
+      "noreply@peningorder.local";
+
     const senderAddress = {
       fullName: clean(config.sender_name),
       countryCode: clean(config.sender_country_code, "+60"),
@@ -127,7 +134,7 @@ serve(async (req) => {
       fullName: clean(orderData.customerName, "Customer"),
       countryCode: "+60",
       phone: receiverPhone,
-      email: clean(orderData.email),
+      email: receiverEmail,
       line1: line1 || "-",
       line2,
       city: clean(orderData.city),
@@ -214,8 +221,12 @@ serve(async (req) => {
       content_value: contentValue,
       contentValueCurrency: "MYR",
       isDropoff: orderData.isDropoff ?? false,
-      isNotify: orderData.isNotify ?? config.is_notify ?? "SMS",
+      isNotify: notifyValue,
     };
+    // Ninjavan requires a quantity field
+    if (courier === "ninjavan") {
+      (createPayload as any).quantity = 1;
+    }
 
     if (isCOD) {
       createPayload.cod = codAmount;
