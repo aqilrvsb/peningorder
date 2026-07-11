@@ -82,8 +82,8 @@ const Dashboard: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
 
-  // Check user role
-  const isMarketer = profile?.role === 'marketer';
+  // Check user role — individual mode: every tenant is 'admin' and gets the marketer dashboard
+  const isMarketer = profile?.role === 'marketer' || profile?.role === 'admin';
   const isLogistic = profile?.role === 'logistic';
   const isBOD = profile?.role === 'bod';
   const isAccount = profile?.role === 'account';
@@ -105,16 +105,14 @@ const Dashboard: React.FC = () => {
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [bodDataLoading, setBodDataLoading] = useState(true);
 
-  // Fetch spends for the current marketer
+  // Fetch spends for the dashboard — RLS scopes rows to this tenant already
   useEffect(() => {
     const fetchSpends = async () => {
-      if (!userIdStaff) return;
       setSpendsLoading(true);
       try {
         const { data, error } = await (supabase as any)
           .from('spends')
-          .select('*')
-          .eq('marketer_id_staff', userIdStaff);
+          .select('*');
         if (error) throw error;
         setSpends(data || []);
       } catch (error) {
@@ -127,7 +125,7 @@ const Dashboard: React.FC = () => {
     if (isMarketer) {
       fetchSpends();
     }
-  }, [userIdStaff, isMarketer]);
+  }, [isMarketer]);
 
   // Fetch all orders for logistic and BOD roles
   useEffect(() => {

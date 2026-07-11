@@ -108,13 +108,13 @@ const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   // Auto-expand the group whose child page is currently active. Otherwise default to Marketer.
-  const initialExpanded: GroupKey = (() => {
+  const initialExpanded: GroupKey | null = (() => {
     for (const g of roleGroups) {
       if (g.items.some((i) => location.pathname.startsWith(i.path))) return g.key;
     }
     return 'marketer';
   })();
-  const [expandedGroup, setExpandedGroup] = useState<GroupKey>(initialExpanded);
+  const [expandedGroup, setExpandedGroup] = useState<GroupKey | null>(initialExpanded);
 
   const handleLogout = async () => {
     await signOut();
@@ -129,7 +129,8 @@ const Sidebar: React.FC = () => {
   const isDashboardActive = location.pathname === '/dashboard';
 
   const toggleGroup = (key: GroupKey) => {
-    setExpandedGroup((current) => (current === key ? current : key));
+    // Accordion: open one group at a time; clicking the open group collapses it
+    setExpandedGroup((current) => (current === key ? null : key));
   };
 
   return (
