@@ -456,16 +456,16 @@ const LogisticProcessed = () => {
 
     setIsDeleting(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
       const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
-      // Cancel NinjaVan tracking for orders that have tracking numbers (NinjaVan platform only)
+      // Cancel Parcel Daily shipment for orders that have tracking numbers
+      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
       for (const order of selectedOrdersList) {
-        if (order.tracking_number && isNinjavanPlatform()) {
+        const isPdOrder = PD_COURIERS.some((c) => order.kurier?.includes(c));
+        if (order.tracking_number && isPdOrder) {
           try {
-            await supabase.functions.invoke("ninjavan-cancel", {
-              body: { trackingNumber: order.tracking_number, profileId: user?.id },
-              headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+            await supabase.functions.invoke("parceldaily-cancel", {
+              body: { purchaseId: order.id, trackingNumber: order.tracking_number },
             });
           } catch (cancelError) {
             console.error("Failed to cancel tracking:", order.tracking_number, cancelError);

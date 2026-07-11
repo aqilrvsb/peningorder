@@ -16,27 +16,13 @@ import OrderForm from "./pages/OrderForm";
 import Prospects from "./pages/Prospects";
 import Spend from "./pages/Spend";
 import ReportingSpend from "./pages/ReportingSpend";
-import ReportingSpendBOD from "./pages/ReportingSpendBOD";
-import Logistics from "./pages/Logistics";
-import Finance from "./pages/Finance";
-import Reports from "./pages/Reports";
-import Settings from "./pages/Settings";
-import NinjavanSettings from "./pages/NinjavanSettings";
 import CourierSettings from "./pages/CourierSettings";
 import Billing from "./pages/Billing";
-import Top10 from "./pages/Top10";
-import ReportSales from "./pages/ReportSales";
-import ReportLeads from "./pages/ReportLeads";
-import DashboardLogistic from "./pages/DashboardLogistic";
-import ReportPembelian from "./pages/ReportPembelian";
 import Profile from "./pages/Profile";
-import PNL from "./pages/PNL";
-import PNLConfig from "./pages/PNLConfig";
-import AdminLeads from "./pages/AdminLeads";
-import ReportAdminProspect from "./pages/ReportAdminProspect";
-import Invoice from "./pages/Invoice";
-import ClaimInvoice from "./pages/ClaimInvoice";
-// New Logistic Role components
+import InvoiceView from "./pages/InvoiceView";
+// Marketer components
+import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
+// Logistic Role components
 import LogisticProductManagement from "./components/logistic/LogisticProductManagement";
 import LogisticProductTransaction from "./components/logistic/LogisticProductTransaction";
 import LogisticBundleTransaction from "./components/logistic/LogisticBundleTransaction";
@@ -48,37 +34,14 @@ import LogisticProcessed from "./components/logistic/LogisticProcessed";
 import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 import LogisticCustomers from "./components/logistic/LogisticCustomers";
-import LogisticScanWaybill from "./components/logistic/LogisticScanWaybill";
 import LogisticUpdateCostProduct from "./components/logistic/LogisticUpdateCostProduct";
-// Marketer components
-import MarketerBundleTransaction from "./components/marketer/MarketerBundleTransaction";
-import MarketerReward from "./components/marketer/MarketerReward";
-import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
-// Account components
-import AccountPengesahan from "./components/account/AccountPengesahan";
-import AccountApproved from "./components/account/AccountApproved";
-import AccountRejected from "./components/account/AccountRejected";
+// Account Role components
 import AccountExpenses from "./components/account/AccountExpenses";
-import AccountReportSpend from "./components/account/AccountReportSpend";
-import AccountCustomers from "./components/account/AccountCustomers";
 import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
 import AccountInvoices from "./components/account/AccountInvoices";
-import InvoiceView from "./pages/InvoiceView";
 import AccountReportProfit from "./components/account/AccountReportProfit";
-import AccountClaim from "./components/account/AccountClaim";
-import AccountSalary from "./components/account/AccountSalary";
-import AccountClaimSummary from "./components/account/AccountClaimSummary";
-import AccountPaymentVoucher from "./components/account/AccountPaymentVoucher";
-import AccountCashFlow from "./components/account/AccountCashFlow";
 import AccountPendingTracking from "./components/account/AccountPendingTracking";
 import AccountSuccessTracking from "./components/account/AccountSuccessTracking";
-import ClaimSummaryInvoice from "./pages/ClaimSummaryInvoice";
-import PaymentVoucherInvoice from "./pages/PaymentVoucherInvoice";
-import SalarySlip from "./pages/SalarySlip";
-// HR components
-import HRUserManagement from "./components/hr/HRUserManagement";
-import HRAttendance from "./components/hr/HRAttendance";
-import HRDatabaseStaff from "./components/hr/HRDatabaseStaff";
 
 const queryClient = new QueryClient();
 
@@ -94,82 +57,42 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/invoice" element={<Invoice />} />
-                <Route path="/invoice/claim-summary" element={<ClaimSummaryInvoice />} />
-                <Route path="/invoice/payment-voucher/:id" element={<PaymentVoucherInvoice />} />
                 <Route path="/invoice-view/:id" element={<InvoiceView />} />
-                <Route path="/invoice/:id" element={<ClaimInvoice />} />
-                <Route path="/salary/:userId/:year/:month" element={<SalarySlip />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Dashboard />} />
+                  {/* Marketer Role */}
                   <Route path="orders" element={<Orders />} />
                   <Route path="orders/new" element={<OrderForm />} />
                   <Route path="prospects" element={<Prospects />} />
                   <Route path="spend" element={<Spend />} />
                   <Route path="reporting-spend" element={<ReportingSpend />} />
-                  <Route path="reporting-spend-bod" element={<ReportingSpendBOD />} />
-                  <Route path="top10" element={<Top10 />} />
-                  <Route path="pnl" element={<PNL />} />
-                  <Route path="bundle-date-order" element={<MarketerBundleTransaction />} />
-                  <Route path="reward" element={<MarketerReward />} />
                   <Route path="webhook-settings" element={<MarketerWebhookSettings />} />
-                  <Route path="pnl-config" element={<PNLConfig />} />
-                  <Route path="report-sales" element={<ReportSales />} />
-                  <Route path="report-leads" element={<ReportLeads />} />
-                  <Route path="report-admin-prospect" element={<ReportAdminProspect />} />
-                  <Route path="dashboard-logistic" element={<DashboardLogistic />} />
-                  <Route path="report-pembelian" element={<ReportPembelian />} />
-                  <Route path="logistics" element={<Logistics />} />
-                  {/* New Logistic Role routes - Inventory */}
+                  {/* Logistic Role - Inventory */}
                   <Route path="logistics/inventory-product" element={<LogisticProductManagement />} />
-                  <Route path="logistics/inventory-transaction" element={<LogisticProductTransaction />} />
-                  <Route path="logistics/inventory-transaction-bundle" element={<LogisticBundleTransaction />} />
+                  <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
                   <Route path="logistics/stock-in" element={<LogisticStockIn />} />
                   <Route path="logistics/stock-out" element={<LogisticStockOut />} />
-                  <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
-                  {/* New Logistic Role routes - Logistics */}
-                  <Route path="logistics/create-order" element={<OrderForm />} />
-                  <Route path="logistics/scan-waybill" element={<LogisticScanWaybill />} />
+                  <Route path="logistics/inventory-transaction" element={<LogisticProductTransaction />} />
+                  <Route path="logistics/inventory-transaction-bundle" element={<LogisticBundleTransaction />} />
+                  {/* Logistic Role - Orders */}
                   <Route path="logistics/order" element={<LogisticOrder />} />
                   <Route path="logistics/processed" element={<LogisticProcessed />} />
                   <Route path="logistics/return" element={<LogisticReturn />} />
                   <Route path="logistics/pending-tracking" element={<LogisticPendingTracking />} />
-                  {/* New Logistic Role routes - Customer HQ */}
                   <Route path="logistics/customers" element={<LogisticCustomers />} />
                   <Route path="logistics/update-cost-product" element={<LogisticUpdateCostProduct />} />
-                  <Route path="logistics/ninjavan-settings" element={<NinjavanSettings />} />
                   <Route path="logistics/courier-settings" element={<CourierSettings />} />
                   <Route path="settings/courier" element={<CourierSettings />} />
-                  <Route path="billing" element={<Billing />} />
-                  {/* Account Role routes */}
-                  <Route path="account/pengesahan" element={<AccountPengesahan />} />
-                  <Route path="account/approved" element={<AccountApproved />} />
-                  <Route path="account/rejected" element={<AccountRejected />} />
-                  <Route path="account/expenses" element={<AccountExpenses />} />
-                  <Route path="account/report-spend" element={<AccountReportSpend />} />
+                  {/* Account Role */}
                   <Route path="account/report-profit" element={<AccountReportProfit />} />
-                  <Route path="account/customers" element={<AccountCustomers />} />
-                  <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
-                  <Route path="account/invoices" element={<AccountInvoices />} />
-                  <Route path="account/pnl-config" element={<PNLConfig />} />
-                  <Route path="account/claim" element={<AccountClaim />} />
-                  <Route path="account/claim-summary" element={<AccountClaimSummary />} />
-                  <Route path="account/salary" element={<AccountSalary />} />
-                  <Route path="account/payment-voucher" element={<AccountPaymentVoucher />} />
-                  <Route path="account/cash-flow" element={<AccountCashFlow />} />
+                  <Route path="account/expenses" element={<AccountExpenses />} />
                   <Route path="account/pending-tracking" element={<AccountPendingTracking />} />
                   <Route path="account/success-tracking" element={<AccountSuccessTracking />} />
-                  <Route path="finance" element={<Finance />} />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="settings" element={<Settings />} />
+                  <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
+                  <Route path="account/invoices" element={<AccountInvoices />} />
+                  {/* Bottom nav */}
+                  <Route path="billing" element={<Billing />} />
                   <Route path="profile" element={<Profile />} />
-                  <Route path="admin/leads" element={<AdminLeads />} />
-                  <Route path="admin/order" element={<OrderForm />} />
-                  <Route path="admin/history" element={<Orders />} />
-                  {/* HR Role routes */}
-                  <Route path="hr/users" element={<HRUserManagement />} />
-                  <Route path="hr/attendance" element={<HRAttendance />} />
-                  <Route path="hr/database-staff" element={<HRDatabaseStaff />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

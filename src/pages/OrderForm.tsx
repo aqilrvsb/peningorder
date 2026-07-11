@@ -542,17 +542,17 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  const cancelNinjavanOrder = async (trackingNumber: string) => {
+  const cancelCourierOrder = async (trackingNumber: string) => {
     try {
-      const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('ninjavan-cancel', {
+      const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('parceldaily-cancel', {
         body: { trackingNumber }
       });
 
       if (cancelError) {
-        console.error('Ninjavan cancel error:', cancelError);
+        console.error('Parcel Daily cancel error:', cancelError);
         return false;
       } else if (cancelResult?.error) {
-        console.error('Ninjavan cancel API error:', cancelResult.error);
+        console.error('Parcel Daily cancel API error:', cancelResult.error);
         return false;
       }
       return true;
@@ -721,14 +721,16 @@ const OrderForm: React.FC = () => {
         const wasKurierOrder = editOrder.kurier !== 'PICKUP';
         const isNowKurierOrder = !isPickup;
 
-        // If it was a Ninjavan order, cancel the old tracking first
-        if (wasKurierOrder && editOrder.kurier?.includes('Ninjavan') && editOrder.noTracking) {
-          console.log('Cancelling old Ninjavan tracking:', editOrder.noTracking);
-          const cancelled = await cancelNinjavanOrder(editOrder.noTracking);
+        // If it was a PD courier order, cancel the old shipment first (refunds credit)
+        const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
+        const wasPdOrder = PD_COURIERS.some((c) => editOrder.kurier?.includes(c));
+        if (wasKurierOrder && wasPdOrder && editOrder.noTracking) {
+          console.log('Cancelling old shipment:', editOrder.noTracking);
+          const cancelled = await cancelCourierOrder(editOrder.noTracking);
           if (cancelled) {
             toast({
               title: 'Info',
-              description: 'Order Ninjavan lama telah dibatalkan.',
+              description: 'Shipment lama telah dibatalkan.',
             });
           }
         }

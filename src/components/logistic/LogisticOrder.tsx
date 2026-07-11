@@ -392,13 +392,14 @@ const LogisticOrder = () => {
       const { data: session } = await supabase.auth.getSession();
       const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
-      // Cancel NinjaVan tracking for orders that have tracking numbers (NinjaVan platform only)
+      // Cancel Parcel Daily shipment for orders that have tracking (any PD courier)
+      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
       for (const order of selectedOrdersList) {
-        if (order.tracking_number && order.kurier?.includes('Ninjavan')) {
+        const isPdOrder = PD_COURIERS.some((c) => order.kurier?.includes(c));
+        if (order.tracking_number && isPdOrder) {
           try {
-            await supabase.functions.invoke("ninjavan-cancel", {
-              body: { trackingNumber: order.tracking_number, profileId: user?.id },
-              headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+            await supabase.functions.invoke("parceldaily-cancel", {
+              body: { purchaseId: order.id, trackingNumber: order.tracking_number },
             });
           } catch (cancelError) {
             console.error("Failed to cancel tracking:", order.tracking_number, cancelError);
@@ -465,9 +466,8 @@ const LogisticOrder = () => {
         nota: order.nota_staff || "",
       };
 
-      const response = await supabase.functions.invoke("ninjavan-order", {
-        body: orderData,
-        headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+      const response = await supabase.functions.invoke("parceldaily-order", {
+        body: { ...orderData, courier: "ninjavan" },
       });
 
       if (response.error) {
@@ -475,15 +475,18 @@ const LogisticOrder = () => {
       }
 
       const result = response.data;
+      if (result?.error) throw new Error(result.error);
+      if (!result?.orderId) throw new Error("Parcel Daily did not return an orderId");
 
-      if (!result.success || !result.trackingNumber) {
-        throw new Error(result.error || "Failed to get tracking number");
-      }
-
-      // Update the order with tracking number
+      // Store PD orderId as placeholder; the CHECKOUT webhook replaces it with the real tracking
+      const trackingPlaceholder = result.trackingNumber || result.orderId;
       const { error: updateError } = await supabase
         .from("customer_purchases")
-        .update({ tracking_number: result.trackingNumber })
+        .update({
+          tracking_number: trackingPlaceholder,
+          id_sale: result.orderId,
+          ...(result.shippingPrice != null && { cost_postage: Number(result.shippingPrice) }),
+        })
         .eq("id", order.id);
 
       if (updateError) throw updateError;
@@ -496,7 +499,7 @@ const LogisticOrder = () => {
           .eq("id", order.id);
       }
 
-      toast.success(`Tracking generated: ${result.trackingNumber}`);
+      toast.success(`Order dihantar ke courier. Tracking akan tiba melalui webhook.`);
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
     } catch (error: any) {
       console.error("Generate tracking error:", error);
@@ -509,7 +512,7 @@ const LogisticOrder = () => {
   // Check if order needs tracking generation (courier orders without tracking)
   const needsTrackingGeneration = (order: any) => {
     const kurier = order.kurier || '';
-    return (kurier.includes('Poslaju') || kurier.includes('Ninjavan')) && !order.tracking_number;
+    return (kurier.includes('Poslaju') || kurier.includes('Ninjavan') || kurier.includes('JNT') || kurier.includes('DHL')) && !order.tracking_number;
   };
 
   // Open edit dialog - using new schema field names
@@ -539,23 +542,21 @@ const LogisticOrder = () => {
     setIsSavingEdit(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
       const hasExistingTracking = !!editingOrder.tracking_number;
-      const isPoslaju = isPoslajuOrder(editingOrder);
-      const isNinjavan = editingOrder?.kurier?.includes('Ninjavan');
+      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
+      const isPdOrder = PD_COURIERS.some((c) => editingOrder?.kurier?.includes(c));
 
-      // Step 1: If has existing NinjaVan tracking, cancel it first
-      if (hasExistingTracking && isNinjavan) {
-        toast.info("Cancelling existing NinjaVan tracking...");
-        const cancelResponse = await supabase.functions.invoke("ninjavan-cancel", {
-          body: { trackingNumber: editingOrder.tracking_number, profileId: user?.id },
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
+      // Step 1: If has existing PD tracking, cancel it first (refunds credit)
+      if (hasExistingTracking && isPdOrder) {
+        toast.info("Cancelling existing shipment...");
+        const cancelResponse = await supabase.functions.invoke("parceldaily-cancel", {
+          body: { purchaseId: editingOrder.id, trackingNumber: editingOrder.tracking_number },
         });
 
-        if (cancelResponse.error) {
-          console.error("Cancel tracking error:", cancelResponse.error);
+        if (cancelResponse.error || cancelResponse.data?.error) {
+          console.error("Cancel tracking error:", cancelResponse.error || cancelResponse.data?.error);
         } else {
-          toast.success("Existing tracking cancelled");
+          toast.success("Existing shipment cancelled");
         }
       }
 
@@ -593,7 +594,7 @@ const LogisticOrder = () => {
       }
 
       // Clear tracking number if it was cancelled
-      if (hasExistingTracking && isNinjavan) {
+      if (hasExistingTracking && isPdOrder) {
         updateData.tracking_number = null;
       }
 
@@ -604,17 +605,20 @@ const LogisticOrder = () => {
 
       if (updateError) throw updateError;
 
-      // Step 3: Generate new tracking based on selected courier
+      // Step 3: Generate new tracking based on selected courier (via Parcel Daily)
       const selectedKurier = editForm.kurier || '';
-      const shouldGenerateTracking = selectedKurier.includes('Poslaju') || selectedKurier.includes('Ninjavan');
+      const PD_COURIER_CODES: Record<string, string> = {
+        Poslaju: 'poslaju', Ninjavan: 'ninjavan', JNT: 'jnt', DHL: 'dhl',
+      };
+      const matchedCourier = Object.keys(PD_COURIER_CODES).find((c) => selectedKurier.includes(c));
 
-      if (shouldGenerateTracking) {
+      if (matchedCourier) {
         toast.info("Generating new tracking...");
 
         const bundle = allProducts.find((p: any) => p.id === editForm.productId) || editingOrder.bundle;
 
         const orderData = {
-          profileId: user?.id,
+          courier: PD_COURIER_CODES[matchedCourier],
           customerName: editForm.customerName,
           phone: editForm.phone,
           address: editForm.address,
@@ -624,19 +628,14 @@ const LogisticOrder = () => {
           price: editForm.totalPrice,
           paymentMethod: editForm.paymentMethod,
           productName: bundle?.name || "Product",
-          productSku: bundle?.sku || "",
           quantity: editForm.quantity,
-          nota: editForm.notaStaff,
           marketerIdStaff: editingOrder.marketer_id_staff || user?.username || '',
           idSale: editingOrder.id_sale || '',
           weight: bundle?.weight || 0.5,
         };
 
-        // Use Poslaju or NinjaVan based on selected courier
-        const functionName = selectedKurier.includes('Poslaju') ? "poslaju-order" : "ninjavan-order";
-        const response = await supabase.functions.invoke(functionName, {
+        const response = await supabase.functions.invoke("parceldaily-order", {
           body: orderData,
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
         });
 
         if (response.error) {
@@ -644,22 +643,21 @@ const LogisticOrder = () => {
         }
 
         const result = response.data;
+        if (result?.error) throw new Error(result.error);
+        if (!result?.orderId) throw new Error("Parcel Daily did not return an orderId");
 
-        if (!result.success || !result.trackingNumber) {
-          throw new Error(result.error || "Failed to get tracking number");
-        }
-
-        // Update order with new tracking number (and waybill URL for Poslaju)
-        const trackingUpdate: any = { tracking_number: result.trackingNumber };
-        if (result.pdfLink) {
-          trackingUpdate.waybill_url = result.pdfLink;
-        }
+        // Store PD orderId as placeholder; CHECKOUT webhook replaces with real tracking + waybill
+        const trackingUpdate: any = {
+          tracking_number: result.trackingNumber || result.orderId,
+          id_sale: result.orderId,
+        };
+        if (result.shippingPrice != null) trackingUpdate.cost_postage = Number(result.shippingPrice);
         await supabase
           .from("customer_purchases")
           .update(trackingUpdate)
           .eq("id", editingOrder.id);
 
-        toast.success(`Order updated! New tracking: ${result.trackingNumber}`);
+        toast.success("Order updated! Tracking akan tiba melalui webhook.");
       } else {
         toast.success("Order updated successfully");
       }

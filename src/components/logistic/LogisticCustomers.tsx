@@ -530,14 +530,13 @@ const LogisticCustomers = () => {
     }
   };
 
-  // Fetch NinjaVan config
-  const { data: ninjavanConfig } = useQuery({
-    queryKey: ["ninjavan-config", user?.id],
+  // Parcel Daily config (per-tenant, RLS-scoped) — used to decide if courier API is available
+  const { data: parceldailyConfig } = useQuery({
+    queryKey: ["parceldaily-config", user?.id],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("ninjavan_config")
-        .select("*")
-        .eq("profile_id", user?.id)
+        .from("parceldaily_config")
+        .select("id")
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -665,21 +664,12 @@ const LogisticCustomers = () => {
         }
       }
 
-      // Use NinjaVan for non-Tiktok/Shopee sources
-      if (ninjavanConfig && usesNinjaVan) {
+      // Route non-Tiktok/Shopee sources through Parcel Daily (unified middleware)
+      if (parceldailyConfig && usesNinjaVan) {
         try {
-          const { data: session } = await supabase.auth.getSession();
-
-          let skuForWaybill = '';
-          if (isBundle && data.bundleSku) {
-            skuForWaybill = data.bundleSku;
-          } else if (selectedProduct?.sku) {
-            skuForWaybill = `${selectedProduct.sku}-${data.quantity}`;
-          }
-
-          const ninjavanResponse = await supabase.functions.invoke("ninjavan-order", {
+          const pdResponse = await supabase.functions.invoke("parceldaily-order", {
             body: {
-              profileId: user?.id,
+              courier: "ninjavan",
               customerName: data.customerName,
               phone: data.customerPhone,
               address: data.customerAddress,
@@ -689,26 +679,24 @@ const LogisticCustomers = () => {
               price: data.price,
               paymentMethod: data.paymentMethod,
               productName: productName,
-              productSku: skuForWaybill,
-              quantity: data.quantity,
-              nota: "",
               marketerIdStaff: profile?.idstaff || "",
-            },
-            headers: {
-              Authorization: `Bearer ${session?.session?.access_token}`,
             },
           });
 
-          if (ninjavanResponse.error) {
-            console.error("NinjaVan error:", ninjavanResponse.error);
-            toast.error("NinjaVan order failed: " + (ninjavanResponse.error.message || "Unknown error"));
-          } else if (ninjavanResponse.data?.success) {
-            trackingNumber = ninjavanResponse.data.trackingNumber;
-            ninjavanOrderId = ninjavanResponse.data.trackingNumber;
+          if (pdResponse.error) {
+            console.error("Parcel Daily error:", pdResponse.error);
+            toast.error("Courier order failed: " + (pdResponse.error.message || "Unknown error"));
+          } else if (pdResponse.data?.error) {
+            console.error("Parcel Daily error:", pdResponse.data.error);
+            toast.error(pdResponse.data.error);
+          } else if (pdResponse.data?.orderId) {
+            // Real tracking arrives via CHECKOUT webhook; store orderId as placeholder
+            trackingNumber = pdResponse.data.trackingNumber || pdResponse.data.orderId;
+            ninjavanOrderId = pdResponse.data.orderId;
           }
-        } catch (ninjavanError: any) {
-          console.error("NinjaVan API error:", ninjavanError);
-          toast.error("NinjaVan order failed: " + (ninjavanError.message || "Unknown error"));
+        } catch (pdError: any) {
+          console.error("Parcel Daily API error:", pdError);
+          toast.error("Courier order failed: " + (pdError.message || "Unknown error"));
         }
       }
 

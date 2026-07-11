@@ -150,35 +150,9 @@ const AccountExpenses = () => {
     [costProductRows]
   );
 
-  // Fetch cash_flows Cash Out (to merge into Overhead/Marketing/Other cards)
-  const { data: cashOutFlows = [] } = useQuery({
-    queryKey: ["account-cashout-flows", startDate, endDate],
-    queryFn: async () => {
-      let query = (supabase as any)
-        .from("cash_flows")
-        .select("kategori, amount, date")
-        .eq("flow_type", "Cash Out");
-
-      if (startDate) query = query.gte("date", startDate);
-      if (endDate) query = query.lte("date", endDate);
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as Array<{ kategori: string | null; amount: number; date: string }>;
-    },
-  });
-
-  // Cash Out totals by kategori (Overhead, Marketing, Other)
-  const cashOutByKategori = useMemo(() => {
-    const totals: Record<string, number> = { Overhead: 0, Marketing: 0, Other: 0 };
-    cashOutFlows.forEach((cf) => {
-      const k = cf.kategori || "";
-      if (totals[k] !== undefined) {
-        totals[k] += Number(cf.amount) || 0;
-      }
-    });
-    return totals;
-  }, [cashOutFlows]);
+  // cash_flows table was removed in the individual-mode restructure —
+  // expenses come solely from the expenses table + Cost Product.
+  const cashOutByKategori: Record<string, number> = { Overhead: 0, Marketing: 0, Other: 0 };
 
   // Filter expenses by category and platform
   const filteredExpenses = expenses.filter((expense) => {
@@ -274,16 +248,6 @@ const AccountExpenses = () => {
       }
     });
 
-    // Add cash_flows Cash Out by month
-    cashOutFlows.forEach((cf) => {
-      const month = cf.date.substring(0, 7);
-      if (!summary[month]) summary[month] = initMonth();
-      const k = cf.kategori || "";
-      if (k === "Overhead" || k === "Marketing" || k === "Other") {
-        summary[month].categories[k as CategoryType] += Number(cf.amount) || 0;
-      }
-    });
-
     // Add Cost Product from customer_purchases by month
     costProductRows.forEach((o) => {
       if (!o.date_order) return;
@@ -301,7 +265,7 @@ const AccountExpenses = () => {
         categoryPlatforms: data.categoryPlatforms,
         total: Object.values(data.categories).reduce((sum, val) => sum + val, 0),
       }));
-  }, [expenses, cashOutFlows, costProductRows, startDate, endDate]);
+  }, [expenses, costProductRows, startDate, endDate]);
 
   // Handle file change
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
