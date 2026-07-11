@@ -55,10 +55,6 @@ const marketerItems: NavItem[] = [
   { label: 'Leads', path: '/dashboard/prospects', icon: <Users className="w-5 h-5" /> },
   { label: 'Spend', path: '/dashboard/spend', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Reporting Spend', path: '/dashboard/reporting-spend', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Top 10', path: '/dashboard/top10', icon: <Trophy className="w-5 h-5" /> },
-  { label: 'PNL', path: '/dashboard/pnl', icon: <TrendingUp className="w-5 h-5" /> },
-  { label: 'Bundle Date Order', path: '/dashboard/bundle-date-order', icon: <Boxes className="w-5 h-5" /> },
-  { label: 'Reward', path: '/dashboard/reward', icon: <Trophy className="w-5 h-5" /> },
   { label: 'Webhook Settings', path: '/dashboard/webhook-settings', icon: <Webhook className="w-5 h-5" /> },
 ];
 
@@ -70,8 +66,6 @@ const logisticItems: NavItem[] = [
   { label: 'Stock Out', path: '/dashboard/logistics/stock-out', icon: <ArrowUpFromLine className="w-5 h-5" /> },
   { label: 'Transaction', path: '/dashboard/logistics/inventory-transaction', icon: <FileSpreadsheet className="w-5 h-5" /> },
   { label: 'Bundle Transaction', path: '/dashboard/logistics/inventory-transaction-bundle', icon: <FileSpreadsheet className="w-5 h-5" /> },
-  { label: 'Key In Order', path: '/dashboard/logistics/create-order', icon: <FilePlus className="w-5 h-5" /> },
-  { label: 'Scan Waybill', path: '/dashboard/logistics/scan-waybill', icon: <ScanLine className="w-5 h-5" /> },
   { label: 'Order', path: '/dashboard/logistics/order', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Processed', path: '/dashboard/logistics/processed', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
@@ -89,16 +83,11 @@ const accountItems: NavItem[] = [
   { label: 'Approved', path: '/dashboard/account/approved', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Rejected', path: '/dashboard/account/rejected', icon: <XCircle className="w-5 h-5" /> },
   { label: 'Expenses', path: '/dashboard/account/expenses', icon: <Wallet className="w-5 h-5" /> },
-  { label: 'Customer HQ', path: '/dashboard/account/customers', icon: <Users className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/account/pending-tracking', icon: <Clock className="w-5 h-5" /> },
   { label: 'Success Tracking', path: '/dashboard/account/success-tracking', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <Settings className="w-5 h-5" /> },
   { label: 'Invoices', path: '/dashboard/account/invoices', icon: <Receipt className="w-5 h-5" /> },
-  { label: 'PNL Config', path: '/dashboard/account/pnl-config', icon: <Settings className="w-5 h-5" /> },
-  { label: 'Claim', path: '/dashboard/account/claim', icon: <FileText className="w-5 h-5" /> },
   { label: 'Claim Summary', path: '/dashboard/account/claim-summary', icon: <FileText className="w-5 h-5" /> },
-  { label: 'Salary', path: '/dashboard/account/salary', icon: <DollarSign className="w-5 h-5" /> },
-  { label: 'Payment Voucher', path: '/dashboard/account/payment-voucher', icon: <CreditCard className="w-5 h-5" /> },
   { label: 'Cash Flow', path: '/dashboard/account/cash-flow', icon: <TrendingUp className="w-5 h-5" /> },
 ];
 
