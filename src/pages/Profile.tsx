@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import {
   UserCircle, Lock, Phone, Loader2, Eye, EyeOff, Smartphone,
-  RefreshCw, QrCode, Wifi, WifiOff, Plus, LogOut
+  RefreshCw, QrCode, Wifi, WifiOff, Plus, LogOut, Pencil, Check, X
 } from 'lucide-react';
 import {
   Dialog,
@@ -63,6 +63,40 @@ const Profile: React.FC = () => {
   });
 
   const isMarketer = profile?.role === 'marketer';
+
+  // Editable display name
+  const [displayName, setDisplayName] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  useEffect(() => {
+    if (profile?.fullName !== undefined) setDisplayName(profile.fullName || '');
+  }, [profile?.fullName]);
+
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      toast({ title: 'Nama diperlukan', description: 'Sila masukkan nama anda.', variant: 'destructive' });
+      return;
+    }
+    if (!profile?.id) return;
+    setIsSavingName(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: trimmed })
+        .eq('id', profile.id);
+      if (error) throw error;
+      setDisplayName(trimmed);
+      setIsEditingName(false);
+      toast({ title: 'Berjaya', description: 'Nama telah dikemaskini.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Gagal simpan nama.', variant: 'destructive' });
+    } finally {
+      setIsSavingName(false);
+    }
+  };
 
   // Load profile fields (whatsapp number, group link)
   useEffect(() => {
@@ -597,11 +631,39 @@ const Profile: React.FC = () => {
       {/* User Info Card */}
       <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <UserCircle className="w-10 h-10 text-primary" />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">{profile?.fullName}</h2>
+          <div className="flex-1 min-w-0">
+            {isEditingName ? (
+              <div className="flex items-center gap-2 mb-1">
+                <Input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Nama anda"
+                  className="h-9 max-w-xs"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setIsEditingName(false); }}
+                />
+                <Button size="sm" onClick={handleSaveName} disabled={isSavingName} className="h-9">
+                  {isSavingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsEditingName(false)} disabled={isSavingName} className="h-9">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground truncate">{displayName || 'Set your name'}</h2>
+                <button
+                  onClick={() => { setNameInput(displayName); setIsEditingName(true); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  title="Edit name"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <p className="text-muted-foreground">ID Staff: {profile?.idstaff}</p>
             <p className="text-sm text-muted-foreground capitalize">Role: {profile?.role}</p>
           </div>

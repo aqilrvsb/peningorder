@@ -1091,8 +1091,6 @@ const LogisticCustomers = () => {
                     <th className="p-2 text-left">Id Sales</th>
                     <th className="p-2 text-left">Tarikh Processed</th>
                     <th className="p-2 text-left">Tarikh Order</th>
-                    <th className="p-2 text-left">Id Staff</th>
-                    <th className="p-2 text-left">Sales Name</th>
                     <th className="p-2 text-left">Nama Pelanggan</th>
                     <th className="p-2 text-left">Phone</th>
                     <th className="p-2 text-left">Produk</th>
@@ -1130,8 +1128,6 @@ const LogisticCustomers = () => {
                         <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                         <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
-                        <td className="p-2 whitespace-nowrap">{order.marketer_id_staff || "HQ"}</td>
-                        <td className="p-2">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "HQ"}</td>
                         <td className="p-2">{order.name_customer || "-"}</td>
                         <td className="p-2 whitespace-nowrap">
                           {order.phone_customer ? (
@@ -1276,7 +1272,7 @@ const LogisticCustomers = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                      <td colSpan={22} className="text-center py-12 text-muted-foreground">
                         No customer purchases found.
                       </td>
                     </tr>

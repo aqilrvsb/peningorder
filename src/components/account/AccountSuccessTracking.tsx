@@ -694,8 +694,6 @@ const AccountSuccessTracking = () => {
                       <th className="p-3 text-left">No</th>
                       <th className="p-3 text-left">Date Order</th>
                       <th className="p-3 text-left">Platform</th>
-                      <th className="p-3 text-left">ID Marketer</th>
-                      <th className="p-3 text-left">Marketer</th>
                       <th className="p-3 text-left">Customer</th>
                       <th className="p-3 text-left">Phone</th>
                       <th className="p-3 text-left min-w-[280px]">Product</th>
@@ -727,8 +725,6 @@ const AccountSuccessTracking = () => {
                           <td className="p-3">
                             <span className="text-xs font-medium">{getOrderPlatformName(order)}</span>
                           </td>
-                          <td className="p-3 font-mono text-xs">{order.marketer_id_staff || "HQ"}</td>
-                          <td className="p-3">{profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "HQ"}</td>
                           <td className="p-3">{order.name_customer || "-"}</td>
                           <td className="p-3">{order.phone_customer || "-"}</td>
                           <td className="p-3 min-w-[280px]"><span className="line-clamp-3">{order.nota_staff || order.bundle?.name || "-"}</span></td>
@@ -762,7 +758,7 @@ const AccountSuccessTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={19} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={17} className="text-center py-12 text-muted-foreground">
                           No success tracking orders found.
                         </td>
                       </tr>
