@@ -4,14 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Loader2, FileText } from "lucide-react";
 
-// Default company info (fallback if not configured)
+// Default company info (fallback until the tenant fills in Invoice Settings)
 const DEFAULT_COMPANY = {
-  name: "DFR EMPIRE SDN BHD",
+  name: "",
   reg: "",
   address: "",
   phone: "",
   email: "",
-  website: "dfrventure.com",
+  website: "",
 };
 
 const Invoice = () => {
@@ -25,23 +25,28 @@ const Invoice = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch invoice settings for company info
+        // Fetch invoice settings for company info (RLS scopes to this tenant)
         const { data: invoiceSettings } = await supabase
           .from("invoice_settings")
           .select("*")
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (invoiceSettings) {
-          setCompanyInfo({
-            name: invoiceSettings.company_name || DEFAULT_COMPANY.name,
-            reg: invoiceSettings.registration_no || "",
-            address: invoiceSettings.address || "",
-            phone: invoiceSettings.phone || "",
-            email: invoiceSettings.email || "",
-            website: invoiceSettings.website || "",
-          });
-        }
+        // Fallback: tenant's business name from their profile
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("business_name, full_name")
+          .maybeSingle();
+        const fallbackName = prof?.business_name || prof?.full_name || "";
+
+        setCompanyInfo({
+          name: invoiceSettings?.company_name || fallbackName,
+          reg: invoiceSettings?.registration_no || "",
+          address: invoiceSettings?.address || "",
+          phone: invoiceSettings?.phone || "",
+          email: invoiceSettings?.email || "",
+          website: invoiceSettings?.website || "",
+        });
 
         if (invoiceType === "customer" && orderId) {
           // Fetch customer purchase by ID
@@ -255,7 +260,7 @@ const Invoice = () => {
                 )}
                 {orderData.seo && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">SEO Status</span>
+                    <span className="text-sm text-gray-600">Parcel Status</span>
                     <span className={`text-sm font-semibold ${
                       orderData.seo === "Successful Delivery" ? "text-green-600" : "text-gray-600"
                     }`}>
