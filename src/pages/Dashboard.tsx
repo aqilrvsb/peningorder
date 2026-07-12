@@ -229,6 +229,9 @@ const Dashboard: React.FC = () => {
 
   // Calculate marketer stats
   const marketerStats = useMemo(() => {
+    // Total Parcel = number of orders in the selected date range
+    const totalParcel = filteredOrders.length;
+
     // Total Sales
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
@@ -370,6 +373,7 @@ const Dashboard: React.FC = () => {
     const shopPercent = totalSales > 0 ? (salesShop / totalSales) * 100 : 0;
 
     return {
+      totalParcel,
       totalSales,
       totalCollection,
       collectionPercent,
@@ -872,6 +876,16 @@ const Dashboard: React.FC = () => {
 
         {/* Main Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Total Parcel */}
+          <div className="stat-card border-l-4 border-l-blue-500">
+            <div className="flex items-center gap-2 text-blue-600 mb-2">
+              <Package className="w-5 h-5" />
+              <span className="text-sm font-medium">TOTAL PARCEL</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{marketerStats.totalParcel}</p>
+            <p className="text-xs text-muted-foreground mt-1">Orders in period</p>
+          </div>
+
           {/* Total Sales */}
           <div className="stat-card border-l-4 border-l-success">
             <div className="flex items-center gap-2 text-success mb-2">

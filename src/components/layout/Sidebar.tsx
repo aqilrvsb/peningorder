@@ -94,14 +94,17 @@ const Sidebar: React.FC = () => {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Auto-expand the group whose child page is currently active. Otherwise default to Marketer.
-  const initialExpanded: GroupKey | null = (() => {
+  // Groups expand/collapse independently. Start with the group whose child
+  // page is active (plus Marketer as the default when on the dashboard).
+  const initialExpanded: Set<GroupKey> = (() => {
+    const set = new Set<GroupKey>();
     for (const g of roleGroups) {
-      if (g.items.some((i) => location.pathname.startsWith(i.path))) return g.key;
+      if (g.items.some((i) => location.pathname.startsWith(i.path))) set.add(g.key);
     }
-    return 'marketer';
+    if (set.size === 0) set.add('marketer');
+    return set;
   })();
-  const [expandedGroup, setExpandedGroup] = useState<GroupKey | null>(initialExpanded);
+  const [expandedGroups, setExpandedGroups] = useState<Set<GroupKey>>(initialExpanded);
 
   const handleLogout = async () => {
     await signOut();
@@ -116,8 +119,13 @@ const Sidebar: React.FC = () => {
   const isDashboardActive = location.pathname === '/dashboard';
 
   const toggleGroup = (key: GroupKey) => {
-    // Accordion: open one group at a time; clicking the open group collapses it
-    setExpandedGroup((current) => (current === key ? null : key));
+    // Independent toggle: each group opens/closes on its own
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   return (
@@ -169,7 +177,7 @@ const Sidebar: React.FC = () => {
 
         {/* Role groups */}
         {roleGroups.map((group) => {
-          const isExpanded = expandedGroup === group.key;
+          const isExpanded = expandedGroups.has(group.key);
           return (
             <div key={group.key} className="pt-1">
               <button
