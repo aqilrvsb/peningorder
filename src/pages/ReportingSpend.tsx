@@ -339,36 +339,12 @@ const ReportingSpend: React.FC = () => {
           <p className="text-xl font-bold text-foreground">RM {stats.overallKPK}</p>
         </div>
 
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-1">
-            <Target className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Leads Close</span>
-          </div>
-          <p className="text-xl font-bold text-green-700 dark:text-green-400">{stats.leadsClose}</p>
-        </div>
-
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-1">
-            <Target className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Leads Tidak Close</span>
-          </div>
-          <p className="text-xl font-bold text-red-700 dark:text-red-400">{stats.leadsTidakClose}</p>
-        </div>
-
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <TrendingUp className="w-4 h-4 text-orange-500" />
             <span className="text-xs uppercase font-medium">ROAS</span>
           </div>
           <p className="text-xl font-bold text-foreground">{stats.roas}x</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Percent className="w-4 h-4 text-indigo-500" />
-            <span className="text-xs uppercase font-medium">Closing Rate</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{stats.closingRate}%</p>
         </div>
       </div>
 
@@ -440,16 +416,13 @@ const ReportingSpend: React.FC = () => {
               <TableHead className="text-right">Total Sales</TableHead>
               <TableHead className="text-right">Total Leads</TableHead>
               <TableHead className="text-right">KPK</TableHead>
-              <TableHead className="text-right">Leads Close</TableHead>
-              <TableHead className="text-right">Leads X Close</TableHead>
               <TableHead className="text-right">ROAS</TableHead>
-              <TableHead className="text-right">Closing Rate</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {aggregatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Tiada data spend
                 </TableCell>
               </TableRow>
@@ -474,10 +447,7 @@ const ReportingSpend: React.FC = () => {
                   <TableCell className="text-right font-medium text-green-600">RM {data.totalSales.toFixed(2)}</TableCell>
                   <TableCell className="text-right">{data.totalLeads}</TableCell>
                   <TableCell className="text-right">RM {data.kpk}</TableCell>
-                  <TableCell className="text-right text-green-600">{data.leadsClose}</TableCell>
-                  <TableCell className="text-right text-red-600">{data.leadsNotClose}</TableCell>
                   <TableCell className="text-right">{data.roas}x</TableCell>
-                  <TableCell className="text-right">{data.closingRate}%</TableCell>
                 </TableRow>
               ))
             )}
