@@ -121,23 +121,27 @@ const LogisticPendingTracking = () => {
     currentPage * pageSize
   );
 
-  // Helper: extract first number from bundle SKU (e.g., "GSI-4 + SBNM-1" → 4)
-  const getFirstSkuQty = (sku: string | null | undefined): number => {
-    if (!sku) return 0;
-    const match = sku.match(/-(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  };
-  const getUnitBundle = (order: any): number => {
-    return (Number(order.unit) || 0) * getFirstSkuQty(order.bundle?.sku);
-  };
-
-  // Counts
+  // Counts (unit = main product qty, already stored on the order)
   const counts = {
     total: filteredOrders.length,
     cod: filteredOrders.filter((o: any) => o.type_payment === "COD").length,
+    cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
-    totalUnitBundle: filteredOrders.reduce((sum: number, o: any) => sum + getUnitBundle(o), 0),
+    totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0),
   };
+
+  // Platform breakdown
+  const PLATFORM_NAMES = ["Facebook", "Threads", "Tiktok", "Database", "Google"];
+  const platformStats = PLATFORM_NAMES.map((name) => {
+    const platformOrders = filteredOrders.filter((o: any) => (o.jenis_platform || "Manual") === name);
+    return {
+      name,
+      total: platformOrders.length,
+      cod: platformOrders.filter((o: any) => o.type_payment === "COD").length,
+      cashOnline: platformOrders.filter((o: any) => o.type_payment !== "COD").length,
+      units: platformOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0),
+    };
+  });
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -160,43 +164,28 @@ const LogisticPendingTracking = () => {
 
   const isAllSelected = paginatedOrders.length > 0 && paginatedOrders.every((o: any) => selectedOrders.has(o.id));
 
-  // Bulk Print action
+  // Bulk Print: fetch stored waybill URLs (from CHECKOUT webhook) and open each PDF
   const handleBulkPrint = async () => {
     if (selectedOrders.size === 0) {
       toast.error("Please select orders to print waybills");
       return;
     }
-
-    const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
-
-    // Only NinjaVan orders in pending tracking
-    const ninjavanOrders = selectedOrdersList.filter((o: any) => o.tracking_number);
-
-    if (ninjavanOrders.length === 0) {
-      toast.error("Selected orders do not have waybills to print");
-      return;
-    }
-
     setIsPrinting(true);
-
     try {
-      const trackingNumbers = ninjavanOrders.map((o: any) => o.tracking_number);
-
-      const response = await supabase.functions.invoke("ninjavan-waybill", {
-        body: { trackingNumbers },
+      const { data, error } = await supabase.functions.invoke("parceldaily-waybill", {
+        body: { mode: "urls", purchaseIds: Array.from(selectedOrders) },
       });
-
-      if (response.error) {
-        console.error("NinjaVan waybill error:", response.error);
-        toast.error("Failed to fetch NinjaVan waybills");
-      } else if (response.data) {
-        const blob = new Blob([response.data], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const waybills: Array<{ waybillUrl: string }> = data?.waybills || [];
+      if (waybills.length === 0) {
+        toast.error("Selected orders do not have waybills yet");
+        return;
       }
+      waybills.forEach((w) => window.open(w.waybillUrl, "_blank", "noopener"));
+      toast.success(`${waybills.length} waybill(s) opened`);
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate waybills");
+      toast.error(error.message || "Failed to fetch waybills");
     } finally {
       setIsPrinting(false);
     }
@@ -245,108 +234,151 @@ const LogisticPendingTracking = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Pending Tracking</h1>
-          <p className="text-muted-foreground text-sm">
-            Track orders awaiting payment confirmation
+          <h1 className="text-3xl font-bold">Pending Tracking</h1>
+          <p className="text-muted-foreground mt-2">
+            Orders in transit — shipped, awaiting delivery
           </p>
         </div>
-        {/* Stats inline */}
-        <div className="flex gap-4">
-          <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-            <Clock className="w-5 h-5 text-purple-500" />
-            <div>
-              <p className="text-lg font-bold">{counts.total}</p>
-              <p className="text-xs text-muted-foreground">Pending</p>
+        <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+          Sync
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Clock className="w-8 h-8 text-purple-500" />
+              <div>
+                <p className="text-2xl font-bold">{counts.total}</p>
+                <p className="text-sm text-muted-foreground">In Transit</p>
+                <div className="flex gap-2 mt-1 text-xs">
+                  <span className="text-orange-600">{counts.cod} COD</span>
+                  <span className="text-green-600">{counts.cashOnline} CASH</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <DollarSign className="w-5 h-5 text-green-500" />
-            <div>
-              <p className="text-lg font-bold">RM {counts.totalSales.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground">Collection</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-8 h-8 text-green-500" />
+              <div>
+                <p className="text-2xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total Value</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-            <Package className="w-5 h-5 text-amber-500" />
-            <div>
-              <p className="text-lg font-bold">{counts.totalUnitBundle}</p>
-              <p className="text-xs text-muted-foreground">Unit Bundle</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-blue-500" />
+              <div>
+                <p className="text-2xl font-bold">{counts.totalUnits}</p>
+                <p className="text-sm text-muted-foreground">Total Unit</p>
+              </div>
             </div>
-          </div>
-          <Button variant="outline" onClick={handleSync} disabled={isSyncing} className="self-center">
-            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            Sync
-          </Button>
-        </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Platform Breakdown */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {platformStats.map((ps) => (
+          <Card key={ps.name} className={ps.total > 0 ? "border-l-4 border-l-purple-500" : ""}>
+            <CardContent className="p-4">
+              <div>
+                <p className="text-sm font-semibold">{ps.name}</p>
+                <p className="text-xl font-bold">{ps.total}</p>
+                <div className="flex gap-2 mt-1 text-xs">
+                  <span className="text-orange-600">{ps.cod} COD</span>
+                  <span className="text-green-600">{ps.cashOnline} CASH</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Unit: <span className="font-semibold text-foreground">{ps.units}</span></p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search... (use + to combine)"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
-                className="pl-10 h-9"
-              />
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search... (use + to combine)"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  type="date"
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
+                  className="w-40"
+                />
+                <Input
+                  type="date"
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
+                  className="w-40"
+                />
+                <Button onClick={applyDateFilter}>
+                  <Filter className="w-4 h-4 mr-2" />
+                  Apply
+                </Button>
+              </div>
             </div>
-            <Input
-              type="date"
-              value={pendingStart}
-              onChange={(e) => setPendingStart(e.target.value)}
-              className="w-36 h-9"
-            />
-            <Input
-              type="date"
-              value={pendingEnd}
-              onChange={(e) => setPendingEnd(e.target.value)}
-              className="w-36 h-9"
-            />
-            <Button size="sm" onClick={applyDateFilter} className="h-9">
-              <Filter className="w-4 h-4 mr-1" />
-              Apply Filter
-            </Button>
-            <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-              <SelectTrigger className="w-36 h-9">
-                <SelectValue placeholder="Platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Platform</SelectItem>
-                <SelectItem value="Facebook">Facebook</SelectItem>
-                <SelectItem value="Threads">Threads</SelectItem>
-                <SelectItem value="Tiktok">TikTok</SelectItem>
-                <SelectItem value="Database">Database</SelectItem>
-                <SelectItem value="Google">Google</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Show:</span>
-              <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
-                <SelectTrigger className="w-16 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Platform</SelectItem>
+                    <SelectItem value="Facebook">Facebook</SelectItem>
+                    <SelectItem value="Threads">Threads</SelectItem>
+                    <SelectItem value="Tiktok">TikTok</SelectItem>
+                    <SelectItem value="Database">Database</SelectItem>
+                    <SelectItem value="Google">Google</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Show:</span>
+                  <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleBulkPrint}
+                disabled={selectedOrders.size === 0 || isPrinting}
+              >
+                {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
+                Print ({selectedOrders.size})
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkPrint}
-              disabled={selectedOrders.size === 0 || isPrinting}
-            >
-              {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Printer className="w-4 h-4 mr-1" />}
-              Print ({selectedOrders.size})
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -378,7 +410,6 @@ const LogisticPendingTracking = () => {
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
                       <th className="p-2 text-left">Unit</th>
-                      <th className="p-2 text-left">Unit Bundle</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
@@ -414,7 +445,6 @@ const LogisticPendingTracking = () => {
                             <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
                           <td className="p-2 text-center">{order.unit || 1}</td>
-                          <td className="p-2 text-center font-medium text-amber-600">{getUnitBundle(order)}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
@@ -491,7 +521,7 @@ const LogisticPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
                           No pending tracking orders found.
                         </td>
                       </tr>

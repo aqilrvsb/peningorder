@@ -46,7 +46,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
-const JENIS_CLOSING_OPTIONS = ['Website', 'Wa Bot', 'Manual', 'Call', 'Live'];
 
 interface Spend {
   id: string;
@@ -170,7 +169,7 @@ const Spend: React.FC = () => {
     e.preventDefault();
 
     // Validation
-    if (!formData.product || !formData.jenisPlatform || !formData.jenisClosing || !formData.totalSpend || !formData.tarikhSpend) {
+    if (!formData.product || !formData.jenisPlatform || !formData.totalSpend || !formData.tarikhSpend) {
       toast({
         title: 'Error',
         description: 'Sila lengkapkan semua medan yang diperlukan.',
@@ -304,17 +303,6 @@ const Spend: React.FC = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="jenisClosing">Jenis Closing *</Label>
-                  <Select value={formData.jenisClosing} onValueChange={(value) => handleChange('jenisClosing', value)}>
-                    <SelectTrigger><SelectValue placeholder="Pilih jenis closing" /></SelectTrigger>
-                    <SelectContent>
-                      {JENIS_CLOSING_OPTIONS.map((opt) => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="totalSpend">Total Spend (RM) *</Label>
                   <Input 
                     id="totalSpend" 
@@ -439,14 +427,13 @@ const Spend: React.FC = () => {
               <TableHead className="text-right">Total Spend</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Platform</TableHead>
-              <TableHead>Jenis Closing</TableHead>
               <TableHead className="w-24">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSpends.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   Tiada data spend
                 </TableCell>
               </TableRow>
@@ -458,7 +445,6 @@ const Spend: React.FC = () => {
                   <TableCell className="text-right">RM {spend.totalSpend.toFixed(2)}</TableCell>
                   <TableCell>{spend.product}</TableCell>
                   <TableCell>{spend.jenisPlatform}</TableCell>
-                  <TableCell>{spend.jenisClosing || '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <button
