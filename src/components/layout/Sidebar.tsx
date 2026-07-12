@@ -29,6 +29,7 @@ import {
   CheckCircle,
   CreditCard,
   Ticket,
+  ShieldCheck,
   XCircle,
   FileText,
   Receipt,
@@ -74,7 +75,15 @@ const managementItems: NavItem[] = [
   { label: 'Courier Settings', path: '/dashboard/logistics/courier-settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
-type GroupKey = 'marketer' | 'management';
+// ============ SUPERADMIN (SaaS owner) ============
+const superadminItems: NavItem[] = [
+  { label: 'Clients', path: '/dashboard/admin/clients', icon: <Users className="w-5 h-5" /> },
+  { label: 'Transactions', path: '/dashboard/admin/transactions', icon: <CreditCard className="w-5 h-5" /> },
+  { label: 'Tickets', path: '/dashboard/admin/tickets', icon: <Ticket className="w-5 h-5" /> },
+  { label: 'Pricing Plans', path: '/dashboard/admin/pricing', icon: <Receipt className="w-5 h-5" /> },
+];
+
+type GroupKey = 'marketer' | 'management' | 'superadmin';
 
 interface RoleGroup {
   key: GroupKey;
@@ -83,10 +92,17 @@ interface RoleGroup {
   items: NavItem[];
 }
 
-const roleGroups: RoleGroup[] = [
+const baseRoleGroups: RoleGroup[] = [
   { key: 'marketer', label: 'Marketer Role', icon: <Megaphone className="w-5 h-5" />, items: marketerItems },
   { key: 'management', label: 'Management Role', icon: <Truck className="w-5 h-5" />, items: managementItems },
 ];
+
+const superadminGroup: RoleGroup = {
+  key: 'superadmin',
+  label: 'Superadmin',
+  icon: <ShieldCheck className="w-5 h-5" />,
+  items: superadminItems,
+};
 
 const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -94,6 +110,10 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
+
+  const roleGroups: RoleGroup[] = profile?.role === 'superadmin'
+    ? [superadminGroup, ...baseRoleGroups]
+    : baseRoleGroups;
 
   // Groups expand/collapse independently. Start with the group whose child
   // page is active (plus Marketer as the default when on the dashboard).

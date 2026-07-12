@@ -21,6 +21,11 @@ import Billing from "./pages/Billing";
 import Profile from "./pages/Profile";
 import Invoice from "./pages/Invoice";
 import Tickets from "./pages/Tickets";
+// Superadmin (SaaS owner) pages
+import AdminClients from "./pages/admin/AdminClients";
+import AdminTransactions from "./pages/admin/AdminTransactions";
+import AdminTickets from "./pages/admin/AdminTickets";
+import AdminPricing from "./pages/admin/AdminPricing";
 // Marketer components
 import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
 // Logistic Role components
@@ -75,6 +80,11 @@ const App = () => (
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
                   {/* Support */}
                   <Route path="tickets" element={<Tickets />} />
+                  {/* Superadmin */}
+                  <Route path="admin/clients" element={<AdminClients />} />
+                  <Route path="admin/transactions" element={<AdminTransactions />} />
+                  <Route path="admin/tickets" element={<AdminTickets />} />
+                  <Route path="admin/pricing" element={<AdminPricing />} />
                   {/* Bottom nav */}
                   <Route path="billing" element={<Billing />} />
                   <Route path="profile" element={<Profile />} />
