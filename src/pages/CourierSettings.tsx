@@ -50,7 +50,7 @@ const emptyConfig: ParcelDailyConfig = {
   sender_state: '',
   sender_country_code: '+60',
   is_next_day_remittance: true,
-  is_notify: 'SMS',
+  is_notify: 'None',
   default_courier: 'poslaju',
 };
 
@@ -84,7 +84,11 @@ const CourierSettings: React.FC = () => {
       if (error) throw error;
       if (data) {
         setConfigId(data.id);
-        setFormData({ ...emptyConfig, ...data });
+        // Normalize state casing so the dropdown matches NEGERI_OPTIONS (uppercase)
+        const normState = NEGERI_OPTIONS.find(
+          (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
+        ) || data.sender_state || '';
+        setFormData({ ...emptyConfig, ...data, sender_state: normState });
       } else if (user) {
         // Pre-fill sender fields from profile if available
         setFormData((f) => ({
@@ -138,7 +142,7 @@ const CourierSettings: React.FC = () => {
         sender_country: 'Malaysia',
         sender_country_code: formData.sender_country_code || '+60',
         is_next_day_remittance: formData.is_next_day_remittance,
-        is_notify: formData.is_notify,
+        is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
         default_courier: formData.default_courier,
       };
 
@@ -325,20 +329,6 @@ const CourierSettings: React.FC = () => {
         <div>
           <h2 className="font-semibold text-lg mb-4">Preferences</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <FormLabel>Customer Notification</FormLabel>
-              <Select
-                value={formData.is_notify}
-                onValueChange={(v) => setField('is_notify', v as 'SMS' | 'WhatsApp' | 'None')}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SMS">SMS (+RM 0.20/order)</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="None">None</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div>
               <FormLabel>COD Payout Schedule</FormLabel>
               <Select

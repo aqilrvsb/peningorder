@@ -391,21 +391,23 @@ const AccountPendingTracking = () => {
     }
     const data = filteredOrders.map((order: any, index: number) => ({
       "No": index + 1,
-      "Date Order": order.date_order || "-",
-      "Platform": getOrderPlatformName(order),
-      "ID Marketer": order.marketer_id_staff || "HQ",
-      "Marketer": profilesMap.get(order.marketer_id_staff) || order.marketer_id_staff || "HQ",
-      "Customer": order.name_customer || "-",
+      "Id Sales": order.id_sale || "-",
+      "Tarikh Order": order.date_order || "-",
+      "Tarikh Process": order.date_processed || "-",
+      "Nama Pelanggan": order.name_customer || "-",
       "Phone": order.phone_customer || "-",
-      "Product": order.nota_staff || order.bundle?.name || "-",
+      "Produk": order.bundle?.name || order.nota_staff || "-",
       "Unit": order.unit || 1,
-      "Final Price": Number(order.total_sale || 0).toFixed(2),
-      "Fees": Number(order.cost_postage || 0).toFixed(2),
-      "Total Sales": (Number(order.total_sale || 0) + Number(order.cost_postage || 0)).toFixed(2),
-      "Payment": order.type_payment === "COD" ? "COD" : "CASH",
+      "Kurier": order.kurier || "-",
       "Tracking": order.tracking_number || "-",
-      "State": order.state_customer || "-",
-      "Address": order.address_customer || "-",
+      "Total Sales": Number(order.total_sale || 0).toFixed(2),
+      "Cara Bayaran": order.type_payment === "COD" ? "COD" : "CASH",
+      "Delivery Status": order.delivery_status || "-",
+      "Jenis Platform": getOrderPlatformName(order),
+      "Jenis Customer": order.jenis_customer || "-",
+      "Negeri": order.state_customer || "-",
+      "Alamat": order.address_customer || "-",
+      "Parcel Status": order.seos || "-",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -642,19 +644,24 @@ const AccountPendingTracking = () => {
                         />
                       </th>
                       <th className="p-3 text-left">No</th>
-                      <th className="p-3 text-left">Date Order</th>
-                      <th className="p-3 text-left">Platform</th>
-                      <th className="p-3 text-left">Customer</th>
+                      <th className="p-3 text-left">Id Sales</th>
+                      <th className="p-3 text-left">Tarikh Order</th>
+                      <th className="p-3 text-left">Tarikh Process</th>
+                      <th className="p-3 text-left">Nama Pelanggan</th>
                       <th className="p-3 text-left">Phone</th>
-                      <th className="p-3 text-left min-w-[280px]">Product</th>
+                      <th className="p-3 text-left">Produk</th>
                       <th className="p-3 text-left">Unit</th>
-                      <th className="p-3 text-left">Final Price</th>
-                      <th className="p-3 text-left">Fees</th>
-                      <th className="p-3 text-left">Total Sales</th>
-                      <th className="p-3 text-left">Payment</th>
+                      <th className="p-3 text-left">Kurier</th>
                       <th className="p-3 text-left">Tracking</th>
-                      <th className="p-3 text-left">State</th>
-                      <th className="p-3 text-left">Address</th>
+                      <th className="p-3 text-left">Total Sales</th>
+                      <th className="p-3 text-left">Cara Bayaran</th>
+                      <th className="p-3 text-left">Delivery Status</th>
+                      <th className="p-3 text-left">Jenis Platform</th>
+                      <th className="p-3 text-left">Jenis Customer</th>
+                      <th className="p-3 text-left">Negeri</th>
+                      <th className="p-3 text-left">Alamat</th>
+                      <th className="p-3 text-left">Waybill</th>
+                      <th className="p-3 text-left">Parcel Status</th>
                       <th className="p-3 text-left">Action</th>
                     </tr>
                   </thead>
@@ -669,35 +676,63 @@ const AccountPendingTracking = () => {
                             />
                           </td>
                           <td className="p-3">{(currentPage - 1) * effectivePageSize + index + 1}</td>
-                          <td className="p-3">{order.date_order || "-"}</td>
-                          <td className="p-3">
-                            <span className="text-xs font-medium">{getOrderPlatformName(order)}</span>
-                          </td>
+                          <td className="p-3 whitespace-nowrap">{order.id_sale || "-"}</td>
+                          <td className="p-3 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-3 whitespace-nowrap">{order.date_processed || "-"}</td>
                           <td className="p-3">{order.name_customer || "-"}</td>
-                          <td className="p-3">{order.phone_customer || "-"}</td>
-                          <td className="p-3 min-w-[280px]"><span className="line-clamp-3">{order.nota_staff || order.bundle?.name || "-"}</span></td>
-                          <td className="p-3">{order.unit || 1}</td>
-                          <td className="p-3">RM {Number(order.total_sale || 0).toFixed(2)}</td>
-                          <td className="p-3">{order.cost_postage ? `RM ${Number(order.cost_postage).toFixed(2)}` : "-"}</td>
-                          <td className="p-3">RM {(Number(order.total_sale || 0) + Number(order.cost_postage || 0)).toFixed(2)}</td>
+                          <td className="p-3 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-3">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                              order.type_payment === "COD"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-green-100 text-green-800"
-                            }`}>
-                              {order.type_payment === "COD" ? "COD" : "CASH"}
+                            <span className="truncate max-w-[150px] block">{order.bundle?.name || order.nota_staff || "-"}</span>
+                          </td>
+                          <td className="p-3">{order.unit || 1}</td>
+                          <td className="p-3 whitespace-nowrap">{order.kurier || "-"}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                              {order.type_payment || "-"}
                             </span>
                           </td>
-                          <td className="p-3 font-mono text-sm">{order.tracking_number || "-"}</td>
-                          <td className="p-3">{order.state_customer || "-"}</td>
                           <td className="p-3">
-                            <div className="min-w-[250px]">
-                              <p className="text-sm whitespace-normal">{order.address_customer || "-"}</p>
-                              <p className="text-xs text-muted-foreground">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                              {order.delivery_status || "-"}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`text-xs font-medium ${
+                              order.jenis_platform === "Tiktok" ? "text-pink-600" :
+                              order.jenis_platform === "Threads" ? "text-slate-500" :
+                              order.jenis_platform === "Facebook" ? "text-blue-600" :
+                              order.jenis_platform === "Google" ? "text-green-600" :
+                              order.jenis_platform === "Database" ? "text-purple-600" :
+                              "text-gray-600"
+                            }`}>
+                              {order.jenis_platform || "-"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-xs">{order.jenis_customer || "-"}</td>
+                          <td className="p-3 text-xs">{order.state_customer || "-"}</td>
+                          <td className="p-3">
+                            <div className="max-w-[150px]">
+                              <p className="text-xs truncate">{order.address_customer || "-"}</p>
+                              <p className="text-xs text-muted-foreground truncate">
                                 {order.postcode_customer} {order.city_customer}
                               </p>
                             </div>
+                          </td>
+                          <td className="p-3">
+                            {order.waybill_url ? (
+                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                View
+                              </a>
+                            ) : "-"}
+                          </td>
+                          <td className="p-3">
+                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                              {order.seos || "-"}
+                            </span>
                           </td>
                           <td className="p-3">
                             <div className="flex gap-2">
@@ -725,7 +760,7 @@ const AccountPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={16} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
                           No pending tracking orders found.
                         </td>
                       </tr>

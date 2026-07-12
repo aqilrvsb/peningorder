@@ -169,7 +169,9 @@ serve(async (req) => {
     //    Quote endpoint takes just postcodes+weight and returns prices for every courier.
     //    IMPORTANT: pass ALL params that affect price (isNotify, isReschedule, isNextDayRemittance)
     //    or the create endpoint's calculated price will differ.
-    const notifyValue = orderData.isNotify ?? config.is_notify ?? "SMS";
+    const rawNotify = orderData.isNotify ?? config.is_notify ?? null;
+    // 'None' (or empty) = no courier SMS/notify fee — notifications go via WhatsApp Device
+    const notifyValue = rawNotify && rawNotify !== "None" ? rawNotify : null;
     const rescheduleValue =
       (courier === "dhl" || courier === "jnt" || courier === "ninjavan")
         ? (orderData.isReschedule || null)

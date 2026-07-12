@@ -404,18 +404,18 @@ const LogisticPendingTracking = () => {
                       </th>
                       <th className="p-2 text-left">No</th>
                       <th className="p-2 text-left">Id Sales</th>
-                      <th className="p-2 text-left">Tarikh Processed</th>
                       <th className="p-2 text-left">Tarikh Order</th>
+                      <th className="p-2 text-left">Tarikh Process</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
                       <th className="p-2 text-left">Unit</th>
+                      <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
-                      <th className="p-2 text-left">Jenis Closing</th>
                       <th className="p-2 text-left">Jenis Customer</th>
                       <th className="p-2 text-left">Negeri</th>
                       <th className="p-2 text-left">Alamat</th>
@@ -437,14 +437,15 @@ const LogisticPendingTracking = () => {
                           </td>
                           <td className="p-2">{(currentPage - 1) * pageSize + index + 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
+                            <span className="truncate max-w-[150px] block">{order.bundle?.name || order.nota_staff || "-"}</span>
                           </td>
                           <td className="p-2 text-center">{order.unit || 1}</td>
+                          <td className="p-2 whitespace-nowrap">{order.kurier || "-"}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
@@ -471,7 +472,6 @@ const LogisticPendingTracking = () => {
                               {order.jenis_platform || "-"}
                             </span>
                           </td>
-                          <td className="p-2 text-xs">{order.jenis_closing || "-"}</td>
                           <td className="p-2 text-xs">{order.jenis_customer || "-"}</td>
                           <td className="p-2 text-xs">{order.state_customer || "-"}</td>
                           <td className="p-2">
@@ -521,7 +521,7 @@ const LogisticPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
                           No pending tracking orders found.
                         </td>
                       </tr>
