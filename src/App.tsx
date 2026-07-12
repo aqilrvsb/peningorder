@@ -20,6 +20,7 @@ import CourierSettings from "./pages/CourierSettings";
 import Billing from "./pages/Billing";
 import Profile from "./pages/Profile";
 import Invoice from "./pages/Invoice";
+import Tickets from "./pages/Tickets";
 // Marketer components
 import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
 // Logistic Role components
@@ -72,6 +73,8 @@ const App = () => (
                   <Route path="account/report-profit" element={<AccountReportProfit />} />
                   <Route path="account/pending-tracking" element={<AccountPendingTracking />} />
                   <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
+                  {/* Support */}
+                  <Route path="tickets" element={<Tickets />} />
                   {/* Bottom nav */}
                   <Route path="billing" element={<Billing />} />
                   <Route path="profile" element={<Profile />} />

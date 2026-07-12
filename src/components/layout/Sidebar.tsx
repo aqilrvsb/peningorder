@@ -28,6 +28,7 @@ import {
   Clock,
   CheckCircle,
   CreditCard,
+  Ticket,
   XCircle,
   FileText,
   Receipt,
@@ -224,6 +225,21 @@ const Sidebar: React.FC = () => {
             </div>
           );
         })}
+
+        {/* Open Ticket — standalone, no submenu */}
+        <Link
+          to="/dashboard/tickets"
+          title={collapsed ? 'Open Ticket' : undefined}
+          onClick={handleNavClick}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+            isItemActive('/dashboard/tickets') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+            collapsed && 'justify-center px-2'
+          )}
+        >
+          <Ticket className="w-5 h-5" />
+          {!collapsed && <span className="text-sm">Open Ticket</span>}
+        </Link>
       </nav>
 
       {/* User Profile & Logout */}
