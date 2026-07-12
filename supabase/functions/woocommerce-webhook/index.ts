@@ -497,7 +497,7 @@ async function generateSaleId(supabase: any): Promise<string> {
   }
   // Fallback: generate unique ID
   const ts = Date.now().toString().slice(-6);
-  return `DFR${ts}`;
+  return `PO${ts}`;
 }
 
 // Format phone number to 60xxxxxxxxx format (Malaysian international format)

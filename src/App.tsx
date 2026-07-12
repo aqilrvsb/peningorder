@@ -20,6 +20,7 @@ import CourierSettings from "./pages/CourierSettings";
 import Billing from "./pages/Billing";
 import Profile from "./pages/Profile";
 import InvoiceView from "./pages/InvoiceView";
+import Invoice from "./pages/Invoice";
 // Marketer components
 import MarketerWebhookSettings from "./components/marketer/MarketerWebhookSettings";
 // Logistic Role components
@@ -31,6 +32,8 @@ import LogisticReturn from "./components/logistic/LogisticReturn";
 import LogisticPendingTracking from "./components/logistic/LogisticPendingTracking";
 // Account Role components
 import AccountReportProfit from "./components/account/AccountReportProfit";
+import AccountInvoiceSettings from "./components/account/AccountInvoiceSettings";
+import AccountInvoices from "./components/account/AccountInvoices";
 import AccountPendingTracking from "./components/account/AccountPendingTracking";
 
 const queryClient = new QueryClient();
@@ -47,6 +50,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/invoice" element={<Invoice />} />
                 <Route path="/invoice-view/:id" element={<InvoiceView />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Dashboard />} />
@@ -70,6 +74,8 @@ const App = () => (
                   {/* Account Role */}
                   <Route path="account/report-profit" element={<AccountReportProfit />} />
                   <Route path="account/pending-tracking" element={<AccountPendingTracking />} />
+                  <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
+                  <Route path="account/invoices" element={<AccountInvoices />} />
                   {/* Bottom nav */}
                   <Route path="billing" element={<Billing />} />
                   <Route path="profile" element={<Profile />} />

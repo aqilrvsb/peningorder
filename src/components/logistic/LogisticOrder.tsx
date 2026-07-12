@@ -880,7 +880,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Negeri</th>
                       <th className="p-2 text-left">Alamat</th>
                       <th className="p-2 text-left">Waybill</th>
-                      <th className="p-2 text-left">SEO</th>
+                      <th className="p-2 text-left">Parcel Status</th>
                       <th className="p-2 text-left">WhatsApp</th>
                       <th className="p-2 text-left">Action</th>
                     </tr>

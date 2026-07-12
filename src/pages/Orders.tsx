@@ -965,7 +965,7 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Negeri</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SEO</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Parcel Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Collection</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>

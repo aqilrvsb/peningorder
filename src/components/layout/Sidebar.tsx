@@ -30,6 +30,7 @@ import {
   CreditCard,
   XCircle,
   FileText,
+  Receipt,
   Webhook,
   FilePlus,
   Database,
@@ -68,6 +69,8 @@ const managementItems: NavItem[] = [
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
   { label: 'Pending COD Collection', path: '/dashboard/account/pending-tracking', icon: <DollarSign className="w-5 h-5" /> },
+  { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
+  { label: 'Invoices', path: '/dashboard/account/invoices', icon: <Receipt className="w-5 h-5" /> },
   { label: 'Courier Settings', path: '/dashboard/logistics/courier-settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
