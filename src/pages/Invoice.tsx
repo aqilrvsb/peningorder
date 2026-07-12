@@ -87,6 +87,7 @@ const Invoice = () => {
             jenis_closing: purchase.jenis_closing,
             jenis_customer: purchase.jenis_customer,
             tracking_number: purchase.tracking_number,
+            kurier: purchase.kurier,
             marketer_name: purchase.marketer_name,
             marketer_id_staff: purchase.marketer_id_staff,
             seo: purchase.seo,
@@ -198,9 +199,21 @@ const Invoice = () => {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-600 uppercase mb-3">Payment Information</h2>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="space-y-2">
-                <div className="flex justify-between">
+            <div className="bg-gray-50 p-4 rounded-lg h-[calc(100%-2.25rem)]">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Order ID</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {orderData.id_sale || orderData.id?.substring(0, 8)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Order Date</span>
+                  <span className="text-sm font-medium text-gray-800">
+                    {orderData.date_order ? format(new Date(orderData.date_order), "dd MMM yyyy") : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Payment Method</span>
                   <span className={`text-sm font-semibold px-2 py-0.5 rounded ${
                     orderData.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
@@ -208,16 +221,24 @@ const Invoice = () => {
                     {orderData.type_payment || "-"}
                   </span>
                 </div>
+                {orderData.kurier && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Courier</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {String(orderData.kurier).replace(/\s+(COD|CASH)$/i, "")}
+                    </span>
+                  </div>
+                )}
                 {orderData.tracking_number && (
-                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                     <span className="text-sm text-gray-600">Tracking No.</span>
-                    <span className="text-xs font-mono text-gray-700">
+                    <span className="text-xs font-mono font-semibold text-gray-800">
                       {orderData.tracking_number}
                     </span>
                   </div>
                 )}
                 {orderData.seo && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Parcel Status</span>
                     <span className={`text-sm font-semibold ${
                       orderData.seo === "Successful Delivery" ? "text-green-600" : "text-gray-600"
@@ -289,10 +310,6 @@ const Invoice = () => {
                 <span className="font-semibold text-gray-900">
                   RM {parseFloat(orderData.total_sale || 0).toFixed(2)}
                 </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Tax (0%)</span>
-                <span className="font-semibold text-gray-900">RM 0.00</span>
               </div>
               <div className="border-t border-gray-300 pt-3 flex justify-between">
                 <span className="text-lg font-bold text-gray-900">Total Amount</span>
