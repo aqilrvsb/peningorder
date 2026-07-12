@@ -50,11 +50,11 @@ serve(async (req) => {
     if (body.purchaseId) {
       const { data: row } = await supabase
         .from("customer_purchases")
-        .select("id, id_sale, tracking_number")
+        .select("id, id_sale, pd_order_id, tracking_number")
         .eq("id", body.purchaseId)
         .maybeSingle();
       if (!row) return fail("Order not found or not yours");
-      orderId = orderId || row.id_sale || null;
+      orderId = orderId || row.pd_order_id || null;
       trackingNumber = trackingNumber || row.tracking_number || null;
     }
 
@@ -120,7 +120,7 @@ serve(async (req) => {
       await supabase
         .from("customer_purchases")
         .update({ delivery_status: "Cancelled" })
-        .eq("id_sale", orderId);
+        .eq("pd_order_id", orderId);
     }
 
     return ok({

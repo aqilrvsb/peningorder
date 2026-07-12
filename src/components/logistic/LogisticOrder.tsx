@@ -484,7 +484,7 @@ const LogisticOrder = () => {
         .from("customer_purchases")
         .update({
           tracking_number: trackingPlaceholder,
-          id_sale: result.orderId,
+          pd_order_id: result.orderId,
           ...(result.shippingPrice != null && { cost_postage: Number(result.shippingPrice) }),
         })
         .eq("id", order.id);
@@ -649,7 +649,7 @@ const LogisticOrder = () => {
         // Store PD orderId as placeholder; CHECKOUT webhook replaces with real tracking + waybill
         const trackingUpdate: any = {
           tracking_number: result.trackingNumber || result.orderId,
-          id_sale: result.orderId,
+          pd_order_id: result.orderId,
         };
         if (result.shippingPrice != null) trackingUpdate.cost_postage = Number(result.shippingPrice);
         await supabase

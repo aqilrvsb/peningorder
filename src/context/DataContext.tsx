@@ -207,6 +207,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.seo !== undefined) upd.seo = data.seo;
     // Courier regeneration flow (Orders.tsx) — these were previously dropped silently
     if ((data as any).idSale !== undefined) upd.id_sale = (data as any).idSale;
+    if ((data as any).pdOrderId !== undefined) upd.pd_order_id = (data as any).pdOrderId;
     if (data.kurier !== undefined) upd.kurier = data.kurier;
     if ((data as any).waybillUrl !== undefined) upd.waybill_url = (data as any).waybillUrl;
     if (data.kosPos !== undefined) upd.cost_postage = data.kosPos;

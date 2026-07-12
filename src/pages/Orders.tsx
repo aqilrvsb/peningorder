@@ -518,7 +518,7 @@ ${trackingUrl}`;
       }
 
       const updateData: any = {
-        idSale: parcelDailyOrderId,
+        pdOrderId: parcelDailyOrderId, // PD id kept separate; id_sale stays the ON-xxxxxxxx number
         noTracking: courierResult?.trackingNumber || parcelDailyOrderId,
         kurier: `${courierLabel} ${isCOD ? 'COD' : 'CASH'}`,
       };
