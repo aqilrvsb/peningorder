@@ -168,10 +168,6 @@ const Invoice = () => {
             <p className="text-lg font-semibold text-gray-900">
               {orderData.date_order ? format(new Date(orderData.date_order), "dd MMMM yyyy") : "-"}
             </p>
-            <p className="text-sm text-gray-600 mt-2">Platform</p>
-            <p className="text-sm font-medium text-gray-700">
-              {orderData.jenis_platform || "Manual"}
-            </p>
           </div>
         </div>
 
@@ -211,44 +207,6 @@ const Invoice = () => {
                   }`}>
                     {orderData.type_payment || "-"}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Platform</span>
-                  <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-                    orderData.jenis_platform === "Facebook"
-                      ? "bg-blue-100 text-blue-800"
-                      : orderData.jenis_platform === "Tiktok"
-                      ? "bg-pink-100 text-pink-800"
-                      : orderData.jenis_platform === "Shopee"
-                      ? "bg-orange-100 text-orange-800"
-                      : orderData.jenis_platform === "Database"
-                      ? "bg-purple-100 text-purple-800"
-                      : orderData.jenis_platform === "Google"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}>
-                    {orderData.jenis_platform || "Manual"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Closing Type</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {orderData.jenis_closing || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Customer Type</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {orderData.jenis_customer || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Status</span>
-                  <span className={`text-sm font-bold uppercase ${
-                    orderData.delivery_status === "Shipped" ? "text-blue-600" :
-                    orderData.delivery_status === "Return" ? "text-red-600" :
-                    "text-yellow-600"
-                  }`}>{orderData.delivery_status}</span>
                 </div>
                 {orderData.tracking_number && (
                   <div className="flex justify-between pt-2 border-t border-gray-200">
