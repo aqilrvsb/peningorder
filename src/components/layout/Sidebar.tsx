@@ -76,14 +76,17 @@ const managementItems: NavItem[] = [
 ];
 
 // ============ SUPERADMIN (SaaS owner) ============
-const superadminItems: NavItem[] = [
-  { label: 'Clients', path: '/dashboard/admin/clients', icon: <Users className="w-5 h-5" /> },
+// The platform owner does NOT key in orders — they only oversee/report on what
+// clients do, plus manage plan pricing & settings. Hence a flat reporting nav,
+// no Marketer/Management role menus.
+const adminItems: NavItem[] = [
+  { label: 'Reporting', path: '/dashboard/admin/clients', icon: <BarChart3 className="w-5 h-5" /> },
   { label: 'Transactions', path: '/dashboard/admin/transactions', icon: <CreditCard className="w-5 h-5" /> },
   { label: 'Tickets', path: '/dashboard/admin/tickets', icon: <Ticket className="w-5 h-5" /> },
-  { label: 'Pricing Plans', path: '/dashboard/admin/pricing', icon: <Receipt className="w-5 h-5" /> },
+  { label: 'Pricing & Settings', path: '/dashboard/admin/pricing', icon: <Settings className="w-5 h-5" /> },
 ];
 
-type GroupKey = 'marketer' | 'management' | 'superadmin';
+type GroupKey = 'marketer' | 'management';
 
 interface RoleGroup {
   key: GroupKey;
@@ -97,13 +100,6 @@ const baseRoleGroups: RoleGroup[] = [
   { key: 'management', label: 'Management Role', icon: <Truck className="w-5 h-5" />, items: managementItems },
 ];
 
-const superadminGroup: RoleGroup = {
-  key: 'superadmin',
-  label: 'Superadmin',
-  icon: <ShieldCheck className="w-5 h-5" />,
-  items: superadminItems,
-};
-
 const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -111,9 +107,10 @@ const Sidebar: React.FC = () => {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
 
-  const roleGroups: RoleGroup[] = profile?.role === 'superadmin'
-    ? [superadminGroup, ...baseRoleGroups]
-    : baseRoleGroups;
+  // The platform owner (superadmin) is a reporting/settings role only — never
+  // the client order-entry menus. Clients get the Marketer/Management groups.
+  const isAdmin = profile?.role === 'superadmin';
+  const roleGroups: RoleGroup[] = isAdmin ? [] : baseRoleGroups;
 
   // Groups expand/collapse independently. Start with the group whose child
   // page is active (plus Marketer as the default when on the dashboard).
@@ -181,22 +178,44 @@ const Sidebar: React.FC = () => {
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto pb-3">
-        {/* Dashboard — always visible */}
-        <Link
-          to="/dashboard"
-          title={collapsed ? 'Dashboard' : undefined}
-          onClick={handleNavClick}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-            isDashboardActive && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-            collapsed && 'justify-center px-2'
-          )}
-        >
-          <LayoutDashboard className="w-5 h-5" />
-          {!collapsed && <span className="text-sm">Dashboard</span>}
-        </Link>
+        {/* Client home (Dashboard). Hidden for admin — the platform owner has
+            no personal order dashboard, only cross-client reporting. */}
+        {!isAdmin && (
+          <Link
+            to="/dashboard"
+            title={collapsed ? 'Dashboard' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isDashboardActive && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Dashboard</span>}
+          </Link>
+        )}
 
-        {/* Role groups */}
+        {/* Admin reporting nav — flat, no order-entry. */}
+        {isAdmin && adminItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            title={collapsed ? item.label : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              (isItemActive(item.path) || (item.path === '/dashboard/admin/clients' && isDashboardActive)) &&
+                'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            {item.icon}
+            {!collapsed && <span className="text-sm">{item.label}</span>}
+          </Link>
+        ))}
+
+        {/* Role groups (clients only) */}
         {roleGroups.map((group) => {
           const isExpanded = expandedGroups.has(group.key);
           return (
@@ -246,20 +265,23 @@ const Sidebar: React.FC = () => {
           );
         })}
 
-        {/* Open Ticket — standalone, no submenu */}
-        <Link
-          to="/dashboard/tickets"
-          title={collapsed ? 'Open Ticket' : undefined}
-          onClick={handleNavClick}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-            isItemActive('/dashboard/tickets') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-            collapsed && 'justify-center px-2'
-          )}
-        >
-          <Ticket className="w-5 h-5" />
-          {!collapsed && <span className="text-sm">Open Ticket</span>}
-        </Link>
+        {/* Open Ticket — client support submission. Admin handles tickets via
+            the admin Tickets page instead. */}
+        {!isAdmin && (
+          <Link
+            to="/dashboard/tickets"
+            title={collapsed ? 'Open Ticket' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/tickets') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Ticket className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Open Ticket</span>}
+          </Link>
+        )}
       </nav>
 
       {/* User Profile & Logout */}
@@ -274,18 +296,21 @@ const Sidebar: React.FC = () => {
             </div>
           )}
         </div>
-        <Link
-          to="/dashboard/billing"
-          title={collapsed ? 'Billing' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200',
-            isItemActive('/dashboard/billing') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-            collapsed && 'justify-center px-2'
-          )}
-        >
-          <CreditCard className="w-5 h-5" />
-          {!collapsed && <span className="text-sm">Billing</span>}
-        </Link>
+        {/* Billing is a client concern (their subscription). Admin doesn't subscribe. */}
+        {!isAdmin && (
+          <Link
+            to="/dashboard/billing"
+            title={collapsed ? 'Billing' : undefined}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200',
+              isItemActive('/dashboard/billing') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <CreditCard className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Billing</span>}
+          </Link>
+        )}
         <Link
           to="/dashboard/profile"
           title={collapsed ? 'Profile' : undefined}

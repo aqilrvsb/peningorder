@@ -2,9 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
-import { AuthProvider } from "@/context/AuthContext";
+import type { ReactElement } from "react";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider } from "@/context/DataContext";
 import { BundleProvider } from "@/context/BundleContext";
 // Public entry points stay eager so the marketing landing + login paint
@@ -56,6 +57,29 @@ const RouteFallback = () => (
   </div>
 );
 
+// Role separation: the platform owner (superadmin) is a reporting/settings role
+// and must never reach the client order-entry pages; clients must never reach
+// the admin pages. RoleGate redirects the wrong role to its own home.
+const RoleGate = ({ need, children }: { need: "admin" | "client"; children: ReactElement }) => {
+  const { profile, isLoading } = useAuth();
+  if (isLoading) return <RouteFallback />;
+  const isAdmin = profile?.role === "superadmin";
+  if (need === "admin" && !isAdmin) return <Navigate to="/dashboard" replace />;
+  if (need === "client" && isAdmin) return <Navigate to="/dashboard/admin/clients" replace />;
+  return children;
+};
+
+// /dashboard home: admins land on cross-client Reporting, clients on their own
+// order dashboard.
+const DashboardHome = () => {
+  const { profile, isLoading } = useAuth();
+  if (isLoading) return <RouteFallback />;
+  return profile?.role === "superadmin" ? <Navigate to="/dashboard/admin/clients" replace /> : <Dashboard />;
+};
+
+const clientOnly = (el: ReactElement) => <RoleGate need="client">{el}</RoleGate>;
+const adminOnly = (el: ReactElement) => <RoleGate need="admin">{el}</RoleGate>;
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -73,37 +97,37 @@ const App = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/invoice" element={<Invoice />} />
                   <Route path="/dashboard" element={<DashboardLayout />}>
-                    <Route index element={<Dashboard />} />
-                    {/* Marketer Role */}
-                    <Route path="orders" element={<Orders />} />
-                    <Route path="orders/new" element={<OrderForm />} />
-                    <Route path="prospects" element={<Prospects />} />
-                    <Route path="spend" element={<Spend />} />
-                    <Route path="reporting-spend" element={<ReportingSpend />} />
-                    <Route path="webhook-settings" element={<MarketerWebhookSettings />} />
+                    <Route index element={<DashboardHome />} />
+                    {/* Marketer Role — clients only (admin never keys in orders) */}
+                    <Route path="orders" element={clientOnly(<Orders />)} />
+                    <Route path="orders/new" element={clientOnly(<OrderForm />)} />
+                    <Route path="prospects" element={clientOnly(<Prospects />)} />
+                    <Route path="spend" element={clientOnly(<Spend />)} />
+                    <Route path="reporting-spend" element={clientOnly(<ReportingSpend />)} />
+                    <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     {/* Logistic Role - Inventory */}
-                    <Route path="logistics/inventory-product" element={<LogisticProductManagement />} />
-                    <Route path="logistics/inventory-bundle" element={<LogisticBundleManagement />} />
+                    <Route path="logistics/inventory-product" element={clientOnly(<LogisticProductManagement />)} />
+                    <Route path="logistics/inventory-bundle" element={clientOnly(<LogisticBundleManagement />)} />
                     {/* Logistic Role - Orders */}
-                    <Route path="logistics/order" element={<LogisticOrder />} />
-                    <Route path="logistics/processed" element={<LogisticProcessed />} />
-                    <Route path="logistics/return" element={<LogisticReturn />} />
-                    <Route path="logistics/pending-tracking" element={<LogisticPendingTracking />} />
-                    <Route path="logistics/courier-settings" element={<CourierSettings />} />
-                    <Route path="settings/courier" element={<CourierSettings />} />
+                    <Route path="logistics/order" element={clientOnly(<LogisticOrder />)} />
+                    <Route path="logistics/processed" element={clientOnly(<LogisticProcessed />)} />
+                    <Route path="logistics/return" element={clientOnly(<LogisticReturn />)} />
+                    <Route path="logistics/pending-tracking" element={clientOnly(<LogisticPendingTracking />)} />
+                    <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />
+                    <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
                     {/* Account Role */}
-                    <Route path="account/report-profit" element={<AccountReportProfit />} />
-                    <Route path="account/pending-tracking" element={<AccountPendingTracking />} />
-                    <Route path="account/invoice-settings" element={<AccountInvoiceSettings />} />
-                    {/* Support */}
-                    <Route path="tickets" element={<Tickets />} />
-                    {/* Superadmin */}
-                    <Route path="admin/clients" element={<AdminClients />} />
-                    <Route path="admin/transactions" element={<AdminTransactions />} />
-                    <Route path="admin/tickets" element={<AdminTickets />} />
-                    <Route path="admin/pricing" element={<AdminPricing />} />
-                    {/* Bottom nav */}
-                    <Route path="billing" element={<Billing />} />
+                    <Route path="account/report-profit" element={clientOnly(<AccountReportProfit />)} />
+                    <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
+                    <Route path="account/invoice-settings" element={clientOnly(<AccountInvoiceSettings />)} />
+                    {/* Support — client ticket submission */}
+                    <Route path="tickets" element={clientOnly(<Tickets />)} />
+                    {/* Superadmin — reporting + settings only */}
+                    <Route path="admin/clients" element={adminOnly(<AdminClients />)} />
+                    <Route path="admin/transactions" element={adminOnly(<AdminTransactions />)} />
+                    <Route path="admin/tickets" element={adminOnly(<AdminTickets />)} />
+                    <Route path="admin/pricing" element={adminOnly(<AdminPricing />)} />
+                    {/* Bottom nav — Billing is client-only; Profile shared */}
+                    <Route path="billing" element={clientOnly(<Billing />)} />
                     <Route path="profile" element={<Profile />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />

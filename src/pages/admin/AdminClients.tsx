@@ -117,9 +117,9 @@ const AdminClients: React.FC = () => {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Users className="w-7 h-7 text-primary" /> Clients
+          <Users className="w-7 h-7 text-primary" /> Reporting
         </h1>
-        <p className="text-muted-foreground mt-2">All registered tenants — manage plan, expiry, access</p>
+        <p className="text-muted-foreground mt-2">Everything your clients do — orders, sales, collection — plus plan, expiry &amp; access</p>
       </div>
 
       {/* Overview */}
