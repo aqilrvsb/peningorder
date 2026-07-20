@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-07-20",
+  "note": "AI-generated marketing assets for the PeningOrder sales landing. Images via nano-banana-pro, hero video via gemini. Hosted on peninglab CDN (Backblaze B2) so they survive Vercel deploys.",
+  "assets": {
+    "hero_video": {
+      "type": "video",
+      "aspect": "16:9",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/d84ca5b6-e541-4231-8475-a929c9958459.mp4",
+      "task_id": "d84ca5b6-e541-4231-8475-a929c9958459",
+      "cost_rm": 1.5,
+      "provider": "gemini",
+      "slot": "p6-b"
+    },
+    "pain_messy_desk": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/7970d61b-86bb-4203-8681-242568fa73fb.png",
+      "task_id": "7970d61b-86bb-4203-8681-242568fa73fb",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "transformation_before_after": {
+      "type": "image",
+      "aspect": "16:9",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/a4eb3350-c14a-4140-ada6-cf6866eae69f.png",
+      "task_id": "a4eb3350-c14a-4140-ada6-cf6866eae69f",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "dashboard_orders": {
+      "type": "image",
+      "aspect": "16:9",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/9a352d15-cadf-42b0-957b-2c83c74204b7.png",
+      "task_id": "9a352d15-cadf-42b0-957b-2c83c74204b7",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "report_analytics": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/fca1167c-6a69-466b-ae88-5daeb293ff59.png",
+      "task_id": "fca1167c-6a69-466b-ae88-5daeb293ff59",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "parcels_waybill": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/1c8b8ef1-5949-4939-ac53-f1878fb61f52.png",
+      "task_id": "1c8b8ef1-5949-4939-ac53-f1878fb61f52",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "avatar_1": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/d60a38b8-757c-4ec4-ba98-534d0b76a2d9.png",
+      "task_id": "d60a38b8-757c-4ec4-ba98-534d0b76a2d9",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "avatar_2": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/4ef4d716-570d-4cef-b0ac-1f54126bce19.png",
+      "task_id": "4ef4d716-570d-4cef-b0ac-1f54126bce19",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    },
+    "avatar_3": {
+      "type": "image",
+      "aspect": "1:1",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/1e768ace-5bcb-4237-8cca-76acfe416d25.png",
+      "task_id": "1e768ace-5bcb-4237-8cca-76acfe416d25",
+      "cost_rm": 0.15,
+      "provider": "nano-banana-pro",
+      "slot": "p4"
+    }
+  },
+  "total_cost_rm": 2.85
+}

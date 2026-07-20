@@ -26,3 +26,7 @@ dist-ssr
 # Local database backups (contain sensitive data — never commit)
 *backup*.sql
 dfr-backup.sql
+
+# local dev / playwright artifacts
+.vite-dev*.log
+.playwright-mcp/

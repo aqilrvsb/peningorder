@@ -6,9 +6,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { DataProvider } from "@/context/DataContext";
 import { BundleProvider } from "@/context/BundleContext";
-import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import SalesLanding from "./sales/SalesLanding";
+import CheckoutPage from "./sales/CheckoutPage";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
@@ -52,7 +53,9 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Index />} />
+                {/* Public marketing routes — no forced login */}
+                <Route path="/" element={<SalesLanding />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/invoice" element={<Invoice />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>

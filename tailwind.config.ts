@@ -72,6 +72,30 @@ export default {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
         },
+        // PeningOrder brand for the public sales landing pages. Prefixed po-
+        // (sapphire blue + coral) so existing dashboard utilities are untouched.
+        po: {
+          blue: '#1059c6',
+          'blue-hover': '#0e4fb0',
+          'blue-dark': '#0c3f8f',
+          coral: '#f95f4e',
+          'coral-hover': '#e94b3a',
+          ink: '#0a1224',
+          'ink-soft': '#3b4763',
+          'ink-muted': '#6b7590',
+          surface: '#f7f9fc',
+          'surface-2': '#eef2f8',
+          border: '#e3e8f0',
+          'border-strong': '#cbd4e2',
+          amber: '#f59e0b',
+          danger: '#ef4444',
+          success: '#10b981',
+        },
+      },
+      backgroundColor: {
+        'po-blue-tint': 'rgba(16, 89, 198, 0.06)',
+        'po-blue-soft': 'rgba(16, 89, 198, 0.12)',
+        'po-coral-soft': 'rgba(249, 95, 78, 0.10)',
       },
       borderRadius: {
         lg: "var(--radius)",

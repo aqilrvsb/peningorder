@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
 
-    --primary: 262 83% 58%;
+    --primary: 216 85% 42%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -24,7 +24,7 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 262 83% 58%;
+    --accent: 6 93% 64%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -32,18 +32,18 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 262 83% 58%;
+    --ring: 216 85% 42%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - Purple gradient */
-    --sidebar-background: 262 83% 58%;
+    /* Sidebar - Sapphire */
+    --sidebar-background: 216 85% 42%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 262 83% 58%;
-    --sidebar-accent: 262 83% 65%;
+    --sidebar-primary-foreground: 216 85% 42%;
+    --sidebar-accent: 216 85% 52%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 262 83% 65%;
+    --sidebar-border: 216 85% 52%;
     --sidebar-ring: 0 0% 100%;
 
     /* Status colors */
@@ -57,12 +57,13 @@
     --error-foreground: 0 0% 100%;
 
     /* Custom stat colors */
-    --stat-purple: 262 83% 58%;
+    --stat-purple: 216 85% 42%;
     --stat-red: 0 84% 60%;
     --stat-green: 142 71% 45%;
     --stat-orange: 38 92% 50%;
     --stat-blue: 199 89% 48%;
     --stat-teal: 174 72% 40%;
+    --stat-coral: 6 93% 64%;
 
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
@@ -80,7 +81,7 @@
     --popover: 224 71% 8%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 262 83% 65%;
+    --primary: 216 85% 52%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 224 71% 12%;
@@ -89,7 +90,7 @@
     --muted: 224 71% 12%;
     --muted-foreground: 220 9% 60%;
 
-    --accent: 262 83% 65%;
+    --accent: 6 88% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 30%;
@@ -97,15 +98,15 @@
 
     --border: 224 71% 15%;
     --input: 224 71% 15%;
-    --ring: 262 83% 65%;
+    --ring: 216 85% 52%;
 
-    --sidebar-background: 262 83% 25%;
+    --sidebar-background: 216 85% 20%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 262 83% 58%;
-    --sidebar-accent: 262 83% 35%;
+    --sidebar-primary-foreground: 216 85% 42%;
+    --sidebar-accent: 216 85% 30%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 262 83% 35%;
+    --sidebar-border: 216 85% 30%;
     --sidebar-ring: 0 0% 100%;
   }
 }
