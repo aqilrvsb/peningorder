@@ -30,3 +30,6 @@ dfr-backup.sql
 # local dev / playwright artifacts
 .vite-dev*.log
 .playwright-mcp/
+
+# screenshots
+peningorder-*.jpeg
