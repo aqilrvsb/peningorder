@@ -54,11 +54,11 @@ export default function Pricing() {
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-po-blue/30 bg-po-blue/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-po-blue-dark">
             <Sparkles className="h-3.5 w-3.5" />
-            14 hari percuma dulu — bayar bila puas hati
+            Langganan bulanan · tiada kontrak
           </div>
           <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-po-ink sm:text-4xl">Harga jujur, tiada kontrak</h2>
           <p className="mt-4 text-po-ink-soft">
-            Semua plan mula dengan trial 14 hari percuma. Cancel bila-bila. Bayar selamat via CHIP (FPX, e-wallet, kad kredit).
+            Bayar bulanan, cancel bila-bila. Bayar selamat via CHIP (FPX, e-wallet, kad kredit).
           </p>
         </div>
 

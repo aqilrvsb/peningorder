@@ -15,4 +15,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Split big, stable vendor libraries into their own long-cached chunks so
+    // the landing's initial payload is small and repeat visits reuse the cache.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "supabase": ["@supabase/supabase-js"],
+          "charts": ["recharts"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 900,
+  },
 }));

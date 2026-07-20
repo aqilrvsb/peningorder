@@ -1,5 +1,5 @@
 const FAQS = [
-  { q: 'Kena bayar dulu ke boleh cuba percuma?', a: 'Cuba percuma dulu. Setiap akaun baru dapat trial 14 hari — guna semua fungsi tanpa bayar sesen pun, tanpa kad kredit. Bila puas hati baru pilih plan.' },
+  { q: 'Ada kontrak jangka panjang?', a: 'Tiada. PeningOrder ialah langganan bulanan — bayar bulan ke bulan, cancel bila-bila terus dari dashboard tanpa penalti.' },
   { q: 'Data order lama saya macam mana?', a: 'Boleh import. Kalau anda guna WooCommerce atau Shopee, kami boleh tarik order automatik. Order dalam Excel pun boleh dimasukkan. Anda tak akan hilang sejarah jualan.' },
   { q: 'Kurier apa yang disokong?', a: 'Poslaju, NinjaVan, J&T dan DHL — semua melalui integrasi Parcel Daily. Anda book tracking & print waybill terus dari dashboard, tak payah login website kurier satu-satu.' },
   { q: 'Boleh guna dengan staff ramai?', a: 'Boleh. Plan Growth ke atas menyokong multi-staff dengan peranan berasingan (marketer, logistik, akaun). Semua nampak data sama, real-time — tiada lagi order pos dua kali.' },

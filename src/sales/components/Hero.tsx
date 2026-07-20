@@ -6,7 +6,12 @@ import { media } from '../media';
 // orders across notebooks / Excel / WhatsApp. PeningOrder = a Mini ERP that
 // tracks every order, courier and ringgit of profit in one place.
 export default function Hero() {
-  const hero = media('hero_video');
+  const heroVideos = [
+    media('hero_video').url,
+    media('hero_video_2').url,
+    media('hero_video_3').url,
+    media('hero_video_4').url,
+  ];
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-white via-po-surface to-white">
       <div
@@ -41,7 +46,7 @@ export default function Hero() {
               href="#pricing"
               className="group inline-flex items-center gap-2 rounded-full bg-po-blue px-7 py-3.5 text-base font-bold text-white shadow-xl shadow-po-blue/25 transition-all hover:bg-po-blue-hover hover:shadow-2xl"
             >
-              Cuba 14 Hari Percuma
+              Mula Sekarang
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
             </a>
             <a
@@ -73,7 +78,7 @@ export default function Hero() {
 
         <div className="relative flex items-center justify-center">
           <div className="relative w-full overflow-hidden rounded-3xl border-2 border-po-ink/10 bg-po-ink shadow-2xl">
-            <HeroVideo src={hero.url} />
+            <HeroVideo srcs={heroVideos} />
             <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-po-coral px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg sm:left-4 sm:top-4">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />

@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+
+    <!-- Fonts: preconnect + non-blocking load (moved out of index.css so it
+         doesn't block first paint). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" /></noscript>
+
+    <!-- Preconnect to the marketing media CDN so hero video/images start
+         downloading sooner. -->
+    <link rel="preconnect" href="https://peninglab-content.s3.us-east-005.backblazeb2.com" crossorigin />
     <title>Peningorder - Order Management System</title>
     <meta name="description" content="All-in-one order management system for individual sellers - orders, tracking, logistics, and profit." />
     <meta name="author" content="Peningorder" />

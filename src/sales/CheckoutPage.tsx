@@ -139,7 +139,7 @@ export default function CheckoutPage() {
       <main className="flex-1 px-4 py-10 sm:py-16">
         <div className="mx-auto max-w-3xl">
           <h1 className="text-3xl font-extrabold tracking-tight text-po-ink sm:text-4xl">Daftar akaun</h1>
-          <p className="mt-2 text-po-ink-soft">Isi detail di bawah. Akaun anda aktif serta-merta dengan trial 14 hari percuma — bayar untuk plan bila puas hati.</p>
+          <p className="mt-2 text-po-ink-soft">Isi detail di bawah dan pilih plan anda. Bayar selamat via CHIP dan terus mula urus order.</p>
 
           {status === 'failed' && (
             <div className="mt-4 rounded-lg border border-po-danger/30 bg-po-danger/5 px-4 py-3 text-sm text-po-danger">
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
                     {busy ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses…</>) : cfg ? `Daftar & Bayar RM${cfg.price} →` : 'Daftar →'}
                   </button>
                   <p className="text-center text-xs text-po-ink-muted">
-                    Akaun dibuat serta-merta. Anda akan dibawa ke CHIP untuk bayar plan. Batalkan pembayaran pun, akaun trial anda tetap aktif.
+                    Akaun dibuat serta-merta. Anda akan dibawa ke CHIP untuk bayar plan pilihan anda.
                   </p>
                 </form>
               </div>
@@ -201,7 +201,7 @@ export default function CheckoutPage() {
                       <span className="text-2xl font-extrabold text-po-ink">RM {cfg.price.toFixed(2)}</span>
                     </div>
                     <ul className="mt-5 space-y-2 border-t border-po-border pt-4 text-xs text-po-ink-soft">
-                      <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-po-success" />14 hari trial percuma dulu</li>
+                      <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-po-success" />Akses penuh semua fungsi</li>
                       <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-po-success" />Cancel bila-bila, tiada kontrak</li>
                       <li className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-po-success" />Bayaran selamat via CHIP</li>
                     </ul>

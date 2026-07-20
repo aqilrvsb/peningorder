@@ -1,7 +1,7 @@
 import { UserPlus, Settings2, Rocket } from 'lucide-react';
 
 const STEPS = [
-  { icon: UserPlus, title: '1. Daftar 2 minit', body: 'Isi nama, bisnes & email. Terus dapat akaun dengan trial 14 hari percuma — tak perlu kad kredit.' },
+  { icon: UserPlus, title: '1. Daftar 2 minit', body: 'Isi nama, bisnes & email, pilih plan dan bayar via CHIP. Akaun anda terus aktif.' },
   { icon: Settings2, title: '2. Setup kurier & produk', body: 'Sambung akaun kurier (Parcel Daily), masukkan produk & harga. Import order sedia ada kalau ada.' },
   { icon: Rocket, title: '3. Mula urus order', body: 'Key-in atau terima order, book tracking, print waybill, dan tengok untung naik — semua dari satu skrin.' },
 ];

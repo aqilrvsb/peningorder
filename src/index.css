@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Inter font is loaded via <link> in index.html (preconnect + non-blocking)
+   so it no longer blocks first paint. */
 
 @layer base {
   :root {

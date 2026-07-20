@@ -11,6 +11,33 @@
       "provider": "gemini",
       "slot": "p6-b"
     },
+    "hero_video_2": {
+      "type": "video",
+      "aspect": "16:9",
+      "url": "https://s.apipod.ai/videos/2026/07/20/4fd82ef1-4d7a-49d5-9897-86c4f9c53d59.mp4",
+      "task_id": "fa7e99b2-a261-4eac-b43c-58c20252307b",
+      "cost_rm": 1.5,
+      "provider": "gemini",
+      "slot": "p6-b"
+    },
+    "hero_video_3": {
+      "type": "video",
+      "aspect": "16:9",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/cb2da52e-f899-414e-86a8-b4dd238c1820.mp4",
+      "task_id": "cb2da52e-f899-414e-86a8-b4dd238c1820",
+      "cost_rm": 1.5,
+      "provider": "gemini",
+      "slot": "p6-a"
+    },
+    "hero_video_4": {
+      "type": "video",
+      "aspect": "16:9",
+      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/75a90c81-b5a5-491f-adea-2ffee858fdfe.mp4",
+      "task_id": "75a90c81-b5a5-491f-adea-2ffee858fdfe",
+      "cost_rm": 1.5,
+      "provider": "gemini",
+      "slot": "p6-a"
+    },
     "pain_messy_desk": {
       "type": "image",
       "aspect": "1:1",
@@ -84,5 +111,5 @@
       "slot": "p4"
     }
   },
-  "total_cost_rm": 2.85
+  "total_cost_rm": 7.35
 }

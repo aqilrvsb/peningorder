@@ -36,8 +36,8 @@ export default function UrgencyBar() {
     <div className="w-full bg-gradient-to-r from-po-blue via-po-blue-dark to-po-blue text-white">
       <div className="mx-auto flex max-w-7xl items-center justify-center gap-2 px-4 py-2 text-center text-xs font-semibold sm:text-sm">
         <Sparkles className="h-4 w-4 flex-shrink-0 animate-pulse" />
-        <span className="hidden sm:inline">🎉 PROMO LAUNCH: 14 hari <b className="font-extrabold">PERCUMA</b>, tanpa kad kredit —</span>
-        <span className="sm:hidden">🎉 14 hari PERCUMA —</span>
+        <span className="hidden sm:inline">🎉 PROMO LAUNCH: Plan Starter <b className="font-extrabold">RM39/bulan</b> — harga naik minggu depan —</span>
+        <span className="sm:hidden">🎉 PROMO RM39/bulan —</span>
         <span className="font-mono font-extrabold tabular-nums">
           {t.d > 0 && `${t.d}h `}{t.h}:{t.m}:{t.s}
         </span>

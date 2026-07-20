@@ -38,7 +38,7 @@ export default function SalesLanding() {
       meta.name = 'description';
       document.head.appendChild(meta);
     }
-    meta.content = 'Berhenti urus order dalam buku, Excel & WhatsApp. PeningOrder track semua order, kurier, tracking & untung dalam satu dashboard. Cuba 14 hari percuma.';
+    meta.content = 'Berhenti urus order dalam buku, Excel & WhatsApp. PeningOrder track semua order, kurier, tracking & untung dalam satu dashboard. Mula dari RM39/bulan.';
   }, []);
 
   return (
