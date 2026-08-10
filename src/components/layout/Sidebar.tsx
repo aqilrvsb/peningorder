@@ -42,6 +42,7 @@ import {
   ChevronRight,
   Megaphone,
   Plug,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -117,6 +118,10 @@ const Sidebar: React.FC = () => {
   // The platform owner (superadmin) is a reporting/settings role only — never
   // the client order-entry menus. Clients get the Marketer/Management groups.
   const isAdmin = profile?.role === 'superadmin';
+  // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
+  // stays reachable — matches the route guard in App.tsx.
+  const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
+  const frozen = !isAdmin && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
   const roleGroups: RoleGroup[] = isAdmin ? [] : baseRoleGroups;
 
   // Groups expand/collapse independently. Start with the group whose child
@@ -185,6 +190,13 @@ const Sidebar: React.FC = () => {
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto pb-3">
+        {frozen && !collapsed && (
+          <div className="mb-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+            <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>Langganan tamat. Semua tab dikunci — sila subscribe di <b>Billing</b>.</span>
+          </div>
+        )}
+        <div className={cn('space-y-1', frozen && 'pointer-events-none select-none opacity-40')}>
         {/* Client home (Dashboard). Hidden for admin — the platform owner has
             no personal order dashboard, only cross-client reporting. */}
         {!isAdmin && (
@@ -323,6 +335,7 @@ const Sidebar: React.FC = () => {
             {!collapsed && <span className="text-sm">Open Ticket</span>}
           </Link>
         )}
+        </div>
       </nav>
 
       {/* User Profile & Logout */}
