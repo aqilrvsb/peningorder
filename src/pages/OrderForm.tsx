@@ -22,6 +22,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from '@/hooks/use-toast';
 import Swal from 'sweetalert2';
+import BulkOrderImport from '@/components/BulkOrderImport';
 import { NEGERI_OPTIONS } from '@/types';
 import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search } from 'lucide-react';
 import { format } from 'date-fns';
@@ -1318,22 +1319,25 @@ const OrderForm: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {isEditMode ? 'Edit Tempahan' : 'Tempahan Baru'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isEditMode ? 'Kemaskini butiran tempahan' : 'Isi butiran untuk membuat tempahan baru'}
-          </p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isEditMode ? 'Edit Tempahan' : 'Tempahan Baru'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isEditMode ? 'Kemaskini butiran tempahan' : 'Isi butiran untuk membuat tempahan baru'}
+            </p>
+          </div>
         </div>
+        {!isEditMode && <BulkOrderImport onImported={refreshData} />}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
