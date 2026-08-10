@@ -680,7 +680,6 @@ const LogisticProcessed = () => {
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
-                      <th className="p-2 text-left">Unit</th>
                       <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
@@ -716,7 +715,6 @@ const LogisticProcessed = () => {
                           <td className="p-2">
                             <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
                           </td>
-                          <td className="p-2 text-center">{order.unit || 1}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="text-xs">{order.kurier || "-"}</span>
                           </td>
@@ -795,7 +793,7 @@ const LogisticProcessed = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
                           No processed orders found.
                         </td>
                       </tr>
