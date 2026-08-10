@@ -313,6 +313,9 @@ const Sidebar: React.FC = () => {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{profile?.email || 'User'}</p>
+              {profile?.idstaff && (
+                <p className="text-xs text-muted-foreground truncate">ID: {profile.idstaff}</p>
+              )}
             </div>
           )}
         </div>
