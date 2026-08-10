@@ -199,10 +199,31 @@ const Orders: React.FC = () => {
     const totalCostProduct = filteredOrders.reduce((sum, o) => sum + (o.kosProduk || 0), 0);
     const totalCostPostage = filteredOrders.reduce((sum, o) => sum + (o.kosPos || 0), 0);
 
+    // ---- CASH vs COD breakdown for each metric ----
+    const isCod = (o: any) => o.caraBayaran === 'COD' || (o.kurier?.includes('COD') ?? false);
+    const sumRM = (arr: any[], cod: boolean) => arr.filter(o => isCod(o) === cod).reduce((s, o) => s + (o.hargaJualanSebenar || 0), 0);
+    const cnt = (arr: any[], cod: boolean) => arr.filter(o => isCod(o) === cod).length;
+    const sumUnit = (arr: any[], cod: boolean) => arr.filter(o => isCod(o) === cod).reduce((s, o) => s + (o.kuantiti || 0), 0);
+    const sumCost = (arr: any[], cod: boolean, f: (o: any) => number) => arr.filter(o => isCod(o) === cod).reduce((s, o) => s + f(o), 0);
+    const pendingOrders = filteredOrders.filter(o => o.deliveryStatus === 'Pending');
+    const shippedOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped');
+
+    const split = {
+      collection:  { cash: sumRM(collectionOrders, false), cod: sumRM(collectionOrders, true) },
+      remaining:   { cash: sumRM(remainingOrders, false), cod: sumRM(remainingOrders, true) },
+      success:     { cash: sumRM(successOrders, false),    cod: sumRM(successOrders, true) },
+      ret:         { cash: sumRM(returnOrders, false),     cod: sumRM(returnOrders, true) },
+      unit:        { cash: sumUnit(filteredOrders, false), cod: sumUnit(filteredOrders, true) },
+      pending:     { cash: cnt(pendingOrders, false),      cod: cnt(pendingOrders, true) },
+      shipped:     { cash: cnt(shippedOrders, false),      cod: cnt(shippedOrders, true) },
+      costProduct: { cash: sumCost(filteredOrders, false, o => o.kosProduk || 0), cod: sumCost(filteredOrders, true, o => o.kosProduk || 0) },
+      costPostage: { cash: sumCost(filteredOrders, false, o => o.kosPos || 0),    cod: sumCost(filteredOrders, true, o => o.kosPos || 0) },
+    };
+
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
-      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage
+      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, split
     };
   }, [filteredOrders]);
 
@@ -729,6 +750,7 @@ ${trackingUrl}`;
           </div>
           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalCollection}</p>
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesCollection)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.collection.cash)} · COD RM {formatRM(stats.split.collection.cod)}</p>
         </div>
 
         <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
@@ -738,6 +760,7 @@ ${trackingUrl}`;
           </div>
           <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
           <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {formatRM(stats.totalSalesRemaining)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.remaining.cash)} · COD RM {formatRM(stats.split.remaining.cod)}</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
@@ -746,6 +769,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Total Unit</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{stats.totalUnit}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.unit.cash} · COD {stats.split.unit.cod}</p>
         </div>
 
         <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
@@ -754,6 +778,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Pending</span>
           </div>
           <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stats.totalPending}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.pending.cash} · COD {stats.split.pending.cod}</p>
         </div>
 
         <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
@@ -762,6 +787,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Shipped</span>
           </div>
           <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.shipped.cash} · COD {stats.split.shipped.cod}</p>
         </div>
 
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
@@ -771,6 +797,7 @@ ${trackingUrl}`;
           </div>
           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalSuccess}</p>
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesSuccess)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.success.cash)} · COD RM {formatRM(stats.split.success.cod)}</p>
         </div>
 
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -780,6 +807,7 @@ ${trackingUrl}`;
           </div>
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {formatRM(stats.totalSalesReturn)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.ret.cash)} · COD RM {formatRM(stats.split.ret.cod)}</p>
         </div>
 
         <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
@@ -788,6 +816,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Cost Product</span>
           </div>
           <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">RM {formatRM(stats.totalCostProduct)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</p>
         </div>
 
         <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
@@ -796,6 +825,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Cost Postage</span>
           </div>
           <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">RM {formatRM(stats.totalCostPostage)}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</p>
         </div>
       </div>
 
