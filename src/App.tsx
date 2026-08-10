@@ -30,6 +30,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Invoice = lazy(() => import("./pages/Invoice"));
 const Tickets = lazy(() => import("./pages/Tickets"));
+const Integration = lazy(() => import("./pages/Integration"));
 // Superadmin (SaaS owner) pages
 const AdminClients = lazy(() => import("./pages/admin/AdminClients"));
 const AdminTransactions = lazy(() => import("./pages/admin/AdminTransactions"));
@@ -107,6 +108,7 @@ const App = () => (
                     <Route path="spend" element={clientOnly(<Spend />)} />
                     <Route path="reporting-spend" element={clientOnly(<ReportingSpend />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
+                    <Route path="integration" element={clientOnly(<Integration />)} />
                     {/* Logistic Role - Inventory */}
                     <Route path="logistics/inventory-product" element={clientOnly(<LogisticProductManagement />)} />
                     <Route path="logistics/inventory-bundle" element={clientOnly(<LogisticBundleManagement />)} />
