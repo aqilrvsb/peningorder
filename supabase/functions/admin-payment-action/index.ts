@@ -46,9 +46,12 @@ function toMalayDigits(raw: string): string | null {
 async function sendWhatsApp(admin: any, toPhone: string, message: string): Promise<boolean> {
   const number = toMalayDigits(toPhone);
   if (!number) return false;
-  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
+  const { data: device } = await admin.from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
   if (!device?.instance) return false;
   const form = new URLSearchParams();
+  // Whacenter only actually delivers (returns a real message id) when the
+  // account api_key is included; without it the send is silently dropped.
+  if (device.api_key) form.append("api_key", device.api_key);
   form.append("device_id", device.instance);
   form.append("number", number);
   form.append("message", message);
