@@ -410,7 +410,6 @@ const Prospects: React.FC = () => {
       const phoneIdx = header.findIndex((h: string) => h.includes('telefon') || h.includes('phone'));
       const nicheIdx = header.findIndex((h: string) => h.includes('niche') || h.includes('product') || h.includes('sku'));
       const tarikhIdx = header.findIndex((h: string) => h.includes('tarikh'));
-      const adminIdx = header.findIndex((h: string) => h.includes('admin'));
 
       let successCount = 0;
       let errorCount = 0;
@@ -424,7 +423,6 @@ const Prospects: React.FC = () => {
         let phone = phoneIdx >= 0 && row[phoneIdx] ? row[phoneIdx].toString().trim().replace(/\D/g, '') : '';
         const nicheValue = nicheIdx >= 0 && row[nicheIdx] ? row[nicheIdx].toString().toUpperCase().trim() : '';
         let tarikhRaw = tarikhIdx >= 0 && row[tarikhIdx] ? row[tarikhIdx] : '';
-        const admin = adminIdx >= 0 && row[adminIdx] ? row[adminIdx].toString().toUpperCase().trim() : '';
 
         console.log('Raw tarikh from Excel:', tarikhRaw, 'Type:', typeof tarikhRaw);
 
@@ -503,7 +501,7 @@ const Prospects: React.FC = () => {
             niche: niche,
             jenisProspek: 'EP', // Set to EP for imported leads
             tarikhPhoneNumber: tarikh,
-            adminIdStaff: admin,
+            adminIdStaff: '',
             marketerIdStaff: '', // Will be auto-filled in DataContext for marketers
             statusClosed: '',
             priceClosed: 0,
@@ -539,19 +537,14 @@ const Prospects: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const headers = ['No', 'Tarikh', 'Nama', 'Phone', 'Niche', 'Profile', 'Jenis Prospek', 'Count Order', 'Admin Id', 'Status', 'Price'];
+    const headers = ['No', 'Tarikh', 'Nama', 'Phone', 'Niche', 'Jenis Prospek'];
     const rows = filteredProspects.map((prospect, idx) => [
       idx + 1,
       prospect.tarikhPhoneNumber || '-',
       prospect.namaProspek,
       prospect.noTelefon,
       prospect.niche,
-      prospect.profile || '-',
       prospect.jenisProspek || '-', // Determined by OrderForm
-      prospect.countOrder || 0,
-      prospect.adminIdStaff || '-',
-      prospect.statusClosed || '-',
-      prospect.priceClosed > 0 ? prospect.priceClosed.toFixed(2) : '-',
     ]);
 
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -661,16 +654,6 @@ const Prospects: React.FC = () => {
                       onChange={(e) => handleChange('tarikhPhoneNumber', e.target.value)} 
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="adminIdStaff">Admin ID Staff (Optional)</Label>
-                    <Input 
-                      id="adminIdStaff" 
-                      placeholder="AD-001" 
-                      value={formData.adminIdStaff} 
-                      onChange={(e) => handleChange('adminIdStaff', e.target.value)} 
-                      className="uppercase"
-                    />
-                  </div>
                   <DialogFooter className="gap-3 pt-4">
                     <Button type="button" variant="outline" onClick={() => {
                       setIsDialogOpen(false);
@@ -739,42 +722,6 @@ const Prospects: React.FC = () => {
         </div>
       </div>
 
-      {/* Profile, Proses, X Process Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-              <UserCircle className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Profile</span>
-            </div>
-            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{stats.profilePercent}%</span>
-          </div>
-          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{stats.profileCount}</p>
-        </div>
-
-        <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
-              <Target className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Proses</span>
-            </div>
-            <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">{stats.prosesPercent}%</span>
-          </div>
-          <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-300">{stats.prosesCount}</p>
-        </div>
-
-        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-              <XCircle className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">X Process</span>
-            </div>
-            <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">{stats.xProsesPercent}%</span>
-          </div>
-          <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stats.xProsesCount}</p>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
         <div className="flex items-center gap-2">
@@ -838,12 +785,7 @@ const Prospects: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Niche</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Profile</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Prospek</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Count Order</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Admin Id</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Price</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
             </thead>
@@ -862,7 +804,6 @@ const Prospects: React.FC = () => {
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.niche}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{prospect.profile || '-'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         prospect.jenisProspek === 'NP'
@@ -871,36 +812,6 @@ const Prospects: React.FC = () => {
                       }`}>
                         {prospect.jenisProspek}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center font-medium text-foreground">
-                      {prospect.countOrder > 0 ? (
-                        <button
-                          onClick={() => handleViewOrders(prospect)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
-                        >
-                          <ShoppingCart className="w-3 h-3" />
-                          {prospect.countOrder}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{prospect.adminIdStaff || '-'}</td>
-                    <td className="px-4 py-3">
-                      {prospect.statusClosed ? (
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          prospect.statusClosed === 'closed'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-                        }`}>
-                          {prospect.statusClosed.toUpperCase()}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {prospect.priceClosed > 0 ? `RM ${prospect.priceClosed.toFixed(2)}` : '-'}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -926,7 +837,7 @@ const Prospects: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     Tiada prospect dijumpai.
                   </td>
                 </tr>
@@ -997,7 +908,6 @@ const Prospects: React.FC = () => {
                     <th className="text-left py-2 px-2 font-semibold">Telefon</th>
                     <th className="text-left py-2 px-2 font-semibold">SKU</th>
                     <th className="text-left py-2 px-2 font-semibold">Tarikh</th>
-                    <th className="text-left py-2 px-2 font-semibold">Admin</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1006,14 +916,12 @@ const Prospects: React.FC = () => {
                     <td className="py-2 px-2">60123456789</td>
                     <td className="py-2 px-2">PRODUCT NAME</td>
                     <td className="py-2 px-2">2024-01-15</td>
-                    <td className="py-2 px-2">AD-001</td>
                   </tr>
                   <tr className="text-muted-foreground">
                     <td className="py-2 px-2">SITI AMINAH</td>
                     <td className="py-2 px-2">60198765432</td>
                     <td className="py-2 px-2">ANOTHER PRODUCT</td>
                     <td className="py-2 px-2">2024-01-16</td>
-                    <td className="py-2 px-2"></td>
                   </tr>
                 </tbody>
               </table>
@@ -1025,7 +933,6 @@ const Prospects: React.FC = () => {
                 <li><strong>Telefon</strong> - No. telefon, mesti bermula dengan 6 (wajib)</li>
                 <li><strong>SKU</strong> - SKU produk dari senarai Product (wajib)</li>
                 <li><strong>Tarikh</strong> - Format: YYYY-MM-DD (wajib)</li>
-                <li><strong>Admin</strong> - Admin ID Staff (optional)</li>
               </ul>
               <p className="mt-2 text-amber-600 dark:text-amber-400">
                 <strong>Nota:</strong> Jenis Prospek (NP/EP) akan ditentukan secara automatik semasa membuat order.
