@@ -209,6 +209,7 @@ const Orders: React.FC = () => {
     const shippedOrders = filteredOrders.filter(o => o.deliveryStatus === 'Shipped');
 
     const split = {
+      customer:    { cash: cnt(filteredOrders, false), cod: cnt(filteredOrders, true) },
       collection:  { cash: sumRM(collectionOrders, false), cod: sumRM(collectionOrders, true) },
       remaining:   { cash: sumRM(remainingOrders, false), cod: sumRM(remainingOrders, true) },
       success:     { cash: sumRM(successOrders, false),    cod: sumRM(successOrders, true) },
@@ -717,6 +718,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Total Customer</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{stats.totalCustomer}</p>
+          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.customer.cash} · COD {stats.split.customer.cod}</p>
         </div>
 
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
