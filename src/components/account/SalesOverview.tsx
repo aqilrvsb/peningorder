@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows, formatRM } from '@/lib/utils';
 import {
-  BarChart3, RefreshCw, Package, Clock, Truck, DollarSign, AlertCircle, CheckCircle2, Loader2,
+  BarChart3, RefreshCw, Clock, Truck, RotateCcw, CheckCircle2, DollarSign, Wallet, Loader2,
 } from 'lucide-react';
 
 type Order = { date_order: string | null; delivery_status: string | null; tracking_number: string | null; total_sale: number | null; type_payment: string | null; date_payment: string | null; kurier: string | null };
@@ -14,15 +14,23 @@ const ymd = (d: Date) => d.toISOString().split('T')[0];
 const fmtDate = (s: string) => { const [y, m, d] = s.split('-'); return `${Number(d)} ${MONTHS[Number(m) - 1]} ${y}`; };
 const isCod = (o: Order) => o.type_payment === 'COD' || (o.kurier?.includes('COD') ?? false);
 
-// Status rows mirror the reference layout, mapped to PeningOrder statuses.
-// "Remaining" = COD orders whose money is still outstanding (not yet remitted).
+// Collection: CASH is collected upfront; COD is collected only once remitted
+// (date_payment set); a returned parcel means no money.
+const collectionStatus = (o: Order): 'Success' | 'Pending' | 'Return' => {
+  if (o.delivery_status === 'Return' || o.delivery_status === 'Failed') return 'Return';
+  if (!isCod(o)) return 'Success';
+  return o.date_payment ? 'Success' : 'Pending';
+};
+
+// Two dimensions: delivery lifecycle (Pending -> Shipped -> Return/Success,
+// driven by the courier webhook) and money collection.
 const STATUS_ROWS: { key: string; label: string; color: string; icon: React.ReactNode; test: (o: Order) => boolean }[] = [
-  { key: 'new', label: 'New', color: 'text-blue-500', icon: <Package className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Pending' && !o.tracking_number },
-  { key: 'pending', label: 'Pending', color: 'text-yellow-500', icon: <Clock className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Pending' && !!o.tracking_number },
-  { key: 'transit', label: 'In transit', color: 'text-purple-500', icon: <Truck className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Shipped' },
-  { key: 'remaining', label: 'Remaining', color: 'text-amber-500', icon: <DollarSign className="w-3.5 h-3.5" />, test: (o) => isCod(o) && !o.date_payment && o.delivery_status !== 'Return' && o.delivery_status !== 'Success' },
-  { key: 'returned', label: 'Returned', color: 'text-red-500', icon: <AlertCircle className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Return' },
-  { key: 'completed', label: 'Completed', color: 'text-green-500', icon: <CheckCircle2 className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Success' },
+  { key: 'pending', label: 'Pending', color: 'text-yellow-500', icon: <Clock className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Pending' },
+  { key: 'shipped', label: 'Shipped', color: 'text-blue-500', icon: <Truck className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Shipped' },
+  { key: 'return', label: 'Return', color: 'text-red-500', icon: <RotateCcw className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Return' },
+  { key: 'success', label: 'Success', color: 'text-green-500', icon: <CheckCircle2 className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Success' },
+  { key: 'remainCollect', label: 'Remaining Collection', color: 'text-amber-500', icon: <DollarSign className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Pending' },
+  { key: 'successCollect', label: 'Success Collection', color: 'text-emerald-600', icon: <Wallet className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Success' },
 ];
 
 function nowMY() { return new Date(Date.now() + 8 * 3600 * 1000); }
@@ -160,7 +168,7 @@ const SalesOverview: React.FC = () => {
                       <td className="py-2">
                         <span className={`inline-flex items-center gap-2 font-medium ${r.color}`}>{r.icon}{r.label}</span>
                       </td>
-                      <td className={`py-2 text-center tabular-nums ${r.key === 'completed' ? 'text-green-600 dark:text-green-400 font-medium' : 'text-foreground'}`}>{c.stats[r.key].orders}</td>
+                      <td className={`py-2 text-center tabular-nums ${(r.key === 'success' || r.key === 'successCollect') ? 'text-green-600 dark:text-green-400 font-medium' : 'text-foreground'}`}>{c.stats[r.key].orders}</td>
                       <td className="py-2 text-right tabular-nums text-muted-foreground">RM {formatRM(c.stats[r.key].sales)}</td>
                     </tr>
                   ))}
