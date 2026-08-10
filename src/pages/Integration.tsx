@@ -12,7 +12,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 type Channel = {
   key: string;
   name: string;
-  platformParam: string; // '' for woocommerce
+  fn: string;    // edge function slug
+  query: string; // extra query params after marketer_id
   tagline: string;
   icon: React.ReactNode;
   steps: string[];
@@ -23,7 +24,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'woocommerce',
     name: 'WooCommerce',
-    platformParam: '',
+    fn: 'woocommerce-webhook', query: '',
     tagline: 'Sync orders from your WooCommerce store automatically.',
     icon: <ShoppingBag className="w-6 h-6" />,
     steps: [
@@ -37,7 +38,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'shoppego',
     name: 'Shoppego',
-    platformParam: 'shoppego',
+    fn: 'woocommerce-webhook', query: '&platform=shoppego',
     tagline: 'Connect your Shoppego storefront and receive orders instantly.',
     icon: <Store className="w-6 h-6" />,
     steps: [
@@ -50,7 +51,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'onpay',
     name: 'OnPay',
-    platformParam: 'onpay',
+    fn: 'channel-webhook', query: '&channel=onpay',
     tagline: 'Auto-create orders from your OnPay order form.',
     icon: <CreditCard className="w-6 h-6" />,
     steps: [
@@ -65,7 +66,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'convertly',
     name: 'Convertly',
-    platformParam: 'convertly',
+    fn: 'channel-webhook', query: '&channel=convertly',
     tagline: 'Sync orders from your Convertly salespages.',
     icon: <Sparkles className="w-6 h-6" />,
     steps: [
@@ -85,7 +86,7 @@ const Integration: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const buildUrl = (c: Channel) =>
-    `${SUPABASE_URL}/functions/v1/woocommerce-webhook?marketer_id=${encodeURIComponent(idstaff)}${c.platformParam ? `&platform=${c.platformParam}` : ''}`;
+    `${SUPABASE_URL}/functions/v1/${c.fn}?marketer_id=${encodeURIComponent(idstaff)}${c.query}`;
 
   const url = useMemo(() => (selected ? buildUrl(selected) : ''), [selected, idstaff]);
 

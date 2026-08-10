@@ -579,65 +579,6 @@ function parseShoppegoOrder(data: any): NormalizedOrder {
   };
 }
 
-// Flexible field picker for flat form/salespage payloads (OnPay, Convertly).
-// Tries each key (supports dotted paths) and returns the first non-empty value.
-function pick(obj: any, keys: string[]): string {
-  for (const k of keys) {
-    let v: any = obj;
-    for (const p of k.split('.')) { v = v?.[p]; if (v == null) break; }
-    if (v != null && String(v).trim() !== '') return String(v).trim();
-  }
-  return '';
-}
-
-function detectCOD(...vals: string[]): boolean {
-  const s = vals.join(' ').toLowerCase();
-  return /\bcod\b|cash on delivery|bayar semasa terima|tunai/.test(s);
-}
-
-// OnPay (onpay.my) sale webhook -> normalized order. OnPay posts flat
-// Malay/English form fields, so match names flexibly.
-function parseOnPayOrder(data: any): NormalizedOrder {
-  const d = (data && typeof data === 'object' && (data.data || data.order || data.sale)) ? (data.data || data.order || data.sale) : data;
-  const payMethod = pick(d, ['payment_method', 'payment', 'method', 'gateway', 'cara_bayaran', 'jenis_bayaran', 'type']);
-  return {
-    platformOrderId: pick(d, ['id', 'order_id', 'sale_id', 'reference', 'ref', 'invoice', 'no_resit']),
-    customerName: pick(d, ['name', 'nama', 'customer_name', 'full_name', 'fullname', 'buyer_name', 'nama_penuh', 'customer.name']) || 'Customer',
-    customerPhone: formatPhoneNumber(pick(d, ['phone', 'telefon', 'phone_number', 'no_telefon', 'notelefon', 'contact', 'hp', 'mobile', 'customer.phone'])),
-    customerEmail: pick(d, ['email', 'emel', 'customer.email']),
-    address: pick(d, ['address', 'alamat', 'address1', 'alamat_penuh', 'shipping_address', 'street', 'customer.address']),
-    city: pick(d, ['city', 'bandar', 'daerah', 'town', 'customer.city']),
-    state: mapState(pick(d, ['state', 'negeri', 'customer.state'])),
-    postcode: pick(d, ['postcode', 'poskod', 'zip', 'zipcode', 'postal_code', 'customer.postcode']),
-    totalPrice: Number(pick(d, ['total', 'amount', 'jumlah', 'total_price', 'price', 'grand_total', 'total_amount', 'harga']).replace(/[^0-9.]/g, '')) || 0,
-    paymentMethod: detectCOD(payMethod) ? 'COD' : 'CASH',
-    productNames: pick(d, ['product', 'produk', 'product_name', 'item', 'items', 'nama_produk', 'package', 'pakej']) || 'Product',
-    sku: pick(d, ['sku', 'product_sku', 'kod_produk', 'code']),
-    quantity: Number(pick(d, ['quantity', 'qty', 'kuantiti', 'unit', 'bilangan'])) || 1,
-  };
-}
-
-// Convertly salespage order -> normalized order (same flexible mapping).
-function parseConvertlyOrder(data: any): NormalizedOrder {
-  const d = (data && typeof data === 'object' && (data.data || data.order)) ? (data.data || data.order) : data;
-  const payMethod = pick(d, ['payment_method', 'payment', 'method', 'gateway', 'cara_bayaran', 'type']);
-  return {
-    platformOrderId: pick(d, ['id', 'order_id', 'reference', 'ref', 'invoice']),
-    customerName: pick(d, ['name', 'nama', 'customer_name', 'full_name', 'fullname', 'buyer_name', 'customer.name']) || 'Customer',
-    customerPhone: formatPhoneNumber(pick(d, ['phone', 'telefon', 'phone_number', 'no_telefon', 'contact', 'mobile', 'customer.phone'])),
-    customerEmail: pick(d, ['email', 'emel', 'customer.email']),
-    address: pick(d, ['address', 'alamat', 'address1', 'shipping_address', 'street', 'customer.address']),
-    city: pick(d, ['city', 'bandar', 'daerah', 'customer.city']),
-    state: mapState(pick(d, ['state', 'negeri', 'customer.state'])),
-    postcode: pick(d, ['postcode', 'poskod', 'zip', 'postal_code', 'customer.postcode']),
-    totalPrice: Number(pick(d, ['total', 'amount', 'jumlah', 'total_price', 'price', 'grand_total', 'harga']).replace(/[^0-9.]/g, '')) || 0,
-    paymentMethod: detectCOD(payMethod) ? 'COD' : 'CASH',
-    productNames: pick(d, ['product', 'produk', 'product_name', 'item', 'offer', 'package', 'pakej']) || 'Product',
-    sku: pick(d, ['sku', 'product_sku', 'code']),
-    quantity: Number(pick(d, ['quantity', 'qty', 'kuantiti', 'unit'])) || 1,
-  };
-}
-
 // Parse WooCommerce order to normalized format
 function parseWooCommerceOrder(wooOrder: WooOrder): NormalizedOrder {
   // Log full payload structure to help debug
@@ -877,12 +818,6 @@ serve(async (req) => {
       const shoppegoData = parsedBody as ShoppegoOrder;
       orderData = parseShoppegoOrder(shoppegoData);
       console.log('=== Processing Shoppego Order ===');
-    } else if (platform === 'onpay') {
-      orderData = parseOnPayOrder(parsedBody);
-      console.log('=== Processing OnPay Order ===');
-    } else if (platform === 'convertly') {
-      orderData = parseConvertlyOrder(parsedBody);
-      console.log('=== Processing Convertly Order ===');
     } else {
       // WooCommerce format (default)
       const wooOrder = parsedBody as WooOrder;
