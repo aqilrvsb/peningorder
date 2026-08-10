@@ -48,6 +48,7 @@ const LogisticProcessed = lazy(() => import("./components/logistic/LogisticProce
 const LogisticReturn = lazy(() => import("./components/logistic/LogisticReturn"));
 const LogisticPendingTracking = lazy(() => import("./components/logistic/LogisticPendingTracking"));
 // Account Role components
+const SalesOverview = lazy(() => import("./components/account/SalesOverview"));
 const AccountReportProfit = lazy(() => import("./components/account/AccountReportProfit"));
 const AccountInvoiceSettings = lazy(() => import("./components/account/AccountInvoiceSettings"));
 const AccountPendingTracking = lazy(() => import("./components/account/AccountPendingTracking"));
@@ -120,6 +121,7 @@ const App = () => (
                     <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />
                     <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
                     {/* Account Role */}
+                    <Route path="account/sales-overview" element={clientOnly(<SalesOverview />)} />
                     <Route path="account/report-profit" element={clientOnly(<AccountReportProfit />)} />
                     <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
                     <Route path="account/invoice-settings" element={clientOnly(<AccountInvoiceSettings />)} />
