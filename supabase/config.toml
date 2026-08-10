@@ -11,6 +11,10 @@ verify_jwt = false
 [functions.sales-checkout]
 verify_jwt = false
 
+# Custom superadmin JWT check inside the function.
+[functions.admin-payment-action]
+verify_jwt = false
+
 [functions.ninjavan-order]
 verify_jwt = false
 

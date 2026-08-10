@@ -36,28 +36,30 @@ const AdminTransactions: React.FC = () => {
     },
   });
 
-  const setStatus = async (payment: any, status: 'paid' | 'failed') => {
-    const patch: any = { status };
-    if (status === 'paid' && !payment.paid_at) patch.paid_at = new Date().toISOString();
-    const { error } = await supabase.from('payments').update(patch).eq('id', payment.id);
-    if (error) {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Approve / reject run server-side (admin-payment-action) so the plan is
+  // activated AND the client + admins get their WhatsApp notifications.
+  const setStatus = async (payment: any, action: 'approve' | 'reject') => {
+    setBusyId(payment.id);
+    const { data: res, error } = await supabase.functions.invoke('admin-payment-action', {
+      body: { action, payment_id: payment.id },
+    });
+    setBusyId(null);
+    if (error || !res?.success) {
+      let msg = error?.message || 'Action failed';
+      try {
+        const body = await (error as any)?.context?.json?.();
+        if (body?.error) msg = body.error;
+      } catch { /* keep default */ }
+      toast({ title: 'Failed', description: msg, variant: 'destructive' });
       return;
     }
-    // Manual mark-paid also activates the plan (same as the Chip webhook would)
-    if (status === 'paid' && payment.plan) {
-      const { data: setting } = await supabase.from('app_settings').select('value').eq('key', `plan_${payment.plan}`).maybeSingle();
-      const days = Number((setting?.value as any)?.days) || 30;
-      const { data: prof } = await supabase.from('profiles').select('plan_expires_at').eq('id', payment.user_id).maybeSingle();
-      const base = prof?.plan_expires_at && new Date(prof.plan_expires_at) > new Date()
-        ? new Date(prof.plan_expires_at) : new Date();
-      await supabase.from('profiles').update({
-        plan: payment.plan,
-        plan_expires_at: new Date(base.getTime() + days * 86400000).toISOString(),
-        is_active: true,
-      }).eq('id', payment.user_id);
-    }
-    toast({ title: `Marked ${status}`, description: `RM ${Number(payment.amount).toFixed(2)} — ${data?.emailMap[payment.user_id]?.email || payment.user_id}` });
+    const email = data?.emailMap[payment.user_id]?.email || payment.user_id;
+    toast({
+      title: action === 'approve' ? 'Approved — plan activated' : 'Rejected',
+      description: `RM ${Number(payment.amount).toFixed(2)} — ${email}. WhatsApp notification sent.`,
+    });
     queryClient.invalidateQueries({ queryKey: ['admin-transactions'] });
   };
 
@@ -159,11 +161,11 @@ const AdminTransactions: React.FC = () => {
                       <td className="p-3">
                         {p.status === 'pending' ? (
                           <div className="flex gap-1">
-                            <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-900 dark:text-green-400" title="Approve — activate plan" onClick={() => setStatus(p, 'paid')}>
-                              <CheckCircle className="w-4 h-4 mr-1" /> Approve
+                            <Button size="sm" variant="outline" disabled={busyId === p.id} className="h-8 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-900 dark:text-green-400" title="Approve — activate plan & WhatsApp login" onClick={() => setStatus(p, 'approve')}>
+                              {busyId === p.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />} Approve
                             </Button>
-                            <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400" title="Reject payment" onClick={() => setStatus(p, 'failed')}>
-                              <XCircle className="w-4 h-4 mr-1" /> Reject
+                            <Button size="sm" variant="outline" disabled={busyId === p.id} className="h-8 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400" title="Reject payment & WhatsApp client" onClick={() => setStatus(p, 'reject')}>
+                              {busyId === p.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />} Reject
                             </Button>
                           </div>
                         ) : (

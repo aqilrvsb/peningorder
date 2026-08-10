@@ -39,7 +39,6 @@ export default function CheckoutPage() {
   const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('60');
-  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -76,7 +75,6 @@ export default function CheckoutPage() {
           business_name: businessName.trim(),
           email: cleanEmail,
           phone: phone.replace(/\D/g, ''),
-          password,
           plan,
         },
       });
@@ -105,15 +103,13 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Account exists & is confirmed — sign in so the user is always logged in.
-      await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-
       if (data.chip_url) {
         window.location.href = data.chip_url; // pay via CHIP
         return;
       }
-      // CHIP not configured / init failed — go straight to the dashboard on trial.
-      navigate('/dashboard', { replace: true });
+      // CHIP not configured / init failed — nothing to pay yet. Send them to
+      // login with a note that credentials arrive by WhatsApp after payment.
+      navigate('/auth?payment=pending', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal sambung ke server. Cuba lagi.');
       setBusy(false);
@@ -167,7 +163,9 @@ export default function CheckoutPage() {
                     />
                     <p className="mt-1 text-xs text-po-ink-muted">Format: <span className="font-mono">60123456789</span></p>
                   </div>
-                  <Field id="password" label="Password" value={password} onChange={setPassword} placeholder="Minimum 6 aksara" type="password" autoComplete="new-password" minLength={6} hint="Guna password ni untuk log masuk ke dashboard." />
+                  <div className="rounded-lg border border-po-blue/20 bg-po-blue/5 px-3 py-2.5 text-xs text-po-ink-soft">
+                    🔒 Password login akan dijana automatik dan dihantar ke <span className="font-semibold">WhatsApp</span> anda selepas pembayaran berjaya. Anda boleh tukar password bila-bila selepas login.
+                  </div>
 
                   <button
                     type="submit" disabled={busy}

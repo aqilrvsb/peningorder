@@ -17,6 +17,53 @@ function mapChipStatus(s: string): "pending" | "paid" | "failed" | "refunded" {
   return "pending";
 }
 
+// ---- WhatsApp (Whacenter) --------------------------------------------------
+const WHACENTER = "https://api.whacenter.com/api/send";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://peningorder.com";
+const LOGIN_URL = `${APP_ORIGIN}/auth`;
+
+function toMalayDigits(raw: string): string | null {
+  const d = (raw || "").replace(/\D/g, "");
+  if (!d) return null;
+  if (/^60\d{8,12}$/.test(d)) return d;
+  if (/^0\d{8,11}$/.test(d)) return "6" + d;
+  if (/^1\d{8,10}$/.test(d)) return "60" + d;
+  return d.length >= 9 ? d : null;
+}
+async function sendWhatsApp(admin: any, toPhone: string, message: string): Promise<boolean> {
+  const number = toMalayDigits(toPhone);
+  if (!number) return false;
+  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
+  if (!device?.instance) return false;
+  const form = new URLSearchParams();
+  form.append("device_id", device.instance);
+  form.append("number", number);
+  form.append("message", message);
+  try {
+    const res = await fetch(WHACENTER, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+async function notifyAdmins(admin: any, message: string): Promise<void> {
+  const { data: roles } = await admin.from("user_roles").select("user_id").eq("role", "superadmin");
+  const ids = (roles || []).map((r: { user_id: string }) => r.user_id);
+  if (!ids.length) return;
+  const { data: profs } = await admin.from("profiles").select("whatsapp, whatsapp_number").in("id", ids);
+  for (const p of profs || []) {
+    const num = String(p.whatsapp_number || p.whatsapp || "").trim();
+    if (num) await sendWhatsApp(admin, num, message);
+  }
+}
+function fmtMY(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("ms-MY", { timeZone: "Asia/Kuala_Lumpur", dateStyle: "long" });
+  } catch (_) {
+    return iso;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -117,17 +164,43 @@ serve(async (req) => {
       const days = Number(payment.metadata?.days || 30);
       const plan = payment.plan as string;
 
-      // Cycle resets to fresh N days from now (matches HCKCREA policy)
-      const now = new Date();
-      const newExpiry = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      // Extend from the later of now / current expiry (so an early renewal
+      // stacks instead of shrinking the remaining term).
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("email, full_name, whatsapp, whatsapp_number, plan_expires_at")
+        .eq("id", payment.user_id)
+        .maybeSingle();
+      const cur = prof?.plan_expires_at ? new Date(prof.plan_expires_at) : null;
+      const base = cur && cur.getTime() > Date.now() ? cur : new Date();
+      const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
 
       await admin
         .from("profiles")
         .update({
           plan,
           plan_expires_at: newExpiry.toISOString(),
+          is_active: true,
         })
         .eq("id", payment.user_id);
+
+      // WhatsApp the client their login (credentials for a first-time signup;
+      // a renewal confirmation otherwise) and alert admins.
+      const phone = String(prof?.whatsapp || prof?.whatsapp_number || payment.metadata?.phone || "").trim();
+      const name = String(prof?.full_name || "").trim();
+      const email = String(prof?.email || "").trim();
+      const label = String(payment.metadata?.label || plan);
+      const tempPw = String(payment.metadata?.temp_password || "");
+      const expires = fmtMY(newExpiry.toISOString());
+      if (phone) {
+        const msg = tempPw
+          ? `*Selamat datang ke PeningOrder!* 🎉\n\nSalam ${name || "pelanggan"},\n\nPembayaran anda berjaya — akaun anda sudah aktif.\n\n*Login info anda:*\nEmail    : ${email}\nPassword : ${tempPw}\n\nPlan     : ${label}\nSah hingga: ${expires}\n\nLogin di: ${LOGIN_URL}\n\nSila tukar password selepas login pertama (Profile → Tukar Password).\n\nSebarang masalah? Reply WhatsApp ini.`
+          : `*PeningOrder — Langganan Diperbaharui* ✅\n\nSalam ${name || "pelanggan"},\n\nPembayaran anda berjaya. Plan anda sudah aktif semula.\n\nPlan     : ${label}\nSah hingga: ${expires}\n\nLogin di: ${LOGIN_URL}\n(Guna email & password sedia ada anda.)\n\nTerima kasih!`;
+        await sendWhatsApp(admin, phone, msg);
+      }
+      await notifyAdmins(admin,
+        `💰 *PeningOrder — Langganan Berjaya (CHIP)* ✅\n\nSales   : RM${Number(payment.amount || 0).toFixed(2)}\nName    : ${name || "-"}\nEmail   : ${email || "-"}\nWhatsApp: ${phone || "-"}\nPlan    : ${label}\nTarikh  : ${fmtMY(new Date().toISOString())} MYT`,
+      );
     }
 
     return new Response(

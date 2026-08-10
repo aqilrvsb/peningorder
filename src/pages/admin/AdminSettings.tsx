@@ -5,11 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, CreditCard, Truck, KeyRound, ShieldCheck } from 'lucide-react';
-
-const COURIERS = ['poslaju', 'ninjavan', 'jnt', 'dhl'];
+import { Loader2, CreditCard, KeyRound, ShieldCheck, MessageCircle, Smartphone } from 'lucide-react';
 
 const AdminSettings: React.FC = () => {
   const { profile } = useAuth();
@@ -19,26 +16,26 @@ const AdminSettings: React.FC = () => {
   // CHIP
   const [chipApiKey, setChipApiKey] = useState('');
   const [chipBrandId, setChipBrandId] = useState('');
-  const [chipKeySaved, setChipKeySaved] = useState(false); // whether a key already exists
+  const [chipKeySaved, setChipKeySaved] = useState(false);
   const [savingChip, setSavingChip] = useState(false);
-  // Courier defaults
-  const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox');
-  const [defaultCourier, setDefaultCourier] = useState('poslaju');
-  const [savingCourier, setSavingCourier] = useState(false);
+  // WhatsApp device (Whacenter)
+  const [waInstance, setWaInstance] = useState('');
+  const [waInstanceSaved, setWaInstanceSaved] = useState('');
+  const [savingWa, setSavingWa] = useState(false);
 
   useEffect(() => {
     if (!isSuperadmin) return;
     (async () => {
-      const [chipRes, courierRes] = await Promise.all([
+      const [chipRes, deviceRes] = await Promise.all([
         supabase.from('platform_secrets').select('value').eq('key', 'chip').maybeSingle(),
-        supabase.from('app_settings').select('value').eq('key', 'courier_defaults').maybeSingle(),
+        supabase.from('admin_device').select('instance').eq('active', true).limit(1).maybeSingle(),
       ]);
       const chip = (chipRes.data?.value ?? {}) as { api_key?: string; brand_id?: string };
       setChipBrandId(chip.brand_id || '');
       setChipKeySaved(!!chip.api_key);
-      const cd = (courierRes.data?.value ?? {}) as { environment?: string; default_courier?: string };
-      setEnvironment((cd.environment as any) === 'production' ? 'production' : 'sandbox');
-      setDefaultCourier(cd.default_courier || 'poslaju');
+      const inst = (deviceRes.data as any)?.instance || '';
+      setWaInstance(inst);
+      setWaInstanceSaved(inst);
       setLoading(false);
     })();
   }, [isSuperadmin]);
@@ -46,7 +43,6 @@ const AdminSettings: React.FC = () => {
   const saveChip = async () => {
     setSavingChip(true);
     try {
-      // Only overwrite the key if a new one was typed; otherwise keep the stored one.
       const value: Record<string, string> = { brand_id: chipBrandId.trim() };
       if (chipApiKey.trim()) value.api_key = chipApiKey.trim();
       else {
@@ -66,17 +62,25 @@ const AdminSettings: React.FC = () => {
     }
   };
 
-  const saveCourier = async () => {
-    setSavingCourier(true);
+  const saveWaDevice = async () => {
+    const inst = waInstance.trim();
+    if (!inst) { toast({ title: 'Instance required', description: 'Paste your Whacenter device instance ID.', variant: 'destructive' }); return; }
+    setSavingWa(true);
     try {
-      const { error } = await supabase.from('app_settings')
-        .upsert({ key: 'courier_defaults', value: { environment, default_courier: defaultCourier } }, { onConflict: 'key' });
-      if (error) throw error;
-      toast({ title: 'Saved', description: 'Courier defaults updated for new clients.' });
+      // Single active-device model: deactivate all, then upsert this one active.
+      await supabase.from('admin_device').update({ active: false }).neq('instance', inst);
+      const { data: existing } = await supabase.from('admin_device').select('id').eq('instance', inst).maybeSingle();
+      if (existing) {
+        await supabase.from('admin_device').update({ active: true, updated_at: new Date().toISOString() }).eq('instance', inst);
+      } else {
+        await supabase.from('admin_device').insert({ instance: inst, label: 'admin', active: true });
+      }
+      setWaInstanceSaved(inst);
+      toast({ title: 'Saved', description: 'WhatsApp sending device updated.' });
     } catch (e: any) {
       toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
     } finally {
-      setSavingCourier(false);
+      setSavingWa(false);
     }
   };
 
@@ -87,7 +91,7 @@ const AdminSettings: React.FC = () => {
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-primary" /> Settings</h1>
-        <p className="text-muted-foreground mt-2">Platform configuration — payment gateway &amp; courier defaults.</p>
+        <p className="text-muted-foreground mt-2">Platform configuration — payment gateway &amp; WhatsApp notifications.</p>
       </div>
 
       {/* CHIP */}
@@ -116,6 +120,30 @@ const AdminSettings: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* WhatsApp device (Whacenter) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="w-5 h-5 text-green-600" /> WhatsApp Notifications</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            The connected WhatsApp device (Whacenter) that sends client login credentials and admin alerts.
+            Admin alerts go to the WhatsApp number set in each superadmin's <span className="font-medium">Profile</span>.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="wa_instance" className="flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" /> Device Instance ID</Label>
+            <Input id="wa_instance" value={waInstance} onChange={(e) => setWaInstance(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            <p className="text-xs text-muted-foreground">
+              {waInstanceSaved
+                ? <>Active device: <span className="font-mono">{waInstanceSaved}</span></>
+                : 'No device linked yet — WhatsApp notifications are disabled until set.'}
+            </p>
+          </div>
+          <Button onClick={saveWaDevice} disabled={savingWa}>
+            {savingWa && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save WhatsApp device
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

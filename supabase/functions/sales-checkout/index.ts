@@ -2,25 +2,21 @@
  * PeningOrder Sales-Page Checkout (public, no JWT)
  *
  * Front door for a brand-new visitor coming from the marketing landing page.
- * It provisions the account IMMEDIATELY (email pre-confirmed) so the customer
- * can always log in, then opens a CHIP payment intent for the chosen plan.
+ * It provisions the account IMMEDIATELY (email pre-confirmed), then opens a
+ * CHIP payment intent for the chosen plan. The auto-generated login password
+ * is WhatsApp'd to the customer only after payment succeeds.
  *
  * Flow:
- *   1. Validate { full_name, business_name, email, phone, password, plan }.
- *   2. Create the auth user with email_confirm=true. The handle_new_user
- *      trigger fills profiles (14-day trial + client role + PO-#### idstaff).
- *   3. Insert a pending `subscription` payment for the chosen plan.
- *   4. Create a CHIP purchase; on payment the existing billing-webhook upgrades
- *      the plan from trial -> starter/growth/scale.
- *
- * Returns:
- *   200 { success: true, account_created: true, chip_url, email }
- *   200 { success: true, account_created: true, chip_url: null, warning }  (CHIP not configured — user can pay later in dashboard)
- *   400 { error: 'validation', detail }
- *   409 { error: 'email_exists' }
- *   500 { error }
- *
- * Reuses CHIP_API_KEY + CHIP_BRAND_ID (same secrets as billing-subscribe).
+ *   1. Validate { full_name, business_name, email, phone, plan } (password is
+ *      auto-generated server-side — never collected from the visitor).
+ *   2. Create the auth user with email_confirm=true, then mark the profile
+ *      expired-until-paid (no free ride) and stash the temp password on the
+ *      pending payment row.
+ *   3. Alert admins of the new pending subscriber.
+ *   4. Create a CHIP purchase; on payment the billing-webhook activates the
+ *      plan and WhatsApps the client their login. If CHIP can't auto-confirm,
+ *      the admin approves in Transactions (admin-payment-action) which does the
+ *      same activation + WhatsApp.
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -46,6 +42,62 @@ function json(status: number, body: Record<string, unknown>) {
   });
 }
 
+// Auto-generated login password — no OCR-confusable chars (users read it off a
+// phone screen) and one of each class so Supabase's strong-password check can't
+// reject it (which would leave a WhatsApp'd password that was never saved).
+function generatePassword(len = 12): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnpqrstuvwxyz";
+  const digit = "23456789";
+  const sym = "!@#$";
+  const all = upper + lower + digit + sym;
+  const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const out = [pick(upper), pick(lower), pick(digit), pick(sym)];
+  for (let i = out.length; i < len; i++) out.push(pick(all));
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
+}
+
+// ---- WhatsApp (Whacenter) admin alert on new pending signup ----------------
+const WHACENTER = "https://api.whacenter.com/api/send";
+function toMalayDigits(raw: string): string | null {
+  const d = (raw || "").replace(/\D/g, "");
+  if (!d) return null;
+  if (/^60\d{8,12}$/.test(d)) return d;
+  if (/^0\d{8,11}$/.test(d)) return "6" + d;
+  if (/^1\d{8,10}$/.test(d)) return "60" + d;
+  return d.length >= 9 ? d : null;
+}
+async function sendWhatsApp(toPhone: string, message: string): Promise<boolean> {
+  const number = toMalayDigits(toPhone);
+  if (!number) return false;
+  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
+  if (!device?.instance) return false;
+  const form = new URLSearchParams();
+  form.append("device_id", device.instance);
+  form.append("number", number);
+  form.append("message", message);
+  try {
+    const res = await fetch(WHACENTER, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+async function notifyAdmins(message: string): Promise<void> {
+  const { data: roles } = await admin.from("user_roles").select("user_id").eq("role", "superadmin");
+  const ids = (roles || []).map((r: { user_id: string }) => r.user_id);
+  if (!ids.length) return;
+  const { data: profs } = await admin.from("profiles").select("whatsapp, whatsapp_number").in("id", ids);
+  for (const p of profs || []) {
+    const num = String(p.whatsapp_number || p.whatsapp || "").trim();
+    if (num) await sendWhatsApp(num, message);
+  }
+}
+
 type Intent = {
   full_name: string;
   business_name: string;
@@ -62,14 +114,15 @@ function validate(input: unknown): { ok: true; data: Intent } | { ok: false; det
   const business_name = typeof i.business_name === "string" ? i.business_name.trim() : "";
   const email = typeof i.email === "string" ? i.email.trim().toLowerCase() : "";
   const phone = typeof i.phone === "string" ? i.phone.replace(/\D/g, "") : "";
-  const password = typeof i.password === "string" ? i.password : "";
+  // Password is no longer collected from the visitor — we auto-generate one and
+  // WhatsApp it on payment success. Any client-sent value is ignored.
+  const password = generatePassword(12);
   const plan = typeof i.plan === "string" ? i.plan.trim().toLowerCase() : "";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, detail: "invalid email" };
   if (full_name.length < 2) return { ok: false, detail: "invalid full_name" };
   if (business_name.length < 2) return { ok: false, detail: "invalid business_name" };
   if (!/^60\d{8,11}$/.test(phone)) return { ok: false, detail: "invalid phone (expected 60xxxxxxxxx)" };
-  if (password.length < 6) return { ok: false, detail: "password too short (min 6)" };
   if (!VALID_PLANS.includes(plan)) return { ok: false, detail: `invalid plan (expected ${VALID_PLANS.join("/")})` };
 
   return { ok: true, data: { full_name, business_name, email, phone, password, plan } };
@@ -121,6 +174,10 @@ serve(async (req) => {
     }
     const userId = created.user.id;
 
+    // No free ride: mark the fresh account expired until payment clears. The
+    // freeze-gate keeps them on Billing only until the plan is activated.
+    await admin.from("profiles").update({ plan_expires_at: new Date().toISOString() }).eq("id", userId);
+
     // Load plan config.
     const { data: settingRow } = await admin
       .from("app_settings")
@@ -140,7 +197,13 @@ serve(async (req) => {
         amount: cfg.price,
         currency: "MYR",
         status: "pending",
-        metadata: { plan: intent.plan, days: cfg.days, label: cfg.label, source: "sales_page" },
+        metadata: {
+          plan: intent.plan, days: cfg.days, label: cfg.label, source: "sales_page",
+          phone: intent.phone,
+          // Stashed so payment success (webhook or admin approve) can WhatsApp
+          // the client their auto-generated login. Service-role only.
+          temp_password: intent.password,
+        },
       })
       .select()
       .single();
@@ -149,6 +212,18 @@ serve(async (req) => {
       // Account still created — let them log in and pay from the dashboard.
       return json(200, { success: true, account_created: true, chip_url: null, email: intent.email, warning: "payment_init_failed" });
     }
+
+    // Alert admins a new subscriber is waiting (they may need manual approval
+    // if CHIP can't auto-confirm via webhook).
+    await notifyAdmins(
+      `🆕 *PeningOrder — Pendaftaran Baru (Pending)*\n\n` +
+      `Name    : ${intent.full_name}\n` +
+      `Bisnes  : ${intent.business_name}\n` +
+      `Email   : ${intent.email}\n` +
+      `WhatsApp: ${intent.phone}\n` +
+      `Plan    : ${cfg.label} (RM${Number(cfg.price).toFixed(2)})\n\n` +
+      `Semak di Admin → Transactions.`,
+    ).catch(() => {});
 
     // Create the CHIP purchase. If CHIP isn't configured we still return
     // success — the account exists and the user can subscribe later.
@@ -175,8 +250,8 @@ serve(async (req) => {
         notes: `${intent.business_name} · ${intent.plan} plan`,
         metadata: { type: "subscription", user_id: userId, payment_id: payment.id, plan: intent.plan, days: cfg.days },
       },
-      success_redirect: `${appOrigin}/dashboard/billing?payment=success`,
-      failure_redirect: `${appOrigin}/dashboard/billing?payment=failed`,
+      success_redirect: `${appOrigin}/auth?payment=success`,
+      failure_redirect: `${appOrigin}/checkout?plan=${intent.plan}&status=failed`,
       success_callback: `${supabaseUrl}/functions/v1/billing-webhook`,
       reference,
       send_receipt: true,

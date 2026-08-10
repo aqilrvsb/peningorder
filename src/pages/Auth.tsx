@@ -30,6 +30,8 @@ const Auth: React.FC = () => {
     if (prefill) setEmail(prefill);
   }, [searchParams]);
 
+  const paymentState = searchParams.get('payment'); // 'success' | 'pending' after checkout
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -102,6 +104,17 @@ const Auth: React.FC = () => {
           <p className="text-muted-foreground text-sm mb-6">
             {isLogin ? 'Welcome back! Sign in to your business.' : 'Start managing your orders in minutes.'}
           </p>
+
+          {paymentState === 'success' && (
+            <div className="mb-6 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+              ✅ Pembayaran berjaya! Kami dah hantar <span className="font-semibold">email & password login</span> ke WhatsApp anda. Guna untuk log masuk di bawah.
+            </div>
+          )}
+          {paymentState === 'pending' && (
+            <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+              ⏳ Akaun anda dah dibuat. Login & password akan dihantar ke WhatsApp anda sebaik pembayaran disahkan.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
