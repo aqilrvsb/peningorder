@@ -807,6 +807,7 @@ ${trackingUrl}`;
           </div>
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {formatRM(stats.totalSalesReturn)}</p>
+          <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</p>
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.ret.cash)} · COD RM {formatRM(stats.split.ret.cod)}</p>
         </div>
 
