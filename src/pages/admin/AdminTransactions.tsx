@@ -6,9 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 
 const STATUS_BADGE: Record<string, string> = {
   paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -19,7 +16,8 @@ const STATUS_BADGE: Record<string, string> = {
 const AdminTransactions: React.FC = () => {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState('all');
+
+  const [tab, setTab] = useState<'pending' | 'paid' | 'failed'>('pending');
 
   const isSuperadmin = profile?.role === 'superadmin';
 
@@ -65,13 +63,19 @@ const AdminTransactions: React.FC = () => {
 
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
 
-  const payments = (data?.payments || []).filter((p: any) => statusFilter === 'all' || p.status === statusFilter);
+  const payments = (data?.payments || []).filter((p: any) => p.status === tab);
   const paid = (data?.payments || []).filter((p: any) => p.status === 'paid');
   const totalPaid = paid.reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthPaid = paid.filter((p: any) => p.paid_at && new Date(p.paid_at) >= monthStart)
     .reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
   const pendingCount = (data?.payments || []).filter((p: any) => p.status === 'pending').length;
+  const failedCount = (data?.payments || []).filter((p: any) => p.status === 'failed').length;
+  const TABS: { key: 'pending' | 'paid' | 'failed'; label: string; count: number }[] = [
+    { key: 'pending', label: 'Pending', count: pendingCount },
+    { key: 'paid', label: 'Success', count: paid.length },
+    { key: 'failed', label: 'Reject', count: failedCount },
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -98,16 +102,23 @@ const AdminTransactions: React.FC = () => {
         </CardContent></Card>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex items-center gap-1 border-b border-border">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === t.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t.label}
+            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+              t.key === 'pending' && t.count > 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-muted text-muted-foreground'
+            }`}>{t.count}</span>
+          </button>
+        ))}
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -146,15 +157,17 @@ const AdminTransactions: React.FC = () => {
                       <td className="p-3 text-xs">{p.paid_at ? new Date(p.paid_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                       <td className="p-3 font-mono text-xs max-w-[120px] truncate">{p.chip_purchase_id || '-'}</td>
                       <td className="p-3">
-                        {p.status === 'pending' && (
+                        {p.status === 'pending' ? (
                           <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" title="Mark paid" onClick={() => setStatus(p, 'paid')}>
-                              <CheckCircle className="w-4 h-4 text-green-600" />
+                            <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-900 dark:text-green-400" title="Approve — activate plan" onClick={() => setStatus(p, 'paid')}>
+                              <CheckCircle className="w-4 h-4 mr-1" /> Approve
                             </Button>
-                            <Button size="sm" variant="ghost" title="Mark failed" onClick={() => setStatus(p, 'failed')}>
-                              <XCircle className="w-4 h-4 text-red-500" />
+                            <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400" title="Reject payment" onClick={() => setStatus(p, 'failed')}>
+                              <XCircle className="w-4 h-4 mr-1" /> Reject
                             </Button>
                           </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>
