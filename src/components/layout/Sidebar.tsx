@@ -77,7 +77,6 @@ const financeItems: NavItem[] = [
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
   { label: 'Pending COD Collection', path: '/dashboard/account/pending-tracking', icon: <DollarSign className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
-  { label: 'Courier Settings', path: '/dashboard/logistics/courier-settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 // ============ SUPERADMIN (SaaS owner) ============
@@ -272,6 +271,23 @@ const Sidebar: React.FC = () => {
             </div>
           );
         })}
+
+        {/* Courier Settings — standalone (cross-cutting), sits above Integration. */}
+        {!isAdmin && (
+          <Link
+            to="/dashboard/logistics/courier-settings"
+            title={collapsed ? 'Courier Settings' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/logistics/courier-settings') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Settings className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Courier Settings</span>}
+          </Link>
+        )}
 
         {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly). */}
         {!isAdmin && (
