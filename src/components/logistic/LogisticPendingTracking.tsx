@@ -289,17 +289,6 @@ const LogisticPendingTracking = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Package className="w-8 h-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.totalUnits}</p>
-                <p className="text-sm text-muted-foreground">Total Unit</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Platform Breakdown */}
@@ -314,7 +303,6 @@ const LogisticPendingTracking = () => {
                   <span className="text-orange-600">{ps.cod} COD</span>
                   <span className="text-green-600">{ps.cashOnline} CASH</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Unit: <span className="font-semibold text-foreground">{ps.units}</span></p>
               </div>
             </CardContent>
           </Card>
@@ -422,7 +410,6 @@ const LogisticPendingTracking = () => {
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
-                      <th className="p-2 text-left">Unit</th>
                       <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
@@ -457,7 +444,6 @@ const LogisticPendingTracking = () => {
                           <td className="p-2">
                             <span className="truncate max-w-[150px] block">{order.bundle?.name || order.nota_staff || "-"}</span>
                           </td>
-                          <td className="p-2 text-center">{order.unit || 1}</td>
                           <td className="p-2 whitespace-nowrap">{order.kurier || "-"}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>

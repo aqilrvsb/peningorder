@@ -967,7 +967,6 @@ const Prospects: React.FC = () => {
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Price</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Bundle</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -976,7 +975,6 @@ const Prospects: React.FC = () => {
                         <td className="px-3 py-2 text-foreground">{order.date_order || '-'}</td>
                         <td className="px-3 py-2 text-foreground">RM {(order.total_price || 0).toFixed(2)}</td>
                         <td className="px-3 py-2 text-foreground">{order.produk || '-'}</td>
-                        <td className="px-3 py-2 text-foreground text-center">{order.quantity || 1}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -987,9 +985,6 @@ const Prospects: React.FC = () => {
                         RM {selectedProspectOrders.reduce((sum, o) => sum + (o.total_price || 0), 0).toFixed(2)}
                       </td>
                       <td className="px-3 py-2"></td>
-                      <td className="px-3 py-2 font-semibold text-foreground text-center">
-                        {selectedProspectOrders.reduce((sum, o) => sum + (o.quantity || 1), 0)}
-                      </td>
                     </tr>
                   </tfoot>
                 </table>
