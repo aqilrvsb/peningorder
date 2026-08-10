@@ -127,6 +127,9 @@ const OrderForm: React.FC = () => {
   const [tarikhBayaran, setTarikhBayaran] = useState<Date>();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
+  // CASH receipt can be a pasted link OR an uploaded image/PDF.
+  const [receiptMethod, setReceiptMethod] = useState<'manual' | 'link'>('manual');
+  const [receiptLink, setReceiptLink] = useState<string>('');
   // Determined customer type (NP/EP/EC) based on lead lookup
   const [determinedCustomerType, setDeterminedCustomerType] = useState<'NP' | 'EP' | 'EC' | ''>('');
   const [isCheckingLead, setIsCheckingLead] = useState(false);
@@ -701,7 +704,16 @@ const OrderForm: React.FC = () => {
           });
           return;
         }
-        if (!receiptFile && !isEditMode) {
+        if (receiptMethod === 'link') {
+          if (!receiptLink.trim() && !isEditMode) {
+            toast({
+              title: 'Error',
+              description: 'Sila masukkan link resit.',
+              variant: 'destructive',
+            });
+            return;
+          }
+        } else if (!receiptFile && !isEditMode) {
           toast({
             title: 'Error',
             description: 'Sila muat naik Resit Bayaran.',
@@ -907,10 +919,12 @@ const OrderForm: React.FC = () => {
           return blob.url;
         };
 
-        // Handle receipt image upload/replacement for edit mode
+        // Handle receipt (link or uploaded image/PDF) for edit mode
         let newReceiptUrl = editOrder.receiptImageUrl || '';
-        if (receiptFile && showPaymentDetails) {
-          // Delete old receipt if exists
+        if (showPaymentDetails && receiptMethod === 'link') {
+          if (receiptLink.trim()) newReceiptUrl = receiptLink.trim();
+        } else if (receiptFile && showPaymentDetails) {
+          // Delete old receipt if it was an uploaded blob
           if (editOrder.receiptImageUrl) {
             await deleteFromBlob(editOrder.receiptImageUrl);
           }
@@ -1077,9 +1091,11 @@ const OrderForm: React.FC = () => {
           return blob.url;
         };
 
-        // Upload receipt image if provided
+        // Receipt: either a pasted link or an uploaded image/PDF.
         let receiptUrl = '';
-        if (receiptFile && showPaymentDetails) {
+        if (showPaymentDetails && receiptMethod === 'link') {
+          receiptUrl = receiptLink.trim();
+        } else if (receiptFile && showPaymentDetails) {
           try {
             receiptUrl = await uploadToVercelBlob(receiptFile, 'receipts');
           } catch (uploadError) {
@@ -1713,31 +1729,60 @@ const OrderForm: React.FC = () => {
               {formData.jenisBayaran !== 'Billplz' && (
                 <div>
                   <FormLabel required>Resit Bayaran</FormLabel>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="receipt-upload"
-                    />
-                    <label
-                      htmlFor="receipt-upload"
-                      className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+
+                  {/* Toggle: paste a Link, or upload a Manual receipt */}
+                  <div className="mb-2 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setReceiptMethod('manual')}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${receiptMethod === 'manual' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                      <Upload className="w-4 h-4" />
-                      <span className="text-sm text-muted-foreground">
-                        {receiptFile ? receiptFile.name : (isEditMode ? 'Resit sudah dimuat naik' : 'Upload Resit')}
-                      </span>
-                    </label>
-                    {receiptPreview && (
-                      <img
-                        src={receiptPreview}
-                        alt="Receipt preview"
-                        className="mt-2 w-full h-32 object-cover rounded-lg border border-border"
-                      />
-                    )}
+                      Manual Receipt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptMethod('link')}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${receiptMethod === 'link' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Link
+                    </button>
                   </div>
+
+                  {receiptMethod === 'link' ? (
+                    <Input
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://... link resit"
+                      value={receiptLink}
+                      onChange={(e) => setReceiptLink(e.target.value)}
+                    />
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="receipt-upload"
+                      />
+                      <label
+                        htmlFor="receipt-upload"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span className="text-sm text-muted-foreground">
+                          {receiptFile ? receiptFile.name : (isEditMode ? 'Resit sudah dimuat naik' : 'Upload Resit (imej atau PDF)')}
+                        </span>
+                      </label>
+                      {receiptPreview && receiptFile?.type.startsWith('image/') && (
+                        <img
+                          src={receiptPreview}
+                          alt="Receipt preview"
+                          className="mt-2 w-full h-32 object-cover rounded-lg border border-border"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
