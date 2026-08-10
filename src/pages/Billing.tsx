@@ -146,7 +146,7 @@ const Billing: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         {PLAN_ORDER.map((key) => {
           const cfg = plans[key];
-          if (!cfg) return null;
+          if (!cfg || (cfg as any).active === false) return null;
           const isCurrent = profilePlan === key && !isExpired;
           const isBest = key === 'growth';
           return (

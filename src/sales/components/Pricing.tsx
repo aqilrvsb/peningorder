@@ -68,7 +68,7 @@ export default function Pricing() {
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {ORDER.map((key, idx) => {
               const p = plans[key];
-              if (!p) return null;
+              if (!p || (p as any).active === false) return null;
               const isPopular = key === 'growth';
               const noCap = p.max_orders_per_month >= 999999;
               return (

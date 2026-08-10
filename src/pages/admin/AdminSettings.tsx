@@ -116,39 +116,6 @@ const AdminSettings: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Courier defaults */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"><Truck className="w-5 h-5 text-primary" /> Courier Defaults</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Applied to new clients until they set their own courier config.</p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Default Environment</Label>
-              <Select value={environment} onValueChange={(v) => setEnvironment(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sandbox">Sandbox (testing)</SelectItem>
-                  <SelectItem value="production">Production (live)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Default Courier</Label>
-              <Select value={defaultCourier} onValueChange={setDefaultCourier}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COURIERS.map((c) => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button onClick={saveCourier} disabled={savingCourier}>
-            {savingCourier && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save courier defaults
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 };
