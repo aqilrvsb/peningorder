@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound } from 'lucide-react';
 import { NEGERI_OPTIONS } from '@/types';
 import {
   Select,
@@ -14,6 +14,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+
+const PARCELDAILY_SIGNUP_URL = 'https://partner.parceldaily.com/auth/sign-up?accountManagerId=Ryrr36KL3y';
+
+// Published ParcelDaily courier rates (flat + per-kg sub price).
+const COURIER_RATES = [
+  { icon: '🚚', name: 'SPX', flat: 'RM4.80', sub: 'RM0.80/kg' },
+  { icon: '🚚', name: 'DHL', flat: 'RM5.00', sub: 'RM1.00/kg' },
+  { icon: '📦', name: 'J&T', flat: 'RM4.80', sub: 'RM1.00/kg' },
+  { icon: '📬', name: 'PosLaju', flat: 'RM6.00', sub: 'RM1.20/kg' },
+  { icon: '🛵', name: 'Ninjavan', flat: 'RM5.80', sub: 'RM1.00/kg' },
+];
+
+// SOP for obtaining the Merchant ID + Token Key from the ParcelDaily portal.
+const GET_KEY_STEPS = [
+  {
+    text: 'On the ParcelDaily partner portal, go to the Integrations page and click the “External API Details” button.',
+    img: 'https://parceldaily.com/wp-content/uploads/image-1.webp',
+  },
+  {
+    text: 'Copy the generated Merchant ID and Token Key, then paste them into the fields above.',
+    img: 'https://parceldaily.com/wp-content/uploads/image-1-3.webp',
+  },
+];
 
 interface ParcelDailyConfig {
   id?: string;
@@ -38,7 +68,7 @@ interface ParcelDailyConfig {
 const emptyConfig: ParcelDailyConfig = {
   merchant_id: '',
   token: '',
-  environment: 'sandbox',
+  environment: 'production',
   webhook_secret: '',
   sender_name: '',
   sender_phone: '',
@@ -68,6 +98,8 @@ const CourierSettings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ParcelDailyConfig>(emptyConfig);
+  const [showRates, setShowRates] = useState(false);
+  const [showGetKey, setShowGetKey] = useState(false);
 
   useEffect(() => {
     if (user) loadConfig();
@@ -93,10 +125,9 @@ const CourierSettings: React.FC = () => {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
         const { data: cd } = await supabase.from('app_settings').select('value').eq('key', 'courier_defaults').maybeSingle();
-        const defaults = (cd?.value ?? {}) as { environment?: string; default_courier?: string };
+        const defaults = (cd?.value ?? {}) as { default_courier?: string };
         setFormData((f) => ({
           ...f,
-          environment: (defaults.environment as any) || f.environment,
           default_courier: defaults.default_courier || f.default_courier,
           sender_name: user.businessName || user.fullName || '',
           sender_email: user.email || '',
@@ -134,7 +165,8 @@ const CourierSettings: React.FC = () => {
       const payload = {
         merchant_id: formData.merchant_id.trim(),
         token: formData.token.trim(),
-        environment: formData.environment,
+        environment: 'production', // always live — sandbox toggle removed
+
         webhook_secret: formData.webhook_secret?.trim() || null,
         sender_name: formData.sender_name.trim(),
         sender_phone: formData.sender_phone.trim(),
@@ -171,6 +203,9 @@ const CourierSettings: React.FC = () => {
   const setField = <K extends keyof ParcelDailyConfig>(key: K, value: ParcelDailyConfig[K]) =>
     setFormData((f) => ({ ...f, [key]: value }));
 
+  // Sign-up CTA shows only until the client has entered a Merchant ID.
+  const hasMerchantId = !!formData.merchant_id.trim();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -203,6 +238,28 @@ const CourierSettings: React.FC = () => {
       <div className="bg-card rounded-lg border border-border p-6 space-y-6">
         <div>
           <h2 className="font-semibold text-lg mb-4">API Credentials</h2>
+
+          {/* Big sign-up CTA — only until they've got a Merchant ID. */}
+          {!hasMerchantId && (
+            <a
+              href={PARCELDAILY_SIGNUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-4 text-base font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
+            >
+              <ExternalLink className="w-5 h-5" /> Belum ada akaun? Daftar ParcelDaily Sekarang
+            </a>
+          )}
+
+          <div className="mb-4 flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => setShowRates(true)}>
+              <Calculator className="w-4 h-4 mr-2" /> Rate Kurier
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowGetKey(true)}>
+              <KeyRound className="w-4 h-4 mr-2" /> Get Key
+            </Button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FormLabel required>Merchant ID</FormLabel>
@@ -221,20 +278,7 @@ const CourierSettings: React.FC = () => {
                 placeholder="••••••••-••••-••••-••••-••••••••••••"
               />
             </div>
-            <div>
-              <FormLabel required>Environment</FormLabel>
-              <Select
-                value={formData.environment}
-                onValueChange={(v) => setField('environment', v as 'sandbox' | 'production')}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sandbox">Sandbox (testing)</SelectItem>
-                  <SelectItem value="production">Production (live)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
+            <div className="md:col-span-2">
               <FormLabel>Webhook Secret</FormLabel>
               <Input
                 value={formData.webhook_secret || ''}
@@ -376,6 +420,63 @@ const CourierSettings: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Rate Kurier modal */}
+      <Dialog open={showRates} onOpenChange={setShowRates}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Calculator className="w-5 h-5 text-primary" /> Rate Kurier</DialogTitle>
+            <DialogDescription>Harga penghantaran ParcelDaily mengikut kurier.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {COURIER_RATES.map((r) => (
+              <div key={r.name} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <span className="flex items-center gap-2 font-medium">
+                  <span className="text-lg">{r.icon}</span> {r.name}
+                </span>
+                <span className="text-right">
+                  <span className="font-bold">{r.flat}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">(Sub Price {r.sub})</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Get Key SOP modal */}
+      <Dialog open={showGetKey} onOpenChange={setShowGetKey}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-primary" /> Cara Dapatkan Merchant ID &amp; Token</DialogTitle>
+            <DialogDescription>Ikut langkah di bawah dari portal partner ParcelDaily.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
+            {GET_KEY_STEPS.map((s, i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{i + 1}</span>
+                  <p className="text-sm">{s.text}</p>
+                </div>
+                <img
+                  src={s.img}
+                  alt={`Step ${i + 1}`}
+                  loading="lazy"
+                  className="w-full rounded-lg border border-border"
+                />
+              </div>
+            ))}
+            <a
+              href={PARCELDAILY_SIGNUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              <ExternalLink className="w-4 h-4" /> Buka portal ParcelDaily
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
