@@ -424,6 +424,7 @@ const LogisticBundleManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Bundle Name</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Cost Product</TableHead>
                   <TableHead className="text-center">Weight (KG)</TableHead>
@@ -435,14 +436,12 @@ const LogisticBundleManagement = () => {
                 {bundles.map((bundle: any) => (
                   <TableRow key={bundle.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{bundle.name}</p>
-                        {bundle.description && (
-                          <p className="text-xs text-muted-foreground">
-                            {bundle.description}
-                          </p>
-                        )}
-                      </div>
+                      <p className="font-medium">{bundle.name}</p>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm text-muted-foreground max-w-[240px] whitespace-normal break-words">
+                        {bundle.description || "-"}
+                      </p>
                     </TableCell>
                     <TableCell>
                       <code className="text-xs bg-muted px-2 py-1 rounded break-all">
