@@ -120,63 +120,40 @@ const Profile: React.FC = () => {
     }
   }, [profile?.id]);
 
+  // Calls the wa-device edge function (proxies to the Railway Baileys gateway).
+  const callWa = async (action: string, extra: Record<string, unknown> = {}) => {
+    const { data, error } = await supabase.functions.invoke('wa-device', { body: { action, ...extra } });
+    if (error) {
+      let msg = error.message || 'Gateway error';
+      try { const b = await (error as any)?.context?.json?.(); if (b?.error) msg = b.error; } catch { /* keep */ }
+      throw new Error(msg);
+    }
+    return data as any;
+  };
+
   const loadDevice = async () => {
     if (!profile?.id) return;
     setIsLoadingDevice(true);
     try {
-      const { data, error } = await (supabase as any)
+      const { data } = await (supabase as any)
         .from('device_setting')
         .select('*')
         .eq('user_id', profile.id)
-        .single();
+        .eq('provider', 'baileys')
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading device:', error);
-      }
+      if (!data) { setDevice(null); return; }
 
-      let deviceData = data || null;
+      // Refresh live connection status from the gateway.
+      let status_wa = String(data.status_wa || '').toUpperCase() === 'CONNECTED' ? 'connected' : 'disconnected';
+      let phone_number = data.phone_number;
+      try {
+        const s = await callWa('status');
+        status_wa = s?.status === 'CONNECTED' ? 'connected' : 'disconnected';
+        if (s?.phone) phone_number = s.phone;
+      } catch (e) { console.error('status check failed', e); }
 
-      // If device exists with instance, check status from Whacenter API
-      if (deviceData && deviceData.instance) {
-        try {
-          const statusUrl = `${WHACENTER_PROXY_URL}?endpoint=statusDevice&device_id=${encodeURIComponent(deviceData.instance)}`;
-          const statusResponse = await fetch(statusUrl);
-          const statusResult = await statusResponse.json();
-
-          console.log('Device status from Whacenter:', statusResult);
-
-          // Determine status from API response
-          // Whacenter returns: { status: true/false, data: { status: "CONNECTED"/"DISCONNECTED" } }
-          let newStatus = 'disconnected';
-          const apiStatus = statusResult.data?.status?.toLowerCase();
-          if (apiStatus === 'connect' || apiStatus === 'connected') {
-            newStatus = 'connected';
-          }
-
-          // Update database if status changed
-          if (newStatus !== deviceData.status_wa) {
-            await (supabase as any)
-              .from('device_setting')
-              .update({
-                status_wa: newStatus,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', deviceData.id);
-
-            deviceData = { ...deviceData, status_wa: newStatus };
-            console.log(`Device status updated to: ${newStatus}`);
-          }
-        } catch (statusErr) {
-          console.error('Error checking device status:', statusErr);
-        }
-      }
-
-      setDevice(deviceData);
-      if (deviceData) {
-        setDeviceForm({
-          phoneNumber: deviceData.phone_number || '',
-        });
-      }
+      setDevice({ ...data, status_wa, phone_number });
     } catch (err) {
       console.error('Error:', err);
     } finally {
@@ -186,243 +163,86 @@ const Profile: React.FC = () => {
 
   const handleCreateDevice = async () => {
     if (!profile?.id) return;
-
-    if (!deviceForm.phoneNumber || !deviceForm.phoneNumber.startsWith('6')) {
-      toast({
-        title: 'Error',
-        description: 'No. telefon mesti bermula dengan 6.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsGeneratingDevice(true);
     try {
-      const idDevice = `PO_${profile.idstaff}`;
-
-      // Step 1: Create device in Whacenter via proxy
-      const addDeviceUrl = `${WHACENTER_PROXY_URL}?endpoint=addDevice&name=${encodeURIComponent(idDevice)}&number=${encodeURIComponent(deviceForm.phoneNumber)}`;
-      const addResponse = await fetch(addDeviceUrl);
-      const addResult = await addResponse.json();
-
-      console.log('Add device result:', addResult);
-
-      if (!addResult.success && !addResult.status) {
-        throw new Error(addResult.message || addResult.error || 'Gagal menambah device ke Whacenter');
-      }
-
-      const instanceId = addResult.data?.device?.device_id || addResult.data?.device_id || addResult.device_id;
-
-      if (!instanceId) {
-        throw new Error('Device ID tidak diterima dari Whacenter');
-      }
-
-      // Step 2: Save to database with instance ID
-      const { data: newDevice, error } = await (supabase as any)
-        .from('device_setting')
-        .insert({
-          user_id: profile.id,
-          provider: 'whacenter',
-          id_device: idDevice,
-          phone_number: deviceForm.phoneNumber,
-          instance: instanceId,
-          device_id: instanceId,
-          status_wa: 'disconnected',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setDevice(newDevice);
-      toast({
-        title: 'Berjaya',
-        description: 'Device berjaya dicipta. Klik "Scan QR" untuk sambung WhatsApp.',
-      });
+      // Baileys pairs via QR — no phone number needed up front.
+      await callWa('create');
+      await loadDevice();
+      toast({ title: 'Berjaya', description: 'Device dicipta. Scan QR untuk sambung WhatsApp.' });
+      // Open the QR straight away for a one-tap flow.
+      setTimeout(() => handleScanQR(), 300);
     } catch (error: any) {
       console.error('Create device error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Gagal mencipta device.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Gagal mencipta device.', variant: 'destructive' });
     } finally {
       setIsGeneratingDevice(false);
     }
   };
 
   const handleRefreshStatus = async () => {
-    if (!device || !device.instance) {
-      toast({
-        title: 'Error',
-        description: 'Device belum digenerate.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!confirm('Adakah anda pasti mahu refresh device? Device akan dipadam dan dicipta semula.')) return;
-
     setIsCheckingStatus(true);
     try {
-      // Step 1: Delete device from Whacenter
-      console.log('Deleting device from Whacenter:', device.instance);
-      const deleteUrl = `${WHACENTER_PROXY_URL}?endpoint=deleteDevice&device_id=${encodeURIComponent(device.instance)}`;
-      await fetch(deleteUrl);
-
-      // Step 2: Create new device in Whacenter
-      const idDevice = device.id_device || `PO_${profile?.idstaff}`;
-      const phoneNumber = device.phone_number || '';
-
-      console.log('Creating new device:', idDevice);
-      const addDeviceUrl = `${WHACENTER_PROXY_URL}?endpoint=addDevice&name=${encodeURIComponent(idDevice)}&number=${encodeURIComponent(phoneNumber)}`;
-      const addResponse = await fetch(addDeviceUrl);
-      const addResult = await addResponse.json();
-
-      console.log('Add device result:', addResult);
-
-      if (!addResult.success && !addResult.status) {
-        throw new Error(addResult.message || addResult.error || 'Gagal menambah device ke Whacenter');
-      }
-
-      const newInstanceId = addResult.data?.device?.device_id || addResult.data?.device_id || addResult.device_id;
-
-      if (!newInstanceId) {
-        throw new Error('Device ID tidak diterima dari Whacenter');
-      }
-
-      // Step 3: Update database with new instance ID
-      await (supabase as any)
-        .from('device_setting')
-        .update({
-          instance: newInstanceId,
-          device_id: newInstanceId,
-          status_wa: 'disconnected',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', device.id);
-
+      const s = await callWa('status');
+      const connected = s?.status === 'CONNECTED';
       await loadDevice();
-
       toast({
-        title: 'Berjaya',
-        description: 'Device berjaya di-refresh. Klik "Scan QR" untuk sambung WhatsApp.',
+        title: connected ? 'Connected ✅' : 'Belum connect',
+        description: connected ? `Nombor: ${s?.phone || ''}` : 'Sila scan QR untuk sambung.',
       });
     } catch (error: any) {
-      console.error('Refresh status error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Gagal refresh device.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Gagal semak status.', variant: 'destructive' });
     } finally {
       setIsCheckingStatus(false);
     }
   };
 
   const handleScanQR = async () => {
-    if (!device || !device.instance) {
-      toast({
-        title: 'Error',
-        description: 'Device belum digenerate.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsCheckingStatus(true);
     setQrCode(null);
-    setShowQrModal(true); // Show modal immediately with loading state
-
+    setShowQrModal(true);
     try {
-      // Use proxy endpoint for QR
-      const qrUrl = `${WHACENTER_PROXY_URL}?endpoint=qr&device_id=${encodeURIComponent(device.instance)}`;
-      const response = await fetch(qrUrl);
-      const result = await response.json();
-
-      console.log('QR result:', result);
-
-      // Handle base64 image from proxy
-      if (result.success && result.data?.image) {
-        setQrCode(`data:image/png;base64,${result.data.image}`);
-      } else if (result.data?.qr || result.qr) {
-        setQrCode(result.data?.qr || result.qr);
-      } else if (result.data?.status === 'connect' || result.data?.status === 'connected') {
+      const r = await callWa('qr');
+      if (r?.qr) {
+        setQrCode(r.qr);
+      } else if (r?.connected) {
         setShowQrModal(false);
-        toast({
-          title: 'Connected',
-          description: 'WhatsApp sudah disambung!',
-        });
-        // Update status
-        await (supabase as any)
-          .from('device_setting')
-          .update({ status_wa: 'connected', updated_at: new Date().toISOString() })
-          .eq('id', device.id);
+        toast({ title: 'Connected', description: 'WhatsApp sudah disambung!' });
         await loadDevice();
       } else {
-        setShowQrModal(false);
-        toast({
-          title: 'Info',
-          description: result.message || 'QR code tidak tersedia. Cuba refresh status.',
-        });
+        toast({ title: 'Info', description: r?.message || 'QR belum sedia — cuba lagi sekejap.' });
       }
     } catch (error: any) {
       console.error('Get QR error:', error);
       setShowQrModal(false);
-      toast({
-        title: 'Error',
-        description: error.message || 'Gagal mendapatkan QR code.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Gagal mendapatkan QR code.', variant: 'destructive' });
     } finally {
       setIsCheckingStatus(false);
     }
   };
 
   const handleLogoutDevice = async () => {
-    if (!device || !device.instance) {
-      toast({
-        title: 'Error',
-        description: 'Device belum digenerate.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (!confirm('Adakah anda pasti mahu logout device ini?')) return;
-
     setIsCheckingStatus(true);
     try {
-      // Logout from Whacenter
-      const logoutUrl = `${WHACENTER_PROXY_URL}?endpoint=logoutDevice&device_id=${encodeURIComponent(device.instance)}`;
-      const response = await fetch(logoutUrl);
-      const result = await response.json();
-
-      console.log('Logout result:', result);
-
-      // Update status in database to disconnected
-      await (supabase as any)
-        .from('device_setting')
-        .update({
-          status_wa: 'disconnected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', device.id);
-
-      // Reload device to refresh status
+      await callWa('logout');
       await loadDevice();
-
-      toast({
-        title: 'Berjaya',
-        description: 'Device berjaya logout. Klik "Scan QR" untuk sambung semula.',
-      });
+      toast({ title: 'Berjaya', description: 'Device logout. Scan QR untuk sambung semula.' });
     } catch (error: any) {
-      console.error('Logout device error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Gagal logout device.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Gagal logout device.', variant: 'destructive' });
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  const handleDeleteDevice = async () => {
+    if (!confirm('Padam device ini sepenuhnya?')) return;
+    setIsCheckingStatus(true);
+    try {
+      await callWa('delete');
+      setDevice(null);
+      toast({ title: 'Berjaya', description: 'Device dipadam.' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Gagal padam device.', variant: 'destructive' });
     } finally {
       setIsCheckingStatus(false);
     }
@@ -526,64 +346,54 @@ const Profile: React.FC = () => {
   };
 
   const handleSendTestMessage = async () => {
-    if (!device?.instance) {
-      toast({
-        title: 'Error',
-        description: 'No WhatsApp device instance configured. Please scan QR first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (device.status_wa !== 'connected') {
-      toast({
-        title: 'Error',
-        description: 'Device is not connected. Please scan QR to connect.',
-        variant: 'destructive',
-      });
+    if (device?.status_wa !== 'connected') {
+      toast({ title: 'Error', description: 'Device belum connect. Scan QR dulu.', variant: 'destructive' });
       return;
     }
     if (!testPhone.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a phone number.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Masukkan nombor telefon.', variant: 'destructive' });
       return;
     }
-
     setIsSendingTest(true);
     try {
       const normalizedPhone = normalizeTestPhone(testPhone);
-      const message = `Test message from Peningorder\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\nDevice: ${device.id_device || '-'}\n\nIf you receive this, your WhatsApp device is working correctly! ✅`;
-
-      // Use proxy to avoid CORS
-      const apiUrl = `${WHACENTER_PROXY_URL}?endpoint=send&device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(normalizedPhone)}&message=${encodeURIComponent(message)}`;
-      const response = await fetch(apiUrl, { method: 'GET' });
-      const data = await response.json();
-
-      const success = data.status === true || data.success === true;
-      if (success) {
-        toast({
-          title: 'Success ✅',
-          description: `Test message sent to ${normalizedPhone}. Check WhatsApp.`,
-        });
+      const message = `Ujian dari PeningOrder\n\nID Staff: ${profile?.idstaff || '-'}\nName: ${profile?.fullName || '-'}\n\nKalau anda terima mesej ni, WhatsApp device anda berfungsi! ✅`;
+      const r = await callWa('send', { number: normalizedPhone, message });
+      if (r?.success) {
+        toast({ title: 'Success ✅', description: `Mesej dihantar ke ${normalizedPhone}. Semak WhatsApp.` });
       } else {
-        toast({
-          title: 'Failed ❌',
-          description: data.message || 'WhatsApp sending failed. Device may not be working.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Failed ❌', description: r?.message || 'Gagal hantar. Device mungkin tak connect.', variant: 'destructive' });
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to send test message',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message || 'Gagal hantar mesej ujian', variant: 'destructive' });
     } finally {
       setIsSendingTest(false);
     }
   };
+
+  // While the QR modal is open, poll for connection and refresh the rotating
+  // code, so scanning auto-closes the modal without the user clicking anything.
+  useEffect(() => {
+    if (!showQrModal) return;
+    let stop = false;
+    const poll = setInterval(async () => {
+      try {
+        const s = await callWa('status');
+        if (stop) return;
+        if (s?.status === 'CONNECTED') {
+          setShowQrModal(false);
+          await loadDevice();
+          toast({ title: 'Connected ✅', description: `WhatsApp disambung${s?.phone ? ` (${s.phone})` : ''}!` });
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    // Baileys rotates the QR ~every 20s — pull a fresh one so it never expires.
+    const refresh = setInterval(async () => {
+      try { const r = await callWa('qr'); if (!stop && r?.qr) setQrCode(r.qr); } catch { /* ignore */ }
+    }, 18000);
+    return () => { stop = true; clearInterval(poll); clearInterval(refresh); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQrModal]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -636,8 +446,8 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* WhatsApp Device — hidden (Cipta Device) per request */}
-      {false && (
+      {/* WhatsApp Device — Baileys via Railway gateway (clients only) */}
+      {profile?.role !== 'superadmin' && (
         <div className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -666,26 +476,11 @@ const Profile: React.FC = () => {
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           ) : !device ? (
-            // Create Device Form
+            // Create Device — Baileys pairs by scanning a QR, no phone entry.
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Masukkan nombor telefon WhatsApp anda untuk mencipta device.
+                Cipta device WhatsApp anda, kemudian scan QR untuk sambung. Device ni digunakan untuk hantar notifikasi order ke pelanggan anda.
               </p>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  No. Telefon WhatsApp *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="60123456789"
-                  value={deviceForm.phoneNumber}
-                  onChange={(e) => setDeviceForm({ ...deviceForm, phoneNumber: e.target.value })}
-                  className="bg-background"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Format: 60123456789 (bermula dengan 6)
-                </p>
-              </div>
               <Button
                 onClick={handleCreateDevice}
                 disabled={isGeneratingDevice}
@@ -790,14 +585,32 @@ const Profile: React.FC = () => {
                     </Button>
                   </>
                 )}
+                {device.status_wa === 'connected' && (
+                  <Button
+                    variant="outline"
+                    onClick={handleRefreshStatus}
+                    disabled={isCheckingStatus}
+                  >
+                    {isCheckingStatus ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    Semak Status
+                  </Button>
+                )}
                 <Button
-                  variant="destructive"
-                  size="icon"
+                  variant="outline"
                   onClick={handleLogoutDevice}
                   disabled={isCheckingStatus || !device.instance}
                   title="Logout Device"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4 h-4 mr-2" /> Logout
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={handleDeleteDevice}
+                  disabled={isCheckingStatus || !device.instance}
+                  title="Padam Device"
+                >
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>

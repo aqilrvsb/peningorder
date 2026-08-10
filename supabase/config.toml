@@ -15,6 +15,10 @@ verify_jwt = false
 [functions.admin-payment-action]
 verify_jwt = false
 
+# Custom client JWT check inside the function.
+[functions.wa-device]
+verify_jwt = false
+
 [functions.ninjavan-order]
 verify_jwt = false
 
