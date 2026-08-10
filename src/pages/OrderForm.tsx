@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from '@/hooks/use-toast';
+import Swal from 'sweetalert2';
 import { NEGERI_OPTIONS } from '@/types';
 import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search } from 'lucide-react';
 import { format } from 'date-fns';
@@ -677,49 +678,52 @@ const OrderForm: React.FC = () => {
 
     // Validate payment details for CASH - skip for marketplace couriers (no Butiran Bayaran)
     if (formData.caraBayaran === 'CASH' && !isMarketplaceCourier) {
-      // Always require Jenis Bayaran
-      if (!formData.jenisBayaran) {
-        toast({
-          title: 'Error',
-          description: 'Sila pilih Jenis Bayaran.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      // Skip other validations if Billplz is selected
-      if (formData.jenisBayaran !== 'Billplz') {
-        if (!tarikhBayaran) {
+      if (receiptMethod === 'link') {
+        // Link mode: only the receipt link is needed (Jenis/Tarikh/Bank hidden).
+        if (!receiptLink.trim() && !isEditMode) {
           toast({
             title: 'Error',
-            description: 'Sila pilih Tarikh Bayaran.',
+            description: 'Sila masukkan link resit.',
             variant: 'destructive',
           });
           return;
         }
-        if (!formData.pilihBank) {
+      } else {
+        // Always require Jenis Bayaran
+        if (!formData.jenisBayaran) {
           toast({
             title: 'Error',
-            description: 'Sila pilih Bank.',
+            description: 'Sila pilih Jenis Bayaran.',
             variant: 'destructive',
           });
           return;
         }
-        if (receiptMethod === 'link') {
-          if (!receiptLink.trim() && !isEditMode) {
+        // Skip other validations if Billplz is selected
+        if (formData.jenisBayaran !== 'Billplz') {
+          if (!tarikhBayaran) {
             toast({
               title: 'Error',
-              description: 'Sila masukkan link resit.',
+              description: 'Sila pilih Tarikh Bayaran.',
               variant: 'destructive',
             });
             return;
           }
-        } else if (!receiptFile && !isEditMode) {
-          toast({
-            title: 'Error',
-            description: 'Sila muat naik Resit Bayaran.',
-            variant: 'destructive',
-          });
-          return;
+          if (!formData.pilihBank) {
+            toast({
+              title: 'Error',
+              description: 'Sila pilih Bank.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!receiptFile && !isEditMode) {
+            toast({
+              title: 'Error',
+              description: 'Sila muat naik Resit Bayaran.',
+              variant: 'destructive',
+            });
+            return;
+          }
         }
       }
     }
@@ -1314,11 +1318,34 @@ const OrderForm: React.FC = () => {
         }
       }
 
-      // Navigate back to appropriate page
-      if (isAdminLeadOrder) {
-        navigate('/dashboard/admin/leads');
+      // After EDIT, go back. After CREATE, STAY on the form and reset for the
+      // next order so the user can key in another immediately (no page jump).
+      if (isEditMode) {
+        navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders');
       } else {
-        navigate('/dashboard/orders');
+        // Reset per-order fields; keep platform/closing/customer type + payment
+        // method + courier so repeat entry is fast.
+        setFormData(prev => ({
+          ...prev,
+          namaPelanggan: '', noPhone: '', poskod: '', daerah: '', negeri: '', alamat: '',
+          produk: '', quantity: 1, hargaJualan: 0, jenisBayaran: '', pilihBank: '', nota: '', trackingNumber: '',
+        }));
+        setReceiptFile(null);
+        setReceiptPreview('');
+        setReceiptLink('');
+        setReceiptMethod('manual');
+        setTarikhBayaran(undefined);
+        if (isAdminLeadOrder) refreshData();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Non-blocking success toast — form is already ready for the next order.
+        Swal.fire({
+          icon: 'success',
+          title: 'Order Berjaya!',
+          text: 'Tempahan disimpan. Anda boleh key-in order seterusnya.',
+          timer: 1600,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        });
       }
     } catch (error) {
       console.error('Error creating/updating order:', error);
@@ -1657,26 +1684,28 @@ const OrderForm: React.FC = () => {
           <div className="bg-card border border-border rounded-lg p-6 border-l-4 border-l-emerald-500">
             <h3 className="text-lg font-semibold text-foreground mb-4">Butiran Bayaran</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Jenis Bayaran - First */}
-              <div>
-                <FormLabel required>Jenis Bayaran</FormLabel>
-                <Select
-                  value={formData.jenisBayaran}
-                  onValueChange={(value) => handleChange('jenisBayaran', value)}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Pilih Jenis Bayaran" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {JENIS_BAYARAN_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Jenis Bayaran - hidden in Link mode */}
+              {receiptMethod !== 'link' && (
+                <div>
+                  <FormLabel required>Jenis Bayaran</FormLabel>
+                  <Select
+                    value={formData.jenisBayaran}
+                    onValueChange={(value) => handleChange('jenisBayaran', value)}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Pilih Jenis Bayaran" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {JENIS_BAYARAN_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              {/* Tarikh Bayaran - Only show if NOT Billplz */}
-              {formData.jenisBayaran !== 'Billplz' && (
+              {/* Tarikh Bayaran - hidden for Billplz or Link mode */}
+              {formData.jenisBayaran !== 'Billplz' && receiptMethod !== 'link' && (
                 <div>
                   <FormLabel required>Tarikh Bayaran</FormLabel>
                   <Popover>
@@ -1705,8 +1734,8 @@ const OrderForm: React.FC = () => {
                 </div>
               )}
 
-              {/* Pilih Bank - Only show if NOT Billplz */}
-              {formData.jenisBayaran !== 'Billplz' && (
+              {/* Pilih Bank - hidden for Billplz or Link mode */}
+              {formData.jenisBayaran !== 'Billplz' && receiptMethod !== 'link' && (
                 <div>
                   <FormLabel required>Pilih Bank</FormLabel>
                   <Select
@@ -1789,6 +1818,20 @@ const OrderForm: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Nota Staff — reference only, optional */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <FormLabel>
+            Nota Staff <span className="text-xs font-normal text-muted-foreground">(rujukan sahaja · optional)</span>
+          </FormLabel>
+          <Textarea
+            placeholder="Nota untuk rujukan staff (tidak wajib)..."
+            value={formData.nota || ''}
+            onChange={(e) => handleChange('nota', e.target.value)}
+            className="bg-background resize-none"
+            rows={3}
+          />
+        </div>
 
         {/* Submit Button */}
         <div className="flex justify-end gap-4">
