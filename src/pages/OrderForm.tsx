@@ -676,57 +676,8 @@ const OrderForm: React.FC = () => {
       return;
     }
 
-    // Validate payment details for CASH - skip for marketplace couriers (no Butiran Bayaran)
-    if (formData.caraBayaran === 'CASH' && !isMarketplaceCourier) {
-      if (receiptMethod === 'link') {
-        // Link mode: only the receipt link is needed (Jenis/Tarikh/Bank hidden).
-        if (!receiptLink.trim() && !isEditMode) {
-          toast({
-            title: 'Error',
-            description: 'Sila masukkan link resit.',
-            variant: 'destructive',
-          });
-          return;
-        }
-      } else {
-        // Always require Jenis Bayaran
-        if (!formData.jenisBayaran) {
-          toast({
-            title: 'Error',
-            description: 'Sila pilih Jenis Bayaran.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        // Skip other validations if Billplz is selected
-        if (formData.jenisBayaran !== 'Billplz') {
-          if (!tarikhBayaran) {
-            toast({
-              title: 'Error',
-              description: 'Sila pilih Tarikh Bayaran.',
-              variant: 'destructive',
-            });
-            return;
-          }
-          if (!formData.pilihBank) {
-            toast({
-              title: 'Error',
-              description: 'Sila pilih Bank.',
-              variant: 'destructive',
-            });
-            return;
-          }
-          if (!receiptFile && !isEditMode) {
-            toast({
-              title: 'Error',
-              description: 'Sila muat naik Resit Bayaran.',
-              variant: 'destructive',
-            });
-            return;
-          }
-        }
-      }
-    }
+    // Butiran Bayaran (Resit, Jenis Bayaran, Tarikh, Bank) are all OPTIONAL,
+    // even for CASH — no validation required here.
 
     // Validate minimum price - skip for Tiktok/Shopee (no customer type)
     if (!isTiktokShopee) {
@@ -1687,7 +1638,7 @@ const OrderForm: React.FC = () => {
               {/* Resit Bayaran - FIRST. Pick Link or Manual; Link hides the fields below. */}
               {formData.jenisBayaran !== 'Billplz' && (
                 <div>
-                  <FormLabel required>Resit Bayaran</FormLabel>
+                  <FormLabel>Resit Bayaran</FormLabel>
 
                   {/* Toggle: paste a Link, or upload a Manual receipt */}
                   <div className="mb-2 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
@@ -1748,7 +1699,7 @@ const OrderForm: React.FC = () => {
               {/* Jenis Bayaran - hidden in Link mode */}
               {receiptMethod !== 'link' && (
                 <div>
-                  <FormLabel required>Jenis Bayaran</FormLabel>
+                  <FormLabel>Jenis Bayaran</FormLabel>
                   <Select
                     value={formData.jenisBayaran}
                     onValueChange={(value) => handleChange('jenisBayaran', value)}
@@ -1768,7 +1719,7 @@ const OrderForm: React.FC = () => {
               {/* Tarikh Bayaran - hidden for Billplz or Link mode */}
               {formData.jenisBayaran !== 'Billplz' && receiptMethod !== 'link' && (
                 <div>
-                  <FormLabel required>Tarikh Bayaran</FormLabel>
+                  <FormLabel>Tarikh Bayaran</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -1798,7 +1749,7 @@ const OrderForm: React.FC = () => {
               {/* Pilih Bank - hidden for Billplz or Link mode */}
               {formData.jenisBayaran !== 'Billplz' && receiptMethod !== 'link' && (
                 <div>
-                  <FormLabel required>Pilih Bank</FormLabel>
+                  <FormLabel>Pilih Bank</FormLabel>
                   <Select
                     value={formData.pilihBank}
                     onValueChange={(value) => handleChange('pilihBank', value)}
