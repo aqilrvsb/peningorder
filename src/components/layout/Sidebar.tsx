@@ -58,7 +58,7 @@ const marketerItems: NavItem[] = [
   { label: 'Leads', path: '/dashboard/prospects', icon: <Users className="w-5 h-5" /> },
   { label: 'Spend', path: '/dashboard/spend', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Reporting Spend', path: '/dashboard/reporting-spend', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Webhook Settings', path: '/dashboard/webhook-settings', icon: <Webhook className="w-5 h-5" /> },
+  // Webhook Settings hidden — replaced by the Integration hub.
 ];
 
 // ============ LOGISTIC ROLE ============

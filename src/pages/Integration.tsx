@@ -13,6 +13,7 @@ type Channel = {
   key: string;
   name: string;
   fn: string;    // edge function slug
+  domain: string; // for the brand logo favicon
   query: string; // extra query params after marketer_id
   tagline: string;
   icon: React.ReactNode;
@@ -24,7 +25,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'woocommerce',
     name: 'WooCommerce',
-    fn: 'woocommerce-webhook', query: '',
+    fn: 'woocommerce-webhook', query: '', domain: 'woocommerce.com',
     tagline: 'Sync orders from your WooCommerce store automatically.',
     icon: <ShoppingBag className="w-6 h-6" />,
     steps: [
@@ -38,7 +39,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'shoppego',
     name: 'Shoppego',
-    fn: 'woocommerce-webhook', query: '&platform=shoppego',
+    fn: 'woocommerce-webhook', query: '&platform=shoppego', domain: 'shoppego.com',
     tagline: 'Connect your Shoppego storefront and receive orders instantly.',
     icon: <Store className="w-6 h-6" />,
     steps: [
@@ -51,7 +52,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'onpay',
     name: 'OnPay',
-    fn: 'channel-webhook', query: '&channel=onpay',
+    fn: 'channel-webhook', query: '&channel=onpay', domain: 'onpay.my',
     tagline: 'Auto-create orders from your OnPay order form.',
     icon: <CreditCard className="w-6 h-6" />,
     steps: [
@@ -66,7 +67,7 @@ const CHANNELS: Channel[] = [
   {
     key: 'convertly',
     name: 'Convertly',
-    fn: 'channel-webhook', query: '&channel=convertly',
+    fn: 'channel-webhook', query: '&channel=convertly', domain: 'convertly.my',
     tagline: 'Sync orders from your Convertly salespages.',
     icon: <Sparkles className="w-6 h-6" />,
     steps: [
@@ -78,6 +79,19 @@ const CHANNELS: Channel[] = [
     note: 'Your connect code is your PeningOrder ID shown in the URL.',
   },
 ];
+
+const ChannelLogo: React.FC<{ domain: string; fallback: React.ReactNode }> = ({ domain, fallback }) => {
+  const [err, setErr] = useState(false);
+  if (err || !domain) return <>{fallback}</>;
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+      alt=""
+      className="w-7 h-7"
+      onError={() => setErr(true)}
+    />
+  );
+};
 
 const Integration: React.FC = () => {
   const { profile } = useAuth();
@@ -113,7 +127,7 @@ const Integration: React.FC = () => {
           <ArrowLeft className="w-4 h-4" /> Back to integrations
         </button>
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">{selected.icon}</span>
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden"><ChannelLogo domain={selected.domain} fallback={selected.icon} /></span>
           <div>
             <h1 className="text-2xl font-bold">{selected.name}</h1>
             <p className="text-muted-foreground text-sm">{selected.tagline}</p>
@@ -169,7 +183,7 @@ const Integration: React.FC = () => {
             <button key={c.key} onClick={() => { setSelected(c); setCopied(false); }}
               className="group text-left rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md">
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">{c.icon}</span>
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden"><ChannelLogo domain={c.domain} fallback={c.icon} /></span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h3 className="font-semibold text-foreground">{c.name}</h3>
