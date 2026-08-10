@@ -266,52 +266,54 @@ const OrderForm: React.FC = () => {
     return data as string;
   };
 
-  // Check lead by phone number and determine NP/EP/EC
+  // Check phone number and determine NP/EP/EC (Semak button).
   // Logic:
-  // - NP: Lead exists with tarikh_phone_number = today (same date)
-  // - EP: Lead exists with different date OR no lead exists (auto-create with yesterday's date)
-  // - EC: Lead exists and already has jenis_prospek = 'NP' or 'EP' (existing customer who already bought before)
+  // - EC: the phone already exists in ORDER HISTORY (customer_purchases) —
+  //       they have bought before, so Existing Customer (regardless of lead).
+  // - NP: no lead exists, OR a lead exists dated today or yesterday.
+  // - EP: a lead exists but its date is older than yesterday.
   const checkLeadAndDetermineType = async (phoneNumber: string): Promise<{ type: 'NP' | 'EP' | 'EC'; leadId?: string; isNewLead?: boolean; countOrder?: number }> => {
     const marketerIdStaff = profile?.username || '';
     const today = getMalaysiaDate();
+    // Yesterday (Malaysia) as YYYY-MM-DD.
+    const t = new Date(today + 'T00:00:00');
+    t.setDate(t.getDate() - 1);
+    const yesterday = t.toISOString().split('T')[0];
 
-    // Search for existing lead by phone number for this marketer
+    // Existing lead (for id/date), scoped to this tenant/marketer.
     const { data: existingLead } = await (supabase as any)
       .from('prospects')
-      .select('id, tarikh_phone_number, jenis_prospek, count_order')
+      .select('id, tarikh_phone_number, count_order')
       .eq('marketer_id_staff', marketerIdStaff)
       .eq('no_telefon', phoneNumber)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+    const leadId = existingLead?.id;
+    const countOrder = existingLead?.count_order || 0;
 
-    if (existingLead) {
-      // Lead exists - check if it already has NP, EP, or EC set (meaning they already ordered before)
-      const existingType = existingLead.jenis_prospek?.toUpperCase();
-      const currentCountOrder = existingLead.count_order || 0;
-
-      if (existingType === 'EC') {
-        // Already EC - stay as EC (Existing Customer)
-        return { type: 'EC', leadId: existingLead.id, countOrder: currentCountOrder };
-      }
-
-      if (existingType === 'NP' || existingType === 'EP') {
-        // This customer already bought before, so they become EC (Existing Customer)
-        return { type: 'EC', leadId: existingLead.id, countOrder: currentCountOrder };
-      }
-
-      // No existing type yet - determine based on date logic
-      if (existingLead.tarikh_phone_number === today) {
-        // Same date = NP (New Prospect)
-        return { type: 'NP', leadId: existingLead.id, countOrder: currentCountOrder };
-      } else {
-        // Different date = EP (Existing Prospect)
-        return { type: 'EP', leadId: existingLead.id, countOrder: currentCountOrder };
-      }
-    } else {
-      // Lead doesn't exist - set as EP and will auto-create with yesterday's date
-      return { type: 'EP', isNewLead: true, countOrder: 0 };
+    // EC: already in order history (RLS scopes customer_purchases to this tenant).
+    const { data: existingCustomer } = await (supabase as any)
+      .from('customer_purchases')
+      .select('id')
+      .eq('phone_customer', phoneNumber)
+      .limit(1)
+      .maybeSingle();
+    if (existingCustomer) {
+      return { type: 'EC', leadId, countOrder };
     }
+
+    // No prior order -> classify by the lead.
+    if (!existingLead) {
+      // No lead at all -> New Prospect.
+      return { type: 'NP', isNewLead: true, countOrder: 0 };
+    }
+    const leadDate = existingLead.tarikh_phone_number || '';
+    // Lead dated today or yesterday -> NP; older than yesterday -> EP.
+    if (leadDate >= yesterday) {
+      return { type: 'NP', leadId, countOrder };
+    }
+    return { type: 'EP', leadId, countOrder };
   };
 
   // Handle Check button click
