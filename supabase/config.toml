@@ -1,4 +1,15 @@
-project_id = "xjcfyfkpavyonxrdczgs"
+project_id = "ybtswwzunvuqildqscxk"
+
+# Public callbacks / signup — must NOT require a Supabase JWT, or CHIP + Parcel
+# Daily callbacks and the public sales checkout get 401'd on a CLI redeploy.
+[functions.parceldaily-webhook]
+verify_jwt = false
+
+[functions.billing-webhook]
+verify_jwt = false
+
+[functions.sales-checkout]
+verify_jwt = false
 
 [functions.ninjavan-order]
 verify_jwt = false

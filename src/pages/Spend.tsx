@@ -43,7 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { getMalaysiaYesterday } from '@/lib/utils';
+import { getMalaysiaYesterday, fetchAllRows } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 
@@ -89,15 +89,13 @@ const Spend: React.FC = () => {
   const fetchSpends = async () => {
     setIsLoading(true);
     try {
-      let query = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
-
-      // Marketers only see their own spends
-      if (isMarketer && userIdStaff) {
-        query = query.eq('marketer_id_staff', userIdStaff);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      // fetchAllRows paginates past the PostgREST 1000-row cap so Total Spend
+      // and per-platform totals are complete, not silently truncated.
+      const data = await fetchAllRows(() => {
+        let q = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
+        if (isMarketer && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
+        return q;
+      });
       setSpends((data || []).map((d: any) => ({
         id: d.id,
         product: d.product,

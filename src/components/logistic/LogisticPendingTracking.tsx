@@ -182,8 +182,20 @@ const LogisticPendingTracking = () => {
         toast.error("Selected orders do not have waybills yet");
         return;
       }
-      waybills.forEach((w) => window.open(w.waybillUrl, "_blank", "noopener"));
-      toast.success(`${waybills.length} waybill(s) opened`);
+      // Merge all selected waybills into ONE PDF (one tab) instead of opening a
+      // tab per URL — the per-URL loop was popup-blocked / unusable at 50-100+.
+      const waybillUrls = waybills.map((w) => w.waybillUrl);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const merged = await supabase.functions.invoke("merge-waybills", {
+        body: { waybillUrls },
+        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
+      });
+      if (merged.error) throw new Error(merged.error.message || "Failed to merge waybills");
+      const blob = new Blob([merged.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast.success(`${waybills.length} waybill(s) merged into one PDF`);
     } catch (error: any) {
       toast.error(error.message || "Failed to fetch waybills");
     } finally {
@@ -195,7 +207,7 @@ const LogisticPendingTracking = () => {
   const handleCODReceived = async (orderId: string) => {
     const today = getMalaysiaDate();
     try {
-      await supabase
+      const { error } = await supabase
         .from("customer_purchases")
         .update({
           seo: "Successful Delivery",
@@ -203,6 +215,7 @@ const LogisticPendingTracking = () => {
           date_payment: today,
         })
         .eq("id", orderId);
+      if (error) throw error;
 
       toast.success("COD payment marked as received");
       queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });

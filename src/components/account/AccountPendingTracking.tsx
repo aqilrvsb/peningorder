@@ -315,7 +315,7 @@ const AccountPendingTracking = () => {
   const handleCollected = async (orderId: string) => {
     const today = getMalaysiaDate();
     try {
-      await supabase
+      const { error } = await supabase
         .from("customer_purchases")
         .update({
           seo: "Successful Delivery",
@@ -323,6 +323,7 @@ const AccountPendingTracking = () => {
           delivery_status: "Shipped",
         })
         .eq("id", orderId);
+      if (error) throw error;
 
       toast.success("Order marked as collected");
       queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
@@ -349,7 +350,7 @@ const AccountPendingTracking = () => {
     setIsReturning(true);
     const today = getMalaysiaDate();
     try {
-      await supabase
+      const { error } = await supabase
         .from("customer_purchases")
         .update({
           seo: "Return",
@@ -358,6 +359,7 @@ const AccountPendingTracking = () => {
           reason_return: returnReason.trim(),
         })
         .eq("id", returnOrderId);
+      if (error) throw error;
 
       toast.success("Order marked as returned");
       setReturnDialogOpen(false);

@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { getMalaysiaYesterday } from '@/lib/utils';
+import { getMalaysiaYesterday, fetchAllRows } from '@/lib/utils';
 
 interface Spend {
   id: string;
@@ -98,23 +98,19 @@ const ReportingSpend: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch spends
-      let spendsQuery = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
+      // Fetch spends + logistic bundles. Use fetchAllRows to paginate past the
+      // PostgREST 1000-row cap so report totals (Total Spend / ROAS / KPK) are
+      // complete, not silently truncated.
+      const [spendsData, bundlesData] = await Promise.all([
+        fetchAllRows(() => {
+          let q = (supabase as any).from('spends').select('*').order('created_at', { ascending: false });
+          if (isMarketer && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
+          return q;
+        }),
+        fetchAllRows(() => (supabase as any).from('logistic_bundles').select('id, sku, name')),
+      ]);
 
-      // Marketers only see their own spends
-      if (isMarketer && userIdStaff) {
-        spendsQuery = spendsQuery.eq('marketer_id_staff', userIdStaff);
-      }
-
-      // Fetch logistic bundles for SKU lookup
-      const bundlesQuery = (supabase as any).from('logistic_bundles').select('id, sku, name');
-
-      const [spendsResult, bundlesResult] = await Promise.all([spendsQuery, bundlesQuery]);
-
-      if (spendsResult.error) throw spendsResult.error;
-      if (bundlesResult.error) throw bundlesResult.error;
-
-      setSpends((spendsResult.data || []).map((d: any) => ({
+      setSpends((spendsData || []).map((d: any) => ({
         id: d.id,
         product: d.product, // Now stores SKU
         jenisPlatform: d.jenis_platform,
@@ -125,7 +121,7 @@ const ReportingSpend: React.FC = () => {
         createdAt: d.created_at,
       })));
 
-      setLogisticBundles((bundlesResult.data || []).map((d: any) => ({
+      setLogisticBundles((bundlesData || []).map((d: any) => ({
         id: d.id,
         sku: d.sku || '',
         name: d.name || '',

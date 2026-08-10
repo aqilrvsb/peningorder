@@ -6,6 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Format a money value for display: always 2 decimal places with thousand
+ * separators (Malaysian locale). Callers prepend "RM ". Coerces strings/null
+ * safely so a bad value shows "0.00" instead of "NaN".
+ */
+export function formatRM(value: number | string | null | undefined): string {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? 0));
+  return (Number.isFinite(n) ? n : 0).toLocaleString("en-MY", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
  * Fetch ALL rows from a Supabase query using pagination.
  * Supabase/PostgREST has a server-side max_rows limit (default 1000).
  * This function fetches in batches to guarantee all rows are returned.

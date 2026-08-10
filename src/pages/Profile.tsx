@@ -440,10 +440,10 @@ const Profile: React.FC = () => {
       return;
     }
 
-    if (passwordForm.newPassword.length < 4) {
+    if (passwordForm.newPassword.length < 6) {
       toast({
         title: 'Error',
-        description: 'Kata laluan baru mesti sekurang-kurangnya 4 aksara.',
+        description: 'Kata laluan baru mesti sekurang-kurangnya 6 aksara.',
         variant: 'destructive',
       });
       return;
@@ -452,10 +452,8 @@ const Profile: React.FC = () => {
     setIsChangingPassword(true);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ password_hash: passwordForm.newPassword.toUpperCase() })
-        .eq('id', profile?.id);
+      // Use Supabase Auth (bcrypt-hashed) — never store plaintext passwords.
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
 
       if (error) throw error;
 

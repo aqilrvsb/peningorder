@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AUDIT_MODE } from '@/lib/audit';
+import { formatRM } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -445,14 +446,25 @@ ${trackingUrl}`;
         return;
       }
 
-      // Open each waybill PDF in a new tab (browser may ask to allow pop-ups once)
-      waybills.forEach((w) => window.open(w.waybillUrl, '_blank', 'noopener'));
+      // Merge all selected waybills into ONE PDF (one tab). The old loop opened
+      // a tab per waybill — popup-blocked and unusable when printing 50-100+ orders.
+      const waybillUrls = waybills.map((w) => w.waybillUrl);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const merged = await supabase.functions.invoke('merge-waybills', {
+        body: { waybillUrls },
+        headers: { Authorization: `Bearer ${sessionData?.session?.access_token}` },
+      });
+      if (merged.error) throw new Error(merged.error.message || 'Gagal gabung waybill');
+      const blob = new Blob([merged.data as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
 
       toast({
-        title: `${waybills.length} Waybill Dibuka`,
+        title: `${waybills.length} Waybill Digabung`,
         description: missing.length > 0
-          ? `${missing.length} order belum ada waybill (masih pending).`
-          : 'Semua waybill dibuka dalam tab baru. Print dari tab masing-masing.',
+          ? `Satu PDF dibuka. ${missing.length} order belum ada waybill (masih pending).`
+          : 'Semua waybill digabung dalam satu PDF — terus print.',
       });
     } catch (err: any) {
       console.error('Bulk print error:', err);
@@ -529,7 +541,7 @@ ${trackingUrl}`;
       
       toast({
         title: 'Berjaya',
-        description: `Tracking number ${trackingNumber} telah dijana.`,
+        description: `Tracking number ${updateData.noTracking} telah dijana.`,
       });
       
       setRegenerateDialogOpen(false);
@@ -691,7 +703,7 @@ ${trackingUrl}`;
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total Sales</span>
           </div>
-          <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">RM {stats.totalSales.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">RM {formatRM(stats.totalSales)}</p>
         </div>
 
         <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -699,7 +711,7 @@ ${trackingUrl}`;
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total Cash</span>
           </div>
-          <p className="text-2xl font-bold text-green-700 dark:text-green-300">RM {stats.totalCash.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-green-700 dark:text-green-300">RM {formatRM(stats.totalCash)}</p>
         </div>
 
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -707,7 +719,7 @@ ${trackingUrl}`;
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total COD</span>
           </div>
-          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {stats.totalCOD.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {formatRM(stats.totalCOD)}</p>
         </div>
 
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
@@ -716,7 +728,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Collection</span>
           </div>
           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalCollection}</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {stats.totalSalesCollection.toLocaleString()}</p>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesCollection)}</p>
         </div>
 
         <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
@@ -725,7 +737,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Remaining</span>
           </div>
           <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {stats.totalSalesRemaining.toLocaleString()}</p>
+          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {formatRM(stats.totalSalesRemaining)}</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
@@ -758,7 +770,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Success</span>
           </div>
           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalSuccess}</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {stats.totalSalesSuccess.toLocaleString()}</p>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesSuccess)}</p>
         </div>
 
         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -767,7 +779,7 @@ ${trackingUrl}`;
             <span className="text-xs uppercase font-medium">Return</span>
           </div>
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {stats.totalSalesReturn.toLocaleString()}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {formatRM(stats.totalSalesReturn)}</p>
         </div>
 
         <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
@@ -775,7 +787,7 @@ ${trackingUrl}`;
             <Package className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Cost Product</span>
           </div>
-          <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">RM {stats.totalCostProduct.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">RM {formatRM(stats.totalCostProduct)}</p>
         </div>
 
         <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
@@ -783,7 +795,7 @@ ${trackingUrl}`;
             <Truck className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Cost Postage</span>
           </div>
-          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">RM {stats.totalCostPostage.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">RM {formatRM(stats.totalCostPostage)}</p>
         </div>
       </div>
 

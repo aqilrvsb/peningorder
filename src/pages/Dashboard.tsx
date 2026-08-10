@@ -114,10 +114,12 @@ const Dashboard: React.FC = () => {
     const fetchSpends = async () => {
       setSpendsLoading(true);
       try {
-        const { data, error } = await (supabase as any)
-          .from('spends')
-          .select('*');
-        if (error) throw error;
+        // fetchAllRows + order so the marketer dashboard's Total Spend / ROAS
+        // are complete and deterministic (the old uncapped .select('*') was
+        // silently truncated to an arbitrary 1000 rows by PostgREST).
+        const data = await fetchAllRows(() =>
+          (supabase as any).from('spends').select('*').order('created_at', { ascending: false })
+        );
         setSpends(data || []);
       } catch (error) {
         console.error('Error fetching spends:', error);
