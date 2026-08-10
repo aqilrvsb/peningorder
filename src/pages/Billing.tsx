@@ -160,7 +160,10 @@ const Billing: React.FC = () => {
                 </span>
               )}
               <div className="flex items-center gap-2 text-primary mb-2">{PLAN_ICONS[key]}<span className="font-semibold text-lg">{cfg.label}</span></div>
-              <div className="mb-4">
+              <div className="mb-4 flex items-baseline gap-1.5">
+                {Number((cfg as any).original_price) > cfg.price && (
+                  <span className="text-lg font-semibold text-muted-foreground line-through decoration-red-500/70">RM {(cfg as any).original_price}</span>
+                )}
                 <span className="text-3xl font-bold">RM {cfg.price}</span>
                 <span className="text-muted-foreground text-sm"> / {cfg.days} days</span>
               </div>

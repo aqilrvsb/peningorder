@@ -11,6 +11,7 @@ import { Tags, Loader2, Save, Clock, Zap, Rocket, Crown } from 'lucide-react';
 interface PlanCfg {
   label: string;
   price: number;
+  original_price?: number; // strike-through "before" price on landing + billing; 0/undefined = no discount shown
   days: number;
   max_orders_per_month: number;
   active?: boolean; // undefined => treated as active
@@ -122,7 +123,12 @@ const AdminPricing: React.FC = () => {
                     <Input value={cfg.label} onChange={(e) => setField(key, 'label', e.target.value)} className="mt-1" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Price (RM)</label>
+                    <label className="text-xs text-muted-foreground uppercase">Original Price (RM)</label>
+                    <Input type="number" value={cfg.original_price ?? ''} onChange={(e) => setField(key, 'original_price', e.target.value)} className="mt-1" placeholder="cth: 79 (kosong = tiada diskaun)" disabled={key === 'trial'} />
+                    <p className="text-[11px] text-muted-foreground mt-1">Dicoret di depan. Kosongkan jika tiada diskaun.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase">Price (RM) — dibayar</label>
                     <Input type="number" value={cfg.price} onChange={(e) => setField(key, 'price', e.target.value)} className="mt-1" disabled={key === 'trial'} />
                   </div>
                   <div>

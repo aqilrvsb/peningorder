@@ -90,6 +90,9 @@ export default function Pricing() {
                   </div>
                   <p className="mt-3 min-h-[2.5rem] text-sm text-po-ink-soft">{BLURB[key]}</p>
                   <div className="mt-4 flex items-baseline gap-1.5">
+                    {Number((p as any).original_price) > p.price && (
+                      <span className="text-lg font-semibold text-po-ink-muted line-through decoration-po-danger/70">RM{(p as any).original_price}</span>
+                    )}
                     <span className="text-4xl font-extrabold text-po-ink">RM{p.price}</span>
                     <span className="text-sm font-medium text-po-ink-muted">/ {p.days} hari</span>
                   </div>

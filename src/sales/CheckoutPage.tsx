@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 // they abandon payment) and forward to CHIP. On CHIP success they land back on
 // /dashboard/billing with their plan upgraded by the billing-webhook.
 type PlanKey = 'starter' | 'growth' | 'scale';
-type PlanCfg = { price: number; days: number; label: string; max_orders_per_month: number };
+type PlanCfg = { price: number; original_price?: number; days: number; label: string; max_orders_per_month: number };
 const VALID: PlanKey[] = ['starter', 'growth', 'scale'];
 
 function friendlyError(err: string): string {
@@ -192,11 +192,21 @@ export default function CheckoutPage() {
                         <div className="font-semibold text-po-ink">Plan {cfg.label}</div>
                         <div className="text-xs text-po-ink-muted">{cfg.days} hari · {cfg.max_orders_per_month >= 999999 ? 'order tanpa had' : `${cfg.max_orders_per_month.toLocaleString('en-MY')} order/bulan`}</div>
                       </div>
-                      <div className="whitespace-nowrap text-sm font-semibold text-po-ink">RM {cfg.price.toFixed(2)}</div>
+                      <div className="whitespace-nowrap text-sm font-semibold text-po-ink">
+                        {Number(cfg.original_price) > cfg.price && (
+                          <span className="mr-1.5 font-medium text-po-ink-muted line-through decoration-po-danger/70">RM {cfg.original_price!.toFixed(2)}</span>
+                        )}
+                        RM {cfg.price.toFixed(2)}
+                      </div>
                     </div>
                     <div className="mt-4 flex items-baseline justify-between">
                       <span className="text-sm font-semibold uppercase tracking-wide text-po-ink-muted">Jumlah</span>
-                      <span className="text-2xl font-extrabold text-po-ink">RM {cfg.price.toFixed(2)}</span>
+                      <span className="flex items-baseline gap-1.5">
+                        {Number(cfg.original_price) > cfg.price && (
+                          <span className="text-base font-medium text-po-ink-muted line-through decoration-po-danger/70">RM {cfg.original_price!.toFixed(2)}</span>
+                        )}
+                        <span className="text-2xl font-extrabold text-po-ink">RM {cfg.price.toFixed(2)}</span>
+                      </span>
                     </div>
                     <ul className="mt-5 space-y-2 border-t border-po-border pt-4 text-xs text-po-ink-soft">
                       <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-po-success" />Akses penuh semua fungsi</li>
