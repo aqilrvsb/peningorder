@@ -62,14 +62,17 @@ const marketerItems: NavItem[] = [
 ];
 
 // ============ LOGISTIC ROLE ============
-// ============ MANAGEMENT ROLE (Logistic + Account merged) ============
-const managementItems: NavItem[] = [
+const logisticItems: NavItem[] = [
   { label: 'Product', path: '/dashboard/logistics/inventory-product', icon: <Package className="w-5 h-5" /> },
   { label: 'Bundle', path: '/dashboard/logistics/inventory-bundle', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Order', path: '/dashboard/logistics/order', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Processed', path: '/dashboard/logistics/processed', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
+];
+
+// ============ FINANCE ROLE ============
+const financeItems: NavItem[] = [
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
   { label: 'Pending COD Collection', path: '/dashboard/account/pending-tracking', icon: <DollarSign className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
@@ -89,7 +92,7 @@ const adminItems: NavItem[] = [
   { label: 'Settings', path: '/dashboard/admin/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
-type GroupKey = 'marketer' | 'management';
+type GroupKey = 'marketer' | 'logistic' | 'finance';
 
 interface RoleGroup {
   key: GroupKey;
@@ -100,7 +103,8 @@ interface RoleGroup {
 
 const baseRoleGroups: RoleGroup[] = [
   { key: 'marketer', label: 'Marketer Role', icon: <Megaphone className="w-5 h-5" />, items: marketerItems },
-  { key: 'management', label: 'Management Role', icon: <Truck className="w-5 h-5" />, items: managementItems },
+  { key: 'logistic', label: 'Logistic', icon: <Truck className="w-5 h-5" />, items: logisticItems },
+  { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />, items: financeItems },
 ];
 
 const Sidebar: React.FC = () => {
