@@ -57,7 +57,7 @@ interface OrderForTracking {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success"];
-const COLLECTION_STATUS_OPTIONS = ["All", "Pending", "Success", "Return"];
+const COLLECTION_STATUS_OPTIONS = ["All", "Collection", "Remaining"];
 
 // Collection = did we get the money?
 //   CASH  -> collected upfront (Success) as soon as the order exists
@@ -137,7 +137,8 @@ const Orders: React.FC = () => {
 
       // Collection status filter
       if (collectionFilter !== "All") {
-        if (getCollectionStatus(order) !== collectionFilter) {
+        const target = collectionFilter === 'Collection' ? 'Success' : collectionFilter === 'Remaining' ? 'Pending' : collectionFilter;
+        if (getCollectionStatus(order) !== target) {
           return false;
         }
       }
@@ -765,15 +766,6 @@ ${trackingUrl}`;
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.remaining.cash)} · COD RM {formatRM(stats.split.remaining.cod)}</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Package className="w-4 h-4 text-purple-500" />
-            <span className="text-xs uppercase font-medium">Total Unit</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{stats.totalUnit}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.unit.cash} · COD {stats.split.unit.cod}</p>
-        </div>
-
         <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
             <Clock className="w-4 h-4" />
@@ -957,18 +949,6 @@ ${trackingUrl}`;
               <Download className="w-4 h-4 mr-2" />
               Export CSV
             </Button>
-            <Button
-              onClick={handleBulkPrintWaybills}
-              disabled={selectedIds.size === 0 || isBulkPrinting}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {isBulkPrinting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4 mr-2" />
-              )}
-              Print Waybills{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
-            </Button>
           </div>
         </div>
       </div>
@@ -995,9 +975,6 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
-                {!isMarketer && (
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
-                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
@@ -1036,9 +1013,6 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
-                    {!isMarketer && (
-                      <td className="px-4 py-3 text-sm text-foreground">{order.kuantiti || 1}</td>
-                    )}
                     <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
