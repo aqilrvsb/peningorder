@@ -636,8 +636,8 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* WhatsApp Device — every tenant (used for customer notifications) */}
-      {true && (
+      {/* WhatsApp Device — hidden (Cipta Device) per request */}
+      {false && (
         <div className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
