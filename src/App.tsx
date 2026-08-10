@@ -64,12 +64,19 @@ const RouteFallback = () => (
 // Role separation: the platform owner (superadmin) is a reporting/settings role
 // and must never reach the client order-entry pages; clients must never reach
 // the admin pages. RoleGate redirects the wrong role to its own home.
-const RoleGate = ({ need, children }: { need: "admin" | "client"; children: ReactElement }) => {
+const RoleGate = ({ need, allowExpired, children }: { need: "admin" | "client"; allowExpired?: boolean; children: ReactElement }) => {
   const { profile, isLoading } = useAuth();
   if (isLoading) return <RouteFallback />;
   const isAdmin = profile?.role === "superadmin";
   if (need === "admin" && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (need === "client" && isAdmin) return <Navigate to="/dashboard/admin/clients" replace />;
+  // Expired / deactivated clients keep read access to nothing but Billing (to
+  // resubscribe) and Profile. Every other client tab redirects to Billing.
+  if (need === "client" && !isAdmin && !allowExpired) {
+    const exp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
+    const frozen = profile?.isActive === false || (exp !== null && exp.getTime() < Date.now());
+    if (frozen) return <Navigate to="/dashboard/billing" replace />;
+  }
   return children;
 };
 
@@ -82,6 +89,8 @@ const DashboardHome = () => {
 };
 
 const clientOnly = (el: ReactElement) => <RoleGate need="client">{el}</RoleGate>;
+// Billing stays reachable even when the plan has expired (that's where they resubscribe).
+const clientBilling = (el: ReactElement) => <RoleGate need="client" allowExpired>{el}</RoleGate>;
 const adminOnly = (el: ReactElement) => <RoleGate need="admin">{el}</RoleGate>;
 
 const App = () => (
@@ -135,7 +144,7 @@ const App = () => (
                     <Route path="admin/tickets" element={adminOnly(<AdminTickets />)} />
                     <Route path="admin/pricing" element={adminOnly(<AdminPricing />)} />
                     {/* Bottom nav — Billing is client-only; Profile shared */}
-                    <Route path="billing" element={clientOnly(<Billing />)} />
+                    <Route path="billing" element={clientBilling(<Billing />)} />
                     <Route path="profile" element={<Profile />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />

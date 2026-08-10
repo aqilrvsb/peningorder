@@ -11,6 +11,9 @@ interface UserProfile {
   businessName: string;
   idstaff: string;
   role: UserRole;
+  plan: string | null;
+  planExpiresAt: string | null;
+  isActive: boolean;
 }
 
 interface AuthContextType {
@@ -45,6 +48,9 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     businessName: profile.business_name || '',
     idstaff: profile.idstaff || '',
     role: (roles?.[0]?.role || 'client') as UserRole,
+    plan: profile.plan ?? null,
+    planExpiresAt: profile.plan_expires_at ?? null,
+    isActive: profile.is_active !== false,
   };
 }
 
