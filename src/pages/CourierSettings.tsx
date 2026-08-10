@@ -90,9 +90,14 @@ const CourierSettings: React.FC = () => {
         ) || data.sender_state || '';
         setFormData({ ...emptyConfig, ...data, sender_state: normState });
       } else if (user) {
-        // Pre-fill sender fields from profile if available
+        // New client: inherit the platform courier defaults (environment +
+        // default courier) set by admin, and pre-fill sender from profile.
+        const { data: cd } = await supabase.from('app_settings').select('value').eq('key', 'courier_defaults').maybeSingle();
+        const defaults = (cd?.value ?? {}) as { environment?: string; default_courier?: string };
         setFormData((f) => ({
           ...f,
+          environment: (defaults.environment as any) || f.environment,
+          default_courier: defaults.default_courier || f.default_courier,
           sender_name: user.businessName || user.fullName || '',
           sender_email: user.email || '',
         }));

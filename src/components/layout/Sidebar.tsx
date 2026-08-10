@@ -81,9 +81,11 @@ const managementItems: NavItem[] = [
 // no Marketer/Management role menus.
 const adminItems: NavItem[] = [
   { label: 'Reporting', path: '/dashboard/admin/clients', icon: <BarChart3 className="w-5 h-5" /> },
+  { label: 'Client Management', path: '/dashboard/admin/manage-clients', icon: <Users className="w-5 h-5" /> },
   { label: 'Transactions', path: '/dashboard/admin/transactions', icon: <CreditCard className="w-5 h-5" /> },
   { label: 'Tickets', path: '/dashboard/admin/tickets', icon: <Ticket className="w-5 h-5" /> },
-  { label: 'Pricing & Settings', path: '/dashboard/admin/pricing', icon: <Settings className="w-5 h-5" /> },
+  { label: 'Pricing Plans', path: '/dashboard/admin/pricing', icon: <Receipt className="w-5 h-5" /> },
+  { label: 'Settings', path: '/dashboard/admin/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 type GroupKey = 'marketer' | 'management';

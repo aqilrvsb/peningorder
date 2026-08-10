@@ -24,18 +24,22 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const chipKey = Deno.env.get("CHIP_API_KEY")!;
-    const chipBrand = Deno.env.get("CHIP_BRAND_ID")!;
     const appOrigin = Deno.env.get("APP_ORIGIN") || "https://peningorder.com";
-    if (!chipKey || !chipBrand) {
-      return fail("Server misconfigured: CHIP_API_KEY / CHIP_BRAND_ID missing", 500);
-    }
 
     const authHeader = req.headers.get("Authorization") || "";
     const authedSupabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const admin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // CHIP creds from admin-managed platform_secrets first, env fallback.
+    const { data: chipRow } = await admin.from("platform_secrets").select("value").eq("key", "chip").maybeSingle();
+    const chipCfg = (chipRow?.value ?? {}) as { api_key?: string; brand_id?: string };
+    const chipKey = chipCfg.api_key || Deno.env.get("CHIP_API_KEY");
+    const chipBrand = chipCfg.brand_id || Deno.env.get("CHIP_BRAND_ID");
+    if (!chipKey || !chipBrand) {
+      return fail("CHIP not configured. Set it in Admin → Settings.", 500);
+    }
 
     const { data: { user }, error: userError } = await authedSupabase.auth.getUser();
     if (userError || !user) return fail("Not authenticated. Sign in first.", 401);

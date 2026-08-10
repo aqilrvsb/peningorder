@@ -152,8 +152,12 @@ serve(async (req) => {
 
     // Create the CHIP purchase. If CHIP isn't configured we still return
     // success — the account exists and the user can subscribe later.
-    const chipKey = Deno.env.get("CHIP_API_KEY");
-    const chipBrand = Deno.env.get("CHIP_BRAND_ID");
+    // CHIP creds come from the admin-managed platform_secrets row first
+    // (dynamic config), falling back to env secrets.
+    const { data: chipRow } = await admin.from("platform_secrets").select("value").eq("key", "chip").maybeSingle();
+    const chipCfg = (chipRow?.value ?? {}) as { api_key?: string; brand_id?: string };
+    const chipKey = chipCfg.api_key || Deno.env.get("CHIP_API_KEY");
+    const chipBrand = chipCfg.brand_id || Deno.env.get("CHIP_BRAND_ID");
     if (!chipKey || !chipBrand) {
       console.warn("CHIP not configured — returning account without checkout URL");
       return json(200, { success: true, account_created: true, chip_url: null, email: intent.email, warning: "chip_not_configured" });

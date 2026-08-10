@@ -23,15 +23,19 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const chipKey = Deno.env.get("CHIP_API_KEY")!;
+
+    const admin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // CHIP key from admin-managed platform_secrets first, env fallback.
+    const { data: chipRow } = await admin.from("platform_secrets").select("value").eq("key", "chip").maybeSingle();
+    const chipCfg = (chipRow?.value ?? {}) as { api_key?: string };
+    const chipKey = chipCfg.api_key || Deno.env.get("CHIP_API_KEY");
     if (!chipKey) {
-      return new Response(JSON.stringify({ error: "CHIP_API_KEY missing" }), {
+      return new Response(JSON.stringify({ error: "CHIP not configured" }), {
         status: 500,
         headers: jsonHeaders,
       });
     }
-
-    const admin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Chip POSTs the purchase object, we can also handle GET for manual polls
     let purchaseId: string | undefined;
