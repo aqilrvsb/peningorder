@@ -5,7 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
   Select,
@@ -23,6 +24,33 @@ import {
 } from '@/components/ui/dialog';
 
 const PARCELDAILY_SIGNUP_URL = 'https://partner.parceldaily.com/auth/sign-up?accountManagerId=Ryrr36KL3y';
+
+// Unified ParcelDaily "Status Groups" (statusGroup), same set across Ninjavan /
+// DHL / PosLaju / J&T — taken verbatim from ParcelDaily's OpenAPI spec.
+// The key IS the exact statusGroup string the Tracking webhook sends.
+// Each has two independent toggles: TRACK (apply to the order) and NOTIFY (WhatsApp the customer).
+const TRACKING_STATUSES: { key: string; label: string }[] = [
+  { key: 'Waiting Pickup', label: 'Waiting Pickup' },
+  { key: 'Shipment Data Received', label: 'Shipment Data Received' },
+  { key: 'Picked up', label: 'Picked Up' },
+  { key: 'In transit', label: 'In Transit' },
+  { key: 'Processing', label: 'Processing' },
+  { key: 'On Delivery', label: 'On Delivery' },
+  { key: 'Delivered', label: 'Delivered' },
+  { key: 'Self Collect', label: 'Self Collect' },
+  { key: 'Problematic Processing', label: 'Problematic Processing' },
+  { key: 'Custom matter', label: 'Custom Matter' },
+  { key: 'Return in transit', label: 'Return In Transit' },
+  { key: 'Returned', label: 'Returned' },
+  { key: 'Cancel Requested by User', label: 'Cancel Requested by User' },
+  { key: 'Cancelled by User', label: 'Cancelled by User' },
+  { key: 'Cancelled', label: 'Cancelled' },
+  { key: 'Refunded', label: 'Refunded' },
+  { key: 'Closed', label: 'Closed' },
+  { key: 'COD amount deposited', label: 'COD Amount Deposited' },
+  { key: 'COD amount remitted', label: 'COD Amount Remitted' },
+];
+type TrackPref = { track: boolean; notify: boolean };
 
 // Published ParcelDaily courier rates (flat + per-kg sub price).
 const COURIER_RATES = [
@@ -98,6 +126,36 @@ const CourierSettings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ParcelDailyConfig>(emptyConfig);
+
+  // Tracking Webhook — per-status Track / Notify toggles (default both ON).
+  const [showTracking, setShowTracking] = useState(false);
+  const [trackPrefs, setTrackPrefs] = useState<Record<string, TrackPref>>({});
+  // Default: track everything, but only notify on "Delivered" (preserves the
+  // no-spam default) — clients opt into notifying more statuses.
+  const prefFor = (key: string): TrackPref => trackPrefs[key] ?? { track: true, notify: key === 'Delivered' };
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from('tracking_status_setting').select('status_key, track, notify');
+      const map: Record<string, TrackPref> = {};
+      (data || []).forEach((r: any) => { map[r.status_key] = { track: r.track, notify: r.notify }; });
+      setTrackPrefs(map);
+    })();
+  }, [user]);
+
+  const toggleTrack = async (key: string, field: keyof TrackPref, value: boolean) => {
+    const next = { ...prefFor(key), [field]: value };
+    setTrackPrefs((p) => ({ ...p, [key]: next }));
+    const { error } = await supabase.from('tracking_status_setting').upsert({
+      owner_user_id: user!.id,
+      status_key: key,
+      track: next.track,
+      notify: next.notify,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'owner_user_id,status_key' });
+    if (error) toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+  };
   const [showRates, setShowRates] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
 
@@ -419,6 +477,50 @@ const CourierSettings: React.FC = () => {
             )}
           </Button>
         </div>
+      </div>
+
+      {/* Tracking Webhook — per-status Track / Notify toggles */}
+      <div className="bg-card rounded-lg border border-border mt-6">
+        <button
+          type="button"
+          onClick={() => setShowTracking((v) => !v)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Truck className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-lg">Tracking Webhook</span>
+            <span className="hidden sm:inline text-xs text-muted-foreground">Ninjavan · DHL · PosLaju · J&amp;T</span>
+          </div>
+          {showTracking ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+        </button>
+
+        {showTracking && (
+          <div className="px-4 pb-5">
+            <p className="text-sm text-muted-foreground mb-4">
+              Untuk setiap status penghantaran: <b>Track</b> = update status order bila webhook masuk; <b>Notify</b> = hantar notifikasi WhatsApp ke pelanggan. Default kedua-dua <span className="text-green-600 font-medium">ON</span>.
+            </p>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2">Status</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2 flex items-center gap-1 justify-center"><Radio className="w-3.5 h-3.5" /> Track</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2 flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
+              {TRACKING_STATUSES.map((s) => {
+                const p = prefFor(s.key);
+                return (
+                  <React.Fragment key={s.key}>
+                    <div className="text-sm py-2.5 border-t border-border/60">{s.label}</div>
+                    <div className="flex justify-center py-2.5 border-t border-border/60">
+                      <Switch checked={p.track} onCheckedChange={(v) => toggleTrack(s.key, 'track', v)} />
+                    </div>
+                    <div className="flex justify-center py-2.5 border-t border-border/60">
+                      <Switch checked={p.notify} disabled={!p.track} onCheckedChange={(v) => toggleTrack(s.key, 'notify', v)} />
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">Notify hanya berfungsi bila Track ON untuk status tersebut.</p>
+          </div>
+        )}
       </div>
 
       {/* Rate Kurier modal */}

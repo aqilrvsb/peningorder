@@ -34,25 +34,61 @@ async function sendWhatsApp(
 ): Promise<string> {
   try {
     if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
+    // Client devices are Baileys on the Railway gateway — send from the client's
+    // own connected WhatsApp via the partner gateway (not Whacenter).
     const { data: device } = await supabase
       .from("device_setting")
       .select("instance, status_wa")
-      .eq("user_id", ownerUserId)
+      .eq("owner_user_id", ownerUserId)
+      .eq("provider", "baileys")
       .maybeSingle();
     if (!device?.instance) return "wa_skipped_no_device";
+
+    const { data: secretRow } = await supabase
+      .from("platform_secrets").select("value").eq("key", "baileys_gateway").maybeSingle();
+    const cfg = (secretRow?.value ?? {}) as { url?: string; api_key?: string };
+    if (!cfg.url || !cfg.api_key) return "wa_skipped_no_gateway";
 
     const number = waPhone(customerPhone);
     if (!number) return "wa_skipped_bad_phone";
 
-    const url = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(device.instance)}&number=${encodeURIComponent(number)}&message=${encodeURIComponent(message)}`;
-    const res = await fetch(url, { method: "GET" });
+    const form = new URLSearchParams();
+    form.append("api_key", cfg.api_key);
+    form.append("device_id", device.instance);
+    form.append("number", number);
+    form.append("message", message);
+    const res = await fetch(`${cfg.url.replace(/\/$/, "")}/api/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
     const txt = await res.text();
-    console.log(`[whatsapp] send status=${res.status} body=${txt.slice(0, 200)}`);
-    return res.ok ? "wa_sent" : `wa_failed_${res.status}`;
+    console.log(`[whatsapp] gateway send status=${res.status} body=${txt.slice(0, 200)}`);
+    try { const j = JSON.parse(txt); return j.status ? "wa_sent" : `wa_failed_${j.message || res.status}`; }
+    catch { return res.ok ? "wa_sent" : `wa_failed_${res.status}`; }
   } catch (err) {
     console.error("[whatsapp] send error:", err);
     return "wa_error";
   }
+}
+
+// Per-tenant Track/Notify preference for a unified statusGroup. Missing row =>
+// track everything, notify only on "Delivered" (the no-spam default that
+// preserves the original behaviour).
+async function getTrackPref(
+  supabase: any,
+  ownerUserId: string | null | undefined,
+  statusGroup: string,
+): Promise<{ track: boolean; notify: boolean }> {
+  const fallback = { track: true, notify: /^delivered$/i.test(statusGroup || "") };
+  if (!ownerUserId || !statusGroup) return fallback;
+  const { data } = await supabase
+    .from("tracking_status_setting")
+    .select("track, notify")
+    .eq("owner_user_id", ownerUserId)
+    .eq("status_key", statusGroup)
+    .maybeSingle();
+  return data ? { track: !!data.track, notify: !!data.notify } : fallback;
 }
 
 serve(async (req) => {
@@ -160,55 +196,107 @@ serve(async (req) => {
         action = "checkout_updated_by_orderid";
       }
     } else if (event === "STATUS_UPDATED") {
-      // Tracking status changed
+      // Tracking status changed — gated by the client's per-status Track/Notify.
       if (matched) {
-        const status = payload.status || payload.statusGroup || "";
+        const rawStatus = payload.status || payload.statusGroup || "";
+        const statusGroup = payload.statusGroup || rawStatus || "";
         const isDelivered =
-          /delivered|success/i.test(status) || /Delivered/i.test(payload.statusGroup || "");
-        const isReturn = /return/i.test(status);
-        await supabase
-          .from("customer_purchases")
-          .update({
-            delivery_status: isDelivered ? "Success" : isReturn ? "Return" : "Shipped",
-            seos: status,
-            seo: isDelivered ? "Successful Delivery" : null,
-          })
-          .eq("id", matched.id);
-        action = "status_updated";
+          /delivered|success/i.test(rawStatus) || /Delivered/i.test(statusGroup);
+        const isReturn = /return/i.test(rawStatus) || /return/i.test(statusGroup);
+        const pref = await getTrackPref(supabase, matched.owner_user_id, statusGroup);
 
-        // Delivered → thank-you WhatsApp (only on the transition, not repeats)
-        if (isDelivered && matched.delivery_status !== "Success") {
+        if (pref.track) {
+          await supabase
+            .from("customer_purchases")
+            .update({
+              delivery_status: isDelivered ? "Success" : isReturn ? "Return" : "Shipped",
+              seos: rawStatus,
+              seo: isDelivered ? "Successful Delivery" : null,
+            })
+            .eq("id", matched.id);
+          action = "status_updated";
+        } else {
+          action = "status_untracked_skip";
+        }
+
+        if (pref.notify) {
+          let waMsg: string | null = null;
+          if (isDelivered) {
+            // thank-you only on the transition into delivered, never on repeats
+            if (matched.delivery_status !== "Success") {
+              waMsg =
+                `Salam ${matched.name_customer || ""}! ✅\n\n` +
+                `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah BERJAYA dihantar.\n\n` +
+                `Terima kasih kerana membeli dengan kami! 🙏`;
+            }
+          } else {
+            waMsg =
+              `Salam ${matched.name_customer || ""}! 📦\n\n` +
+              `Status penghantaran pesanan anda (Tracking: ${matched.tracking_number || consignNo}):\n` +
+              `*${statusGroup || rawStatus}*\n\n` +
+              `Terima kasih!`;
+          }
+          if (waMsg) {
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+            action = `${action}+${waResult}`;
+          }
+        }
+      }
+    } else if (event === "WEIGHT_UPDATED") {
+      // Courier re-weighed the parcel — this drives the postage cost the MERCHANT
+      // is charged, not a customer status. Just record the measured weight; no
+      // customer notification.
+      if (matched) {
+        const newWeight = Number(payload.newWeight ?? payload.weight);
+        if (!Number.isNaN(newWeight)) {
+          await supabase.from("customer_purchases").update({ weight_kg: newWeight }).eq("id", matched.id);
+        }
+        action = "weight_updated";
+      }
+    } else if (event === "COD_REMITTED") {
+      if (matched) {
+        const pref = await getTrackPref(supabase, matched.owner_user_id, "COD amount remitted");
+        if (pref.track) {
+          await supabase
+            .from("customer_purchases")
+            .update({
+              date_payment: (payload.remittedAt || new Date().toISOString()).slice(0, 10),
+            })
+            .eq("id", matched.id);
+        }
+        action = "cod_remitted";
+        if (pref.notify) {
+          const amt = payload.amount ? `RM${payload.amount}` : "";
           const waMsg =
-            `Salam ${matched.name_customer || ""}! ✅\n\n` +
-            `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah BERJAYA dihantar.\n\n` +
-            `Terima kasih kerana membeli dengan kami! 🙏`;
+            `Salam ${matched.name_customer || ""}! 💰\n\n` +
+            `Bayaran COD${amt ? ` ${amt}` : ""} untuk pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah diterima.\n\n` +
+            `Terima kasih!`;
           const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
           action = `${action}+${waResult}`;
         }
       }
-    } else if (event === "COD_REMITTED") {
-      if (matched) {
-        await supabase
-          .from("customer_purchases")
-          .update({
-            date_payment: (payload.remittedAt || new Date().toISOString()).slice(0, 10),
-          })
-          .eq("id", matched.id);
-        action = "cod_remitted";
-      }
     } else if (event === "CANCEL_STATUS_UPDATED") {
       if (matched) {
-        await supabase
-          .from("customer_purchases")
-          .update({ delivery_status: "Cancelled" })
-          .eq("id", matched.id);
+        const pref = await getTrackPref(supabase, matched.owner_user_id, "Cancelled");
+        if (pref.track) {
+          await supabase
+            .from("customer_purchases")
+            .update({ delivery_status: "Cancelled" })
+            .eq("id", matched.id);
+        }
         action = "cancelled";
+        if (pref.notify) {
+          const waMsg =
+            `Salam ${matched.name_customer || ""}!\n\n` +
+            `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah DIBATALKAN.\n\n` +
+            `Hubungi kami jika ada sebarang pertanyaan.`;
+          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+          action = `${action}+${waResult}`;
+        }
       }
     } else if (event === "CONNOTE_LINK") {
       // Bulk export URL — return in log only; frontend triggers this by orderIds so it can poll
       action = "connote_link";
-    } else if (event === "WEIGHT_UPDATED") {
-      action = "weight_updated";
     }
 
     logEntry.parsed_data = { event, consignNo, orderId, action, matched_id: matched?.id };
