@@ -227,6 +227,24 @@ serve(async (req) => {
       );
     }
 
+    // Pre-flight credit check: make sure the merchant has enough ParcelDaily
+    // balance to cover the postage BEFORE we create/pay — otherwise the client
+    // gets a cryptic failure. Alert them clearly to top up. Non-fatal if the
+    // balance endpoint itself errors (we let the create attempt proceed).
+    try {
+      const accRes = await fetch(`${apiBase}/v1/partner/account-info`, { headers: authHeadersEarly });
+      if (accRes.ok) {
+        const acc = await accRes.json().catch(() => null);
+        const credit = Number(acc?.data?.credit ?? acc?.credit);
+        if (isFinite(credit) && credit < shippingPrice) {
+          return fail(
+            `Baki ParcelDaily tidak mencukupi. Baki: RM${credit.toFixed(2)}, Kos pos: RM${shippingPrice.toFixed(2)}. Sila top up ParcelDaily dulu sebelum hantar order.`,
+            { code: "insufficient_credit", credit, needed: shippingPrice, courier },
+          );
+        }
+      }
+    } catch (_) { /* balance check failed — let the create attempt proceed */ }
+
     const createPayload: Record<string, unknown> = {
       serviceProvider: courier,
       pickupAddress: senderAddress,
