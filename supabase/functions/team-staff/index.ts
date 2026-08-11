@@ -84,29 +84,18 @@ serve(async (req) => {
       const newIdstaff = `${clientIdstaff}-${maxN + 1}`;
       const email = staffEmail(newIdstaff);
 
+      // handle_new_user sees staff_of + staff_idstaff and provisions the profile
+      // as a staff of this client (idstaff set at INSERT — a BEFORE UPDATE trigger
+      // locks idstaff, so it cannot be changed afterwards).
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: { username: newIdstaff, full_name: name, whatsapp },
+        user_metadata: { username: newIdstaff, full_name: name, whatsapp, staff_of: clientId, staff_idstaff: newIdstaff },
       });
       if (cErr || !created?.user) {
         return json(500, { error: "create_failed", detail: cErr?.message });
       }
-      // The handle_new_user trigger created a profile with a random idstaff + client role.
-      // Re-stamp it as a staff member of this client.
-      await admin.from("profiles").update({
-        idstaff: newIdstaff,
-        parent_user_id: clientId,
-        full_name: name,
-        whatsapp: whatsapp,
-        whatsapp_number: whatsapp,
-        is_active: true,
-        plan: "staff",
-        plan_expires_at: me.plan_expires_at, // follows the client's window
-      }).eq("id", created.user.id);
-      await admin.from("user_roles").update({ role: "marketer" }).eq("user_id", created.user.id);
-
       return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff });
     }
 
