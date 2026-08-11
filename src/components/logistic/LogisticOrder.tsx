@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useTeam } from "@/hooks/useTeam";
+import { TeamFilter } from "@/components/TeamFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +53,8 @@ const LogisticOrder = () => {
 
   // Filter states
   const [search, setSearch] = useState("");
+  const [teamFilter, setTeamFilter] = useState('');
+  const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
   const [paymentFilter, setPaymentFilter] = useState("All");
@@ -176,6 +180,8 @@ const LogisticOrder = () => {
 
   // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
+    // Team filter (client narrows to one staff)
+    if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
@@ -741,6 +747,7 @@ const LogisticOrder = () => {
                     className="pl-10"
                   />
                 </div>
+                <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
                 <Button
                   onClick={() => { setStartDate(""); setEndDate(""); }}
                   className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
@@ -863,6 +870,8 @@ const LogisticOrder = () => {
                         />
                       </th>
                       <th className="p-2 text-left">No</th>
+                      <th className="p-2 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
+                      <th className="p-2 text-left text-blue-600 dark:text-blue-400">Nama</th>
                       <th className="p-2 text-left">Id Sales</th>
                       <th className="p-2 text-left">Tarikh Order</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
@@ -895,6 +904,8 @@ const LogisticOrder = () => {
                             />
                           </td>
                           <td className="p-2">{pageSize === "All" ? index + 1 : (currentPage - 1) * (pageSize as number) + index + 1}</td>
+                          <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
@@ -1013,7 +1024,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>
