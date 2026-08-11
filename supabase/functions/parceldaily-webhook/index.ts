@@ -91,6 +91,41 @@ async function getTrackPref(
   return data ? { track: !!data.track, notify: !!data.notify } : fallback;
 }
 
+// The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).
+async function clientPhone(supabase: any, ownerUserId: string | null | undefined): Promise<string> {
+  if (!ownerUserId) return "";
+  const { data } = await supabase.from("profiles").select("whatsapp, whatsapp_number").eq("id", ownerUserId).maybeSingle();
+  return String(data?.whatsapp || data?.whatsapp_number || "").trim();
+}
+
+// Send a message to the CLIENT (seller) from the platform's ADMIN device
+// (Whacenter admin_device). Used for seller-facing alerts, never the customer.
+async function notifyClient(supabase: any, ownerUserId: string | null | undefined, message: string): Promise<string> {
+  try {
+    const to = await clientPhone(supabase, ownerUserId);
+    const number = waPhone(to);
+    if (!number) return "wa_skipped_no_client_phone";
+    const { data: device } = await supabase
+      .from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
+    if (!device?.instance) return "wa_skipped_no_admin_device";
+    const form = new URLSearchParams();
+    if (device.api_key) form.append("api_key", device.api_key);
+    form.append("device_id", device.instance);
+    form.append("number", number);
+    form.append("message", message);
+    const res = await fetch("https://api.whacenter.com/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
+    const txt = await res.text();
+    try { const j = JSON.parse(txt); return j.status ? "client_notified" : `client_notify_failed_${j.message || res.status}`; }
+    catch { return res.ok ? "client_notified" : `client_notify_failed_${res.status}`; }
+  } catch (_e) {
+    return "client_notify_error";
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -243,37 +278,44 @@ serve(async (req) => {
         }
       }
     } else if (event === "WEIGHT_UPDATED") {
-      // Courier re-weighed the parcel — this drives the postage cost the MERCHANT
-      // is charged, not a customer status. Just record the measured weight; no
-      // customer notification.
+      // Courier re-weighed the parcel — a MERCHANT cost concern (postage is
+      // charged by weight). Always recorded; the SELLER is alerted on their own
+      // WhatsApp via the admin device. The customer is never messaged.
       if (matched) {
         const newWeight = Number(payload.newWeight ?? payload.weight);
+        const prevWeight = Number(payload.previousWeight);
         if (!Number.isNaN(newWeight)) {
           await supabase.from("customer_purchases").update({ weight_kg: newWeight }).eq("id", matched.id);
         }
         action = "weight_updated";
+        const msg =
+          `📦 *PeningOrder — Berat Parcel Dikemaskini*\n\n` +
+          `Tracking: ${matched.tracking_number || consignNo}\n` +
+          (Number.isNaN(prevWeight) ? "" : `Berat lama: ${prevWeight} kg\n`) +
+          `Berat baru: ${Number.isNaN(newWeight) ? "-" : newWeight} kg\n\n` +
+          `Kos penghantaran mungkin berubah mengikut berat sebenar.`;
+        const r = await notifyClient(supabase, matched.owner_user_id, msg);
+        action = `${action}+${r}`;
       }
     } else if (event === "COD_REMITTED") {
+      // ParcelDaily has PAID the collected COD to the seller. Always recorded
+      // (drives collection reports); the SELLER is alerted on their own WhatsApp
+      // via the admin device. The customer is never messaged.
       if (matched) {
-        const pref = await getTrackPref(supabase, matched.owner_user_id, "COD amount remitted");
-        if (pref.track) {
-          await supabase
-            .from("customer_purchases")
-            .update({
-              date_payment: (payload.remittedAt || new Date().toISOString()).slice(0, 10),
-            })
-            .eq("id", matched.id);
-        }
+        await supabase
+          .from("customer_purchases")
+          .update({
+            date_payment: (payload.remittedAt || new Date().toISOString()).slice(0, 10),
+          })
+          .eq("id", matched.id);
         action = "cod_remitted";
-        if (pref.notify) {
-          const amt = payload.amount ? `RM${payload.amount}` : "";
-          const waMsg =
-            `Salam ${matched.name_customer || ""}! 💰\n\n` +
-            `Bayaran COD${amt ? ` ${amt}` : ""} untuk pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah diterima.\n\n` +
-            `Terima kasih!`;
-          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
-          action = `${action}+${waResult}`;
-        }
+        const amt = payload.amount ? `RM${payload.amount}` : "";
+        const msg =
+          `💰 *PeningOrder — COD Diremit*\n\n` +
+          `Bayaran COD${amt ? ` ${amt}` : ""} untuk order (Tracking: ${matched.tracking_number || consignNo}) telah diremit ke akaun anda.\n` +
+          `Pelanggan: ${matched.name_customer || "-"}`;
+        const r = await notifyClient(supabase, matched.owner_user_id, msg);
+        action = `${action}+${r}`;
       }
     } else if (event === "CANCEL_STATUS_UPDATED") {
       if (matched) {

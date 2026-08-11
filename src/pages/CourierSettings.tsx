@@ -47,8 +47,9 @@ const TRACKING_STATUSES: { key: string; label: string }[] = [
   { key: 'Cancelled', label: 'Cancelled' },
   { key: 'Refunded', label: 'Refunded' },
   { key: 'Closed', label: 'Closed' },
-  { key: 'COD amount deposited', label: 'COD Amount Deposited' },
-  { key: 'COD amount remitted', label: 'COD Amount Remitted' },
+  // NOTE: "COD amount remitted" and "Weight Update" are intentionally NOT here —
+  // they are seller-facing (money received / postage cost), always tracked, and
+  // notify the CLIENT via the admin device, not the customer.
 ];
 type TrackPref = { track: boolean; notify: boolean };
 
