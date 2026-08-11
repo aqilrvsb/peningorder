@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows, formatRM } from '@/lib/utils';
+import { TeamFilter } from '@/components/TeamFilter';
 import {
   BarChart3, RefreshCw, Clock, Truck, RotateCcw, CheckCircle2, DollarSign, Wallet, Loader2,
 } from 'lucide-react';
 
-type Order = { date_order: string | null; delivery_status: string | null; tracking_number: string | null; total_sale: number | null; type_payment: string | null; date_payment: string | null; kurier: string | null };
+type Order = { date_order: string | null; delivery_status: string | null; tracking_number: string | null; total_sale: number | null; type_payment: string | null; date_payment: string | null; kurier: string | null; marketer_id_staff: string | null };
 type Bucket = { orders: number; sales: number };
 type Period = { label: string; range: string; start: string; end: string };
 
@@ -64,6 +65,7 @@ const SalesOverview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selMonth, setSelMonth] = useState(now.getUTCMonth());
   const [selYear, setSelYear] = useState(now.getUTCFullYear());
+  const [teamFilter, setTeamFilter] = useState('');
 
   const years = useMemo(() => {
     const y = nowMY().getUTCFullYear();
@@ -85,7 +87,7 @@ const SalesOverview: React.FC = () => {
       const from = selectedPeriod.start < backstop ? selectedPeriod.start : backstop;
       const data = await fetchAllRows<Order>(() =>
         (supabase as any).from('customer_purchases')
-          .select('date_order, delivery_status, tracking_number, total_sale, type_payment, date_payment, kurier')
+          .select('date_order, delivery_status, tracking_number, total_sale, type_payment, date_payment, kurier, marketer_id_staff')
           .gte('date_order', from)
           .order('date_order', { ascending: false })
       );
@@ -103,7 +105,10 @@ const SalesOverview: React.FC = () => {
   const periods = useMemo(() => [...quickPeriods(), selectedPeriod], [selectedPeriod]);
 
   const computed = useMemo(() => periods.map((p) => {
-    const inRange = orders.filter((o) => { const d = o.date_order || ''; return d >= p.start && d <= p.end; });
+    const inRange = orders.filter((o) => {
+      if (teamFilter && (o.marketer_id_staff || '') !== teamFilter) return false;
+      const d = o.date_order || ''; return d >= p.start && d <= p.end;
+    });
     const stats: Record<string, Bucket> = {};
     for (const r of STATUS_ROWS) {
       const arr = inRange.filter(r.test);
@@ -111,7 +116,7 @@ const SalesOverview: React.FC = () => {
     }
     const total: Bucket = { orders: inRange.length, sales: inRange.reduce((s, o) => s + (Number(o.total_sale) || 0), 0) };
     return { ...p, stats, total };
-  }), [periods, orders]);
+  }), [periods, orders, teamFilter]);
 
   return (
     <div className="p-6 space-y-6">
@@ -123,7 +128,8 @@ const SalesOverview: React.FC = () => {
             <p className="text-muted-foreground text-sm">Track your sales performance and order statistics</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} />
           <span className="text-sm text-muted-foreground">Filter month:</span>
           <select className={selectCls} value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))}>
             {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}

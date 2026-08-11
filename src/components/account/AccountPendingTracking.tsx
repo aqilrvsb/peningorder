@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useTeam } from "@/hooks/useTeam";
+import { TeamFilter } from "@/components/TeamFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,8 @@ const AccountPendingTracking = () => {
 
   // Filter states
   const [search, setSearch] = useState("");
+  const [teamFilter, setTeamFilter] = useState('');
+  const { nameByIdstaff } = useTeam();
   const [pendingStart, setPendingStart] = useState(firstDay);
   const [pendingEnd, setPendingEnd] = useState(lastDay);
   const [startDate, setStartDate] = useState(firstDay);
@@ -125,6 +129,7 @@ const AccountPendingTracking = () => {
 
   // Filter orders
   const filteredOrders = orders.filter((order: any) => {
+    if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
     // Platform filter
     if (platformFilter !== "all" && getOrderPlatformName(order) !== platformFilter) return false;
 
@@ -583,6 +588,7 @@ const AccountPendingTracking = () => {
                   <SelectItem value="Google">Google</SelectItem>
                 </SelectContent>
               </Select>
+              <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -646,6 +652,8 @@ const AccountPendingTracking = () => {
                         />
                       </th>
                       <th className="p-3 text-left">No</th>
+                      <th className="p-3 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
+                      <th className="p-3 text-left text-blue-600 dark:text-blue-400">Nama</th>
                       <th className="p-3 text-left">Id Sales</th>
                       <th className="p-3 text-left">Tarikh Order</th>
                       <th className="p-3 text-left">Tarikh Process</th>
@@ -678,6 +686,8 @@ const AccountPendingTracking = () => {
                             />
                           </td>
                           <td className="p-3">{(currentPage - 1) * effectivePageSize + index + 1}</td>
+                          <td className="p-3 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
+                          <td className="p-3 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{order.id_sale || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{order.date_processed || "-"}</td>
@@ -762,7 +772,7 @@ const AccountPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={23} className="text-center py-12 text-muted-foreground">
                           No pending tracking orders found.
                         </td>
                       </tr>

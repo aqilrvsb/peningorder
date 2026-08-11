@@ -4,6 +4,7 @@ import { useBundles } from '@/context/BundleContext';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TeamFilter } from '@/components/TeamFilter';
 import {
   DollarSign, Users, TrendingUp, Target,
   RotateCcw, BarChart3, Percent, Loader2,
@@ -66,6 +67,7 @@ const ReportingSpend: React.FC = () => {
   const [spends, setSpends] = useState<Spend[]>([]);
   const [logisticBundles, setLogisticBundles] = useState<LogisticBundle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [teamFilter, setTeamFilter] = useState('');
   const [startDate, setStartDate] = useState(getMalaysiaYesterday());
   // Widen the server-side orders window when filtering earlier than loaded
   React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
@@ -140,32 +142,35 @@ const ReportingSpend: React.FC = () => {
   // Filter spends based on date range
   const filteredSpends = useMemo(() => {
     return spends.filter((spend) => {
+      if (teamFilter && (spend.marketerIdStaff || '') !== teamFilter) return false;
       const spendDate = spend.tarikhSpend;
       const matchesStartDate = !startDate || (spendDate && spendDate >= startDate);
       const matchesEndDate = !endDate || (spendDate && spendDate <= endDate);
       return matchesStartDate && matchesEndDate;
     });
-  }, [spends, startDate, endDate]);
+  }, [spends, startDate, endDate, teamFilter]);
 
   // Filter prospects based on same date range (tarikhPhoneNumber)
   const filteredProspects = useMemo(() => {
     return prospects.filter((prospect) => {
+      if (teamFilter && ((prospect as any).marketerIdStaff || '') !== teamFilter) return false;
       const prospectDate = prospect.tarikhPhoneNumber;
       const matchesStartDate = !startDate || (prospectDate && prospectDate >= startDate);
       const matchesEndDate = !endDate || (prospectDate && prospectDate <= endDate);
       return matchesStartDate && matchesEndDate;
     });
-  }, [prospects, startDate, endDate]);
+  }, [prospects, startDate, endDate, teamFilter]);
 
   // Filter orders based on date range
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      if (teamFilter && ((order as any).marketerIdStaff || '') !== teamFilter) return false;
       const orderDate = order.tarikhTempahan;
       const matchesStartDate = !startDate || (orderDate && orderDate >= startDate);
       const matchesEndDate = !endDate || (orderDate && orderDate <= endDate);
       return matchesStartDate && matchesEndDate;
     });
-  }, [orders, startDate, endDate]);
+  }, [orders, startDate, endDate, teamFilter]);
 
   // Aggregate spends by platform with closing breakdown (from spends table)
   const platformStats = useMemo(() => {
@@ -289,6 +294,7 @@ const ReportingSpend: React.FC = () => {
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
+    setTeamFilter('');
   };
 
   if (isLoading) {
@@ -392,6 +398,9 @@ const ReportingSpend: React.FC = () => {
               onChange={(e) => setEndDate(e.target.value)}
               className="bg-background"
             />
+          </div>
+          <div className="flex items-end pb-0.5">
+            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
           </div>
           <Button variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-4 h-4 mr-2" />

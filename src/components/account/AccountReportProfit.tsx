@@ -8,6 +8,7 @@ import { Calendar, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, Glob
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
+import { TeamFilter } from '@/components/TeamFilter';
 
 interface Order {
   id: string;
@@ -102,6 +103,7 @@ const AccountReportProfit: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [pendingProfitBy, setPendingProfitBy] = useState<'sales' | 'collection'>('sales');
   const [profitBy, setProfitBy] = useState<'sales' | 'collection'>('sales');
+  const [teamFilter, setTeamFilter] = useState('');
 
   const applyFilter = () => {
     setStartDate(pendingStart);
@@ -167,10 +169,10 @@ const AccountReportProfit: React.FC = () => {
   const isLoading = ordersLoading || spendsLoading;
 
   // Orders already filtered by date at DB level
-  const filteredOrders = allOrders;
+  const filteredOrders = teamFilter ? allOrders.filter((o: any) => (o.marketer_id_staff || '') === teamFilter) : allOrders;
 
   // Spends already filtered by date at DB level
-  const filteredSpends = spends;
+  const filteredSpends = teamFilter ? spends.filter((s: any) => (s.marketer_id_staff || '') === teamFilter) : spends;
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {
@@ -488,6 +490,8 @@ const AccountReportProfit: React.FC = () => {
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
               Filter
             </Button>
+            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+
           </div>
         </div>
       </div>
