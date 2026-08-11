@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import {
-  Users, Search, Loader2, ShieldCheck, ShieldOff, Wallet, Package, Ticket, CalendarPlus,
+  Users, Search, Loader2, ShieldCheck, ShieldOff, Wallet, Package, Ticket, CalendarPlus, Truck,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -29,11 +29,12 @@ const AdminClients: React.FC = () => {
     queryKey: ['admin-clients'],
     enabled: isSuperadmin,
     queryFn: async () => {
-      const [profilesRes, statsRes, paymentsRes, ticketsRes] = await Promise.all([
+      const [profilesRes, statsRes, paymentsRes, ticketsRes, pdRes] = await Promise.all([
         supabase.from('profiles').select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp, created_at').order('created_at', { ascending: false }),
         supabase.rpc('admin_client_stats'),
         supabase.from('payments').select('amount, status, paid_at').eq('status', 'paid'),
         supabase.from('tickets').select('id, status'),
+        supabase.rpc('admin_pd_configured_count'),
       ]);
       if (profilesRes.error) throw profilesRes.error;
       const statsMap: Record<string, any> = {};
@@ -43,6 +44,7 @@ const AdminClients: React.FC = () => {
         statsMap,
         payments: paymentsRes.data || [],
         tickets: ticketsRes.data || [],
+        pdConfigured: Number(pdRes.data ?? 0),
       };
     },
   });
@@ -123,7 +125,7 @@ const AdminClients: React.FC = () => {
       </div>
 
       {/* Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground uppercase">Total Clients</p>
           <p className="text-2xl font-bold">{allClients.length}</p>
@@ -132,6 +134,11 @@ const AdminClients: React.FC = () => {
           <p className="text-xs text-muted-foreground uppercase">Active</p>
           <p className="text-2xl font-bold text-green-600">{activeCount}</p>
           <p className="text-xs text-red-500">{expiredCount} expired</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase flex items-center gap-1"><Truck className="w-3 h-3" /> PD Configured</p>
+          <p className="text-2xl font-bold text-blue-600">{data?.pdConfigured ?? 0}</p>
+          <p className="text-xs text-muted-foreground">Merchant ID + Token set</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground uppercase">Revenue (Month)</p>
