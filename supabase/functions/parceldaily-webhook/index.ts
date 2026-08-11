@@ -126,6 +126,33 @@ async function notifyClient(supabase: any, ownerUserId: string | null | undefine
   }
 }
 
+// Fetch the order's CURRENT postage price from ParcelDaily (the weight webhook
+// carries no cost, so after a re-weigh we re-read the live price to keep
+// cost_postage accurate). Returns null if unavailable.
+async function fetchPdPostage(
+  supabase: any,
+  ownerUserId: string | null | undefined,
+  consignNo: string | null | undefined,
+): Promise<number | null> {
+  try {
+    if (!ownerUserId || !consignNo) return null;
+    const { data: cfg } = await supabase
+      .from("parceldaily_config").select("token, merchant_id").eq("owner_user_id", ownerUserId).maybeSingle();
+    if (!cfg?.token || !cfg?.merchant_id) return null;
+    const res = await fetch("https://api.parceldaily.com/v1/partner/checkout-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token: cfg.token, merchantid: cfg.merchant_id },
+      body: JSON.stringify({ consign_nos: [consignNo] }),
+    });
+    const j = await res.json().catch(() => null);
+    const item = Array.isArray(j?.data) ? j.data[0] : null;
+    const price = item?.price ?? item?.shippingPrice ?? item?.postage;
+    return price != null && !Number.isNaN(Number(price)) ? Number(price) : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -284,16 +311,20 @@ serve(async (req) => {
       if (matched) {
         const newWeight = Number(payload.newWeight ?? payload.weight);
         const prevWeight = Number(payload.previousWeight);
-        if (!Number.isNaN(newWeight)) {
-          await supabase.from("customer_purchases").update({ weight_kg: newWeight }).eq("id", matched.id);
-        }
-        action = "weight_updated";
+        // Re-read the live postage price (the webhook itself carries no cost).
+        const newPostage = await fetchPdPostage(supabase, matched.owner_user_id, matched.tracking_number || consignNo);
+        const upd: Record<string, unknown> = {};
+        if (!Number.isNaN(newWeight)) upd.weight_kg = newWeight;
+        if (newPostage != null) upd.cost_postage = newPostage;
+        if (Object.keys(upd).length) await supabase.from("customer_purchases").update(upd).eq("id", matched.id);
+        action = newPostage != null ? "weight_updated+postage" : "weight_updated";
         const msg =
           `📦 *PeningOrder — Berat Parcel Dikemaskini*\n\n` +
           `Tracking: ${matched.tracking_number || consignNo}\n` +
           (Number.isNaN(prevWeight) ? "" : `Berat lama: ${prevWeight} kg\n`) +
-          `Berat baru: ${Number.isNaN(newWeight) ? "-" : newWeight} kg\n\n` +
-          `Kos penghantaran mungkin berubah mengikut berat sebenar.`;
+          `Berat baru: ${Number.isNaN(newWeight) ? "-" : newWeight} kg\n` +
+          (newPostage != null ? `Kos penghantaran dikemaskini: RM${newPostage.toFixed(2)}\n` : "") +
+          `\nKos penghantaran mengikut berat sebenar.`;
         const r = await notifyClient(supabase, matched.owner_user_id, msg);
         action = `${action}+${r}`;
       }
