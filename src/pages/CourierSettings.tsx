@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -24,6 +24,9 @@ import {
 } from '@/components/ui/dialog';
 
 const PARCELDAILY_SIGNUP_URL = 'https://partner.parceldaily.com/auth/sign-up?accountManagerId=Ryrr36KL3y';
+// Register this in the ParcelDaily portal (Tracking + Checkout webhooks) so order
+// status, waybill, weight & COD updates flow back into PeningOrder automatically.
+const PARCELDAILY_WEBHOOK_URL = 'https://ybtswwzunvuqildqscxk.supabase.co/functions/v1/parceldaily-webhook';
 
 // Unified ParcelDaily "Status Groups" (statusGroup), same set across Ninjavan /
 // DHL / PosLaju / J&T — taken verbatim from ParcelDaily's OpenAPI spec.
@@ -159,6 +162,14 @@ const CourierSettings: React.FC = () => {
   };
   const [showRates, setShowRates] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const copyWebhook = async () => {
+    try {
+      await navigator.clipboard.writeText(PARCELDAILY_WEBHOOK_URL);
+      setCopiedWebhook(true);
+      setTimeout(() => setCopiedWebhook(false), 1800);
+    } catch { /* clipboard blocked — user can select manually */ }
+  };
 
   useEffect(() => {
     if (user) loadConfig();
@@ -551,8 +562,8 @@ const CourierSettings: React.FC = () => {
       <Dialog open={showGetKey} onOpenChange={setShowGetKey}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-primary" /> Cara Dapatkan Merchant ID &amp; Token</DialogTitle>
-            <DialogDescription>Ikut langkah di bawah dari portal partner ParcelDaily.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-primary" /> Setup ParcelDaily (Key + Webhook)</DialogTitle>
+            <DialogDescription>Ikut 3 langkah ini untuk sambung akaun ParcelDaily anda.</DialogDescription>
           </DialogHeader>
           <div className="space-y-5">
             {GET_KEY_STEPS.map((s, i) => (
@@ -569,6 +580,25 @@ const CourierSettings: React.FC = () => {
                 />
               </div>
             ))}
+
+            {/* Step 3 — register the webhook so status/waybill/COD flow back automatically */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                <p className="text-sm">
+                  Di portal ParcelDaily (<span className="font-medium">Integrations → Webhook</span>), tampal URL di bawah untuk kedua-dua
+                  <span className="font-medium"> Tracking</span> &amp; <span className="font-medium">Checkout</span> webhook. Ini yang buatkan status penghantaran, no. tracking, waybill, berat &amp; COD masuk automatik ke PeningOrder.
+                </p>
+              </div>
+              <div className="ml-8 flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
+                <Webhook className="w-4 h-4 flex-shrink-0 text-primary" />
+                <code className="flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
+                <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={copyWebhook}>
+                  {copiedWebhook ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin</>}
+                </Button>
+              </div>
+            </div>
+
             <a
               href={PARCELDAILY_SIGNUP_URL}
               target="_blank"
