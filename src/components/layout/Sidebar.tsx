@@ -44,6 +44,7 @@ import {
   Megaphone,
   Plug,
   Lock,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -109,7 +110,7 @@ const baseRoleGroups: RoleGroup[] = [
   { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />, items: financeItems },
 ];
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mobileOpen = false, onClose }) => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -162,6 +163,7 @@ const Sidebar: React.FC = () => {
 
   const handleNavClick = () => {
     queryClient.invalidateQueries();
+    onClose?.(); // close the mobile drawer after navigating
   };
 
   const isItemActive = (path: string) => location.pathname === path;
@@ -178,12 +180,22 @@ const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside
-      className={cn(
-        'min-h-screen bg-background border-r border-border flex flex-col transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64'
+    <>
+      {/* Mobile backdrop — tap to close the drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onClose} aria-hidden="true" />
       )}
-    >
+      <aside
+        className={cn(
+          'bg-background border-r border-border flex flex-col transition-transform duration-300',
+          // Mobile: off-canvas fixed drawer (always full width), slides in when open.
+          'fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw]',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: normal in-flow sidebar, always visible, collapsible.
+          'md:static md:z-auto md:translate-x-0 md:min-h-screen md:max-w-none',
+          collapsed ? 'md:w-16' : 'md:w-64',
+        )}
+      >
       {/* Logo & Toggle */}
       <div className="p-4 flex items-center justify-between">
         {!collapsed && (
@@ -191,11 +203,19 @@ const Sidebar: React.FC = () => {
             pening<span className="text-foreground">order</span>
           </h1>
         )}
+        {/* Desktop: collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="hidden md:block p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
         >
           {collapsed ? <PanelLeft className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+        </button>
+        {/* Mobile: close drawer */}
+        <button
+          onClick={onClose}
+          className="md:hidden p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X className="w-5 h-5" />
         </button>
       </div>
 
@@ -426,7 +446,8 @@ const Sidebar: React.FC = () => {
           {!collapsed && <span className="text-sm">Logout</span>}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 
