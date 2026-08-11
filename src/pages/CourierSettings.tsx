@@ -245,7 +245,7 @@ const CourierSettings: React.FC = () => {
         sender_postcode: formData.sender_postcode.trim(),
         sender_state: formData.sender_state.trim(),
         sender_country: 'Malaysia',
-        sender_country_code: formData.sender_country_code || '+60',
+        sender_country_code: '+60', // Malaysia — no separate field needed
         is_next_day_remittance: formData.is_next_day_remittance,
         is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
         default_courier: formData.default_courier,
@@ -361,12 +361,13 @@ const CourierSettings: React.FC = () => {
               />
             </div>
             <div>
-              <FormLabel required>Phone (without country code)</FormLabel>
+              <FormLabel required>No. Telefon Pickup</FormLabel>
               <Input
                 value={formData.sender_phone}
                 onChange={(e) => setField('sender_phone', e.target.value)}
-                placeholder="146674397"
+                placeholder="60146674397"
               />
+              <p className="text-xs text-muted-foreground mt-1">Boleh masuk 60xxxxxxxxx atau 0xxxxxxxxx — kami handle format automatik (Malaysia +60).</p>
             </div>
             <div>
               <FormLabel required>Email</FormLabel>
@@ -375,14 +376,6 @@ const CourierSettings: React.FC = () => {
                 value={formData.sender_email}
                 onChange={(e) => setField('sender_email', e.target.value)}
                 placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <FormLabel>Country Code</FormLabel>
-              <Input
-                value={formData.sender_country_code}
-                onChange={(e) => setField('sender_country_code', e.target.value)}
-                placeholder="+60"
               />
             </div>
             <div className="md:col-span-2">
