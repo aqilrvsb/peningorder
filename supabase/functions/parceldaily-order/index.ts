@@ -89,11 +89,15 @@ serve(async (req) => {
       return fail(`Unsupported courier '${courier}'. Use one of: ${SUPPORTED_COURIERS.join(", ")}`);
     }
 
-    // Load Parcel Daily config
-    const { data: config, error: configError } = await supabase
+    // Resolve the tenant owner (the client id — even when the caller is a staff
+    // member) and read the config with the service role, so a staff's order can
+    // ship without exposing the client's API token to the staff's browser.
+    const { data: ownerUuid } = await supabase.rpc("tenant_owner");
+    const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    const { data: config, error: configError } = await service
       .from("parceldaily_config")
       .select("*")
-      .limit(1)
+      .eq("owner_user_id", ownerUuid)
       .maybeSingle();
 
     if (configError || !config) {

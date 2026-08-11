@@ -45,6 +45,7 @@ import {
   Plug,
   Lock,
   X,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +62,7 @@ const marketerItems: NavItem[] = [
   { label: 'Leads', path: '/dashboard/prospects', icon: <Users className="w-5 h-5" /> },
   { label: 'Spend', path: '/dashboard/spend', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Reporting Spend', path: '/dashboard/reporting-spend', icon: <BarChart3 className="w-5 h-5" /> },
+  { label: 'Team', path: '/dashboard/team', icon: <UserPlus className="w-5 h-5" /> },
   // Webhook Settings hidden — replaced by the Integration hub.
 ];
 
@@ -120,11 +122,18 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   // The platform owner (superadmin) is a reporting/settings role only — never
   // the client order-entry menus. Clients get the Marketer/Management groups.
   const isAdmin = profile?.role === 'superadmin';
+  const isMarketer = profile?.role === 'marketer'; // a client's staff member
   // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
-  // stays reachable — matches the route guard in App.tsx.
+  // stays reachable — matches the route guard in App.tsx. Staff aren't expiry-frozen.
   const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
-  const frozen = !isAdmin && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
-  const roleGroups: RoleGroup[] = isAdmin ? [] : baseRoleGroups;
+  const frozen = !isAdmin && !isMarketer && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
+  // Admin: no role groups. Staff: only the Marketer group, minus the Team page
+  // (Team is client-only). Client: all groups.
+  const roleGroups: RoleGroup[] = isAdmin
+    ? []
+    : isMarketer
+      ? [{ ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') }]
+      : baseRoleGroups;
 
   // ParcelDaily credit balance (clients only).
   const [pdCredit, setPdCredit] = useState<{ loading: boolean; credit: string | null; configured: boolean }>(
@@ -324,7 +333,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         })}
 
         {/* Courier Settings — standalone (cross-cutting), sits above Integration. */}
-        {!isAdmin && (
+        {!isAdmin && !isMarketer && (
           <Link
             to="/dashboard/logistics/courier-settings"
             title={collapsed ? 'Courier Settings' : undefined}
@@ -341,7 +350,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         )}
 
         {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly). */}
-        {!isAdmin && (
+        {!isAdmin && !isMarketer && (
           <Link
             to="/dashboard/integration"
             title={collapsed ? 'Integration' : undefined}
@@ -359,7 +368,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
 
         {/* Open Ticket — client support submission. Admin handles tickets via
             the admin Tickets page instead. */}
-        {!isAdmin && (
+        {!isAdmin && !isMarketer && (
           <Link
             to="/dashboard/tickets"
             title={collapsed ? 'Open Ticket' : undefined}
@@ -407,8 +416,8 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             </div>
           )}
         </div>
-        {/* Billing is a client concern (their subscription). Admin doesn't subscribe. */}
-        {!isAdmin && (
+        {/* Billing is a client concern (their subscription). Admin/staff don't subscribe. */}
+        {!isAdmin && !isMarketer && (
           <Link
             to="/dashboard/billing"
             title={collapsed ? 'Billing' : undefined}

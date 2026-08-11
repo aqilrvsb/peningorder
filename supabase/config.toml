@@ -19,6 +19,10 @@ verify_jwt = false
 [functions.wa-device]
 verify_jwt = false
 
+# Custom client JWT check inside the function.
+[functions.team-staff]
+verify_jwt = false
+
 [functions.ninjavan-order]
 verify_jwt = false
 

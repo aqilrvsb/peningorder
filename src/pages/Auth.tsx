@@ -44,7 +44,12 @@ const Auth: React.FC = () => {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email.trim().toLowerCase(), password);
+        // Staff log in with their ID staff (no @) → mapped to a synthetic email.
+        const raw = email.trim();
+        const loginEmail = raw.includes('@')
+          ? raw.toLowerCase()
+          : `${raw.toLowerCase().replace(/[^a-z0-9-]/g, '')}@staff.peningorder.local`;
+        const { error } = await signIn(loginEmail, password);
         if (error) {
           toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
         } else {
@@ -118,18 +123,18 @@ const Auth: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{isLogin ? 'Email atau ID Staff' : 'Email'}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
-                  placeholder="you@example.com"
+                  type={isLogin ? 'text' : 'email'}
+                  placeholder={isLogin ? 'you@email.com atau PO-XXXX-1' : 'you@example.com'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-11"
                   required
-                  autoComplete="email"
+                  autoComplete="username"
                 />
               </div>
             </div>

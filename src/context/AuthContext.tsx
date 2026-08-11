@@ -14,6 +14,7 @@ interface UserProfile {
   plan: string | null;
   planExpiresAt: string | null;
   isActive: boolean;
+  parentUserId: string | null; // set for marketer staff → their client's id
 }
 
 interface AuthContextType {
@@ -51,6 +52,7 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     plan: profile.plan ?? null,
     planExpiresAt: profile.plan_expires_at ?? null,
     isActive: profile.is_active !== false,
+    parentUserId: profile.parent_user_id ?? null,
   };
 }
 

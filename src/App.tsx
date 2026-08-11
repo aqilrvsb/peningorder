@@ -31,6 +31,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Invoice = lazy(() => import("./pages/Invoice"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const Integration = lazy(() => import("./pages/Integration"));
+const TeamManagement = lazy(() => import("./pages/TeamManagement"));
 // Superadmin (SaaS owner) pages
 const AdminClients = lazy(() => import("./pages/admin/AdminClients"));
 const AdminTransactions = lazy(() => import("./pages/admin/AdminTransactions"));
@@ -64,15 +65,21 @@ const RouteFallback = () => (
 // Role separation: the platform owner (superadmin) is a reporting/settings role
 // and must never reach the client order-entry pages; clients must never reach
 // the admin pages. RoleGate redirects the wrong role to its own home.
-const RoleGate = ({ need, allowExpired, children }: { need: "admin" | "client"; allowExpired?: boolean; children: ReactElement }) => {
+const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" | "client"; allowExpired?: boolean; marketerOk?: boolean; children: ReactElement }) => {
   const { profile, isLoading } = useAuth();
   if (isLoading) return <RouteFallback />;
   const isAdmin = profile?.role === "superadmin";
+  const isMarketer = profile?.role === "marketer";
   if (need === "admin" && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (need === "client" && isAdmin) return <Navigate to="/dashboard/admin/clients" replace />;
+  // Marketer staff: restricted to their own Marketer Role pages + Profile.
+  // Everything else (logistic, finance, integration, courier, billing, team)
+  // bounces back to their dashboard.
+  if (need === "client" && isMarketer && !marketerOk) return <Navigate to="/dashboard" replace />;
   // Expired / deactivated clients keep read access to nothing but Billing (to
-  // resubscribe) and Profile. Every other client tab redirects to Billing.
-  if (need === "client" && !isAdmin && !allowExpired) {
+  // resubscribe) and Profile. Staff (marketer) follow the client's tenant and
+  // are never expiry-frozen here.
+  if (need === "client" && !isAdmin && !isMarketer && !allowExpired) {
     const exp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
     const frozen = profile?.isActive === false || (exp !== null && exp.getTime() < Date.now());
     if (frozen) return <Navigate to="/dashboard/billing" replace />;
@@ -89,6 +96,8 @@ const DashboardHome = () => {
 };
 
 const clientOnly = (el: ReactElement) => <RoleGate need="client">{el}</RoleGate>;
+// Pages a marketer staff may reach (their own Marketer Role work).
+const marketerAllowed = (el: ReactElement) => <RoleGate need="client" marketerOk>{el}</RoleGate>;
 // Billing stays reachable even when the plan has expired (that's where they resubscribe).
 const clientBilling = (el: ReactElement) => <RoleGate need="client" allowExpired>{el}</RoleGate>;
 const adminOnly = (el: ReactElement) => <RoleGate need="admin">{el}</RoleGate>;
@@ -111,12 +120,13 @@ const App = () => (
                   <Route path="/invoice" element={<Invoice />} />
                   <Route path="/dashboard" element={<DashboardLayout />}>
                     <Route index element={<DashboardHome />} />
-                    {/* Marketer Role — clients only (admin never keys in orders) */}
-                    <Route path="orders" element={clientOnly(<Orders />)} />
-                    <Route path="orders/new" element={clientOnly(<OrderForm />)} />
-                    <Route path="prospects" element={clientOnly(<Prospects />)} />
-                    <Route path="spend" element={clientOnly(<Spend />)} />
-                    <Route path="reporting-spend" element={clientOnly(<ReportingSpend />)} />
+                    {/* Marketer Role — client + their marketer staff */}
+                    <Route path="orders" element={marketerAllowed(<Orders />)} />
+                    <Route path="orders/new" element={marketerAllowed(<OrderForm />)} />
+                    <Route path="prospects" element={marketerAllowed(<Prospects />)} />
+                    <Route path="spend" element={marketerAllowed(<Spend />)} />
+                    <Route path="reporting-spend" element={marketerAllowed(<ReportingSpend />)} />
+                    <Route path="team" element={clientOnly(<TeamManagement />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={clientOnly(<Integration />)} />
                     {/* Logistic Role - Inventory */}
