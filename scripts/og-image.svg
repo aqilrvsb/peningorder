@@ -1,0 +1,29 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1040" cy="140" r="220" fill="#ffffff" opacity="0.06"/>
+  <circle cx="1120" cy="560" r="160" fill="#ffffff" opacity="0.06"/>
+
+  <!-- logo badge -->
+  <rect x="96" y="120" width="112" height="112" rx="24" fill="#ffffff"/>
+  <text x="152" y="198" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="bold" fill="#2563eb" text-anchor="middle">PO</text>
+
+  <!-- wordmark -->
+  <text x="236" y="212" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="bold" fill="#ffffff">PeningOrder</text>
+
+  <!-- tagline -->
+  <text x="98" y="330" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="bold" fill="#ffffff">Urus order, tracking &amp; untung —</text>
+  <text x="98" y="388" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="bold" fill="#ffffff">semua dalam satu tempat.</text>
+
+  <!-- features -->
+  <text x="98" y="480" font-family="Arial, Helvetica, sans-serif" font-size="34" fill="#dbeafe">Order &amp; Tracking   ·   Auto Kurier   ·   Report Untung</text>
+
+  <!-- url pill -->
+  <rect x="98" y="530" width="330" height="60" rx="30" fill="#ffffff"/>
+  <text x="263" y="570" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="bold" fill="#1d4ed8" text-anchor="middle">peningorder.com</text>
+</svg>
