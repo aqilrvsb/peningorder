@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { AUDIT_MODE } from '@/lib/audit';
 import { useAuth } from '@/context/AuthContext';
 import { useBundles } from '@/context/BundleContext';
+import { useTeam } from '@/hooks/useTeam';
+import { TeamFilter } from '@/components/TeamFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -63,6 +65,8 @@ const Spend: React.FC = () => {
   const { products } = useBundles();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [teamFilter, setTeamFilter] = useState('');
+  const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(getMalaysiaYesterday());
   const [endDate, setEndDate] = useState(getMalaysiaYesterday());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -120,12 +124,13 @@ const Spend: React.FC = () => {
   // Filter spends based on date range
   const filteredSpends = useMemo(() => {
     return spends.filter((spend) => {
+      if (teamFilter && (spend.marketerIdStaff || '') !== teamFilter) return false;
       const spendDate = spend.tarikhSpend;
       const matchesStartDate = !startDate || (spendDate && spendDate >= startDate);
       const matchesEndDate = !endDate || (spendDate && spendDate <= endDate);
       return matchesStartDate && matchesEndDate;
     });
-  }, [spends, startDate, endDate]);
+  }, [spends, startDate, endDate, teamFilter]);
 
   // Calculate stats - Total Spend and dynamic platform totals
   const stats = useMemo(() => {
@@ -408,6 +413,7 @@ const Spend: React.FC = () => {
               className="bg-background"
             />
           </div>
+          <div className="flex items-end"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
           <Button variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Reset
@@ -421,6 +427,8 @@ const Spend: React.FC = () => {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="w-16">No</TableHead>
+              <TableHead className="text-blue-600 dark:text-blue-400">ID Staff</TableHead>
+              <TableHead className="text-blue-600 dark:text-blue-400">Nama</TableHead>
               <TableHead>Tarikh Spend</TableHead>
               <TableHead className="text-right">Total Spend</TableHead>
               <TableHead>Product</TableHead>
@@ -431,7 +439,7 @@ const Spend: React.FC = () => {
           <TableBody>
             {filteredSpends.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Tiada data spend
                 </TableCell>
               </TableRow>
@@ -439,6 +447,8 @@ const Spend: React.FC = () => {
               filteredSpends.map((spend, idx) => (
                 <TableRow key={spend.id} className="hover:bg-muted/30">
                   <TableCell className="font-medium">{idx + 1}</TableCell>
+                  <TableCell className="font-mono text-blue-600 dark:text-blue-400">{spend.marketerIdStaff || '-'}</TableCell>
+                  <TableCell>{nameByIdstaff.get(spend.marketerIdStaff || '') || '-'}</TableCell>
                   <TableCell>{spend.tarikhSpend}</TableCell>
                   <TableCell className="text-right">RM {spend.totalSpend.toFixed(2)}</TableCell>
                   <TableCell>{spend.product}</TableCell>

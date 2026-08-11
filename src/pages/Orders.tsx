@@ -4,6 +4,8 @@ import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useTeam } from '@/hooks/useTeam';
+import { TeamFilter } from '@/components/TeamFilter';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -100,6 +102,8 @@ const Orders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
   const [collectionFilter, setCollectionFilter] = useState("All");
+  const [teamFilter, setTeamFilter] = useState('');
+  const { nameByIdstaff } = useTeam();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -130,6 +134,9 @@ const Orders: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Team filter: a client can narrow to one staff (marketer_id_staff).
+      if (teamFilter && (order.marketerIdStaff || '') !== teamFilter) return false;
+
       // Delivery status filter (Pending / Shipped / Return / Success)
       if (deliveryStatusFilter !== "All" && order.deliveryStatus !== deliveryStatusFilter) {
         return false;
@@ -156,7 +163,7 @@ const Orders: React.FC = () => {
 
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [orders, search, startDate, endDate, deliveryStatusFilter, collectionFilter]);
+  }, [orders, search, startDate, endDate, deliveryStatusFilter, collectionFilter, teamFilter]);
 
   // Pagination
   const effectivePageSize = pageSize === "All" ? filteredOrders.length : pageSize;
@@ -874,6 +881,9 @@ ${trackingUrl}`;
 
           {/* Row 2: Dropdowns and buttons */}
           <div className="flex flex-wrap items-center gap-4">
+            {/* Team filter (client with staff only) */}
+            <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); setCurrentPage(1); }} />
+
             {/* Delivery status dropdown */}
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-muted-foreground" />
@@ -970,6 +980,8 @@ ${trackingUrl}`;
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Id Sales</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">ID Staff</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Nama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Process</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
@@ -1008,6 +1020,8 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{pageSize === "All" ? idx + 1 : (currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{order.marketerIdStaff || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get(order.marketerIdStaff || '') || order.marketerName || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateProcessed || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
@@ -1151,7 +1165,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 21 : 22} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 23 : 24} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useTeam } from '@/hooks/useTeam';
+import { TeamFilter } from '@/components/TeamFilter';
 import { AUDIT_MODE } from '@/lib/audit';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +53,8 @@ const Prospects: React.FC = () => {
   const { prospects, addProspect, updateProspect, deleteProspect, isLoading } = useData();
   const { products } = useBundles();
   const [search, setSearch] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(getMalaysiaDate());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -82,6 +86,7 @@ const Prospects: React.FC = () => {
   // Filter prospects based on search and date range
   const filteredProspects = useMemo(() => {
     return prospects.filter((prospect) => {
+      if (teamFilter && ((prospect as any).marketerIdStaff || '') !== teamFilter) return false;
       const matchesSearch =
         prospect.namaProspek.toLowerCase().includes(search.toLowerCase()) ||
         prospect.noTelefon.includes(search) ||
@@ -93,7 +98,7 @@ const Prospects: React.FC = () => {
 
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [prospects, search, startDate, endDate]);
+  }, [prospects, search, startDate, endDate, teamFilter]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -756,6 +761,8 @@ const Prospects: React.FC = () => {
           />
         </div>
 
+        <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-4 h-4 mr-2" />
@@ -781,6 +788,8 @@ const Prospects: React.FC = () => {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">ID Staff</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Nama Staff</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
@@ -800,6 +809,8 @@ const Prospects: React.FC = () => {
                       />
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{(prospect as any).marketerIdStaff || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get((prospect as any).marketerIdStaff || '') || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.tarikhPhoneNumber || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
@@ -837,7 +848,7 @@ const Prospects: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
                     Tiada prospect dijumpai.
                   </td>
                 </tr>
