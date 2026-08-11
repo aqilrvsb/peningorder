@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -123,6 +124,24 @@ const Sidebar: React.FC = () => {
   const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
   const frozen = !isAdmin && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
   const roleGroups: RoleGroup[] = isAdmin ? [] : baseRoleGroups;
+
+  // ParcelDaily credit balance (clients only).
+  const [pdCredit, setPdCredit] = useState<{ loading: boolean; credit: string | null; configured: boolean }>(
+    { loading: false, credit: null, configured: false },
+  );
+  const fetchPdCredit = async () => {
+    setPdCredit((p) => ({ ...p, loading: true }));
+    try {
+      const { data } = await supabase.functions.invoke('parceldaily-account');
+      setPdCredit({ loading: false, credit: data?.ok ? (data.credit ?? null) : null, configured: !!data?.configured });
+    } catch {
+      setPdCredit({ loading: false, credit: null, configured: false });
+    }
+  };
+  useEffect(() => {
+    if (!isAdmin && profile?.id) fetchPdCredit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, isAdmin]);
 
   // Groups expand/collapse independently. Start with the group whose child
   // page is active (plus Marketer as the default when on the dashboard).
@@ -349,6 +368,21 @@ const Sidebar: React.FC = () => {
               <p className="text-sm font-medium text-foreground truncate">{profile?.email || 'User'}</p>
               {profile?.idstaff && (
                 <p className="text-xs text-muted-foreground truncate">ID: {profile.idstaff}</p>
+              )}
+              {!isAdmin && pdCredit.configured && (
+                <p className="text-xs mt-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <span className="truncate">
+                    PD Credit: <span className="font-semibold">{pdCredit.credit != null ? `RM ${Number(pdCredit.credit).toFixed(2)}` : '—'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); fetchPdCredit(); }}
+                    title="Refresh PD credit"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className={cn('w-3 h-3', pdCredit.loading && 'animate-spin')} />
+                  </button>
+                </p>
               )}
             </div>
           )}
