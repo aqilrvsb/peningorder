@@ -236,8 +236,6 @@ const CourierSettings: React.FC = () => {
         merchant_id: formData.merchant_id.trim(),
         token: formData.token.trim(),
         environment: 'production', // always live — sandbox toggle removed
-
-        webhook_secret: formData.webhook_secret?.trim() || null,
         sender_name: formData.sender_name.trim(),
         sender_phone: formData.sender_phone.trim(),
         sender_email: formData.sender_email.trim(),
@@ -346,14 +344,6 @@ const CourierSettings: React.FC = () => {
                 value={formData.token}
                 onChange={(e) => setField('token', e.target.value)}
                 placeholder="••••••••-••••-••••-••••-••••••••••••"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <FormLabel>Webhook Secret</FormLabel>
-              <Input
-                value={formData.webhook_secret || ''}
-                onChange={(e) => setField('webhook_secret', e.target.value)}
-                placeholder="Optional — for signed webhook verification"
               />
             </div>
           </div>
