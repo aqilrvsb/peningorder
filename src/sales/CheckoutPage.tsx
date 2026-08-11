@@ -171,10 +171,18 @@ export default function CheckoutPage() {
                     type="submit" disabled={busy}
                     className="flex w-full items-center justify-center rounded-lg bg-po-blue px-4 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-po-blue-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {busy ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses…</>) : cfg ? `Daftar & Bayar RM${cfg.price} →` : 'Daftar →'}
+                    {busy
+                      ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memproses…</>)
+                      : !cfg
+                        ? 'Daftar →'
+                        : Number(cfg.price) <= 0
+                          ? 'Daftar Percuma →'
+                          : `Daftar & Bayar RM${cfg.price} →`}
                   </button>
                   <p className="text-center text-xs text-po-ink-muted">
-                    Akaun dibuat serta-merta. Anda akan dibawa ke CHIP untuk bayar plan pilihan anda.
+                    {cfg && Number(cfg.price) <= 0
+                      ? 'Akaun dibuat serta-merta. Admin akan luluskan pendaftaran percuma anda & hantar login ke WhatsApp.'
+                      : 'Akaun dibuat serta-merta. Anda akan dibawa ke CHIP untuk bayar plan pilihan anda.'}
                   </p>
                 </form>
               </div>

@@ -112,7 +112,7 @@ const Auth: React.FC = () => {
           )}
           {paymentState === 'pending' && (
             <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-              ⏳ Akaun anda dah dibuat. Login & password akan dihantar ke WhatsApp anda sebaik pembayaran disahkan.
+              ⏳ Akaun anda dah dibuat. Login & password akan dihantar ke WhatsApp anda sebaik pendaftaran anda diluluskan.
             </div>
           )}
 

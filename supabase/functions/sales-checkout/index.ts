@@ -228,6 +228,13 @@ serve(async (req) => {
       `Semak di Admin → Transactions.`,
     ).catch(() => {});
 
+    // Free promo (price 0): no CHIP. The account + pending payment already exist;
+    // an admin activates it manually in Admin → Transactions (Approve), which
+    // sends the WhatsApp login. Nothing is charged.
+    if (Number(cfg.price) <= 0) {
+      return json(200, { success: true, account_created: true, chip_url: null, free: true, email: intent.email });
+    }
+
     // Create the CHIP purchase. If CHIP isn't configured we still return
     // success — the account exists and the user can subscribe later.
     // CHIP creds come from the admin-managed platform_secrets row first
