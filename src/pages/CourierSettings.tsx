@@ -94,7 +94,7 @@ interface ParcelDailyConfig {
   sender_country_code: string;
   is_next_day_remittance: boolean;
   is_notify: 'SMS' | 'WhatsApp' | 'None';
-  default_courier: 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
+  default_courier: '' | 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
 }
 
 const emptyConfig: ParcelDailyConfig = {
@@ -111,9 +111,9 @@ const emptyConfig: ParcelDailyConfig = {
   sender_postcode: '',
   sender_state: '',
   sender_country_code: '+60',
-  is_next_day_remittance: true,
+  is_next_day_remittance: false,
   is_notify: 'None',
-  default_courier: 'poslaju',
+  default_courier: '',
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -191,7 +191,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '' });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -249,7 +249,7 @@ const CourierSettings: React.FC = () => {
         sender_country_code: '+60', // Malaysia — no separate field needed
         is_next_day_remittance: formData.is_next_day_remittance,
         is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
-        default_courier: formData.default_courier,
+        default_courier: formData.default_courier || null,
       };
 
       if (configId) {
@@ -451,10 +451,10 @@ const CourierSettings: React.FC = () => {
             <div>
               <FormLabel>Default Courier (auto orders)</FormLabel>
               <Select
-                value={formData.default_courier}
+                value={formData.default_courier || undefined}
                 onValueChange={(v) => setField('default_courier', v as ParcelDailyConfig['default_courier'])}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Tiada default" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="poslaju">Poslaju</SelectItem>
                   <SelectItem value="ninjavan">Ninjavan</SelectItem>
