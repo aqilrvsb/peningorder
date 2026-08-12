@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -125,6 +126,7 @@ const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = (
 
 const CourierSettings: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -261,6 +263,8 @@ const CourierSettings: React.FC = () => {
         if (error) throw error;
         if (data) setConfigId(data.id);
       }
+      // Let the courier-config gate re-check (Merchant ID + Token now saved).
+      queryClient.invalidateQueries({ queryKey: ['courier-configured'] });
       toast({ title: 'Saved!', description: 'Courier settings updated.' });
     } catch (err: any) {
       toast({ title: 'Save failed', description: err.message, variant: 'destructive' });

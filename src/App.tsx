@@ -1,10 +1,11 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import type { ReactElement } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider } from "@/context/DataContext";
 import { BundleProvider } from "@/context/BundleContext";
@@ -68,6 +69,24 @@ const RouteFallback = () => (
 // the admin pages. RoleGate redirects the wrong role to its own home.
 const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" | "client"; allowExpired?: boolean; marketerOk?: boolean; children: ReactElement }) => {
   const { profile, isLoading } = useAuth();
+  const location = useLocation();
+  const isClientTenant = profile?.role === "client";
+  // Has this client filled in their ParcelDaily Merchant ID + Token? Cached so
+  // navigation doesn't refetch constantly; invalidated after they save the config.
+  const { data: courierConfigured } = useQuery({
+    queryKey: ["courier-configured", profile?.id],
+    enabled: isClientTenant,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("parceldaily_config")
+        .select("merchant_id, token")
+        .limit(1)
+        .maybeSingle();
+      return !!(data?.merchant_id?.trim() && data?.token?.trim());
+    },
+  });
+
   if (isLoading) return <RouteFallback />;
   const isAdmin = profile?.role === "superadmin";
   const isMarketer = profile?.role === "marketer";
@@ -84,6 +103,14 @@ const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" 
     const exp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
     const frozen = profile?.isActive === false || (exp !== null && exp.getTime() < Date.now());
     if (frozen) return <Navigate to="/dashboard/billing" replace />;
+
+    // Not expired but ParcelDaily not set up yet → force Courier Settings first.
+    // (Profile has no gate and Billing uses allowExpired, so both stay reachable.)
+    const onCourier = location.pathname.includes("courier");
+    if (isClientTenant && !onCourier) {
+      if (courierConfigured === undefined) return <RouteFallback />; // still checking
+      if (!courierConfigured) return <Navigate to="/dashboard/settings/courier" replace />;
+    }
   }
   return children;
 };
@@ -93,7 +120,10 @@ const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" 
 const DashboardHome = () => {
   const { profile, isLoading } = useAuth();
   if (isLoading) return <RouteFallback />;
-  return profile?.role === "superadmin" ? <Navigate to="/dashboard/admin/clients" replace /> : <Dashboard />;
+  if (profile?.role === "superadmin") return <Navigate to="/dashboard/admin/clients" replace />;
+  // Wrap in RoleGate (marketerOk so staff keep their dashboard) so the expiry +
+  // courier-config gates also apply to the home dashboard.
+  return <RoleGate need="client" marketerOk><Dashboard /></RoleGate>;
 };
 
 const clientOnly = (el: ReactElement) => <RoleGate need="client">{el}</RoleGate>;
