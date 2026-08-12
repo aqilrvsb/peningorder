@@ -755,6 +755,7 @@ const OrderForm: React.FC = () => {
       let orderNumber = isEditMode ? editOrder.noTempahan : generateOrderNumber();
       let idSale = isEditMode ? editOrder.idSale : '';
       let trackingNumber = '';
+      let pdOrderId = ''; // ParcelDaily orderId — needed to cancel/refund on delete
       let pdShippingPrice: number | null = null; // real cost from PD quote
 
       // Generate new sale ID for new orders (all platforms now use NinjaVan)
@@ -841,6 +842,7 @@ const OrderForm: React.FC = () => {
               // Checkout returns the real tracking number (connote) synchronously;
               // fall back to orderId placeholder only if it wasn't in the response.
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
+              pdOrderId = kurierResult.orderId || ''; // stamp for cancel/refund
               if (kurierResult?.pdfLink) editWaybillPdfUrl = kurierResult.pdfLink;
               if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
               toast({
@@ -1030,6 +1032,7 @@ const OrderForm: React.FC = () => {
               // Checkout returns the real tracking number (connote) synchronously;
               // fall back to orderId placeholder only if it wasn't in the response.
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
+              pdOrderId = kurierResult.orderId || ''; // stamp for cancel/refund
               if (kurierResult?.pdfLink) waybillPdfUrl = kurierResult.pdfLink;
               // Real shipping cost from PD quote — overrides bundle estimate below
               if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
@@ -1137,6 +1140,7 @@ const OrderForm: React.FC = () => {
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
               receipt_payment_type: receiptType, // 'image' | 'link' | null
               commission_amount: commissionAmount, // snapshot bundle commission
+              pd_order_id: pdOrderId || null, // ParcelDaily orderId for cancel/refund
               waybill_url: waybillUrl || null,
               bundle_id: selectedBundle?.id || null, // NEW: bundle_id
               seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
@@ -1184,6 +1188,7 @@ const OrderForm: React.FC = () => {
             receiptImageUrl: receiptUrl,
             receiptType: receiptType,
             commission: commissionAmount,
+            pdOrderId: pdOrderId,
             waybillUrl: waybillUrl,
             seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : '', // Auto-collection for CASH
             bundleId: selectedBundle?.id || '',

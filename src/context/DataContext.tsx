@@ -18,7 +18,7 @@ interface CustomerOrder {
   jenisPlatform: string; jenisCustomer: string; jenisClosing: string; caraBayaran: string;
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
   seo: string; seos: string; bundleId: string;
-  receiptType?: string | null; commission?: number;
+  receiptType?: string | null; commission?: number; pdOrderId?: string;
 }
 
 interface Prospect {
@@ -105,6 +105,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
     receiptType: d.receipt_payment_type || null,
     commission: parseFloat(d.commission_amount) || 0,
+    pdOrderId: d.pd_order_id || '',
     waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
     seos: d.seos || '',
@@ -192,6 +193,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
       receipt_payment_type: order.receiptType ?? null,
       commission_amount: order.commission ?? 0, // snapshot bundle commission
+      pd_order_id: order.pdOrderId || null, // ParcelDaily orderId for cancel/refund
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
       seos: 'Pending', // Delivery tracking status - starts as Pending

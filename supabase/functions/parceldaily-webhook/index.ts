@@ -263,14 +263,27 @@ serve(async (req) => {
         const pref = await getTrackPref(supabase, matched.owner_user_id, statusGroup);
 
         if (pref.track) {
-          await supabase
-            .from("customer_purchases")
-            .update({
-              delivery_status: isDelivered ? "Success" : isReturn ? "Return" : "Shipped",
-              seos: rawStatus,
-              seo: isDelivered ? "Successful Delivery" : null,
-            })
-            .eq("id", matched.id);
+          // The webhook only changes delivery_status to the TWO FINAL states:
+          // Success (delivered) or Return. Intermediate statuses (Picked Up, In
+          // Transit, Processing, etc.) only update the raw status label (seos) for
+          // display -- they must NOT flip the order to "Shipped" (Pending -> Shipped
+          // stays a manual logistic action; that path stamps date_processed).
+          const mYmd = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          if (isDelivered || isReturn) {
+            await supabase
+              .from("customer_purchases")
+              .update({
+                delivery_status: isDelivered ? "Success" : "Return",
+                seos: rawStatus,
+                seo: isDelivered ? "Successful Delivery" : null,
+                // If it was still Pending (never manually processed), stamp a
+                // processed date so it's recorded as handled.
+                ...(matched.delivery_status === "Pending" ? { date_processed: mYmd } : {}),
+              })
+              .eq("id", matched.id);
+          } else {
+            await supabase.from("customer_purchases").update({ seos: rawStatus }).eq("id", matched.id);
+          }
           action = "status_updated";
         } else {
           action = "status_untracked_skip";

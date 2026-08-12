@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import { getMalaysiaStartOfMonth, getMalaysiaDate, fetchAllRows } from '@/lib/utils';
+import { useTeam } from '@/hooks/useTeam';
+import { TeamFilter } from '@/components/TeamFilter';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -82,6 +84,7 @@ const Dashboard: React.FC = () => {
   // Date filter state - default to start of month to current day (Malaysia timezone)
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
+  const [teamFilter, setTeamFilter] = useState(''); // '' = all team (client with staff)
 
   // Check user role — individual mode: every tenant ('client') gets the marketer dashboard
   const isMarketer = profile?.role === 'marketer' || profile?.role === 'admin' || profile?.role === 'client' || profile?.role === 'superadmin';
@@ -185,6 +188,7 @@ const Dashboard: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (!order.dateOrder) return false;
+      if (teamFilter && ((order as any).marketerIdStaff || '') !== teamFilter) return false;
       try {
         const orderDate = parseISO(order.dateOrder);
         return isWithinInterval(orderDate, {
@@ -195,12 +199,13 @@ const Dashboard: React.FC = () => {
         return false;
       }
     });
-  }, [orders, startDate, endDate]);
+  }, [orders, startDate, endDate, teamFilter]);
 
   // Filter spends by date range
   const filteredSpends = useMemo(() => {
     return spends.filter(spend => {
       if (!spend.tarikh_spend) return false;
+      if (teamFilter && (spend.marketer_id_staff || '') !== teamFilter) return false;
       try {
         const spendDate = parseISO(spend.tarikh_spend);
         return isWithinInterval(spendDate, {
@@ -211,12 +216,13 @@ const Dashboard: React.FC = () => {
         return false;
       }
     });
-  }, [spends, startDate, endDate]);
+  }, [spends, startDate, endDate, teamFilter]);
 
   // Filter prospects by date range
   const filteredProspects = useMemo(() => {
     return prospects.filter(prospect => {
       if (!prospect.tarikhPhoneNumber) return false;
+      if (teamFilter && ((prospect as any).marketerIdStaff || '') !== teamFilter) return false;
       try {
         const prospectDate = parseISO(prospect.tarikhPhoneNumber);
         return isWithinInterval(prospectDate, {
@@ -227,7 +233,7 @@ const Dashboard: React.FC = () => {
         return false;
       }
     });
-  }, [prospects, startDate, endDate]);
+  }, [prospects, startDate, endDate, teamFilter]);
 
   // Calculate marketer stats
   const marketerStats = useMemo(() => {
@@ -886,6 +892,9 @@ const Dashboard: React.FC = () => {
                   onChange={(e) => setEndDate(e.target.value)}
                   className="w-40"
                 />
+              </div>
+              <div className="flex items-end pb-0.5">
+                <TeamFilter value={teamFilter} onChange={setTeamFilter} />
               </div>
             </div>
           </div>

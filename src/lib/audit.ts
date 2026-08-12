@@ -5,4 +5,4 @@
 // The underlying handlers still exist — only the trigger is hidden.
 //
 // To re-enable deletes after the audit, set this to false and ship.
-export const AUDIT_MODE = true;
+export const AUDIT_MODE = false;
