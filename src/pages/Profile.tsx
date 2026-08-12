@@ -447,7 +447,7 @@ const Profile: React.FC = () => {
       </div>
 
       {/* WhatsApp Device — Baileys via Railway gateway (clients only; staff use the client's device) */}
-      {profile?.role !== 'superadmin' && profile?.role !== 'marketer' && (
+      {profile?.role !== 'superadmin' && profile?.role !== 'marketer' && profile?.role !== 'logistic' && (
         <div className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">

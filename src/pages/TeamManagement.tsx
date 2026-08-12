@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck } from 'lucide-react';
 
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; role?: string };
 
 const call = async (action: string, extra: Record<string, unknown> = {}) => {
   const { data, error } = await supabase.functions.invoke('team-staff', { body: { action, ...extra } });
@@ -31,6 +31,11 @@ const TeamManagement: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<{ idstaff: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // Logistic account (max ONE per client).
+  const [logName, setLogName] = useState('');
+  const [logWhatsapp, setLogWhatsapp] = useState('60');
+  const [logPassword, setLogPassword] = useState('');
+  const [creatingLog, setCreatingLog] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
@@ -54,6 +59,24 @@ const TeamManagement: React.FC = () => {
       toast({ title: 'Gagal cipta staff', description: e.message, variant: 'destructive' });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const createLogistic = async () => {
+    if (logName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
+    if (!/^60\d{8,11}$/.test(logWhatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
+    if (logPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
+    setCreatingLog(true);
+    try {
+      const res = await call('create', { name: logName.trim(), whatsapp: logWhatsapp.replace(/\D/g, ''), password: logPassword, staff_role: 'logistic' });
+      setLastCreated({ idstaff: res.idstaff, password: logPassword });
+      toast({ title: 'Akaun Logistic dicipta', description: `ID: ${res.idstaff}` });
+      setLogName(''); setLogWhatsapp('60'); setLogPassword('');
+      refresh();
+    } catch (e: any) {
+      toast({ title: 'Gagal cipta akaun logistic', description: e.message === 'logistic_exists' ? 'Anda sudah ada satu akaun logistic.' : e.message, variant: 'destructive' });
+    } finally {
+      setCreatingLog(false);
     }
   };
 
@@ -106,7 +129,9 @@ const TeamManagement: React.FC = () => {
     setCopied(true); setTimeout(() => setCopied(false), 1800);
   };
 
-  const staff = data || [];
+  const allStaff = data || [];
+  const staff = allStaff.filter((s) => s.role !== 'logistic'); // marketer staff table
+  const logisticAccount = allStaff.find((s) => s.role === 'logistic') || null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -144,6 +169,36 @@ const TeamManagement: React.FC = () => {
               {copied ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin login</>}
             </Button>
           </div>
+        )}
+      </div>
+
+      {/* Logistic account — max ONE per client. Logs in to see the Logistic section only. */}
+      <div className="bg-card border border-border rounded-lg p-5">
+        <h2 className="font-semibold flex items-center gap-2 mb-1"><Truck className="w-4 h-4 text-primary" /> Akaun Logistic</h2>
+        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia hanya nampak seksyen <b>Logistic</b> (semua order, tiada filter team).</p>
+        {logisticAccount ? (
+          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+            <div>
+              <p className="font-mono font-medium">{logisticAccount.idstaff}</p>
+              <p className="text-xs text-muted-foreground">{logisticAccount.full_name || '-'} · {logisticAccount.whatsapp || logisticAccount.whatsapp_number || '-'} · <span className={logisticAccount.is_active ? 'text-green-600' : 'text-red-500'}>{logisticAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
+            </div>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Reset password" onClick={() => resetPassword(logisticAccount)}><KeyRound className="w-4 h-4" /></Button>
+              <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title={logisticAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(logisticAccount)}>{logisticAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
+              <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Padam" onClick={() => removeStaff(logisticAccount)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><Label>Nama</Label><Input value={logName} onChange={(e) => setLogName(e.target.value)} placeholder="cth: Logistik" className="mt-1" /></div>
+              <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
+              <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Min 6 aksara" className="mt-1" /></div>
+            </div>
+            <Button onClick={createLogistic} disabled={creatingLog} className="mt-4">
+              {creatingLog ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Truck className="w-4 h-4 mr-2" />} Tambah Akaun Logistic
+            </Button>
+          </>
         )}
       </div>
 

@@ -64,39 +64,60 @@ serve(async (req) => {
         .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
-      return json(200, { success: true, staff: data || [] });
+      const staff = data || [];
+      // Attach each staff's role (marketer | logistic) from user_roles.
+      const ids = staff.map((s: any) => s.id);
+      const roleBy = new Map<string, string>();
+      if (ids.length) {
+        const { data: roles } = await admin.from("user_roles").select("user_id, role").in("user_id", ids);
+        for (const r of roles || []) roleBy.set(r.user_id, r.role);
+      }
+      return json(200, { success: true, staff: staff.map((s: any) => ({ ...s, role: roleBy.get(s.id) || "marketer" })) });
     }
 
     if (action === "create") {
       const name = String(body?.name || "").trim();
       const whatsapp = String(body?.whatsapp || "").replace(/\D/g, "");
       const password = String(body?.password || "");
+      const staffRole = body?.staff_role === "logistic" ? "logistic" : "marketer";
       if (name.length < 2) return json(400, { error: "invalid_name" });
       if (password.length < 6) return json(400, { error: "password_min_6" });
 
-      // Next sequential suffix: max existing N + 1 (robust to deletions).
-      const { data: existing } = await admin.from("profiles").select("idstaff").eq("parent_user_id", clientId);
-      let maxN = 0;
-      for (const s of existing || []) {
-        const m = String(s.idstaff || "").match(/-(\d+)$/);
-        if (m) maxN = Math.max(maxN, Number(m[1]));
+      const { data: existing } = await admin.from("profiles").select("id, idstaff").eq("parent_user_id", clientId);
+
+      let newIdstaff: string;
+      if (staffRole === "logistic") {
+        // Only ONE logistic account per client.
+        const staffIds = (existing || []).map((s: any) => s.id);
+        if (staffIds.length) {
+          const { data: logRoles } = await admin.from("user_roles").select("user_id").eq("role", "logistic").in("user_id", staffIds);
+          if ((logRoles || []).length >= 1) return json(400, { error: "logistic_exists" });
+        }
+        newIdstaff = `${clientIdstaff}-LOG`;
+      } else {
+        // Next sequential numeric suffix: max existing N + 1 (robust to deletions).
+        let maxN = 0;
+        for (const s of existing || []) {
+          const m = String(s.idstaff || "").match(/-(\d+)$/);
+          if (m) maxN = Math.max(maxN, Number(m[1]));
+        }
+        newIdstaff = `${clientIdstaff}-${maxN + 1}`;
       }
-      const newIdstaff = `${clientIdstaff}-${maxN + 1}`;
       const email = staffEmail(newIdstaff);
 
-      // handle_new_user sees staff_of + staff_idstaff and provisions the profile
-      // as a staff of this client (idstaff set at INSERT — a BEFORE UPDATE trigger
-      // locks idstaff, so it cannot be changed afterwards).
+      // handle_new_user sees staff_of + staff_idstaff + staff_role and provisions
+      // the profile as a staff of this client (idstaff set at INSERT — a BEFORE
+      // UPDATE trigger locks idstaff, so it cannot be changed afterwards).
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: { username: newIdstaff, full_name: name, whatsapp, staff_of: clientId, staff_idstaff: newIdstaff },
+        user_metadata: { username: newIdstaff, full_name: name, whatsapp, staff_of: clientId, staff_idstaff: newIdstaff, staff_role: staffRole },
       });
       if (cErr || !created?.user) {
         return json(500, { error: "create_failed", detail: cErr?.message });
       }
-      return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff });
+      return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff, role: staffRole });
     }
 
     // Remaining actions target a staff the caller owns.

@@ -67,7 +67,7 @@ const RouteFallback = () => (
 // Role separation: the platform owner (superadmin) is a reporting/settings role
 // and must never reach the client order-entry pages; clients must never reach
 // the admin pages. RoleGate redirects the wrong role to its own home.
-const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" | "client"; allowExpired?: boolean; marketerOk?: boolean; children: ReactElement }) => {
+const RoleGate = ({ need, allowExpired, marketerOk, logisticOk, children }: { need: "admin" | "client"; allowExpired?: boolean; marketerOk?: boolean; logisticOk?: boolean; children: ReactElement }) => {
   const { profile, isLoading } = useAuth();
   const location = useLocation();
   const isClientTenant = profile?.role === "client";
@@ -90,16 +90,19 @@ const RoleGate = ({ need, allowExpired, marketerOk, children }: { need: "admin" 
   if (isLoading) return <RouteFallback />;
   const isAdmin = profile?.role === "superadmin";
   const isMarketer = profile?.role === "marketer";
+  const isLogistic = profile?.role === "logistic";
   if (need === "admin" && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (need === "client" && isAdmin) return <Navigate to="/dashboard/admin/clients" replace />;
   // Marketer staff: restricted to their own Marketer Role pages + Profile.
   // Everything else (logistic, finance, integration, courier, billing, team)
   // bounces back to their dashboard.
   if (need === "client" && isMarketer && !marketerOk) return <Navigate to="/dashboard" replace />;
+  // Logistic staff: restricted to the Logistic section + Dashboard + Profile.
+  if (need === "client" && isLogistic && !logisticOk) return <Navigate to="/dashboard" replace />;
   // Expired / deactivated clients keep read access to nothing but Billing (to
-  // resubscribe) and Profile. Staff (marketer) follow the client's tenant and
-  // are never expiry-frozen here.
-  if (need === "client" && !isAdmin && !isMarketer && !allowExpired) {
+  // resubscribe) and Profile. Staff (marketer/logistic) follow the client's
+  // tenant and are never expiry-frozen or courier-gated here.
+  if (need === "client" && !isAdmin && !isMarketer && !isLogistic && !allowExpired) {
     const exp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
     const frozen = profile?.isActive === false || (exp !== null && exp.getTime() < Date.now());
     if (frozen) return <Navigate to="/dashboard/billing" replace />;
@@ -123,12 +126,14 @@ const DashboardHome = () => {
   if (profile?.role === "superadmin") return <Navigate to="/dashboard/admin/clients" replace />;
   // Wrap in RoleGate (marketerOk so staff keep their dashboard) so the expiry +
   // courier-config gates also apply to the home dashboard.
-  return <RoleGate need="client" marketerOk><Dashboard /></RoleGate>;
+  return <RoleGate need="client" marketerOk logisticOk><Dashboard /></RoleGate>;
 };
 
 const clientOnly = (el: ReactElement) => <RoleGate need="client">{el}</RoleGate>;
 // Pages a marketer staff may reach (their own Marketer Role work).
 const marketerAllowed = (el: ReactElement) => <RoleGate need="client" marketerOk>{el}</RoleGate>;
+// Pages a logistic staff may reach (the Logistic section). Client also allowed.
+const logisticAllowed = (el: ReactElement) => <RoleGate need="client" logisticOk>{el}</RoleGate>;
 // Billing stays reachable even when the plan has expired (that's where they resubscribe).
 const clientBilling = (el: ReactElement) => <RoleGate need="client" allowExpired>{el}</RoleGate>;
 const adminOnly = (el: ReactElement) => <RoleGate need="admin">{el}</RoleGate>;
@@ -160,14 +165,14 @@ const App = () => (
                     <Route path="team" element={clientOnly(<TeamManagement />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={clientOnly(<Integration />)} />
-                    {/* Logistic Role - Inventory */}
-                    <Route path="logistics/inventory-product" element={clientOnly(<LogisticProductManagement />)} />
-                    <Route path="logistics/inventory-bundle" element={clientOnly(<LogisticBundleManagement />)} />
-                    {/* Logistic Role - Orders */}
-                    <Route path="logistics/order" element={clientOnly(<LogisticOrder />)} />
-                    <Route path="logistics/processed" element={clientOnly(<LogisticProcessed />)} />
-                    <Route path="logistics/return" element={clientOnly(<LogisticReturn />)} />
-                    <Route path="logistics/pending-tracking" element={clientOnly(<LogisticPendingTracking />)} />
+                    {/* Logistic Role - Inventory (client + logistic staff) */}
+                    <Route path="logistics/inventory-product" element={logisticAllowed(<LogisticProductManagement />)} />
+                    <Route path="logistics/inventory-bundle" element={logisticAllowed(<LogisticBundleManagement />)} />
+                    {/* Logistic Role - Orders (client + logistic staff) */}
+                    <Route path="logistics/order" element={logisticAllowed(<LogisticOrder />)} />
+                    <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
+                    <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
+                    <Route path="logistics/pending-tracking" element={logisticAllowed(<LogisticPendingTracking />)} />
                     <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />
                     <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
                     {/* Account Role */}

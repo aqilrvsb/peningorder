@@ -124,18 +124,21 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   // The platform owner (superadmin) is a reporting/settings role only — never
   // the client order-entry menus. Clients get the Marketer/Management groups.
   const isAdmin = profile?.role === 'superadmin';
-  const isMarketer = profile?.role === 'marketer'; // a client's staff member
+  const isMarketer = profile?.role === 'marketer'; // a client's marketer staff
+  const isLogistic = profile?.role === 'logistic'; // a client's logistic staff
   // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
   // stays reachable — matches the route guard in App.tsx. Staff aren't expiry-frozen.
   const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
-  const frozen = !isAdmin && !isMarketer && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
-  // Admin: no role groups. Staff: only the Marketer group, minus the Team page
-  // (Team is client-only). Client: all groups.
+  const frozen = !isAdmin && !isMarketer && !isLogistic && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
+  // Admin: no role groups. Marketer staff: only the Marketer group minus Team.
+  // Logistic staff: only the Logistic group. Client: all groups.
   const roleGroups: RoleGroup[] = isAdmin
     ? []
     : isMarketer
       ? [{ ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') }]
-      : baseRoleGroups;
+      : isLogistic
+        ? baseRoleGroups.filter((g) => g.key === 'logistic')
+        : baseRoleGroups;
 
   // ParcelDaily credit balance (clients only).
   const [pdCredit, setPdCredit] = useState<{ loading: boolean; credit: string | null; configured: boolean }>(
@@ -335,7 +338,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         })}
 
         {/* Courier Settings — standalone (cross-cutting), sits above Integration. */}
-        {!isAdmin && !isMarketer && (
+        {!isAdmin && !isMarketer && !isLogistic && (
           <Link
             to="/dashboard/logistics/courier-settings"
             title={collapsed ? 'Courier Settings' : undefined}
@@ -352,7 +355,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         )}
 
         {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly). */}
-        {!isAdmin && !isMarketer && (
+        {!isAdmin && !isMarketer && !isLogistic && (
           <Link
             to="/dashboard/integration"
             title={collapsed ? 'Integration' : undefined}
@@ -370,7 +373,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
 
         {/* Open Ticket — client support submission. Admin handles tickets via
             the admin Tickets page instead. */}
-        {!isAdmin && !isMarketer && (
+        {!isAdmin && !isMarketer && !isLogistic && (
           <Link
             to="/dashboard/tickets"
             title={collapsed ? 'Open Ticket' : undefined}
@@ -419,7 +422,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           )}
         </div>
         {/* Billing is a client concern (their subscription). Admin/staff don't subscribe. */}
-        {!isAdmin && !isMarketer && (
+        {!isAdmin && !isMarketer && !isLogistic && (
           <Link
             to="/dashboard/billing"
             title={collapsed ? 'Billing' : undefined}
