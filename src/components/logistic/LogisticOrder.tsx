@@ -945,6 +945,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left text-rose-500">Cost Product</th>
+                      <th className="p-2 text-left text-amber-600">Cost Postage</th>
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
@@ -1018,6 +1019,7 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap text-amber-600">RM {Number(order.cost_postage || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap">
                             {Number(order.commission_amount) > 0 ? (
                               <button onClick={() => handleEditCommission(order)} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline" title="Tukar komisyen">
@@ -1087,7 +1089,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={23} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>

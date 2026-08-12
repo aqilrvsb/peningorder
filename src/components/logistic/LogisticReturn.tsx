@@ -525,6 +525,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left text-rose-500">Cost Product</th>
+                      <th className="p-2 text-left text-amber-600">Cost Postage</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
@@ -568,6 +569,7 @@ const LogisticReturn = () => {
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap text-amber-600">RM {Number(order.cost_postage || 0).toFixed(2)}</td>
                           <td className="p-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.type_payment || "-"}
@@ -669,7 +671,7 @@ const LogisticReturn = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={26} className="text-center py-12 text-muted-foreground">
                           No return orders found.
                         </td>
                       </tr>
