@@ -68,6 +68,7 @@ const LogisticOrder = () => {
   // Loading states
   const [isShipping, setIsShipping] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generatingTrackingFor, setGeneratingTrackingFor] = useState<string | null>(null);
 
@@ -299,91 +300,69 @@ const LogisticOrder = () => {
     }
 
     const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
-
-    // Waybill on-demand fallback: any selected ParcelDaily order missing its
-    // stored waybill_url (e.g. the Checkout Webhook never landed) — pull the
-    // waybill URL live from ParcelDaily (checkout-status) so printing still works.
-    const waybillUrlById = new Map<string, string>();
-    const missingWaybill = selectedOrdersList.filter(
-      (o: any) => /poslaju|ninjavan|jnt|dhl/i.test(o.kurier || '') && !o.waybill_url && o.tracking_number
-    );
-    if (missingWaybill.length) {
-      try {
-        const { data } = await supabase.functions.invoke('parceldaily-sync', {
-          body: { purchaseIds: missingWaybill.map((o: any) => o.id) },
-        });
-        for (const r of (data?.results || [])) if (r?.waybill_url) waybillUrlById.set(r.id, r.waybill_url);
-        if (data?.updated) queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
-      } catch { /* fall through — print whatever already has a waybill */ }
-    }
-    const waybillOf = (o: any) => o.waybill_url || waybillUrlById.get(o.id) || null;
-
-    // Separate orders by kurier type:
-    // - Ninjavan: use ninjavan-waybill API (fetch from NinjaVan)
-    // - Poslaju/Marketplace: use merge-waybills (already have PDF URL)
-    const ninjavanOrdersForPrint = selectedOrdersList.filter(
-      (o: any) => o.kurier?.includes('Ninjavan') && o.tracking_number
-    );
-    const pdfUrlOrders = selectedOrdersList.filter(
-      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Tiktok") && waybillOf(o)
-    );
-
-    if (ninjavanOrdersForPrint.length === 0 && pdfUrlOrders.length === 0) {
-      toast.error("Selected orders do not have waybills to print");
-      return;
-    }
-
     setIsPrinting(true);
 
     try {
-      // Handle NinjaVan orders (fetch waybill from API)
-      if (ninjavanOrdersForPrint.length > 0) {
-        const trackingNumbers = ninjavanOrdersForPrint.map((o: any) => o.tracking_number);
+      // Every courier now ships via ParcelDaily and carries a waybill_url
+      // (connoteURL). For any selected order missing it (webhook never landed /
+      // not configured), pull it live from ParcelDaily first, then merge them all
+      // into one PDF via merge-waybills so it opens INLINE (not a raw download).
+      const waybillUrlById = new Map<string, string>();
+      const missingWaybill = selectedOrdersList.filter(
+        (o: any) => !o.waybill_url && o.tracking_number && /poslaju|ninjavan|jnt|dhl|spx/i.test(o.kurier || '')
+      );
+      if (missingWaybill.length) {
+        try {
+          const { data } = await supabase.functions.invoke('parceldaily-sync', {
+            body: { purchaseIds: missingWaybill.map((o: any) => o.id) },
+          });
+          for (const r of (data?.results || [])) if (r?.waybill_url) waybillUrlById.set(r.id, r.waybill_url);
+          if (data?.updated) queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+        } catch { /* fall through — print whatever already has a waybill */ }
+      }
+      const waybillOf = (o: any) => o.waybill_url || waybillUrlById.get(o.id) || null;
 
-        const response = await supabase.functions.invoke("ninjavan-waybill", {
-          body: { trackingNumbers },
-        });
-
-        if (response.error) {
-          console.error("NinjaVan waybill error:", response.error);
-          toast.error("Failed to fetch NinjaVan waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
-        }
+      const printable = selectedOrdersList.filter((o: any) => waybillOf(o));
+      if (!printable.length) {
+        toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses ParcelDaily (atau telah refund).");
+        return;
       }
 
-      // Handle Poslaju/Tiktok orders (merge existing PDF URLs)
-      if (pdfUrlOrders.length > 0) {
-        const waybillUrls = pdfUrlOrders.map((o: any) => waybillOf(o));
-
-        const response = await supabase.functions.invoke("merge-waybills", {
-          body: { waybillUrls },
-        });
-
-        if (response.error) {
-          console.error("PDF merge error:", response.error);
-          toast.error("Failed to merge waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          const poslajuCount = pdfUrlOrders.filter((o: any) => o.kurier?.includes('Poslaju')).length;
-          const otherCount = pdfUrlOrders.length - poslajuCount;
-          const msg = poslajuCount > 0 && otherCount > 0
-            ? `Poslaju (${poslajuCount}) + Marketplace (${otherCount}) waybills opened`
-            : poslajuCount > 0
-            ? `Poslaju waybill for ${poslajuCount} order(s) opened`
-            : `Marketplace waybill for ${otherCount} order(s) opened`;
-          toast.success(msg);
-        }
+      const waybillUrls = printable.map((o: any) => waybillOf(o));
+      const response = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls } });
+      if (response.error) {
+        console.error("PDF merge error:", response.error);
+        toast.error("Gagal gabungkan waybill");
+      } else if (response.data) {
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        const skipped = selectedOrdersList.length - printable.length;
+        toast.success(`Waybill untuk ${printable.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ''}`);
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to generate waybills");
+      toast.error(error.message || "Gagal jana waybill");
     } finally {
       setIsPrinting(false);
+    }
+  };
+
+  // View a single waybill INLINE. ParcelDaily's connoteURL serves the PDF as
+  // application/octet-stream (browsers download it), so route it through
+  // merge-waybills which returns application/pdf and opens in a new tab.
+  const handleViewWaybill = async (order: any) => {
+    const url = order.waybill_url;
+    if (!url) return;
+    setViewingWaybillId(order.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls: [url] } });
+      if (error || !data) throw new Error("view failed");
+      const blob = new Blob([data], { type: "application/pdf" });
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch {
+      window.open(url, "_blank"); // fallback: raw URL (may download)
+    } finally {
+      setViewingWaybillId(null);
     }
   };
 
@@ -417,7 +396,7 @@ const LogisticOrder = () => {
       const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
       // Cancel Parcel Daily shipment for orders that have tracking (any PD courier)
-      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
+      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];
       for (const order of selectedOrdersList) {
         const isPdOrder = PD_COURIERS.some((c) => order.kurier?.includes(c));
         if (order.tracking_number && isPdOrder) {
@@ -548,7 +527,8 @@ const LogisticOrder = () => {
       address: order.address_customer || "",
       postcode: order.postcode_customer || "",
       city: order.city_customer || "",
-      state: order.state_customer || "",
+      // Match the dropdown's title-case value regardless of stored casing.
+      state: MALAYSIAN_STATES.find((s) => s.toUpperCase() === (order.state_customer || "").toUpperCase()) || order.state_customer || "",
       quantity: order.unit || 1,
       totalPrice: Number(order.total_sale || 0),
       paymentMethod: order.type_payment || "CASH",
@@ -567,7 +547,7 @@ const LogisticOrder = () => {
 
     try {
       const hasExistingTracking = !!editingOrder.tracking_number;
-      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
+      const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];
       const isPdOrder = PD_COURIERS.some((c) => editingOrder?.kurier?.includes(c));
 
       // Step 1: If has existing PD tracking, cancel it first (refunds credit)
@@ -906,8 +886,6 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Negeri</th>
                       <th className="p-2 text-left">Alamat</th>
                       <th className="p-2 text-left">Waybill</th>
-                      <th className="p-2 text-left">Parcel Status</th>
-                      <th className="p-2 text-left">WhatsApp</th>
                       <th className="p-2 text-left">Action</th>
                     </tr>
                   </thead>
@@ -1006,27 +984,15 @@ const LogisticOrder = () => {
                           </td>
                           <td className="p-2">
                             {order.waybill_url ? (
-                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
-                                View
-                              </a>
-                            ) : "-"}
-                          </td>
-                          <td className="p-2">
-                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seos || "-"}
-                            </span>
-                          </td>
-                          <td className="p-2">
-                            {whatsappMap.get(order.marketer_id_staff) && (
-                              <a
-                                href={`https://wa.me/6${(whatsappMap.get(order.marketer_id_staff) || "").replace(/^0/, "").replace(/\D/g, "")}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-7 h-7 bg-green-500 hover:bg-green-600 text-white rounded"
+                              <button
+                                onClick={() => handleViewWaybill(order)}
+                                disabled={viewingWaybillId === order.id}
+                                className="text-blue-600 hover:underline text-xs inline-flex items-center gap-1 disabled:opacity-50"
                               >
-                                <MessageCircle className="w-4 h-4" />
-                              </a>
-                            )}
+                                {viewingWaybillId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                View
+                              </button>
+                            ) : "-"}
                           </td>
                           <td className="p-2">
                             <Button
@@ -1042,7 +1008,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={22} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>
@@ -1206,7 +1172,12 @@ const LogisticOrder = () => {
                   <SelectItem value="Poslaju CASH">Poslaju CASH</SelectItem>
                   <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
                   <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
-                  <SelectItem value="Kurier Tiktok">Kurier Tiktok</SelectItem>
+                  <SelectItem value="JNT COD">JNT COD</SelectItem>
+                  <SelectItem value="JNT CASH">JNT CASH</SelectItem>
+                  <SelectItem value="DHL COD">DHL COD</SelectItem>
+                  <SelectItem value="DHL CASH">DHL CASH</SelectItem>
+                  <SelectItem value="SPX COD">SPX COD</SelectItem>
+                  <SelectItem value="SPX CASH">SPX CASH</SelectItem>
                 </SelectContent>
               </Select>
             </div>

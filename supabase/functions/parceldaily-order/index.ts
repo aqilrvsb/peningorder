@@ -17,7 +17,7 @@ const fail = (error: string, extra?: Record<string, unknown>) =>
     headers: jsonHeaders,
   });
 
-type Courier = "ninjavan" | "poslaju" | "jnt" | "dhl";
+type Courier = "ninjavan" | "poslaju" | "jnt" | "dhl" | "spx";
 
 interface OrderData {
   idSale?: string;
@@ -57,7 +57,7 @@ const normalizeLocalPhone = (raw: string): string => {
   return digits;
 };
 
-const SUPPORTED_COURIERS: Courier[] = ["ninjavan", "poslaju", "jnt", "dhl"];
+const SUPPORTED_COURIERS: Courier[] = ["ninjavan", "poslaju", "jnt", "dhl", "spx"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

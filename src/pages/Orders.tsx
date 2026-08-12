@@ -98,6 +98,7 @@ const courierTrackUrl = (kurier: string, tn: string): string => {
   if (k.includes('ninja')) return `https://www.ninjavan.co/en-my/tracking?id=${t}`;
   if (k.includes('poslaju') || k.includes('pos ')) return `https://track.pos.com.my/postal-services/quick-access?track-trace=${t}`;
   if (k.includes('dhl')) return `https://ecommerceportal.dhl.com/track/?ref=${t}`;
+  if (k.includes('spx')) return `https://spx.com.my/${t}`;
   return `https://parcelsapp.com/en/tracking/${t}`;
 };
 

@@ -14,7 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret" };
 const jsonHeaders = { ...cors, "Content-Type": "application/json" };
-const PD_COURIERS = /poslaju|ninjavan|jnt|dhl/i;
+const PD_COURIERS = /poslaju|ninjavan|jnt|dhl|spx/i;
 const chunk = <T>(a: T[], n: number): T[][] => { const o: T[][] = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
 
 serve(async (req) => {

@@ -23,7 +23,7 @@ const ok = (b: unknown) => new Response(JSON.stringify(b), { status: 200, header
 const fail = (error: string, extra?: Record<string, unknown>) =>
   new Response(JSON.stringify({ error, ...(extra || {}) }), { status: 200, headers: jsonHeaders });
 
-const PD_COURIERS = /poslaju|ninjavan|jnt|dhl/i;
+const PD_COURIERS = /poslaju|ninjavan|jnt|dhl|spx/i;
 const chunk = <T>(arr: T[], n: number): T[][] => {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));

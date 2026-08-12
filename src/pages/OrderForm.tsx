@@ -33,7 +33,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google']
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -724,12 +724,13 @@ const OrderForm: React.FC = () => {
     let kurier = '';
     const isPickup = formData.deliveryMethod === 'Self Pickup';
     const dmLower = (formData.deliveryMethod || '').toLowerCase();
-    const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl'; label: string }> = {
+    const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'; label: string }> = {
       ninjavan: { code: 'ninjavan', label: 'Ninjavan' },
       poslaju: { code: 'poslaju', label: 'Poslaju' },
       jnt: { code: 'jnt', label: 'JNT' },
       'jnt express': { code: 'jnt', label: 'JNT' },
       dhl: { code: 'dhl', label: 'DHL' },
+      spx: { code: 'spx', label: 'SPX' },
     };
     const pdMapped = PD_COURIER_MAP[dmLower];
     const isParcelDaily = !!pdMapped;
@@ -768,7 +769,7 @@ const OrderForm: React.FC = () => {
         const isNowKurierOrder = !isPickup;
 
         // If it was a PD courier order, cancel the old shipment first (refunds credit)
-        const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];
+        const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];
         const wasPdOrder = PD_COURIERS.some((c) => editOrder.kurier?.includes(c));
         if (wasKurierOrder && wasPdOrder && editOrder.noTracking) {
           console.log('Cancelling old shipment:', editOrder.noTracking);
