@@ -31,6 +31,7 @@ interface ClientRow {
   plan_expires_at: string | null;
   is_active: boolean | null;
   whatsapp: string | null;
+  parent_user_id: string | null;
 }
 
 const AdminClientManage: React.FC = () => {
@@ -40,6 +41,7 @@ const AdminClientManage: React.FC = () => {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'all' | 'client' | 'staff'>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // create dialog
@@ -66,7 +68,7 @@ const AdminClientManage: React.FC = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp')
+      .select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp, parent_user_id')
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Load failed', description: error.message, variant: 'destructive' });
     setClients(((data || []) as ClientRow[]).filter((c) => c.plan !== 'superadmin'));
@@ -173,11 +175,20 @@ const AdminClientManage: React.FC = () => {
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
 
   const now = new Date();
-  const filtered = clients.filter((c) => {
+  const isStaff = (c: ClientRow) => !!c.parent_user_id;
+
+  // Search first, then tab — so the summary boxes count what the search narrowed to.
+  const searched = clients.filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return [c.email, c.full_name, c.business_name, c.idstaff].some((v) => (v || '').toLowerCase().includes(q));
   });
+  const counts = {
+    all: searched.length,
+    client: searched.filter((c) => !isStaff(c)).length,
+    staff: searched.filter((c) => isStaff(c)).length,
+  };
+  const filtered = searched.filter((c) => tab === 'all' || (tab === 'staff' ? isStaff(c) : !isStaff(c)));
 
   return (
     <div className="p-6 space-y-6">
@@ -187,6 +198,25 @@ const AdminClientManage: React.FC = () => {
           <p className="text-muted-foreground mt-2">Register clients, reset passwords, set plan &amp; expiry, or log in as a client.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}><UserPlus className="w-4 h-4 mr-2" /> New Client</Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">
+        {([
+          { key: 'all', label: 'All', value: counts.all, accent: 'text-primary' },
+          { key: 'client', label: 'Client', value: counts.client, accent: 'text-emerald-600 dark:text-emerald-400' },
+          { key: 'staff', label: 'Staff', value: counts.staff, accent: 'text-blue-600 dark:text-blue-400' },
+        ] as const).map((b) => (
+          <button
+            key={b.key}
+            onClick={() => setTab(b.key)}
+            className={`rounded-xl border p-4 text-left transition-colors ${
+              tab === b.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'
+            }`}
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.value}</p>
+          </button>
+        ))}
       </div>
 
       <div className="relative max-w-md">
