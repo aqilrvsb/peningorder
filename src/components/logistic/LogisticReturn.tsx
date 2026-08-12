@@ -32,6 +32,18 @@ const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
 const PAGE_SIZE_OPTIONS = [10, 50, 100, "All"] as const;
 
+// Normalise a stored kurier to its base courier for grouping + filtering.
+const baseCourier = (kurier?: string): string => {
+  const k = (kurier || "").toLowerCase();
+  if (k.includes("poslaju")) return "Poslaju";
+  if (k.includes("ninjavan")) return "Ninjavan";
+  if (k.includes("jnt")) return "JNT";
+  if (k.includes("dhl")) return "DHL";
+  if (k.includes("spx")) return "SPX";
+  if (k.includes("tiktok")) return "Tiktok";
+  return kurier?.trim() || "Lain";
+};
+
 const LogisticReturn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -46,6 +58,7 @@ const LogisticReturn = () => {
   const [endDate, setEndDate] = useState(today);
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");
+  const [courierFilter, setCourierFilter] = useState("All");
   const [pageSize, setPageSize] = useState<number | "All">(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -129,6 +142,10 @@ const LogisticReturn = () => {
       return false;
     }
 
+    if (courierFilter !== "All" && baseCourier(order.kurier) !== courierFilter) {
+      return false;
+    }
+
     // Platform filter - filter by exact platform name
     if (platformFilter !== "All") {
       if (order.jenis_platform !== platformFilter) {
@@ -151,6 +168,12 @@ const LogisticReturn = () => {
     ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
     ninjavanCash: orders.filter((o: any) => o.type_payment === "CASH").length,
   };
+
+  const courierCounts = orders.reduce((acc: Record<string, number>, o: any) => {
+    const c = baseCourier(o.kurier);
+    acc[c] = (acc[c] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -321,6 +344,33 @@ const LogisticReturn = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Courier summary cards — click a card to filter the table by that courier */}
+      {Object.keys(courierCounts).length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          <Card
+            className={`cursor-pointer transition-colors ${courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+            onClick={() => { setCourierFilter("All"); handleFilterChange(); }}
+          >
+            <CardContent className="py-3 px-4">
+              <p className="text-lg font-bold">{counts.total}</p>
+              <p className="text-xs text-muted-foreground">Semua Kurier</p>
+            </CardContent>
+          </Card>
+          {Object.entries(courierCounts).sort((a, b) => b[1] - a[1]).map(([courier, n]) => (
+            <Card
+              key={courier}
+              className={`cursor-pointer transition-colors ${courierFilter === courier ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+              onClick={() => { setCourierFilter(courierFilter === courier ? "All" : courier); handleFilterChange(); }}
+            >
+              <CardContent className="py-3 px-4">
+                <p className="text-lg font-bold">{n}</p>
+                <p className="text-xs text-muted-foreground">{courier}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
