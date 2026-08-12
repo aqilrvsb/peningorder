@@ -837,13 +837,16 @@ const OrderForm: React.FC = () => {
                 variant: 'destructive',
               });
             } else if (kurierResult?.orderId) {
-              // Parcel Daily returns orderId immediately; real tracking arrives via webhook.
+              // Checkout returns the real tracking number (connote) synchronously;
+              // fall back to orderId placeholder only if it wasn't in the response.
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
               if (kurierResult?.pdfLink) editWaybillPdfUrl = kurierResult.pdfLink;
               if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
               toast({
                 title: `${kurierName} Berjaya`,
-                description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
+                description: kurierResult.trackingNumber
+                  ? `No. Tracking: ${kurierResult.trackingNumber}`
+                  : `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
               });
             }
           } catch (kurierErr) {
@@ -1023,13 +1026,17 @@ const OrderForm: React.FC = () => {
                 variant: 'destructive',
               });
             } else if (kurierResult?.orderId) {
+              // Checkout returns the real tracking number (connote) synchronously;
+              // fall back to orderId placeholder only if it wasn't in the response.
               trackingNumber = kurierResult.trackingNumber || kurierResult.orderId;
               if (kurierResult?.pdfLink) waybillPdfUrl = kurierResult.pdfLink;
               // Real shipping cost from PD quote — overrides bundle estimate below
               if (kurierResult?.shippingPrice != null) pdShippingPrice = Number(kurierResult.shippingPrice);
               toast({
                 title: `${kurierName} Berjaya`,
-                description: `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
+                description: kurierResult.trackingNumber
+                  ? `No. Tracking: ${kurierResult.trackingNumber}`
+                  : `Order ID: ${kurierResult.orderId}. Tracking akan tiba melalui webhook.`,
               });
             }
           } catch (kurierErr) {

@@ -362,16 +362,30 @@ serve(async (req) => {
     }
     const payResult = pay.result;
 
-    // After pay, tracking number arrives via Checkout Webhook (async).
-    // Return orderId immediately; caller stores it and waits for webhook to fill tracking.
+    // The Checkout (pay) response returns the generated tracking number (connote)
+    // SYNCHRONOUSLY — so we don't depend on the Checkout Webhook to get tracking.
+    // Docs: "Checkout Order … Returns the processed Order with generated Tracking
+    // Number." Shape: { data: { orderId, connote, reference } }.
+    // The webhook (if it fires) only refines status/waybill later; if it never
+    // fires, the order still has its real tracking number from here.
+    const payData = payResult?.data || {};
+    const trackingNumber =
+      payData.connote ||
+      payData.consign_no ||
+      payData.trackingNumber ||
+      payData.tracking_number ||
+      null;
+
     return ok({
       success: true,
       orderId,
+      trackingNumber, // real connote captured at checkout (webhook not required)
       courier,
       shippingPrice, // caller stores this in customer_purchases.cost_postage
-      status: payResult?.data?.status || "checkout_pending",
-      message:
-        "Order created and checked out. Tracking number will arrive via webhook.",
+      status: payData.status || (trackingNumber ? "checked_out" : "checkout_pending"),
+      message: trackingNumber
+        ? "Order created and checked out. Tracking number captured."
+        : "Order created and checked out. Tracking number will arrive via webhook.",
     });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Internal server error";
