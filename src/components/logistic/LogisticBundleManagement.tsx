@@ -70,6 +70,7 @@ const LogisticBundleManagement = () => {
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
   const [baseCost, setBaseCost] = useState<number>(0);
   const [hqCost, setHqCost] = useState<number>(0);
+  const [commissionRm, setCommissionRm] = useState<number>(0);
   const [kosPostageSm, setKosPostageSm] = useState<number>(0);
   const [kosPostageSs, setKosPostageSs] = useState<number>(0);
   // Single set of prices (no platform differentiation)
@@ -131,6 +132,7 @@ const LogisticBundleManagement = () => {
     setBundleItems([]);
     setBaseCost(0);
     setHqCost(0);
+    setCommissionRm(0);
     setKosPostageSm(0);
     setKosPostageSs(0);
     setPriceNp(0);
@@ -158,6 +160,7 @@ const LogisticBundleManagement = () => {
     setBundleDescription(bundle.description || "");
     setBaseCost(Number(bundle.base_cost) || 0);
     setHqCost(Number(bundle.hq_cost) || 0);
+    setCommissionRm(Number(bundle.commission_rm) || 0);
     setKosPostageSm(Number(bundle.kos_postage_sm) || 0);
     setKosPostageSs(Number(bundle.kos_postage_ss) || 0);
     // Single set of prices (use online prices as the standard, fallback to 0)
@@ -278,6 +281,7 @@ const LogisticBundleManagement = () => {
             sku: generatedSku,
             base_cost: baseCost,
             hq_cost: hqCost,
+            commission_rm: commissionRm,
             kos_postage_sm: kosPostageSm,
             kos_postage_ss: kosPostageSs,
             price_online_np: priceNp,
@@ -309,6 +313,7 @@ const LogisticBundleManagement = () => {
             sku: generatedSku,
             base_cost: baseCost,
             hq_cost: hqCost,
+            commission_rm: commissionRm,
             kos_postage_sm: kosPostageSm,
             kos_postage_ss: kosPostageSs,
             price_online_np: priceNp,
@@ -427,6 +432,7 @@ const LogisticBundleManagement = () => {
                   <TableHead>Description</TableHead>
                   <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Cost Product</TableHead>
+                  <TableHead className="text-center">Komisyen Order</TableHead>
                   <TableHead className="text-center">Weight (KG)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -450,6 +456,9 @@ const LogisticBundleManagement = () => {
                     </TableCell>
                     <TableCell className="text-center font-medium text-red-600">
                       RM {Number(bundle.base_cost || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-blue-600">
+                      RM {Number(bundle.commission_rm || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-center font-medium text-gray-600">
                       {Number(bundle.weight || 0.5).toFixed(2)}
@@ -649,6 +658,20 @@ const LogisticBundleManagement = () => {
                     className="border-gray-300 focus:border-gray-500"
                   />
                   <p className="text-xs text-muted-foreground">Sent to courier for postage pricing</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commissionRm" className="text-blue-600 font-medium">Komisyen Order (RM)</Label>
+                  <Input
+                    id="commissionRm"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={commissionRm || ""}
+                    onChange={(e) => setCommissionRm(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="border-blue-300 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-muted-foreground">Commission paid per order for commission-order staff</p>
                 </div>
               </div>
             </div>

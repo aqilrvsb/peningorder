@@ -61,7 +61,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data } = await admin
         .from("profiles")
-        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, created_at")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       return json(200, { success: true, staff: data || [] });
@@ -117,6 +117,18 @@ serve(async (req) => {
       const active = !!body?.active;
       await admin.from("profiles").update({ is_active: active }).eq("id", targetId);
       return json(200, { success: true, active });
+    }
+
+    if (action === "set_pay_mode") {
+      const mode = String(body?.pay_mode || "");
+      if (mode !== "commission_order" && mode !== "gross_profit") return json(400, { error: "invalid_pay_mode" });
+      // Percent only meaningful for gross_profit; clamp 0–100. Reset to 0 for commission_order.
+      let pct = Number(body?.commission_percent);
+      if (!Number.isFinite(pct)) pct = 0;
+      pct = Math.max(0, Math.min(100, pct));
+      const patch: Record<string, unknown> = { pay_mode: mode, commission_percent: mode === "gross_profit" ? pct : 0 };
+      await admin.from("profiles").update(patch).eq("id", targetId);
+      return json(200, { success: true, pay_mode: mode, commission_percent: patch.commission_percent });
     }
 
     if (action === "delete") {

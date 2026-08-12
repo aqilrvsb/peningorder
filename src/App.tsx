@@ -52,6 +52,7 @@ const LogisticPendingTracking = lazy(() => import("./components/logistic/Logisti
 const SalesOverview = lazy(() => import("./components/account/SalesOverview"));
 const AccountReportProfit = lazy(() => import("./components/account/AccountReportProfit"));
 const AccountInvoiceSettings = lazy(() => import("./components/account/AccountInvoiceSettings"));
+const AccountOrderCash = lazy(() => import("./components/account/AccountOrderCash"));
 const AccountPendingTracking = lazy(() => import("./components/account/AccountPendingTracking"));
 
 const queryClient = new QueryClient();
@@ -143,6 +144,7 @@ const App = () => (
                     <Route path="account/sales-overview" element={clientOnly(<SalesOverview />)} />
                     <Route path="account/report-profit" element={clientOnly(<AccountReportProfit />)} />
                     <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
+                    <Route path="account/order-cash" element={clientOnly(<AccountOrderCash />)} />
                     <Route path="account/invoice-settings" element={clientOnly(<AccountInvoiceSettings />)} />
                     {/* Support — client ticket submission */}
                     <Route path="tickets" element={clientOnly(<Tickets />)} />

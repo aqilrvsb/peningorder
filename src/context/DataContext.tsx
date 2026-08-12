@@ -18,6 +18,7 @@ interface CustomerOrder {
   jenisPlatform: string; jenisCustomer: string; jenisClosing: string; caraBayaran: string;
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
   seo: string; seos: string; bundleId: string;
+  receiptType?: string | null; commission?: number;
 }
 
 interface Prospect {
@@ -102,6 +103,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     jenisBayaran: d.type_payment || '', // NEW: type_payment (same as caraBayaran)
     bank: d.bank_payment || '', // NEW: bank_payment
     receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
+    receiptType: d.receipt_payment_type || null,
+    commission: parseFloat(d.commission_amount) || 0,
     waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
     seos: d.seos || '',
@@ -187,6 +190,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       date_payment: order.tarikhBayaran || null, // NEW: date_payment
       bank_payment: order.bank || null, // NEW: bank_payment
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
+      receipt_payment_type: order.receiptType ?? null,
+      commission_amount: order.commission ?? 0, // snapshot bundle commission
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
       seos: 'Pending', // Delivery tracking status - starts as Pending

@@ -15,6 +15,8 @@ interface UserProfile {
   planExpiresAt: string | null;
   isActive: boolean;
   parentUserId: string | null; // set for marketer staff → their client's id
+  payMode: 'commission_order' | 'gross_profit'; // staff payout basis
+  commissionPercent: number; // % of gross profit when payMode = gross_profit
 }
 
 interface AuthContextType {
@@ -53,6 +55,8 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     planExpiresAt: profile.plan_expires_at ?? null,
     isActive: profile.is_active !== false,
     parentUserId: profile.parent_user_id ?? null,
+    payMode: (profile.pay_mode === 'gross_profit' ? 'gross_profit' : 'commission_order'),
+    commissionPercent: Number(profile.commission_percent) || 0,
   };
 }
 

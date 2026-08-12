@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent } from 'lucide-react';
 
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null };
 
 const call = async (action: string, extra: Record<string, unknown> = {}) => {
   const { data, error } = await supabase.functions.invoke('team-staff', { body: { action, ...extra } });
@@ -72,6 +72,24 @@ const TeamManagement: React.FC = () => {
     try { await call('set_active', { user_id: s.id, active: !s.is_active }); refresh(); }
     catch (e: any) { toast({ title: 'Gagal', description: e.message, variant: 'destructive' }); }
     finally { setBusyId(null); }
+  };
+
+  // Pembayaran mode: 'commission_order' (bundle commission per order) vs
+  // 'gross_profit' (a % of gross profit). Percent only applies to gross_profit.
+  const setPayMode = async (s: Staff, mode: 'commission_order' | 'gross_profit', percent?: number) => {
+    setBusyId(s.id);
+    try {
+      await call('set_pay_mode', { user_id: s.id, pay_mode: mode, commission_percent: percent ?? s.commission_percent ?? 0 });
+      refresh();
+    } catch (e: any) { toast({ title: 'Gagal', description: e.message, variant: 'destructive' }); }
+    finally { setBusyId(null); }
+  };
+
+  const editPercent = async (s: Staff) => {
+    const raw = prompt(`Peratus komisyen dari Gross Profit untuk ${s.idstaff} (%):`, String(s.commission_percent ?? 0));
+    if (raw === null) return;
+    const pct = Math.max(0, Math.min(100, parseFloat(raw) || 0));
+    await setPayMode(s, 'gross_profit', pct);
   };
 
   const removeStaff = async (s: Staff) => {
@@ -141,6 +159,7 @@ const TeamManagement: React.FC = () => {
                   <th className="p-3 text-left">ID Staff</th>
                   <th className="p-3 text-left">Nama</th>
                   <th className="p-3 text-left">WhatsApp</th>
+                  <th className="p-3 text-left">Pembayaran</th>
                   <th className="p-3 text-left">Status</th>
                   <th className="p-3 text-left">Tindakan</th>
                 </tr>
@@ -151,6 +170,36 @@ const TeamManagement: React.FC = () => {
                     <td className="p-3 font-mono">{s.idstaff}</td>
                     <td className="p-3">{s.full_name || '-'}</td>
                     <td className="p-3">{s.whatsapp || s.whatsapp_number || '-'}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex rounded-lg border border-border overflow-hidden text-xs">
+                          <button
+                            disabled={busyId === s.id}
+                            onClick={() => setPayMode(s, 'commission_order')}
+                            className={`px-2.5 py-1 transition-colors ${(s.pay_mode || 'commission_order') === 'commission_order' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
+                          >
+                            Komisyen Order
+                          </button>
+                          <button
+                            disabled={busyId === s.id}
+                            onClick={() => (s.pay_mode === 'gross_profit' ? editPercent(s) : setPayMode(s, 'gross_profit', s.commission_percent ?? 0))}
+                            className={`px-2.5 py-1 transition-colors border-l border-border ${s.pay_mode === 'gross_profit' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
+                          >
+                            Gross Profit
+                          </button>
+                        </div>
+                        {s.pay_mode === 'gross_profit' && (
+                          <button
+                            disabled={busyId === s.id}
+                            onClick={() => editPercent(s)}
+                            title="Set peratus komisyen"
+                            className="inline-flex items-center gap-0.5 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                          >
+                            {Number(s.commission_percent ?? 0)}<Percent className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {s.is_active ? 'Aktif' : 'Nonaktif'}
@@ -172,7 +221,7 @@ const TeamManagement: React.FC = () => {
                   </tr>
                 ))}
                 {staff.length === 0 && (
-                  <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Belum ada staff. Tambah staff pertama anda di atas.</td></tr>
+                  <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Belum ada staff. Tambah staff pertama anda di atas.</td></tr>
                 )}
               </tbody>
             </table>

@@ -77,6 +77,7 @@ const OrderForm: React.FC = () => {
           sku,
           description,
           base_cost,
+          commission_rm,
           kos_postage_sm,
           kos_postage_ss,
           postage_cod,
@@ -114,6 +115,8 @@ const OrderForm: React.FC = () => {
       // Cost fields for order calculation
       baseCost: Number(lb.base_cost) || 0,
       hqCost: Number(lb.hq_cost) || 0,
+      commission: Number(lb.commission_rm) || 0, // snapshot onto order at key-in
+
       kosPostageSm: Number(lb.kos_postage_sm) || 0,
       kosPostageSs: Number(lb.kos_postage_ss) || 0,
       postageCod: Number(lb.postage_cod) || 0,
@@ -936,6 +939,12 @@ const OrderForm: React.FC = () => {
             date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
             bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
             receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
+            receipt_payment_type: !newReceiptUrl
+              ? null
+              : (newReceiptUrl === editOrder.receiptImageUrl
+                  ? (editOrder.receiptType || (receiptMethod === 'link' ? 'link' : 'image'))
+                  : (receiptMethod === 'link' ? 'link' : 'image')),
+            commission_amount: selectedEditBundle?.commission || 0, // re-snapshot on edit (bundle may change)
             waybill_url: newWaybillUrl || null,
             bundle_id: editBundleId, // Save selected product/bundle
             // Real shipping cost from the fresh PD quote (only when a new shipment was created)
@@ -1066,6 +1075,9 @@ const OrderForm: React.FC = () => {
           }
         }
 
+        // Proof type for the Order Cash report: uploaded image/PDF vs pasted link.
+        const receiptType = !receiptUrl ? null : (receiptMethod === 'link' ? 'link' : 'image');
+
         // Waybill URL - use Poslaju PDF link if available
         let waybillUrl = waybillPdfUrl || '';
 
@@ -1075,6 +1087,8 @@ const OrderForm: React.FC = () => {
         // Calculate costs from bundle
         const costBaseproduct = selectedBundle?.baseCost || 0;
         const costHq = selectedBundle?.hqCost || 0;
+        // Snapshot the bundle commission (flat per order) at key-in.
+        const commissionAmount = selectedBundle?.commission || 0;
         // Postage is the REAL price Parcel Daily charged (from the quote), stored per order.
         // Non-courier orders (Self Pickup) have no PD price → 0.
         const costPostage = pdShippingPrice ?? 0;
@@ -1113,6 +1127,8 @@ const OrderForm: React.FC = () => {
               date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
               bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
+              receipt_payment_type: receiptType, // 'image' | 'link' | null
+              commission_amount: commissionAmount, // snapshot bundle commission
               waybill_url: waybillUrl || null,
               bundle_id: selectedBundle?.id || null, // NEW: bundle_id
               seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
@@ -1158,6 +1174,8 @@ const OrderForm: React.FC = () => {
             jenisBayaran: showPaymentDetails ? formData.jenisBayaran : '',
             bank: showPaymentDetails ? formData.pilihBank : '',
             receiptImageUrl: receiptUrl,
+            receiptType: receiptType,
+            commission: commissionAmount,
             waybillUrl: waybillUrl,
             seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : '', // Auto-collection for CASH
             bundleId: selectedBundle?.id || '',

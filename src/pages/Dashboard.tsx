@@ -272,6 +272,10 @@ const Dashboard: React.FC = () => {
         : (o.kosPos || 0));
     }, 0);
 
+    // Commission (order-based): sum of the bundle commission snapshotted onto
+    // each order at key-in. Used for staff on pay_mode = 'commission_order'.
+    const totalCommissionOrder = filteredOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
+
     // Gross Profit (Sales) = Total Sales - Spend - Cost Product - Postage
     const grossProfitSales = totalSales - totalSpend - totalCostProduct - totalPostage;
 
@@ -387,6 +391,7 @@ const Dashboard: React.FC = () => {
       roasCollection,
       totalCostProduct,
       totalPostage,
+      totalCommissionOrder,
       grossProfitSales,
       salesFB,
       fbPercent,
@@ -830,6 +835,16 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // Staff payout view: a marketer staff is paid either by bundle commission per
+  // order ('commission_order' — hide cost/postage/gross-profit, show Commission)
+  // or a % of gross profit ('gross_profit' — keep everything, add Commission).
+  const isStaffPayout = profile?.role === 'marketer';
+  const payMode = profile?.payMode || 'commission_order';
+  const commissionOrderMode = isStaffPayout && payMode === 'commission_order';
+  const commissionValue = payMode === 'gross_profit'
+    ? marketerStats.grossProfitSales * ((profile?.commissionPercent || 0) / 100)
+    : marketerStats.totalCommissionOrder;
+
   // Marketer Dashboard
   if (isMarketer) {
     return (
@@ -958,33 +973,56 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
           </div>
 
-          {/* COST PRODUCT */}
-          <div className="stat-card border-l-4 border-l-rose-400">
-            <div className="flex items-center gap-2 text-rose-500 mb-2">
-              <Package className="w-5 h-5" />
-              <span className="text-sm font-medium">COST PRODUCT</span>
+          {/* COST PRODUCT — hidden for commission-order staff */}
+          {!commissionOrderMode && (
+            <div className="stat-card border-l-4 border-l-rose-400">
+              <div className="flex items-center gap-2 text-rose-500 mb-2">
+                <Package className="w-5 h-5" />
+                <span className="text-sm font-medium">COST PRODUCT</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCostProduct)}</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCostProduct)}</p>
-          </div>
+          )}
 
-          {/* POSTAGE */}
-          <div className="stat-card border-l-4 border-l-amber-400">
-            <div className="flex items-center gap-2 text-amber-500 mb-2">
-              <Truck className="w-5 h-5" />
-              <span className="text-sm font-medium">POSTAGE</span>
+          {/* POSTAGE — hidden for commission-order staff */}
+          {!commissionOrderMode && (
+            <div className="stat-card border-l-4 border-l-amber-400">
+              <div className="flex items-center gap-2 text-amber-500 mb-2">
+                <Truck className="w-5 h-5" />
+                <span className="text-sm font-medium">POSTAGE</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalPostage)}</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalPostage)}</p>
-          </div>
+          )}
 
-          {/* GROSS PROFIT */}
-          <div className="stat-card border-l-4 border-l-emerald-500">
-            <div className="flex items-center gap-2 text-emerald-600 mb-2">
-              <TrendingUp className="w-5 h-5" />
-              <span className="text-sm font-medium">GROSS PROFIT</span>
+          {/* GROSS PROFIT — hidden for commission-order staff */}
+          {!commissionOrderMode && (
+            <div className="stat-card border-l-4 border-l-emerald-500">
+              <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                <TrendingUp className="w-5 h-5" />
+                <span className="text-sm font-medium">GROSS PROFIT</span>
+              </div>
+              <p className={`text-2xl font-bold ${marketerStats.grossProfitSales >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitSales)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Sales - Spend - Cost - Postage</p>
             </div>
-            <p className={`text-2xl font-bold ${marketerStats.grossProfitSales >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitSales)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Sales - Spend - Cost - Postage</p>
-          </div>
+          )}
+
+          {/* COMMISSION — staff only. commission_order = sum of per-order bundle
+              commission; gross_profit = % of gross profit. */}
+          {isStaffPayout && (
+            <div className="stat-card border-l-4 border-l-blue-500">
+              <div className="flex items-center gap-2 text-blue-600 mb-2">
+                <Wallet className="w-5 h-5" />
+                <span className="text-sm font-medium">COMMISSION</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(commissionValue)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {payMode === 'gross_profit'
+                  ? `${profile?.commissionPercent || 0}% of Gross Profit`
+                  : 'Komisyen per order'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}
