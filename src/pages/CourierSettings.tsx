@@ -57,15 +57,6 @@ const TRACKING_STATUSES: { key: string; label: string }[] = [
 ];
 type TrackPref = { track: boolean; notify: boolean };
 
-// Published ParcelDaily courier rates (flat + per-kg sub price).
-const COURIER_RATES = [
-  { icon: '🚚', name: 'SPX', flat: 'RM4.80', sub: 'RM0.80/kg' },
-  { icon: '🚚', name: 'DHL', flat: 'RM5.00', sub: 'RM1.00/kg' },
-  { icon: '📦', name: 'J&T', flat: 'RM4.80', sub: 'RM1.00/kg' },
-  { icon: '📬', name: 'PosLaju', flat: 'RM6.00', sub: 'RM1.20/kg' },
-  { icon: '🛵', name: 'Ninjavan', flat: 'RM5.80', sub: 'RM1.00/kg' },
-];
-
 // SOP for obtaining the Merchant ID + Token Key from the ParcelDaily portal.
 const GET_KEY_STEPS = [
   {
@@ -530,26 +521,14 @@ const CourierSettings: React.FC = () => {
       </div>
       )}
 
-      {/* Rate Kurier modal */}
+      {/* Rate Kurier modal — shows the full courier rate card image */}
       <Dialog open={showRates} onOpenChange={setShowRates}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Calculator className="w-5 h-5 text-primary" /> Rate Kurier</DialogTitle>
-            <DialogDescription>Harga penghantaran ParcelDaily mengikut kurier.</DialogDescription>
+            <DialogDescription>Harga penghantaran ParcelDaily mengikut kurier &amp; berat.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            {COURIER_RATES.map((r) => (
-              <div key={r.name} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                <span className="flex items-center gap-2 font-medium">
-                  <span className="text-lg">{r.icon}</span> {r.name}
-                </span>
-                <span className="text-right">
-                  <span className="font-bold">{r.flat}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">(Sub Price {r.sub})</span>
-                </span>
-              </div>
-            ))}
-          </div>
+          <img src="/courier-rates.png" alt="Rate Kurier ParcelDaily" className="w-full rounded-lg border border-border" />
         </DialogContent>
       </Dialog>
 
