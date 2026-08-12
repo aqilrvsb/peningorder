@@ -35,6 +35,25 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100];
 const LogisticPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
+
+  // View a waybill INLINE (ParcelDaily's connoteURL is octet-stream → downloads);
+  // route through merge-waybills so it returns application/pdf and opens in a tab.
+  const handleViewWaybill = async (order: any) => {
+    const url = order.waybill_url;
+    if (!url) return;
+    setViewingWaybillId(order.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls: [url] } });
+      if (error || !data) throw new Error("view failed");
+      const blob = new Blob([data], { type: "application/pdf" });
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch {
+      window.open(url, "_blank");
+    } finally {
+      setViewingWaybillId(null);
+    }
+  };
 
   // Filter states
   const [search, setSearch] = useState("");
@@ -493,9 +512,10 @@ const LogisticPendingTracking = () => {
                           </td>
                           <td className="p-2">
                             {order.waybill_url ? (
-                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                              <button onClick={() => handleViewWaybill(order)} disabled={viewingWaybillId === order.id} className="text-blue-600 hover:underline text-xs inline-flex items-center gap-1 disabled:opacity-50">
+                                {viewingWaybillId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                                 View
-                              </a>
+                              </button>
                             ) : "-"}
                           </td>
                           <td className="p-2">

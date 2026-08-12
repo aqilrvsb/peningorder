@@ -59,6 +59,25 @@ const baseCourier = (kurier?: string): string => {
 const LogisticProcessed = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
+
+  // View a waybill INLINE (ParcelDaily's connoteURL is octet-stream → downloads);
+  // route through merge-waybills so it returns application/pdf and opens in a tab.
+  const handleViewWaybill = async (order: any) => {
+    const url = order.waybill_url;
+    if (!url) return;
+    setViewingWaybillId(order.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls: [url] } });
+      if (error || !data) throw new Error("view failed");
+      const blob = new Blob([data], { type: "application/pdf" });
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch {
+      window.open(url, "_blank");
+    } finally {
+      setViewingWaybillId(null);
+    }
+  };
   const today = getMalaysiaDate();
 
   // Filter states
@@ -753,6 +772,7 @@ const LogisticProcessed = () => {
                       <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
+                      <th className="p-2 text-left text-rose-500">Cost Product</th>
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
@@ -795,6 +815,7 @@ const LogisticProcessed = () => {
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap">
                             {Number(order.commission_amount) > 0 ? (
                               <button onClick={() => handleEditCommission(order)} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline" title="Tukar komisyen">
@@ -840,9 +861,10 @@ const LogisticProcessed = () => {
                           </td>
                           <td className="p-2">
                             {order.waybill_url ? (
-                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                              <button onClick={() => handleViewWaybill(order)} disabled={viewingWaybillId === order.id} className="text-blue-600 hover:underline text-xs inline-flex items-center gap-1 disabled:opacity-50">
+                                {viewingWaybillId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                                 View
-                              </a>
+                              </button>
                             ) : "-"}
                           </td>
                           <td className="p-2">
@@ -876,7 +898,7 @@ const LogisticProcessed = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
                           No processed orders found.
                         </td>
                       </tr>

@@ -47,6 +47,25 @@ const baseCourier = (kurier?: string): string => {
 const LogisticReturn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
+
+  // View a waybill INLINE (ParcelDaily's connoteURL is octet-stream → downloads);
+  // route through merge-waybills so it returns application/pdf and opens in a tab.
+  const handleViewWaybill = async (order: any) => {
+    const url = order.waybill_url;
+    if (!url) return;
+    setViewingWaybillId(order.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls: [url] } });
+      if (error || !data) throw new Error("view failed");
+      const blob = new Blob([data], { type: "application/pdf" });
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch {
+      window.open(url, "_blank");
+    } finally {
+      setViewingWaybillId(null);
+    }
+  };
   const today = getMalaysiaDate();
   const firstDayOfMonth = getMalaysiaStartOfMonth();
 
@@ -505,6 +524,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
+                      <th className="p-2 text-left text-rose-500">Cost Product</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
@@ -547,6 +567,7 @@ const LogisticReturn = () => {
                             <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.type_payment || "-"}
@@ -582,9 +603,10 @@ const LogisticReturn = () => {
                           </td>
                           <td className="p-2">
                             {order.waybill_url ? (
-                              <a href={order.waybill_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                              <button onClick={() => handleViewWaybill(order)} disabled={viewingWaybillId === order.id} className="text-blue-600 hover:underline text-xs inline-flex items-center gap-1 disabled:opacity-50">
+                                {viewingWaybillId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                                 View
-                              </a>
+                              </button>
                             ) : "-"}
                           </td>
                           <td className="p-2">
@@ -647,7 +669,7 @@ const LogisticReturn = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={25} className="text-center py-12 text-muted-foreground">
                           No return orders found.
                         </td>
                       </tr>
