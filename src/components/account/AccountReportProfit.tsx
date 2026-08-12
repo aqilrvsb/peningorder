@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw } from 'lucide-react';
+import { Calendar, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
@@ -50,6 +50,7 @@ interface MarketerProfitStats {
   totalUnitBundle: number;
   roas: number;
   profit: number;
+  totalCommission: number; // sum of per-order bundle commission (Komisyen Sales)
   // Facebook
   salesFB: number;
   collectionFB: number;
@@ -94,6 +95,8 @@ interface MarketerProfitStats {
 
 const AccountReportProfit: React.FC = () => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  // Per-staff commission config (idstaff -> { percent, mode }) for the team table.
+  const [staffMeta, setStaffMeta] = useState<Record<string, { percent: number; mode: string }>>({});
 
   // Date filter state - default to current month (Malaysia timezone)
   // pendingStart/End are what the user picks; startDate/endDate are applied on "Filter" click
@@ -117,17 +120,20 @@ const AccountReportProfit: React.FC = () => {
       try {
         const profilesRes = await (supabase as any)
           .from('profiles')
-          .select('idstaff, full_name');
+          .select('idstaff, full_name, commission_percent, pay_mode');
 
         if (profilesRes.error) throw profilesRes.error;
 
         const profileMap: Record<string, string> = {};
-        (profilesRes.data || []).forEach((p: Profile) => {
+        const metaMap: Record<string, { percent: number; mode: string }> = {};
+        (profilesRes.data || []).forEach((p: any) => {
           if (p.idstaff) {
             profileMap[p.idstaff] = p.full_name || p.idstaff;
+            metaMap[p.idstaff] = { percent: Number(p.commission_percent) || 0, mode: p.pay_mode || 'commission_order' };
           }
         });
         setProfiles(profileMap);
+        setStaffMeta(metaMap);
       } catch (error) {
         console.error('Error fetching static data:', error);
       }
@@ -192,6 +198,7 @@ const AccountReportProfit: React.FC = () => {
           totalUnitBundle: 0,
           roas: 0,
           profit: 0,
+          totalCommission: 0,
           salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
           salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
           salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0, profitThreads: 0,
@@ -220,6 +227,7 @@ const AccountReportProfit: React.FC = () => {
       initStats(idStaff, name);
 
       stats[idStaff].totalSales += sale;
+      stats[idStaff].totalCommission += Number(order.commission_amount) || 0;
       if (isOrderCollected(order)) {
         stats[idStaff].totalCollection += sale;
       }
@@ -788,6 +796,48 @@ const AccountReportProfit: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Team breakdown — every staff (or just yourself when there's no team),
+          with Komisyen Sales (per-order bundle commission) and Komisyen Profit
+          (staff's % of their gross profit). */}
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Komisyen Team</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="p-3 text-left">ID Staff</th>
+                <th className="p-3 text-left">Nama</th>
+                <th className="p-3 text-right">Total Sales</th>
+                <th className="p-3 text-right">Profit</th>
+                <th className="p-3 text-right text-blue-600 dark:text-blue-400">Komisyen Sales</th>
+                <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Komisyen Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStats.map((s) => {
+                const pct = staffMeta[s.idStaff]?.percent || 0;
+                const komProfit = (s.profit * pct) / 100;
+                return (
+                  <tr key={s.idStaff} className="border-t border-border hover:bg-muted/30">
+                    <td className="p-3 font-mono">{s.idStaff}</td>
+                    <td className="p-3">{s.name}</td>
+                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalSales)}</td>
+                    <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
+                    <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400">RM {formatNumber(s.totalCommission)}</td>
+                    <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({pct}%)</span></td>
+                  </tr>
+                );
+              })}
+              {filteredStats.length === 0 && (
+                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
