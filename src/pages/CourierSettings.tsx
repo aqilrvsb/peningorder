@@ -482,7 +482,10 @@ const CourierSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Tracking Webhook — per-status Track / Notify toggles */}
+      {/* Tracking Webhook — HIDDEN. Behavior is enforced by default in the
+          parceldaily-webhook (getTrackNotify): TRACK every status = ON,
+          NOTIFY every status = OFF. No per-status UI needed. */}
+      {false && (
       <div className="bg-card rounded-lg border border-border mt-6">
         <button
           type="button"
@@ -525,6 +528,7 @@ const CourierSettings: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Rate Kurier modal */}
       <Dialog open={showRates} onOpenChange={setShowRates}>

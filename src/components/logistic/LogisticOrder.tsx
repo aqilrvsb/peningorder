@@ -392,6 +392,19 @@ const LogisticOrder = () => {
     }
   };
 
+  // Inline-edit the order's commission (Komisyen). Click to set when empty, or
+  // the edit icon to change an existing value.
+  const handleEditCommission = async (order: any) => {
+    const current = Number(order.commission_amount) || 0;
+    const raw = window.prompt(`Komisyen order (RM) untuk ${order.id_sale || order.name_customer || "order ini"}:`, String(current));
+    if (raw === null) return;
+    const val = Math.max(0, parseFloat(raw) || 0);
+    const { error } = await supabase.from("customer_purchases").update({ commission_amount: val }).eq("id", order.id);
+    if (error) { toast.error("Gagal kemaskini komisyen"); return; }
+    toast.success("Komisyen dikemaskini");
+    queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+  };
+
   const handleFilterChange = () => {
     setCurrentPage(1);
     setSelectedOrders(new Set());
@@ -931,6 +944,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Kurier</th>
                       <th className="p-2 text-left">Tracking</th>
                       <th className="p-2 text-left">Total Sales</th>
+                      <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
@@ -1002,6 +1016,16 @@ const LogisticOrder = () => {
                             )}
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            {Number(order.commission_amount) > 0 ? (
+                              <button onClick={() => handleEditCommission(order)} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline" title="Tukar komisyen">
+                                RM {Number(order.commission_amount).toFixed(2)}
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <button onClick={() => handleEditCommission(order)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline" title="Set komisyen">+ Set</button>
+                            )}
+                          </td>
                           <td className="p-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.type_payment || "-"}
@@ -1061,7 +1085,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={20} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={21} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>

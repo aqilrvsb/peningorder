@@ -72,23 +72,18 @@ async function sendWhatsApp(
   }
 }
 
-// Per-tenant Track/Notify preference for a unified statusGroup. Missing row =>
-// track everything, notify only on "Delivered" (the no-spam default that
-// preserves the original behaviour).
+// Track/Notify policy. The per-status configuration UI has been removed, so this
+// enforces one fixed policy for every status and every tenant:
+//   TRACK  = true  → always update the order's delivery status (so it always
+//                    progresses to its final Success / Return state).
+//   NOTIFY = false → never send the customer a tracking-status WhatsApp.
+// (Seller COD-remit / weight-update alerts are separate and unaffected.)
 async function getTrackPref(
-  supabase: any,
-  ownerUserId: string | null | undefined,
-  statusGroup: string,
+  _supabase: any,
+  _ownerUserId: string | null | undefined,
+  _statusGroup: string,
 ): Promise<{ track: boolean; notify: boolean }> {
-  const fallback = { track: true, notify: /^delivered$/i.test(statusGroup || "") };
-  if (!ownerUserId || !statusGroup) return fallback;
-  const { data } = await supabase
-    .from("tracking_status_setting")
-    .select("track, notify")
-    .eq("owner_user_id", ownerUserId)
-    .eq("status_key", statusGroup)
-    .maybeSingle();
-  return data ? { track: !!data.track, notify: !!data.notify } : fallback;
+  return { track: true, notify: false };
 }
 
 // The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).
