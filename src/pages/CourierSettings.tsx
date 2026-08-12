@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote, TrendingDown, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -63,19 +63,6 @@ const COURIER_RATES = [
   { icon: '📦', name: 'J&T', flat: 'RM4.80', sub: 'RM1.00/kg' },
   { icon: '📬', name: 'PosLaju', flat: 'RM6.00', sub: 'RM1.20/kg' },
   { icon: '🛵', name: 'Ninjavan', flat: 'RM5.80', sub: 'RM1.00/kg' },
-];
-
-// COD charges — Exclusive rates unlocked via the ParcelDaily sales team.
-// '-' = not published for that courier.
-const COD_RATES = [
-  { name: 'DHL', pct: '3.00%', min: 'RM3.00' },
-  { name: 'NinjaVan', pct: '3.00%', min: 'RM3.00' },
-  { name: 'J&T', pct: '3.00%', min: '-' },
-  { name: 'KEX', pct: '3.00%', min: 'RM3.00' },
-  { name: 'CityLink', pct: '4.00%', min: 'RM4.00' },
-  { name: 'Aramex', pct: '3.00%', min: 'RM3.50' },
-  { name: 'PosLaju', pct: '-', min: 'RM5.30' },
-  { name: 'SPX', pct: '3.00%', min: '-' },
 ];
 
 // SOP for obtaining the Merchant ID + Token Key from the ParcelDaily portal.
@@ -558,51 +545,14 @@ const CourierSettings: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Rate COD modal */}
+      {/* Rate COD modal — shows the exclusive COD charges rate card */}
       <Dialog open={showCod} onOpenChange={setShowCod}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Banknote className="w-5 h-5 text-primary" /> COD Charges — Exclusive</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Banknote className="w-5 h-5 text-primary" /> Rate COD — Exclusive</DialogTitle>
             <DialogDescription>Kadar COD eksklusif merentas semua kurier ParcelDaily.</DialogDescription>
           </DialogHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-primary text-primary-foreground">
-                  <th className="p-2 text-left rounded-l-lg">Kurier</th>
-                  <th className="p-2 text-center">COD Charge (%)</th>
-                  <th className="p-2 text-center rounded-r-lg">COD Min (RM)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COD_RATES.map((r) => (
-                  <tr key={r.name} className="border-b border-border">
-                    <td className="p-2 font-medium">{r.name}</td>
-                    <td className="p-2 text-center tabular-nums">{r.pct}</td>
-                    <td className="p-2 text-center tabular-nums font-semibold">{r.min}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-            <div className="rounded-lg border border-border p-3">
-              <TrendingDown className="w-5 h-5 text-orange-500 mb-1" />
-              <p className="text-xs font-semibold">Lower COD %</p>
-              <p className="text-[11px] text-muted-foreground">Jimat lebih setiap order COD</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <Banknote className="w-5 h-5 text-orange-500 mb-1" />
-              <p className="text-xs font-semibold">Lower minimum charge</p>
-              <p className="text-[11px] text-muted-foreground">Lebih baik untuk order nilai rendah</p>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <Clock className="w-5 h-5 text-orange-500 mb-1" />
-              <p className="text-xs font-semibold">24-jam remittance</p>
-              <p className="text-[11px] text-muted-foreground">Duit masuk lebih cepat</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-1">Kadar ini eksklusif untuk pelanggan yang didaftarkan melalui sales team ParcelDaily.</p>
+          <img src="/cod-charges.png" alt="COD Charges — Exclusive (Sales team)" className="w-full rounded-lg border border-border" />
         </DialogContent>
       </Dialog>
 
