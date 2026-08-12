@@ -300,6 +300,24 @@ const LogisticOrder = () => {
 
     const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
+    // Waybill on-demand fallback: any selected ParcelDaily order missing its
+    // stored waybill_url (e.g. the Checkout Webhook never landed) — pull the
+    // waybill URL live from ParcelDaily (checkout-status) so printing still works.
+    const waybillUrlById = new Map<string, string>();
+    const missingWaybill = selectedOrdersList.filter(
+      (o: any) => /poslaju|ninjavan|jnt|dhl/i.test(o.kurier || '') && !o.waybill_url && o.tracking_number
+    );
+    if (missingWaybill.length) {
+      try {
+        const { data } = await supabase.functions.invoke('parceldaily-sync', {
+          body: { purchaseIds: missingWaybill.map((o: any) => o.id) },
+        });
+        for (const r of (data?.results || [])) if (r?.waybill_url) waybillUrlById.set(r.id, r.waybill_url);
+        if (data?.updated) queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+      } catch { /* fall through — print whatever already has a waybill */ }
+    }
+    const waybillOf = (o: any) => o.waybill_url || waybillUrlById.get(o.id) || null;
+
     // Separate orders by kurier type:
     // - Ninjavan: use ninjavan-waybill API (fetch from NinjaVan)
     // - Poslaju/Marketplace: use merge-waybills (already have PDF URL)
@@ -307,7 +325,7 @@ const LogisticOrder = () => {
       (o: any) => o.kurier?.includes('Ninjavan') && o.tracking_number
     );
     const pdfUrlOrders = selectedOrdersList.filter(
-      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Tiktok") && o.waybill_url
+      (o: any) => (o.kurier?.includes('Poslaju') || getOrderPlatform(o) === "Tiktok") && waybillOf(o)
     );
 
     if (ninjavanOrdersForPrint.length === 0 && pdfUrlOrders.length === 0) {
@@ -339,7 +357,7 @@ const LogisticOrder = () => {
 
       // Handle Poslaju/Tiktok orders (merge existing PDF URLs)
       if (pdfUrlOrders.length > 0) {
-        const waybillUrls = pdfUrlOrders.map((o: any) => o.waybill_url);
+        const waybillUrls = pdfUrlOrders.map((o: any) => waybillOf(o));
 
         const response = await supabase.functions.invoke("merge-waybills", {
           body: { waybillUrls },

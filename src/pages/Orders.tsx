@@ -89,6 +89,27 @@ const getMalaysiaStartOfMonth = () => {
   return `${year}-${month}-01`;
 };
 
+// Deep-link a tracking number to the courier's own tracking page. Unknown
+// couriers fall back to parcelsapp (auto-detects the courier from the number).
+const courierTrackUrl = (kurier: string, tn: string): string => {
+  const k = (kurier || '').toLowerCase();
+  const t = encodeURIComponent(tn || '');
+  if (k.includes('jnt') || k.includes('j&t')) return `https://www.jtexpress.my/tracking?billcode=${t}`;
+  if (k.includes('ninja')) return `https://www.ninjavan.co/en-my/tracking?id=${t}`;
+  if (k.includes('poslaju') || k.includes('pos ')) return `https://track.pos.com.my/postal-services/quick-access?track-trace=${t}`;
+  if (k.includes('dhl')) return `https://ecommerceportal.dhl.com/track/?ref=${t}`;
+  return `https://parcelsapp.com/en/tracking/${t}`;
+};
+
+// Open a WhatsApp chat with the customer (normalise to Malaysian 60… format).
+const waLink = (phone: string): string | null => {
+  let d = (phone || '').replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('0')) d = '60' + d.slice(1);
+  else if (!d.startsWith('60')) d = '60' + d;
+  return `https://wa.me/${d}`;
+};
+
 const Orders: React.FC = () => {
   const navigate = useNavigate();
   const { orders, updateOrder, deleteOrder, refreshData, ensureOrdersFrom } = useData();
@@ -1025,12 +1046,34 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.dateProcessed || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">{order.noPhone}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-foreground">
+                      {order.noPhone && waLink(order.noPhone) ? (
+                        <a
+                          href={waLink(order.noPhone)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 dark:text-green-400 hover:underline"
+                          title="Buka WhatsApp pelanggan"
+                        >
+                          {order.noPhone}
+                        </a>
+                      ) : (
+                        order.noPhone || '-'
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
-                        order.noTracking
+                        <a
+                          href={courierTrackUrl(order.kurier || '', order.noTracking)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                          title="Jejak parcel di laman kurier"
+                        >
+                          {order.noTracking}
+                        </a>
                       ) : order.jenisPlatform !== 'Tiktok' ? (
                         <button
                           onClick={() => handleRegenerateClick(order)}
