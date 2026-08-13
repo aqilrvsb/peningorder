@@ -32,7 +32,7 @@ import { put } from '@vercel/blob';
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
-const CARA_BAYARAN_OPTIONS = ['CASH', 'COD'];
+const CARA_BAYARAN_OPTIONS = ['CASH', 'COD', 'Pickup'];
 const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
@@ -722,7 +722,8 @@ const OrderForm: React.FC = () => {
 
     // Set kurier based on delivery method and cara bayaran (peningorder routes all through Parcel Daily)
     let kurier = '';
-    const isPickup = formData.deliveryMethod === 'Self Pickup';
+    // Pickup (self collect) — pay like CASH, skip ParcelDaily entirely.
+    const isPickup = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
     const dmLower = (formData.deliveryMethod || '').toLowerCase();
     const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'; label: string }> = {
       ninjavan: { code: 'ninjavan', label: 'Ninjavan' },
@@ -1143,7 +1144,7 @@ const OrderForm: React.FC = () => {
               pd_order_id: pdOrderId || null, // ParcelDaily orderId for cancel/refund
               waybill_url: waybillUrl || null,
               bundle_id: selectedBundle?.id || null, // NEW: bundle_id
-              seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : null, // Auto-collection for CASH
+              seo: (formData.caraBayaran === 'CASH' || formData.caraBayaran === 'Pickup') ? 'Successful Delivery' : null, // Auto-collection for CASH + Pickup
             });
 
           if (insertError) throw insertError;
@@ -1190,7 +1191,7 @@ const OrderForm: React.FC = () => {
             commission: commissionAmount,
             pdOrderId: pdOrderId,
             waybillUrl: waybillUrl,
-            seo: formData.caraBayaran === 'CASH' ? 'Successful Delivery' : '', // Auto-collection for CASH
+            seo: (formData.caraBayaran === 'CASH' || formData.caraBayaran === 'Pickup') ? 'Successful Delivery' : '', // Auto-collection for CASH + Pickup
             bundleId: selectedBundle?.id || '',
           });
         }
@@ -1346,7 +1347,7 @@ const OrderForm: React.FC = () => {
 
   const isTiktokShopee = formData.jenisPlatform === 'Tiktok';
   const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok';
-  const isPickupUI = formData.deliveryMethod === 'Self Pickup';
+  const isPickupUI = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
   const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupUI) && !isMarketplaceCourier;
 
   return (
@@ -1633,23 +1634,25 @@ const OrderForm: React.FC = () => {
               </Select>
             </div>
 
-            {/* Delivery Method */}
-            <div>
-              <FormLabel required>Delivery Method</FormLabel>
-              <Select
-                value={formData.deliveryMethod}
-                onValueChange={(value) => handleChange('deliveryMethod', value)}
-              >
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Pilih Delivery Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DELIVERY_METHOD_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Delivery Method — hidden for Pickup (self collect, no courier) */}
+            {formData.caraBayaran !== 'Pickup' && (
+              <div>
+                <FormLabel required>Delivery Method</FormLabel>
+                <Select
+                  value={formData.deliveryMethod}
+                  onValueChange={(value) => handleChange('deliveryMethod', value)}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Pilih Delivery Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DELIVERY_METHOD_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Tracking Number - Only for Kurier Tiktok/Shopee */}
             {isMarketplaceCourier && (

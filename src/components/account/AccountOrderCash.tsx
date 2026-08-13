@@ -50,7 +50,7 @@ const AccountOrderCash: React.FC = () => {
         (supabase as any)
           .from('customer_purchases')
           .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
-          .eq('type_payment', 'CASH')
+          .in('type_payment', ['CASH', 'Pickup'])
           .gte('date_order', startDate)
           .lte('date_order', endDate)
           .order('date_order', { ascending: false })
