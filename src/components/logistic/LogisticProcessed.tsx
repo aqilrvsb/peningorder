@@ -717,16 +717,9 @@ const LogisticProcessed = () => {
                   {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
                   Pending ({selectedOrders.size})
                 </Button>
-                {!AUDIT_MODE && (
-                  <Button
-                    variant="destructive"
-                    onClick={handleBulkDelete}
-                    disabled={selectedOrders.size === 0 || isDeleting}
-                  >
-                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                    Delete ({selectedOrders.size})
-                  </Button>
-                )}
+                {/* No delete here — Processed orders are already shipped/delivered/returned
+                    (can't be cancelled/refunded). Use "Pending" to send back to the Order tab,
+                    then delete from there while still Pending. */}
                 <Button
                   variant="outline"
                   onClick={handleBulkPrint}

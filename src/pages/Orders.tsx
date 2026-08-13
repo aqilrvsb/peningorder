@@ -1192,7 +1192,8 @@ ${trackingUrl}`;
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            {!AUDIT_MODE && (
+                            {/* Delete only while Pending — once shipped it can't be cancelled/refunded at the courier. */}
+                            {!AUDIT_MODE && order.deliveryStatus === 'Pending' && (
                               <button
                                 onClick={() => handleDeleteClick(order)}
                                 className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
