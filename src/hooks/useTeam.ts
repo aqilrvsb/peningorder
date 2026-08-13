@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
-export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean };
+export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string };
 
 /**
  * The caller's tenant roster (client + their marketer staff), used for the
@@ -23,6 +23,10 @@ export function useTeam() {
   });
   const members = data || [];
   const nameByIdstaff = new Map(members.map((m) => [m.idstaff, m.name] as const));
+  // idstaff -> { percent, mode } for commission calculations (RLS-safe via RPC).
+  const metaByIdstaff = new Map(
+    members.map((m) => [m.idstaff, { percent: Number(m.commission_percent) || 0, mode: m.pay_mode || 'commission_order' }] as const),
+  );
   const showFilter = profile?.role === 'client' && members.length > 1;
-  return { members, nameByIdstaff, showFilter };
+  return { members, nameByIdstaff, metaByIdstaff, showFilter };
 }

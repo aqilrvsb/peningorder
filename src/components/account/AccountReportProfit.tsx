@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
+import { useTeam } from '@/hooks/useTeam';
 
 interface Order {
   id: string;
@@ -97,6 +98,9 @@ const AccountReportProfit: React.FC = () => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   // Per-staff commission config (idstaff -> { percent, mode }) for the team table.
   const [staffMeta, setStaffMeta] = useState<Record<string, { percent: number; mode: string }>>({});
+  // RLS-safe name + commission lookup via the team_roster RPC (the direct profiles
+  // read only returns the caller's own row, so staff names/percent came back blank).
+  const { nameByIdstaff, metaByIdstaff } = useTeam();
 
   // Date filter state - default to current month (Malaysia timezone)
   // pendingStart/End are what the user picks; startDate/endDate are applied on "Filter" click
@@ -820,12 +824,13 @@ const AccountReportProfit: React.FC = () => {
             </thead>
             <tbody>
               {filteredStats.map((s) => {
-                const pct = staffMeta[s.idStaff]?.percent || 0;
+                const pct = metaByIdstaff.get(s.idStaff)?.percent ?? (staffMeta[s.idStaff]?.percent || 0);
                 const komProfit = (s.profit * pct) / 100;
+                const nama = nameByIdstaff.get(s.idStaff) || (s.name !== s.idStaff ? s.name : (s.idStaff === 'HQ' ? 'HQ' : s.idStaff));
                 return (
                   <tr key={s.idStaff} className="border-t border-border hover:bg-muted/30">
                     <td className="p-3 font-mono">{s.idStaff}</td>
-                    <td className="p-3">{s.name}</td>
+                    <td className="p-3">{nama}</td>
                     <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalSales)}</td>
                     <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
                     <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400">RM {formatNumber(s.totalCommission)}</td>
