@@ -1241,26 +1241,6 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Prospects in period</p>
           </div>
 
-          {/* Total Lead NP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm font-medium">LEAD NP</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.totalLeadNP}</p>
-            <p className="text-xs text-muted-foreground mt-1">New Prospect</p>
-          </div>
-
-          {/* Total Lead EP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <UserCheck className="w-5 h-5" />
-              <span className="text-sm font-medium">LEAD EP</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.totalLeadEP}</p>
-            <p className="text-xs text-muted-foreground mt-1">Existing Prospect</p>
-          </div>
-
           {/* Average KPK */}
           <div className="stat-card">
             <div className="flex items-center gap-2 text-teal-600 mb-2">
@@ -1806,26 +1786,6 @@ const Dashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{bodStats.totalLead}</p>
             <p className="text-xs text-muted-foreground mt-1">Prospects in period</p>
-          </div>
-
-          {/* Total Lead NP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm font-medium">LEAD NP</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{bodStats.totalLeadNP}</p>
-            <p className="text-xs text-muted-foreground mt-1">New Prospect</p>
-          </div>
-
-          {/* Total Lead EP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <UserCheck className="w-5 h-5" />
-              <span className="text-sm font-medium">LEAD EP</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{bodStats.totalLeadEP}</p>
-            <p className="text-xs text-muted-foreground mt-1">Existing Prospect</p>
           </div>
 
           {/* Average KPK */}
