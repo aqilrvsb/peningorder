@@ -672,11 +672,11 @@ const OrderForm: React.FC = () => {
       return;
     }
 
-    // Validate that customer type is NP/EP/EC (must click Check button first) - skip for Tiktok/Shopee
+    // Validate that customer type is selected (NP/EP/EC) - skip for Tiktok/Shopee
     if (!isTiktokShopee && !['NP', 'EP', 'EC'].includes(formData.jenisCustomer) && !isEditMode) {
       toast({
         title: 'Error',
-        description: 'Sila klik butang "Semak" untuk menyemak jenis customer.',
+        description: 'Sila pilih Jenis Customer.',
         variant: 'destructive',
       });
       return;
@@ -1445,51 +1445,23 @@ const OrderForm: React.FC = () => {
             {/* Jenis Customer */}
             <div>
               <FormLabel required={!isTiktokShopee}>Jenis Customer</FormLabel>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.jenisCustomer}
-                  onValueChange={(value) => handleChange('jenisCustomer', value)}
-                >
-                  <SelectTrigger className={cn(
-                    "flex-1",
-                    formData.jenisCustomer === 'NP' && "text-green-600 font-medium",
-                    formData.jenisCustomer === 'EP' && "text-purple-600 font-medium",
-                    formData.jenisCustomer === 'EC' && "text-amber-600 font-medium"
-                  )}>
-                    <SelectValue placeholder="Pilih atau klik Semak" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NP" className="text-green-600">New Prospect (NP)</SelectItem>
-                    <SelectItem value="EP" className="text-purple-600">Existing Prospect (EP)</SelectItem>
-                    <SelectItem value="EC" className="text-amber-600">Existing Customer (EC)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckCustomerType}
-                  disabled={isCheckingLead || isEditMode || !formData.noPhone || formData.noPhone.length < 10}
-                  className="shrink-0"
-                >
-                  {isCheckingLead ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-1" />
-                      Semak
-                    </>
-                  )}
-                </Button>
-              </div>
-              {leadInfo && formData.jenisCustomer && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {leadInfo.isNewLead
-                    ? 'Lead baru akan dicipta automatik'
-                    : `Order ke-${(leadInfo.countOrder || 0) + 1} untuk lead ini`
-                  }
-                </p>
-              )}
+              <Select
+                value={formData.jenisCustomer}
+                onValueChange={(value) => handleChange('jenisCustomer', value)}
+              >
+                <SelectTrigger className={cn(
+                  formData.jenisCustomer === 'NP' && "text-green-600 font-medium",
+                  formData.jenisCustomer === 'EP' && "text-purple-600 font-medium",
+                  formData.jenisCustomer === 'EC' && "text-amber-600 font-medium"
+                )}>
+                  <SelectValue placeholder="Pilih Jenis Customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NP" className="text-green-600">New Prospect (NP)</SelectItem>
+                  <SelectItem value="EP" className="text-purple-600">Existing Prospect (EP)</SelectItem>
+                  <SelectItem value="EC" className="text-amber-600">Existing Customer (EC)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Poskod */}

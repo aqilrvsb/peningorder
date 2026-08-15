@@ -677,53 +677,13 @@ const Prospects: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:max-w-xs gap-4">
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4 text-blue-500" />
             <span className="text-xs uppercase font-medium">Total Lead</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{stats.totalLead}</p>
-        </div>
-
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
-            <User className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total NP Lead</span>
-          </div>
-          <p className="text-2xl font-bold text-green-700 dark:text-green-300">{stats.totalNP}</p>
-        </div>
-
-        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
-            <UserCheck className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total EP Lead</span>
-          </div>
-          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalEP}</p>
-        </div>
-
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Sales</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">RM {stats.totalSales.toFixed(2)}</p>
-        </div>
-
-        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
-            <Target className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Lead Close</span>
-          </div>
-          <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.leadClose}</p>
-        </div>
-
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
-            <XCircle className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Lead XClose</span>
-          </div>
-          <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.leadXClose}</p>
         </div>
       </div>
 
@@ -794,7 +754,6 @@ const Prospects: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Niche</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Prospek</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
             </thead>
@@ -815,15 +774,6 @@ const Prospects: React.FC = () => {
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.niche}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        prospect.jenisProspek === 'NP'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                      }`}>
-                        {prospect.jenisProspek}
-                      </span>
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
@@ -848,7 +798,7 @@ const Prospects: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     Tiada prospect dijumpai.
                   </td>
                 </tr>
