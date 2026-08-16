@@ -197,7 +197,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
       seos: 'Pending', // Delivery tracking status - starts as Pending
-      // Note: seo is NOT set here - it's updated by ninjavan-webhook or manual receipt upload
+      // Auto-collection: CASH + Pickup pass 'Successful Delivery' from key-in;
+      // courier orders pass '' and get their seo from the tracking webhook / manual receipt.
+      seo: order.seo || null,
     });
     if (error) { toast({ title: 'Error', description: 'Failed to create order.', variant: 'destructive' }); throw error; }
     await refreshData();
