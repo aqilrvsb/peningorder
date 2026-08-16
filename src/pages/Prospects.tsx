@@ -141,12 +141,14 @@ const Prospects: React.FC = () => {
     setOrdersModalOpen(true);
 
     try {
-      // Fetch orders for this lead by phone number and marketer
+      // Match by phone regardless of 60.../0... format: strip non-digits,
+      // drop trunk, match on the last 8 digits (same logic as the DB trigger).
+      const digits = (prospect.noTelefon || '').replace(/\D/g, '').replace(/^60/, '').replace(/^0/, '');
+      const last8 = digits.slice(-8);
       const { data: orders, error } = await (supabase as any)
         .from('customer_purchases')
-        .select('date_order, total_price, produk, quantity')
-        .eq('no_phone', prospect.noTelefon)
-        .eq('marketer_id_staff', prospect.marketerIdStaff)
+        .select('date_order, total_sale, id_sale')
+        .ilike('phone_customer', `%${last8}%`)
         .order('date_order', { ascending: false });
 
       if (error) throw error;
@@ -677,13 +679,29 @@ const Prospects: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:max-w-xs gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:max-w-2xl">
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4 text-blue-500" />
             <span className="text-xs uppercase font-medium">Total Lead</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{stats.totalLead}</p>
+        </div>
+
+        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
+            <Target className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Total Close</span>
+          </div>
+          <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.leadClose}</p>
+        </div>
+
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">RM Close</span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">RM {stats.totalSales.toFixed(2)}</p>
         </div>
       </div>
 
@@ -754,6 +772,8 @@ const Prospects: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Niche</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">RM Close</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
             </thead>
@@ -774,6 +794,24 @@ const Prospects: React.FC = () => {
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.niche}</td>
+                    <td className="px-4 py-3">
+                      {prospect.statusClosed === 'closed' ? (
+                        <button
+                          onClick={() => handleViewOrders(prospect)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:ring-1 hover:ring-green-400"
+                          title="Lihat order"
+                        >
+                          Close{prospect.countOrder ? ` (${prospect.countOrder})` : ''}
+                        </button>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground">
+                          Not Close
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {prospect.statusClosed === 'closed' ? `RM ${(prospect.priceClosed || 0).toFixed(2)}` : '-'}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
@@ -798,7 +836,7 @@ const Prospects: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
                     Tiada prospect dijumpai.
                   </td>
                 </tr>
@@ -926,26 +964,25 @@ const Prospects: React.FC = () => {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Price</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Bundle</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">ID Sale</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase">Price</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {selectedProspectOrders.map((order, idx) => (
                       <tr key={idx} className="hover:bg-muted/30">
                         <td className="px-3 py-2 text-foreground">{order.date_order || '-'}</td>
-                        <td className="px-3 py-2 text-foreground">RM {(order.total_price || 0).toFixed(2)}</td>
-                        <td className="px-3 py-2 text-foreground">{order.produk || '-'}</td>
+                        <td className="px-3 py-2 text-foreground">{order.id_sale || '-'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-foreground">RM {(Number(order.total_sale) || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-muted/30">
                     <tr>
-                      <td className="px-3 py-2 font-semibold text-foreground">Total</td>
-                      <td className="px-3 py-2 font-semibold text-foreground">
-                        RM {selectedProspectOrders.reduce((sum, o) => sum + (o.total_price || 0), 0).toFixed(2)}
+                      <td className="px-3 py-2 font-semibold text-foreground" colSpan={2}>Total</td>
+                      <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
+                        RM {selectedProspectOrders.reduce((sum, o) => sum + (Number(o.total_sale) || 0), 0).toFixed(2)}
                       </td>
-                      <td className="px-3 py-2"></td>
                     </tr>
                   </tfoot>
                 </table>
