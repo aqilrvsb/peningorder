@@ -47,11 +47,12 @@ const TeamManagement: React.FC = () => {
   const createStaff = async () => {
     if (name.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
     if (!/^60\d{8,11}$/.test(whatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
-    if (password.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
+    // Password optional: blank → server uses the generated ID staff as password.
+    if (password && password.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreating(true);
     try {
       const res = await call('create', { name: name.trim(), whatsapp: whatsapp.replace(/\D/g, ''), password });
-      setLastCreated({ idstaff: res.idstaff, password });
+      setLastCreated({ idstaff: res.idstaff, password: res.password || password });
       toast({ title: 'Staff dicipta', description: `ID Staff: ${res.idstaff}` });
       setName(''); setWhatsapp('60'); setPassword('');
       refresh();
@@ -65,11 +66,12 @@ const TeamManagement: React.FC = () => {
   const createLogistic = async () => {
     if (logName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
     if (!/^60\d{8,11}$/.test(logWhatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
-    if (logPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
+    // Password optional: blank → server uses the generated ID staff as password.
+    if (logPassword && logPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreatingLog(true);
     try {
       const res = await call('create', { name: logName.trim(), whatsapp: logWhatsapp.replace(/\D/g, ''), password: logPassword, staff_role: 'logistic' });
-      setLastCreated({ idstaff: res.idstaff, password: logPassword });
+      setLastCreated({ idstaff: res.idstaff, password: res.password || logPassword });
       toast({ title: 'Akaun Logistic dicipta', description: `ID: ${res.idstaff}` });
       setLogName(''); setLogWhatsapp('60'); setLogPassword('');
       refresh();
@@ -154,7 +156,7 @@ const TeamManagement: React.FC = () => {
           </div>
           <div>
             <Label>Password</Label>
-            <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 aksara" className="mt-1" />
+            <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" />
           </div>
         </div>
         <Button onClick={createStaff} disabled={creating} className="mt-4">
@@ -193,7 +195,7 @@ const TeamManagement: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div><Label>Nama</Label><Input value={logName} onChange={(e) => setLogName(e.target.value)} placeholder="cth: Logistik" className="mt-1" /></div>
               <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
-              <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Min 6 aksara" className="mt-1" /></div>
+              <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
             <Button onClick={createLogistic} disabled={creatingLog} className="mt-4">
               {creatingLog ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Truck className="w-4 h-4 mr-2" />} Tambah Akaun Logistic

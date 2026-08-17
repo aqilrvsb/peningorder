@@ -81,7 +81,9 @@ serve(async (req) => {
       const password = String(body?.password || "");
       const staffRole = body?.staff_role === "logistic" ? "logistic" : "marketer";
       if (name.length < 2) return json(400, { error: "invalid_name" });
-      if (password.length < 6) return json(400, { error: "password_min_6" });
+      // Password is optional: blank → default to the generated ID staff (below).
+      // Only reject an explicitly-typed password that is too short.
+      if (password && password.length < 6) return json(400, { error: "password_min_6" });
 
       const { data: existing } = await admin.from("profiles").select("id, idstaff").eq("parent_user_id", clientId);
 
@@ -104,20 +106,22 @@ serve(async (req) => {
         newIdstaff = `${clientIdstaff}-${maxN + 1}`;
       }
       const email = staffEmail(newIdstaff);
+      // Blank password → use the ID staff as the password (always ≥6 chars).
+      const finalPassword = password || newIdstaff;
 
       // handle_new_user sees staff_of + staff_idstaff + staff_role and provisions
       // the profile as a staff of this client (idstaff set at INSERT — a BEFORE
       // UPDATE trigger locks idstaff, so it cannot be changed afterwards).
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
         email,
-        password,
+        password: finalPassword,
         email_confirm: true,
         user_metadata: { username: newIdstaff, full_name: name, whatsapp, staff_of: clientId, staff_idstaff: newIdstaff, staff_role: staffRole },
       });
       if (cErr || !created?.user) {
         return json(500, { error: "create_failed", detail: cErr?.message });
       }
-      return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff, role: staffRole });
+      return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff, password: finalPassword, role: staffRole });
     }
 
     // Remaining actions target a staff the caller owns.
