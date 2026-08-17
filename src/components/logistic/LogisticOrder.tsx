@@ -508,8 +508,17 @@ const LogisticOrder = () => {
         nota: order.nota_staff || "",
       };
 
+      // Re-book with the order's OWN courier (from kurier, e.g. "JNT COD" → jnt),
+      // not a hardcoded one — otherwise a JNT order would ship via Ninjavan.
+      const k = String(order.kurier || "").toLowerCase();
+      const courierCode = k.includes("jnt") || k.includes("j&t") ? "jnt"
+        : k.includes("poslaju") ? "poslaju"
+        : k.includes("dhl") ? "dhl"
+        : k.includes("spx") || k.includes("shopee") ? "spx"
+        : "ninjavan";
+
       const response = await supabase.functions.invoke("parceldaily-order", {
-        body: { ...orderData, courier: "ninjavan" },
+        body: { ...orderData, courier: courierCode },
       });
 
       if (response.error) {
