@@ -36,6 +36,7 @@ import {
   RotateCcw,
   MessageCircle,
   Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -417,15 +418,16 @@ const LogisticProcessed = () => {
 
     const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
 
-    // Separate NinjaVan orders and Tiktok orders
-    const ninjavanOrdersForPrint = selectedOrdersList.filter(
+    // PD couriers (Poslaju/Ninjavan/JNT/DHL/SPX) carry a connote waybill; Tiktok
+    // orders carry a marketplace waybill_url.
+    const pdOrders = selectedOrdersList.filter(
       (o: any) => getOrderPlatform(o) !== "Tiktok" && o.tracking_number
     );
     const marketplaceOrders = selectedOrdersList.filter(
       (o: any) => getOrderPlatform(o) === "Tiktok" && o.waybill_url
     );
 
-    if (ninjavanOrdersForPrint.length === 0 && marketplaceOrders.length === 0) {
+    if (pdOrders.length === 0 && marketplaceOrders.length === 0) {
       toast.error("Selected orders do not have waybills to print");
       return;
     }
@@ -433,22 +435,40 @@ const LogisticProcessed = () => {
     setIsPrinting(true);
 
     try {
-      // Handle NinjaVan orders
-      if (ninjavanOrdersForPrint.length > 0) {
-        const trackingNumbers = ninjavanOrdersForPrint.map((o: any) => o.tracking_number);
+      // PD orders: the waybill is the connote PDF (ALL couriers ship via Parcel
+      // Daily — not just NinjaVan). Backfill any missing waybill_url live, then
+      // merge into one inline PDF via merge-waybills.
+      if (pdOrders.length > 0) {
+        const waybillUrlById = new Map<string, string>();
+        const missingWaybill = pdOrders.filter(
+          (o: any) => !o.waybill_url && /poslaju|ninjavan|jnt|dhl|spx/i.test(o.kurier || "")
+        );
+        if (missingWaybill.length) {
+          try {
+            const { data } = await supabase.functions.invoke("parceldaily-sync", {
+              body: { purchaseIds: missingWaybill.map((o: any) => o.id) },
+            });
+            for (const r of (data?.results || [])) if (r?.waybill_url) waybillUrlById.set(r.id, r.waybill_url);
+            if (data?.updated) queryClient.invalidateQueries({ queryKey: ["logistic-processed"] });
+          } catch { /* fall through — print whatever already has a waybill */ }
+        }
+        const urls = pdOrders
+          .map((o: any) => o.waybill_url || waybillUrlById.get(o.id) || null)
+          .filter(Boolean);
 
-        const response = await supabase.functions.invoke("ninjavan-waybill", {
-          body: { trackingNumbers },
-        });
-
-        if (response.error) {
-          console.error("NinjaVan waybill error:", response.error);
-          toast.error("Failed to fetch NinjaVan waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
+        if (urls.length) {
+          const response = await supabase.functions.invoke("merge-waybills", { body: { waybillUrls: urls } });
+          if (response.error) {
+            console.error("PD waybill merge error:", response.error);
+            toast.error("Gagal gabungkan waybill");
+          } else if (response.data) {
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            window.open(URL.createObjectURL(blob), "_blank");
+            const skipped = pdOrders.length - urls.length;
+            toast.success(`Waybill untuk ${urls.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ""}`);
+          }
+        } else {
+          toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses ParcelDaily (atau tiada tracking).");
         }
       }
 
@@ -806,7 +826,15 @@ const LogisticProcessed = () => {
                             <span className="text-xs">{order.kurier || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                            {order.tracking_number ? (
+                              <span className="font-mono text-xs">{order.tracking_number}</span>
+                            ) : (/pickup/i.test(order.kurier || "") || order.type_payment === "Pickup") ? (
+                              <span className="font-mono text-xs">-</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600" title="Tiada tracking — order ini belum dibook kurier">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Tiada tracking
+                              </span>
+                            )}
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
