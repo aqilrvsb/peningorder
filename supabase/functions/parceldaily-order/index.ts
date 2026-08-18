@@ -48,6 +48,22 @@ const clean = (v: unknown, fallback = ""): string => {
   return String(v).replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim() || fallback;
 };
 
+// Turn a Parcel Daily error payload into a readable message. Their validation
+// errors come back as objects like { content_value: ["Does not fulfill ..."] },
+// which naive string interpolation renders as "[object Object]".
+const pdErrMsg = (r: any, fallback: string): string => {
+  if (typeof r?.message === "string" && r.message) return r.message;
+  const e = r?.error;
+  if (typeof e === "string" && e) return e;
+  if (e && typeof e === "object") {
+    const parts = Object.entries(e).map(
+      ([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`,
+    );
+    if (parts.length) return parts.join("; ");
+  }
+  return fallback;
+};
+
 // Parcel Daily wants phone WITHOUT country code, digits only (e.g. "171425324")
 const normalizeLocalPhone = (raw: string): string => {
   const digits = (raw || "").replace(/\D/g, "");
@@ -128,6 +144,12 @@ serve(async (req) => {
       clean(orderData.produk) ||
       "Parcel";
     const contentValue = Number(orderData.price) || 0;
+
+    // Parcel Daily rejects a parcel with a 0 content value ("content_value: Does
+    // not fulfill requirement: isFloat"). Catch it early with a clear message.
+    if (contentValue <= 0) {
+      return fail("Harga order RM0 — sila set harga order dahulu sebelum jana tracking.", { code: "zero_price", courier });
+    }
 
     // Notify features require receiver email. Account may force notifications on,
     // so fall back to sender email (or a safe default) if none provided.
@@ -211,12 +233,7 @@ serve(async (req) => {
     );
 
     if (!quoteRes.ok) {
-      const msg =
-        quoteResult?.message ||
-        (typeof quoteResult?.error === "string" ? quoteResult.error : null) ||
-        JSON.stringify(quoteResult?.error || {}) ||
-        `Quote failed (HTTP ${quoteRes.status})`;
-      return fail(`Parcel Daily quote: ${msg}`, { details: quoteResult, courier });
+      return fail(`Parcel Daily quote: ${pdErrMsg(quoteResult, `Quote failed (HTTP ${quoteRes.status})`)}`, { details: quoteResult, courier });
     }
 
     // Extract per-courier price. Response shape: { success: { <courier>Price: "10.00", ... } }
@@ -298,11 +315,7 @@ serve(async (req) => {
     );
 
     if (!createRes.ok) {
-      const msg =
-        createResult?.message ||
-        createResult?.error ||
-        `Create failed (HTTP ${createRes.status})`;
-      return fail(`Parcel Daily create: ${msg}`, { details: createResult, courier });
+      return fail(`Parcel Daily create: ${pdErrMsg(createResult, `Create failed (HTTP ${createRes.status})`)}`, { details: createResult, courier });
     }
 
     // Extract orderId from response (Parcel Daily returns { success: { objectId: "..." } })
@@ -349,11 +362,7 @@ serve(async (req) => {
       if (retry.ok || alreadyPaid) {
         pay = { ok: true, result: retry.ok ? retry.result : { data: { status: "checkout_pending" } }, status: 200 };
       } else {
-        const msg =
-          retry.result?.message ||
-          retry.result?.error ||
-          `Checkout failed (HTTP ${retry.status})`;
-        return fail(`Parcel Daily checkout: ${msg}`, {
+        return fail(`Parcel Daily checkout: ${pdErrMsg(retry.result, `Checkout failed (HTTP ${retry.status})`)}`, {
           details: retry.result,
           orderId,
           courier,
