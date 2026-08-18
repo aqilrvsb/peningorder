@@ -172,7 +172,7 @@ const LogisticProcessed = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod")
+        .select("id, name, sku, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod, commission_rm")
         .order("name");
       if (error) throw error;
       return data || [];
@@ -260,6 +260,8 @@ const LogisticProcessed = () => {
           updateData.cost_baseproduct = (Number(bundle.base_cost) || 0) * qty;
           updateData.cost_hq = (Number(bundle.hq_cost) || 0) * qty;
           updateData.cost_postage = basePostage + codFee;
+          // Commission is the bundle's flat Komisyen Order (not multiplied by qty).
+          updateData.commission_amount = Number(bundle.commission_rm) || 0;
         }
       }
 

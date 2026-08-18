@@ -112,7 +112,7 @@ const LogisticOrder = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
-        .select("id, name, sku, base_cost, hq_cost, weight, kos_postage_sm, kos_postage_ss, postage_cod")
+        .select("id, name, sku, base_cost, hq_cost, weight, kos_postage_sm, kos_postage_ss, postage_cod, commission_rm")
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (error) throw error;
@@ -120,17 +120,33 @@ const LogisticOrder = () => {
     },
   });
 
-  // Update bundle for an order - using new schema field names
+  // Assign a product to an order and capture the bundle's commission + costs, so
+  // an order that came in without a product (null bundle) tallies once picked.
   const handleUpdateProduct = async (orderId: string, bundleId: string) => {
     try {
+      const bundle = allProducts.find((p: any) => p.id === bundleId);
+      const order = orders.find((o: any) => o.id === orderId);
+      const update: any = { bundle_id: bundleId, updated_at: new Date().toISOString() };
+      if (bundle) {
+        const qty = Number(order?.unit) || 1;
+        const isEastMY = ['Sabah', 'Sarawak', 'SABAH', 'SARAWAK', 'Labuan', 'LABUAN'].includes(order?.state_customer || '');
+        const basePostage = isEastMY ? (Number(bundle.kos_postage_ss) || 0) : (Number(bundle.kos_postage_sm) || 0);
+        const codFee = order?.type_payment === 'COD' ? (Number(bundle.postage_cod) || 0) : 0;
+        update.cost_baseproduct = (Number(bundle.base_cost) || 0) * qty;
+        update.cost_hq = (Number(bundle.hq_cost) || 0) * qty;
+        update.cost_postage = basePostage + codFee;
+        // Commission is the bundle's flat Komisyen Order (not multiplied by qty).
+        update.commission_amount = Number(bundle.commission_rm) || 0;
+      }
+
       const { error } = await supabase
         .from("customer_purchases")
-        .update({ bundle_id: bundleId, updated_at: new Date().toISOString() })
+        .update(update)
         .eq("id", orderId);
 
       if (error) throw error;
 
-      toast.success("Bundle updated successfully");
+      toast.success("Produk & komisyen dikemaskini");
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update bundle");
@@ -642,6 +658,8 @@ const LogisticOrder = () => {
           updateData.cost_baseproduct = (Number(bundle.base_cost) || 0) * qty;
           updateData.cost_hq = (Number(bundle.hq_cost) || 0) * qty;
           updateData.cost_postage = basePostage + codFee;
+          // Commission is the bundle's flat Komisyen Order (not multiplied by qty).
+          updateData.commission_amount = Number(bundle.commission_rm) || 0;
         }
       }
 
