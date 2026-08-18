@@ -72,18 +72,30 @@ async function sendWhatsApp(
   }
 }
 
-// Track/Notify policy. One fixed policy for every status and every tenant:
-//   TRACK  = true  → always update the order's delivery status (so it always
-//                    progresses to its final Success / Return state).
-//   NOTIFY = true  → send the customer a tracking-status WhatsApp (delivered
-//                    thank-you + status updates) via the tenant's own device.
-// (Seller COD-remit / weight-update alerts are separate and unaffected.)
+// Per-status Track/Notify, configured by the client in Courier Settings →
+// Tracking Webhook (tracking_status_setting). TRACK = apply the status to the
+// order; NOTIFY = WhatsApp the customer. Default when a status is unconfigured:
+// Track ON, Notify ON only for "Delivered" (no-spam default; clients opt into
+// notifying more statuses). Seller COD-remit / weight alerts are separate.
 async function getTrackPref(
-  _supabase: any,
-  _ownerUserId: string | null | undefined,
-  _statusGroup: string,
+  supabase: any,
+  ownerUserId: string | null | undefined,
+  statusGroup: string,
 ): Promise<{ track: boolean; notify: boolean }> {
-  return { track: true, notify: true };
+  const fallback = { track: true, notify: /deliver/i.test(statusGroup || "") };
+  try {
+    if (!ownerUserId || !statusGroup) return fallback;
+    const { data } = await supabase
+      .from("tracking_status_setting")
+      .select("track, notify")
+      .eq("owner_user_id", ownerUserId)
+      .eq("status_key", statusGroup)
+      .maybeSingle();
+    if (!data) return fallback;
+    return { track: data.track !== false, notify: !!data.notify };
+  } catch (_e) {
+    return fallback;
+  }
 }
 
 // The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).

@@ -473,10 +473,10 @@ const CourierSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Tracking Webhook — HIDDEN. Behavior is enforced by default in the
-          parceldaily-webhook (getTrackNotify): TRACK every status = ON,
-          NOTIFY every status = OFF. No per-status UI needed. */}
-      {false && (
+      {/* Tracking Webhook — per-status Track / Notify. Saved to
+          tracking_status_setting and read by parceldaily-webhook getTrackPref
+          (owner + statusGroup); default: Track all ON, Notify on Delivered. */}
+      {(
       <div className="bg-card rounded-lg border border-border mt-6">
         <button
           type="button"
