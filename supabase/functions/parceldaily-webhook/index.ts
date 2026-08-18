@@ -72,18 +72,18 @@ async function sendWhatsApp(
   }
 }
 
-// Track/Notify policy. The per-status configuration UI has been removed, so this
-// enforces one fixed policy for every status and every tenant:
+// Track/Notify policy. One fixed policy for every status and every tenant:
 //   TRACK  = true  → always update the order's delivery status (so it always
 //                    progresses to its final Success / Return state).
-//   NOTIFY = false → never send the customer a tracking-status WhatsApp.
+//   NOTIFY = true  → send the customer a tracking-status WhatsApp (delivered
+//                    thank-you + status updates) via the tenant's own device.
 // (Seller COD-remit / weight-update alerts are separate and unaffected.)
 async function getTrackPref(
   _supabase: any,
   _ownerUserId: string | null | undefined,
   _statusGroup: string,
 ): Promise<{ track: boolean; notify: boolean }> {
-  return { track: true, notify: false };
+  return { track: true, notify: true };
 }
 
 // The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).
