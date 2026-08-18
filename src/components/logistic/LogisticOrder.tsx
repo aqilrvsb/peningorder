@@ -742,7 +742,7 @@ const LogisticOrder = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -750,6 +750,17 @@ const LogisticOrder = () => {
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
                 <p className="text-xs text-muted-foreground">Total Order</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-emerald-600" />
+              <div>
+                <p className="text-xl font-bold">RM {filteredOrders.reduce((s: number, o: any) => s + (Number(o.total_sale) || 0), 0).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">Total Sales</p>
               </div>
             </div>
           </CardContent>

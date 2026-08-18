@@ -100,6 +100,7 @@ const LogisticProcessed = () => {
   const [isPending, setIsPending] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [generatingTrackingFor, setGeneratingTrackingFor] = useState<string | null>(null);
 
   // Edit states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -409,6 +410,75 @@ const LogisticProcessed = () => {
     }
   };
 
+  // Book the courier for an order that has no tracking yet (marked shipped
+  // without a successful booking). Uses the order's OWN courier (from kurier).
+  const handleGenerateTracking = async (order: any) => {
+    const { value: postcode, isConfirmed } = await Swal.fire({
+      title: "Generate Tracking",
+      text: "Sahkan poskod untuk penghantaran:",
+      input: "text",
+      inputValue: order.postcode_customer || "",
+      inputPlaceholder: "cth: 15100",
+      showCancelButton: true,
+      confirmButtonText: "Generate Tracking",
+      cancelButtonText: "Batal",
+      inputValidator: (value) => (!value || value.trim().length < 5 ? "Sila masukkan poskod yang sah" : null),
+    });
+    if (!isConfirmed || !postcode) return;
+
+    setGeneratingTrackingFor(order.id);
+    try {
+      const k = String(order.kurier || "").toLowerCase();
+      const courierCode = k.includes("jnt") || k.includes("j&t") ? "jnt"
+        : k.includes("poslaju") ? "poslaju"
+        : k.includes("dhl") ? "dhl"
+        : k.includes("spx") || k.includes("shopee") ? "spx"
+        : "ninjavan";
+
+      const response = await supabase.functions.invoke("parceldaily-order", {
+        body: {
+          profileId: user?.id,
+          customerName: order.name_customer || "Customer",
+          phone: order.phone_customer || "",
+          address: order.address_customer || "",
+          postcode: postcode.trim(),
+          city: order.city_customer || "",
+          state: order.state_customer || "",
+          price: Number(order.total_sale || 0),
+          paymentMethod: order.type_payment || "CASH",
+          productName: order.bundle?.name || "Product",
+          productSku: order.bundle?.sku || "",
+          quantity: order.unit || 1,
+          nota: order.nota_staff || "",
+          courier: courierCode,
+        },
+      });
+      if (response.error) throw new Error(response.error.message || "Failed to generate tracking");
+      const result = response.data;
+      if (result?.error) throw new Error(result.error);
+      if (!result?.orderId) throw new Error("Courier did not return an orderId");
+
+      const { error: updateError } = await supabase
+        .from("customer_purchases")
+        .update({
+          tracking_number: result.trackingNumber || result.orderId,
+          pd_order_id: result.orderId,
+          ...(result.shippingPrice != null && { cost_postage: Number(result.shippingPrice) }),
+          ...(postcode !== order.postcode_customer && { postcode_customer: postcode.trim() }),
+        })
+        .eq("id", order.id);
+      if (updateError) throw updateError;
+
+      toast.success(`Tracking dijana untuk ${order.id_sale || "order"}.`);
+      queryClient.invalidateQueries({ queryKey: ["logistic-processed"] });
+    } catch (error: any) {
+      console.error("Generate tracking error:", error);
+      toast.error(error.message || "Gagal jana tracking");
+    } finally {
+      setGeneratingTrackingFor(null);
+    }
+  };
+
   // Bulk Print action
   const handleBulkPrint = async () => {
     if (selectedOrders.size === 0) {
@@ -579,7 +649,7 @@ const LogisticProcessed = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -587,6 +657,17 @@ const LogisticProcessed = () => {
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
                 <p className="text-xs text-muted-foreground">Total Processed</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-6 h-6 text-emerald-600" />
+              <div>
+                <p className="text-xl font-bold">RM {filteredOrders.reduce((s: number, o: any) => s + (Number(o.total_sale) || 0), 0).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">Total Sales</p>
               </div>
             </div>
           </CardContent>
@@ -831,9 +912,14 @@ const LogisticProcessed = () => {
                             ) : (/pickup/i.test(order.kurier || "") || order.type_payment === "Pickup") ? (
                               <span className="font-mono text-xs">-</span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600" title="Tiada tracking — order ini belum dibook kurier">
-                                <AlertTriangle className="w-3.5 h-3.5" /> Tiada tracking
-                              </span>
+                              <button
+                                onClick={() => handleGenerateTracking(order)}
+                                disabled={generatingTrackingFor === order.id}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 hover:underline disabled:opacity-50"
+                                title="Tiada tracking — klik untuk book kurier & jana tracking"
+                              >
+                                {generatingTrackingFor === order.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />} Generate tracking
+                              </button>
                             )}
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
