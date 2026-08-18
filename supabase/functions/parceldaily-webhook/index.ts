@@ -216,19 +216,18 @@ serve(async (req) => {
       const d = payload.data || payload;
       const trackingNumber = d.consign_no || d.trackingNumber || consignNo;
       const connoteURL = d.connoteURL || d.thermalConnoteURL;
-      // Malaysia date (UTC+8) — date_processed drives the Processed tab
-      const malaysiaDate = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
       if (matched && trackingNumber) {
+        // The webhook NEVER moves an order to Shipped — Pending -> Shipped is a
+        // manual logistic action. Checkout only backfills tracking + waybill;
+        // delivery_status stays Pending until logistic processes the order.
         await supabase
           .from("customer_purchases")
           .update({
             tracking_number: trackingNumber,
             waybill_url: connoteURL || null,
-            delivery_status: "Shipped",
-            date_processed: malaysiaDate,
           })
           .eq("id", matched.id);
-        action = "checkout_updated";
+        action = "checkout_tracking_saved";
 
         // Notify customer via the tenant's WhatsApp device
         const courierName = (matched.kurier || "").replace(/\s+(COD|CASH)$/i, "") || "kurier";
@@ -246,11 +245,9 @@ serve(async (req) => {
           .update({
             tracking_number: trackingNumber,
             waybill_url: connoteURL || null,
-            delivery_status: "Shipped",
-            date_processed: malaysiaDate,
           })
           .eq("pd_order_id", orderId);
-        action = "checkout_updated_by_orderid";
+        action = "checkout_tracking_saved_by_orderid";
       }
     } else if (event === "STATUS_UPDATED") {
       // Tracking status changed — gated by the client's per-status Track/Notify.
