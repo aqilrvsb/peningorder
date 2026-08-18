@@ -1196,42 +1196,28 @@ const OrderForm: React.FC = () => {
           });
         }
 
-        // Send WhatsApp notification to customer - skip for marketplace couriers
+        // "Notify after Key-in" — only sends if the client enabled it in
+        // Courier Settings → Tracking Webhook (server-side check).
         if (!isMarketplaceCourier) try {
-          // Format full address
           const fullAddress = [
-            formData.alamat,
-            formData.daerah,
-            formData.poskod,
-            formData.negeri
+            formData.alamat, formData.daerah, formData.poskod, formData.negeri,
           ].filter(Boolean).join(', ');
-
-          const notificationResponse = await fetch('/api/send-order-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          await supabase.functions.invoke('order-notify', {
+            body: {
               order: {
-                id_sale: idSale,
-                customer_name: formData.namaPelanggan,
-                phone_customer: formData.noPhone,
-                address_full: fullAddress,
-                product_name: formData.produk,
-                bundle_name: selectedBundle?.name || formData.produk,
-                bundle_sku: selectedBundle?.sku || '', // Add bundle SKU for product breakdown
-                total_price: formData.hargaJualan,
-                payment_method: formData.caraBayaran,
-                kurier: kurier, // Include kurier for CARA BAYARAN display
-                tracking_number: trackingNumber,
+                order_id: idSale,
+                name: formData.namaPelanggan,
+                phone: formData.noPhone,
+                address: fullAddress,
+                product: selectedBundle?.name || formData.produk,
+                price: Number(formData.hargaJualan || 0).toFixed(2),
+                courier: kurier,
+                tracking: trackingNumber,
               },
-              marketer_id: profile?.id,
-            }),
+            },
           });
-          const notificationResult = await notificationResponse.json();
-          if (notificationResult.whatsapp_sent) {
-            console.log('WhatsApp notification sent to customer');
-          }
         } catch (notifyErr) {
-          console.error('Failed to send notification:', notifyErr);
+          console.error('Failed to send key-in notification:', notifyErr);
         }
 
         // Handle lead update/creation and count_order increment - skip if no phone (Tiktok/Shopee)

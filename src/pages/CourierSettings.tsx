@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -55,7 +56,7 @@ const TRACKING_STATUSES: { key: string; label: string }[] = [
   // they are seller-facing (money received / postage cost), always tracked, and
   // notify the CLIENT via the admin device, not the customer.
 ];
-type TrackPref = { track: boolean; notify: boolean };
+type TrackPref = { track: boolean; notify: boolean; template?: string };
 
 // SOP for obtaining the Merchant ID + Token Key from the ParcelDaily portal.
 const GET_KEY_STEPS = [
@@ -134,9 +135,9 @@ const CourierSettings: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase.from('tracking_status_setting').select('status_key, track, notify');
+      const { data } = await supabase.from('tracking_status_setting').select('status_key, track, notify, message_template');
       const map: Record<string, TrackPref> = {};
-      (data || []).forEach((r: any) => { map[r.status_key] = { track: r.track, notify: r.notify }; });
+      (data || []).forEach((r: any) => { map[r.status_key] = { track: r.track, notify: r.notify, template: r.message_template || undefined }; });
       setTrackPrefs(map);
     })();
   }, [user]);
@@ -153,6 +154,50 @@ const CourierSettings: React.FC = () => {
     }, { onConflict: 'owner_user_id,status_key' });
     if (error) toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
   };
+
+  // Default WhatsApp text per status (shown in the editor, kept in sync with the
+  // parceldaily-webhook / order-notify defaults). Uses {placeholders}.
+  const defaultTemplate = (key: string): string => {
+    if (key === 'Order Keyed In')
+      return 'Salam {name}! 😊\n\nKami telah menerima tempahan anda.\n\nOrder ID : {order_id}\nProduk : {product}\nHarga : RM{price}\n\nTerima kasih! Kami akan proses pesanan anda secepat mungkin. 🙏';
+    if (/deliver/i.test(key))
+      return 'Salam {name}! ✅\n\nPesanan anda (Tracking: {tracking}) telah BERJAYA dihantar.\n\nTerima kasih kerana membeli dengan kami! 🙏';
+    if (/cancel/i.test(key))
+      return 'Salam {name}!\n\nPesanan anda (Tracking: {tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.';
+    return 'Salam {name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: {tracking}):\n*{status}*\n\nTerima kasih!';
+  };
+  // Placeholders the client can use in a template.
+  const TEMPLATE_VARS: { tag: string; desc: string }[] = [
+    { tag: '{name}', desc: 'Nama customer' },
+    { tag: '{tracking}', desc: 'No. tracking' },
+    { tag: '{product}', desc: 'Bundle / produk' },
+    { tag: '{price}', desc: 'Harga (RM)' },
+    { tag: '{address}', desc: 'Alamat penuh' },
+    { tag: '{phone}', desc: 'No. telefon' },
+    { tag: '{courier}', desc: 'Kurier' },
+    { tag: '{order_id}', desc: 'ID order' },
+    { tag: '{status}', desc: 'Status penghantaran' },
+  ];
+
+  const [editingTpl, setEditingTpl] = useState<string | null>(null);
+  const [tplDraft, setTplDraft] = useState('');
+  const [savingTpl, setSavingTpl] = useState(false);
+  const openTpl = (key: string) => { setTplDraft(prefFor(key).template ?? defaultTemplate(key)); setEditingTpl(key); };
+  const saveTemplate = async (key: string) => {
+    setSavingTpl(true);
+    const p = prefFor(key);
+    const tpl = tplDraft.trim();
+    setTrackPrefs((prev) => ({ ...prev, [key]: { ...p, template: tpl || undefined } }));
+    const { error } = await supabase.from('tracking_status_setting').upsert({
+      owner_user_id: user!.id, status_key: key, track: p.track, notify: p.notify,
+      message_template: tpl || null, updated_at: new Date().toISOString(),
+    }, { onConflict: 'owner_user_id,status_key' });
+    setSavingTpl(false);
+    if (error) { toast({ title: 'Save failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Template disimpan' });
+    setEditingTpl(null);
+  };
+
   const [showRates, setShowRates] = useState(false);
   const [showCod, setShowCod] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
@@ -494,28 +539,67 @@ const CourierSettings: React.FC = () => {
         {showTracking && (
           <div className="px-4 pb-5">
             <p className="text-sm text-muted-foreground mb-4">
-              Untuk setiap status penghantaran: <b>Track</b> = update status order bila webhook masuk; <b>Notify</b> = hantar notifikasi WhatsApp ke pelanggan. Default kedua-dua <span className="text-green-600 font-medium">ON</span>.
+              <b>Track</b> = update status order bila webhook masuk; <b>Notify</b> = hantar WhatsApp ke pelanggan; <b>Mesej</b> = ubah ayat template. Default: Track semua ON, Notify hanya "Delivered".
             </p>
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 items-center">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2">Status</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2 flex items-center gap-1 justify-center"><Radio className="w-3.5 h-3.5" /> Track</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pb-2 flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
-              {TRACKING_STATUSES.map((s) => {
-                const p = prefFor(s.key);
-                return (
-                  <React.Fragment key={s.key}>
-                    <div className="text-sm py-2.5 border-t border-border/60">{s.label}</div>
-                    <div className="flex justify-center py-2.5 border-t border-border/60">
-                      <Switch checked={p.track} onCheckedChange={(v) => toggleTrack(s.key, 'track', v)} />
-                    </div>
-                    <div className="flex justify-center py-2.5 border-t border-border/60">
-                      <Switch checked={p.notify} disabled={!p.track} onCheckedChange={(v) => toggleTrack(s.key, 'notify', v)} />
-                    </div>
-                  </React.Fragment>
-                );
-              })}
+            <div className="hidden sm:grid grid-cols-[1fr_4rem_4rem_4rem] gap-x-4 items-center pb-1">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 justify-center"><Radio className="w-3.5 h-3.5" /> Track</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-center">Mesej</div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">Notify hanya berfungsi bila Track ON untuk status tersebut.</p>
+            {[{ key: 'Order Keyed In', label: 'Selepas Key-in Order', keyin: true }, ...TRACKING_STATUSES.map((s) => ({ ...s, keyin: false }))].map((s) => {
+              const p = prefFor(s.key);
+              const editing = editingTpl === s.key;
+              return (
+                <div key={s.key} className="border-t border-border/60">
+                  <div className="grid grid-cols-[1fr_4rem_4rem_4rem] gap-x-4 items-center py-2.5">
+                    <div className="text-sm">
+                      {s.label}
+                      {s.keyin && <span className="ml-2 text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">baru</span>}
+                    </div>
+                    <div className="flex justify-center">
+                      {s.keyin ? <span className="text-xs text-muted-foreground">—</span>
+                        : <Switch checked={p.track} onCheckedChange={(v) => toggleTrack(s.key, 'track', v)} />}
+                    </div>
+                    <div className="flex justify-center">
+                      <Switch checked={p.notify} disabled={!s.keyin && !p.track} onCheckedChange={(v) => toggleTrack(s.key, 'notify', v)} />
+                    </div>
+                    <div className="flex justify-center">
+                      <button type="button" onClick={() => (editing ? setEditingTpl(null) : openTpl(s.key))}
+                        className={`text-xs font-medium hover:underline ${p.template ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {editing ? 'Tutup' : (p.template ? 'Edit ✎' : 'Mesej')}
+                      </button>
+                    </div>
+                  </div>
+                  {editing && (
+                    <div className="pb-4">
+                      <Textarea value={tplDraft} onChange={(e) => setTplDraft(e.target.value)} rows={7}
+                        className="text-sm" placeholder="Taip mesej WhatsApp untuk status ini..." />
+                      <div className="mt-2">
+                        <p className="text-[11px] text-muted-foreground mb-1">Klik untuk masukkan variable:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {TEMPLATE_VARS.map((v) => (
+                            <button key={v.tag} type="button" title={v.desc}
+                              onClick={() => setTplDraft((t) => t + v.tag)}
+                              className="text-[11px] font-mono bg-muted hover:bg-muted/70 border border-border rounded px-1.5 py-0.5">
+                              {v.tag} <span className="text-muted-foreground">{v.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <Button size="sm" onClick={() => saveTemplate(s.key)} disabled={savingTpl}>
+                          {savingTpl ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />} Simpan
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setTplDraft(defaultTemplate(s.key))}>Reset ke default</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTpl(null)}>Batal</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted-foreground mt-3">Notify hanya berfungsi bila Track ON (kecuali "Selepas Key-in"). Template kosong = guna ayat default.</p>
           </div>
         )}
       </div>

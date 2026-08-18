@@ -81,21 +81,26 @@ async function getTrackPref(
   supabase: any,
   ownerUserId: string | null | undefined,
   statusGroup: string,
-): Promise<{ track: boolean; notify: boolean }> {
-  const fallback = { track: true, notify: /deliver/i.test(statusGroup || "") };
+): Promise<{ track: boolean; notify: boolean; template: string | null }> {
+  const fallback = { track: true, notify: /deliver/i.test(statusGroup || ""), template: null };
   try {
     if (!ownerUserId || !statusGroup) return fallback;
     const { data } = await supabase
       .from("tracking_status_setting")
-      .select("track, notify")
+      .select("track, notify, message_template")
       .eq("owner_user_id", ownerUserId)
       .eq("status_key", statusGroup)
       .maybeSingle();
     if (!data) return fallback;
-    return { track: data.track !== false, notify: !!data.notify };
+    return { track: data.track !== false, notify: !!data.notify, template: data.message_template || null };
   } catch (_e) {
     return fallback;
   }
+}
+
+// Fill {placeholders} in a client template with the order's values.
+function renderTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_m, k) => (k in vars ? vars[k] : `{${k}}`));
 }
 
 // The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).
@@ -299,21 +304,26 @@ serve(async (req) => {
         }
 
         if (pref.notify) {
+          const vars: Record<string, string> = {
+            name: matched.name_customer || "",
+            tracking: matched.tracking_number || consignNo || "",
+            status: statusGroup || rawStatus || "",
+            courier: (matched.kurier || "").replace(/\s+(COD|CASH)$/i, ""),
+            order_id: matched.id_sale || "",
+            phone: matched.phone_customer || "",
+          };
           let waMsg: string | null = null;
           if (isDelivered) {
             // thank-you only on the transition into delivered, never on repeats
             if (matched.delivery_status !== "Success") {
-              waMsg =
-                `Salam ${matched.name_customer || ""}! ✅\n\n` +
-                `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah BERJAYA dihantar.\n\n` +
-                `Terima kasih kerana membeli dengan kami! 🙏`;
+              waMsg = pref.template
+                ? renderTemplate(pref.template, vars)
+                : `Salam ${vars.name}! ✅\n\nPesanan anda (Tracking: ${vars.tracking}) telah BERJAYA dihantar.\n\nTerima kasih kerana membeli dengan kami! 🙏`;
             }
           } else {
-            waMsg =
-              `Salam ${matched.name_customer || ""}! 📦\n\n` +
-              `Status penghantaran pesanan anda (Tracking: ${matched.tracking_number || consignNo}):\n` +
-              `*${statusGroup || rawStatus}*\n\n` +
-              `Terima kasih!`;
+            waMsg = pref.template
+              ? renderTemplate(pref.template, vars)
+              : `Salam ${vars.name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: ${vars.tracking}):\n*${vars.status}*\n\nTerima kasih!`;
           }
           if (waMsg) {
             const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
@@ -376,10 +386,17 @@ serve(async (req) => {
         }
         action = "cancelled";
         if (pref.notify) {
-          const waMsg =
-            `Salam ${matched.name_customer || ""}!\n\n` +
-            `Pesanan anda (Tracking: ${matched.tracking_number || consignNo}) telah DIBATALKAN.\n\n` +
-            `Hubungi kami jika ada sebarang pertanyaan.`;
+          const vars: Record<string, string> = {
+            name: matched.name_customer || "",
+            tracking: matched.tracking_number || consignNo || "",
+            status: "Cancelled",
+            courier: (matched.kurier || "").replace(/\s+(COD|CASH)$/i, ""),
+            order_id: matched.id_sale || "",
+            phone: matched.phone_customer || "",
+          };
+          const waMsg = pref.template
+            ? renderTemplate(pref.template, vars)
+            : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
           const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
           action = `${action}+${waResult}`;
         }
