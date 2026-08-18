@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package } from 'lucide-react';
 
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; role?: string };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; product_scope: string[] | null; role?: string };
+type BundleMin = { id: string; name: string };
 
 const call = async (action: string, extra: Record<string, unknown> = {}) => {
   const { data, error } = await supabase.functions.invoke('team-staff', { body: { action, ...extra } });
@@ -36,10 +39,25 @@ const TeamManagement: React.FC = () => {
   const [logWhatsapp, setLogWhatsapp] = useState('60');
   const [logPassword, setLogPassword] = useState('');
   const [creatingLog, setCreatingLog] = useState(false);
+  // Product scope for the logistic account (bundle ids). Empty = sees ALL orders.
+  const [logScope, setLogScope] = useState<string[]>([]);
+  const [scopeDialogFor, setScopeDialogFor] = useState<Staff | null>(null);
+  const [scopeDraft, setScopeDraft] = useState<string[]>([]);
+  const [savingScope, setSavingScope] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
     queryFn: async () => (await call('list')).staff as Staff[],
+  });
+
+  // Tenant's products (logistic_bundles) for the scope picker.
+  const { data: bundles = [] } = useQuery({
+    queryKey: ['team-bundles-min'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('logistic_bundles').select('id, name').order('name');
+      if (error) throw error;
+      return (data || []) as BundleMin[];
+    },
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['team-staff'] });
@@ -70,16 +88,58 @@ const TeamManagement: React.FC = () => {
     if (logPassword && logPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreatingLog(true);
     try {
-      const res = await call('create', { name: logName.trim(), whatsapp: logWhatsapp.replace(/\D/g, ''), password: logPassword, staff_role: 'logistic' });
+      const res = await call('create', { name: logName.trim(), whatsapp: logWhatsapp.replace(/\D/g, ''), password: logPassword, staff_role: 'logistic', product_scope: logScope });
       setLastCreated({ idstaff: res.idstaff, password: res.password || logPassword });
       toast({ title: 'Akaun Logistic dicipta', description: `ID: ${res.idstaff}` });
-      setLogName(''); setLogWhatsapp('60'); setLogPassword('');
+      setLogName(''); setLogWhatsapp('60'); setLogPassword(''); setLogScope([]);
       refresh();
     } catch (e: any) {
       toast({ title: 'Gagal cipta akaun logistic', description: e.message === 'logistic_exists' ? 'Anda sudah ada satu akaun logistic.' : e.message, variant: 'destructive' });
     } finally {
       setCreatingLog(false);
     }
+  };
+
+  const openScopeDialog = (s: Staff) => {
+    setScopeDraft(Array.isArray(s.product_scope) ? s.product_scope : []);
+    setScopeDialogFor(s);
+  };
+
+  const saveScope = async () => {
+    if (!scopeDialogFor) return;
+    setSavingScope(true);
+    try {
+      await call('set_product_scope', { user_id: scopeDialogFor.id, product_scope: scopeDraft });
+      toast({ title: 'Akses produk dikemaskini', description: scopeDraft.length ? `${scopeDraft.length} produk` : 'Semua produk' });
+      setScopeDialogFor(null);
+      refresh();
+    } catch (e: any) {
+      toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingScope(false);
+    }
+  };
+
+  const renderBundleChecklist = (selected: string[], onChange: (ids: string[]) => void) => {
+    const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">{selected.length ? `${selected.length} produk dipilih` : 'Semua produk (default)'}</span>
+          {selected.length > 0 && <button type="button" className="text-xs text-primary hover:underline" onClick={() => onChange([])}>Reset ke semua</button>}
+        </div>
+        <div className="max-h-44 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+          {bundles.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3">Tiada produk lagi. Tambah produk di seksyen Logistik dahulu.</p>
+          ) : bundles.map((b) => (
+            <label key={b.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/40">
+              <Checkbox checked={selected.includes(b.id)} onCheckedChange={() => toggle(b.id)} />
+              <span>{b.name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const resetPassword = async (s: Staff) => {
@@ -177,14 +237,16 @@ const TeamManagement: React.FC = () => {
       {/* Logistic account — max ONE per client. Logs in to see the Logistic section only. */}
       <div className="bg-card border border-border rounded-lg p-5">
         <h2 className="font-semibold flex items-center gap-2 mb-1"><Truck className="w-4 h-4 text-primary" /> Akaun Logistic</h2>
-        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia hanya nampak seksyen <b>Logistic</b> (semua order, tiada filter team).</p>
+        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia nampak seksyen <b>Logistic</b> — <b>semua order</b> secara default, atau hanya order produk tertentu yang anda pilih.</p>
         {logisticAccount ? (
           <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
             <div>
               <p className="font-mono font-medium">{logisticAccount.idstaff}</p>
               <p className="text-xs text-muted-foreground">{logisticAccount.full_name || '-'} · {logisticAccount.whatsapp || logisticAccount.whatsapp_number || '-'} · <span className={logisticAccount.is_active ? 'text-green-600' : 'text-red-500'}>{logisticAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
+              <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><Package className="w-3 h-3" /> Akses: <span className="font-medium text-foreground">{logisticAccount.product_scope?.length ? `${logisticAccount.product_scope.length} produk` : 'Semua produk'}</span></p>
             </div>
             <div className="flex gap-1">
+              <Button size="sm" variant="ghost" title="Akses produk" onClick={() => openScopeDialog(logisticAccount)}><Package className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Reset password" onClick={() => resetPassword(logisticAccount)}><KeyRound className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title={logisticAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(logisticAccount)}>{logisticAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Padam" onClick={() => removeStaff(logisticAccount)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -197,12 +259,32 @@ const TeamManagement: React.FC = () => {
               <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
               <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
+            <div className="mt-3">
+              <Label className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Akses Produk</Label>
+              <p className="text-xs text-muted-foreground mb-2">Biar kosong = nampak <b>semua order</b>. Atau pilih produk tertentu — akaun ini hanya nampak order produk itu sahaja.</p>
+              {renderBundleChecklist(logScope, setLogScope)}
+            </div>
             <Button onClick={createLogistic} disabled={creatingLog} className="mt-4">
               {creatingLog ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Truck className="w-4 h-4 mr-2" />} Tambah Akaun Logistic
             </Button>
           </>
         )}
       </div>
+
+      {/* Edit product scope for the logistic account */}
+      <Dialog open={!!scopeDialogFor} onOpenChange={(o) => { if (!o) setScopeDialogFor(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Package className="w-5 h-5 text-primary" /> Akses Produk — {scopeDialogFor?.idstaff}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Biar kosong = akaun logistic nampak <b>semua order</b>. Pilih produk tertentu untuk hadkan.</p>
+          {renderBundleChecklist(scopeDraft, setScopeDraft)}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScopeDialogFor(null)} disabled={savingScope}>Batal</Button>
+            <Button onClick={saveScope} disabled={savingScope}>{savingScope ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Staff list */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">

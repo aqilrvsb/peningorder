@@ -61,7 +61,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data } = await admin
         .from("profiles")
-        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, created_at")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, product_scope, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       const staff = data || [];
@@ -121,6 +121,17 @@ serve(async (req) => {
       if (cErr || !created?.user) {
         return json(500, { error: "create_failed", detail: cErr?.message });
       }
+
+      // Optional product scope for a logistic account: [] / missing = sees ALL
+      // orders; a non-empty list of bundle ids = only those products' orders.
+      if (staffRole === "logistic") {
+        const scope = Array.isArray(body?.product_scope)
+          ? body.product_scope.filter((x: unknown) => typeof x === "string")
+          : [];
+        if (scope.length) {
+          await admin.from("profiles").update({ product_scope: scope }).eq("id", created.user.id);
+        }
+      }
       return json(200, { success: true, id: created.user.id, idstaff: newIdstaff, login: newIdstaff, password: finalPassword, role: staffRole });
     }
 
@@ -154,6 +165,16 @@ serve(async (req) => {
       const patch: Record<string, unknown> = { pay_mode: mode, commission_percent: mode === "gross_profit" ? pct : 0 };
       await admin.from("profiles").update(patch).eq("id", targetId);
       return json(200, { success: true, pay_mode: mode, commission_percent: patch.commission_percent });
+    }
+
+    if (action === "set_product_scope") {
+      // Restrict a logistic account to specific products (bundle ids), or pass
+      // an empty list to let it see ALL orders again.
+      const scope = Array.isArray(body?.product_scope)
+        ? body.product_scope.filter((x: unknown) => typeof x === "string")
+        : [];
+      await admin.from("profiles").update({ product_scope: scope.length ? scope : null }).eq("id", targetId);
+      return json(200, { success: true, product_scope: scope });
     }
 
     if (action === "delete") {
