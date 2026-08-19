@@ -88,7 +88,11 @@ interface ParcelDailyConfig {
   is_next_day_remittance: boolean;
   is_notify: 'SMS' | 'WhatsApp' | 'None';
   default_courier: '' | 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
+  allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
 }
+
+// Couriers a client can offer at order key-in (must match OrderForm's list).
+const COURIER_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
 
 const emptyConfig: ParcelDailyConfig = {
   merchant_id: '',
@@ -107,6 +111,7 @@ const emptyConfig: ParcelDailyConfig = {
   is_next_day_remittance: false,
   is_notify: 'None',
   default_courier: '',
+  allowed_couriers: [],
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -229,7 +234,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '' });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [] });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -288,6 +293,7 @@ const CourierSettings: React.FC = () => {
         is_next_day_remittance: formData.is_next_day_remittance,
         is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
         default_courier: formData.default_courier || null,
+        allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
       };
 
       if (configId) {
@@ -311,6 +317,15 @@ const CourierSettings: React.FC = () => {
 
   const setField = <K extends keyof ParcelDailyConfig>(key: K, value: ParcelDailyConfig[K]) =>
     setFormData((f) => ({ ...f, [key]: value }));
+
+  // Toggle a courier in the "available at order key-in" list.
+  const toggleCourier = (c: string) =>
+    setFormData((f) => ({
+      ...f,
+      allowed_couriers: f.allowed_couriers.includes(c)
+        ? f.allowed_couriers.filter((x) => x !== c)
+        : [...f.allowed_couriers, c],
+    }));
 
   // Sign-up CTA shows only until the client has entered a Merchant ID.
   const hasMerchantId = !!formData.merchant_id.trim();
@@ -504,6 +519,35 @@ const CourierSettings: React.FC = () => {
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Used for WooCommerce / Shoppego auto orders</p>
             </div>
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-border">
+            <FormLabel>Kurier Tersedia (untuk Key-in Order)</FormLabel>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              Pilih kurier yang boleh dipilih semasa key-in order. Jika tiada dipilih, semua kurier akan tersedia.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {COURIER_OPTIONS.map((c) => {
+                const active = formData.allowed_couriers.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleCourier(c)}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+            {formData.allowed_couriers.length === 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">Semua kurier tersedia (tiada had).</p>
+            )}
           </div>
         </div>
 
