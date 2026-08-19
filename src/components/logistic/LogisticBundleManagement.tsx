@@ -110,14 +110,15 @@ const LogisticBundleManagement = () => {
     },
   });
 
-  // Fetch bundles for this logistic user
+  // Fetch the tenant's bundles. RLS already scopes logistic_bundles to
+  // owner_user_id = tenant_owner(), so DON'T filter by logistic_id (that is the
+  // creator's id — a logistic STAFF has a different id and would see none).
   const { data: bundles = [], isLoading } = useQuery({
     queryKey: ["logistic-bundles", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("logistic_bundles")
         .select("*")
-        .eq("logistic_id", user?.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
