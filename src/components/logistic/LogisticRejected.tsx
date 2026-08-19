@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Ban, Loader2, Search, Calendar, Receipt, ExternalLink, RotateCcw } from
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, formatRM } from "@/lib/utils";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
+import { TablePagination } from "@/components/TablePagination";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 
@@ -23,6 +24,8 @@ const LogisticRejected = () => {
   const [viewingPayment, setViewingPayment] = useState<any>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isReverting, setIsReverting] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-rejected", startDate, endDate],
@@ -53,6 +56,10 @@ const LogisticRejected = () => {
       );
     });
   }, [orders, teamFilter, search]);
+
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [search, teamFilter, startDate, endDate]);
 
   const totalSales = useMemo(() => filtered.reduce((s: number, o: any) => s + (Number(o.total_sale) || 0), 0), [filtered]);
   const allSelected = filtered.length > 0 && filtered.every((o: any) => selected.has(o.id));
@@ -140,10 +147,10 @@ const LogisticRejected = () => {
                 <th className="p-2 text-left">Sebab / Nota</th>
               </tr></thead>
               <tbody>
-                {filtered.map((o: any, i: number) => (
+                {paged.map((o: any, i: number) => (
                   <tr key={o.id} className="border-t border-border hover:bg-muted/30">
                     <td className="p-2"><Checkbox checked={selected.has(o.id)} onCheckedChange={() => toggle(o.id)} /></td>
-                    <td className="p-2">{i + 1}</td>
+                    <td className="p-2">{(page - 1) * pageSize + i + 1}</td>
                     <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || "") || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{o.id_sale || "-"}</td>
@@ -167,6 +174,7 @@ const LogisticRejected = () => {
                 )}
               </tbody>
             </table>
+            <TablePagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
           </div>
         )}
       </CardContent></Card>

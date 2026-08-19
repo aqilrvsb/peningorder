@@ -15,7 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
+import { TablePagination } from "@/components/TablePagination";
 import {
   Clock,
   Loader2,
@@ -25,6 +27,9 @@ import {
   CreditCard,
   MessageCircle,
   CheckCircle,
+  Receipt,
+  Ban,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -83,6 +88,7 @@ const LogisticReturn = () => {
 
   // Selection state
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [viewingPayment, setViewingPayment] = useState<any>(null);
 
   // Loading states
   const [isPrinting, setIsPrinting] = useState(false);
@@ -527,6 +533,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left text-rose-500">Cost Product</th>
                       <th className="p-2 text-left text-amber-600">Cost Postage</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
+                      <th className="p-2 text-left">Detail Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
                       <th className="p-2 text-left">Jenis Closing</th>
@@ -574,6 +581,11 @@ const LogisticReturn = () => {
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.type_payment || "-"}
                             </span>
+                          </td>
+                          <td className="p-2 whitespace-nowrap">
+                            {(order.type_payment === "CASH" || order.type_payment === "Pickup")
+                              ? <Button size="sm" variant="outline" className="h-7" onClick={() => setViewingPayment(order)}><Receipt className="w-3.5 h-3.5 mr-1" />Lihat</Button>
+                              : <span className="text-xs text-muted-foreground">-</span>}
                           </td>
                           <td className="p-2">
                             <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
@@ -671,7 +683,7 @@ const LogisticReturn = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={26} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={27} className="text-center py-12 text-muted-foreground">
                           No return orders found.
                         </td>
                       </tr>
@@ -681,35 +693,42 @@ const LogisticReturn = () => {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * (pageSize as number) + 1} to {Math.min(currentPage * (pageSize as number), filteredOrders.length)} of {filteredOrders.length} entries
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                page={currentPage}
+                pageSize={pageSize === 'All' ? (filteredOrders.length || 1) : (pageSize as number)}
+                total={filteredOrders.length}
+                onPageChange={setCurrentPage}
+              />
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Detail Bayaran — receipt image + payment details for CASH / Pickup. */}
+      <Dialog open={!!viewingPayment} onOpenChange={(o) => { if (!o) setViewingPayment(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Receipt className="w-5 h-5 text-primary" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}</DialogTitle>
+          </DialogHeader>
+          {viewingPayment && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
+                <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{viewingPayment.date_payment || "-"}</b></div>
+              </div>
+              {viewingPayment.receipt_payment_url ? (
+                (viewingPayment.receipt_payment_type === "link" || !String(viewingPayment.receipt_payment_url).includes("vercel-storage.com"))
+                  ? <Button variant="outline" className="w-full" onClick={() => window.open(viewingPayment.receipt_payment_url, "_blank")}><ExternalLink className="w-4 h-4 mr-2" /> Buka link resit</Button>
+                  : <img src={viewingPayment.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[70vh] object-contain bg-muted" />
+              ) : (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2"><Ban className="w-4 h-4" /> Tiada resit dimuat naik.</div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

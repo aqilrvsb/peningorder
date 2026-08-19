@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { TablePagination } from '@/components/TablePagination';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,6 +73,8 @@ const Prospects: React.FC = () => {
   const [selectedProspectIds, setSelectedProspectIds] = useState<string[]>([]);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const [formData, setFormData] = useState({
     namaProspek: '',
@@ -99,6 +102,14 @@ const Prospects: React.FC = () => {
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
   }, [prospects, search, startDate, endDate, teamFilter]);
+
+  // Reset to first page whenever the filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, startDate, endDate, teamFilter]);
+
+  // Slice the filtered list down to the current page
+  const pagedProspects = filteredProspects.slice((page - 1) * pageSize, page * pageSize);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -779,7 +790,7 @@ const Prospects: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredProspects.length > 0 ? (
-                filteredProspects.map((prospect, index) => (
+                pagedProspects.map((prospect, index) => (
                   <tr key={prospect.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 text-center">
                       <Checkbox
@@ -787,7 +798,7 @@ const Prospects: React.FC = () => {
                         onCheckedChange={() => handleToggleSelect(prospect.id)}
                       />
                     </td>
-                    <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{(prospect as any).marketerIdStaff || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get((prospect as any).marketerIdStaff || '') || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.tarikhPhoneNumber || '-'}</td>
@@ -844,6 +855,12 @@ const Prospects: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={filteredProspects.length}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Delete Confirmation Dialog */}

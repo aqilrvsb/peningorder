@@ -9,6 +9,7 @@ import { Banknote, Receipt, LinkIcon, Loader2, Calendar, ExternalLink, Eye } fro
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
+import { TablePagination } from '@/components/TablePagination';
 
 type CashOrder = {
   id: string;
@@ -40,6 +41,8 @@ const AccountOrderCash: React.FC = () => {
   const [teamFilter, setTeamFilter] = useState('');
   const [box, setBox] = useState<'all' | 'receipt' | 'link'>('all');
   const [viewing, setViewing] = useState<CashOrder | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const { nameByIdstaff } = useTeam();
 
   const load = async () => {
@@ -84,6 +87,10 @@ const AccountOrderCash: React.FC = () => {
   }, [orders, teamFilter, box]);
 
   const totalCash = useMemo(() => filtered.reduce((s, o) => s + (Number(o.total_sale) || 0), 0), [filtered]);
+
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [teamFilter, box, startDate, endDate]);
 
   return (
     <div className="p-6 space-y-6">
@@ -156,11 +163,11 @@ const AccountOrderCash: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o, i) => {
+                {paged.map((o, i) => {
                   const pt = proofType(o);
                   return (
                     <tr key={o.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-2">{i + 1}</td>
+                      <td className="p-2">{(page - 1) * pageSize + i + 1}</td>
                       <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || '') || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{o.id_sale || '-'}</td>
@@ -201,6 +208,7 @@ const AccountOrderCash: React.FC = () => {
                 </tfoot>
               )}
             </table>
+            <TablePagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
           </div>
         )}
       </div>

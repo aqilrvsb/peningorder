@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AUDIT_MODE } from '@/lib/audit';
+import { TablePagination } from '@/components/TablePagination';
 import { formatRM } from '@/lib/utils';
 import {
   AlertDialog,
@@ -1218,6 +1219,13 @@ ${trackingUrl}`;
             </tbody>
           </table>
         </div>
+        {/* Pagination */}
+        <TablePagination
+          page={currentPage}
+          pageSize={pageSize === 'All' ? (filteredOrders.length || 1) : (pageSize as number)}
+          total={filteredOrders.length}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Delete Confirmation Dialog */}

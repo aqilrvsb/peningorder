@@ -25,6 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, getMalaysiaDate, fetchAllRows } from "@/lib/utils";
+import { TablePagination } from "@/components/TablePagination";
 import {
   Package,
   Clock,
@@ -782,53 +783,12 @@ const AccountPendingTracking = () => {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * effectivePageSize + 1} to {Math.min(currentPage * effectivePageSize, filteredOrders.length)} of {filteredOrders.length} entries
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
-                      .reduce((acc: (number | string)[], page, idx, arr) => {
-                        if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push("...");
-                        acc.push(page);
-                        return acc;
-                      }, [])
-                      .map((page, idx) =>
-                        page === "..." ? (
-                          <span key={`dot-${idx}`} className="px-1 text-muted-foreground">...</span>
-                        ) : (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? "default" : "outline"}
-                            size="sm"
-                            className="w-8 h-8 p-0"
-                            onClick={() => setCurrentPage(page as number)}
-                          >
-                            {page}
-                          </Button>
-                        )
-                      )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                page={currentPage}
+                pageSize={pageSize === 0 ? (filteredOrders.length || 1) : pageSize}
+                total={filteredOrders.length}
+                onPageChange={setCurrentPage}
+              />
             </>
           )}
         </CardContent>

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
 import { AUDIT_MODE } from "@/lib/audit";
+import { TablePagination } from "@/components/TablePagination";
 import {
   Clock,
   Loader2,
@@ -71,7 +72,11 @@ const LogisticOrder = () => {
   // Filter states
   const [search, setSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState('');
-  const { nameByIdstaff } = useTeam();
+  const { nameByIdstaff, members } = useTeam();
+  // Hide the (bundle) Komisyen column when the whole marketer team is paid by
+  // gross profit — the flat bundle commission doesn't apply to them.
+  const teamMarketers = members.filter((m: any) => !m.is_client);
+  const hideKomisyen = teamMarketers.length > 0 && teamMarketers.every((m: any) => (m.pay_mode || 'commission_order') === 'gross_profit');
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
   const [paymentFilter, setPaymentFilter] = useState("All");
@@ -1048,7 +1053,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Total Sales</th>
                       <th className="p-2 text-left text-rose-500">Cost Product</th>
                       <th className="p-2 text-left text-amber-600">Cost Postage</th>
-                      <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>
+                      {!hideKomisyen && <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>}
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Detail Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
@@ -1123,6 +1128,7 @@ const LogisticOrder = () => {
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-amber-600">RM {Number(order.cost_postage || 0).toFixed(2)}</td>
+                          {!hideKomisyen && (
                           <td className="p-2 whitespace-nowrap">
                             {Number(order.commission_amount) > 0 ? (
                               <button onClick={() => handleEditCommission(order)} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline" title="Tukar komisyen">
@@ -1133,6 +1139,7 @@ const LogisticOrder = () => {
                               <button onClick={() => handleEditCommission(order)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline" title="Set komisyen">+ Set</button>
                             )}
                           </td>
+                          )}
                           <td className="p-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
                               {order.type_payment || "-"}
@@ -1201,7 +1208,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={hideKomisyen ? 23 : 24} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>
@@ -1211,31 +1218,12 @@ const LogisticOrder = () => {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(currentPage - 1) * (pageSize as number) + 1} to {Math.min(currentPage * (pageSize as number), filteredOrders.length)} of {filteredOrders.length} entries
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                page={currentPage}
+                pageSize={pageSize === 'All' ? (filteredOrders.length || 1) : (pageSize as number)}
+                total={filteredOrders.length}
+                onPageChange={setCurrentPage}
+              />
             </>
           )}
         </CardContent>
@@ -1459,12 +1447,7 @@ const LogisticOrder = () => {
                     <ExternalLink className="w-4 h-4 mr-2" /> Buka link resit
                   </Button>
                 ) : (
-                  <div className="space-y-2">
-                    <img src={viewingPayment.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[60vh] object-contain bg-muted" />
-                    <Button variant="outline" className="w-full" onClick={() => window.open(viewingPayment.receipt_payment_url, "_blank")}>
-                      <ExternalLink className="w-4 h-4 mr-2" /> Buka dalam tab baharu
-                    </Button>
-                  </div>
+                  <img src={viewingPayment.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[70vh] object-contain bg-muted" />
                 )
               ) : (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2">
