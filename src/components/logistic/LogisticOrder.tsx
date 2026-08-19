@@ -366,7 +366,7 @@ const LogisticOrder = () => {
     setIsRejecting(true);
     const today = getMalaysiaDate();
     try {
-      const list = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+      const list = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
       // Cancel any live ParcelDaily booking (frees the credit) — best effort.
       for (const order of list) {
         const isPdOrder = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'].some((c) => (order.kurier || '').includes(c));
@@ -403,7 +403,7 @@ const LogisticOrder = () => {
       return;
     }
 
-    const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+    const selectedOrdersList = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
     setIsPrinting(true);
 
     try {
@@ -510,7 +510,7 @@ const LogisticOrder = () => {
     setIsDeleting(true);
     try {
       const { data: session } = await supabase.auth.getSession();
-      const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+      const selectedOrdersList = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
 
       // Cancel Parcel Daily shipment for orders that have tracking (any PD courier)
       const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];

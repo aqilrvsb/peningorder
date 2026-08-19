@@ -498,7 +498,7 @@ const LogisticProcessed = () => {
       return;
     }
 
-    const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+    const selectedOrdersList = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
 
     // PD couriers (Poslaju/Ninjavan/JNT/DHL/SPX) carry a connote waybill; Tiktok
     // orders carry a marketplace waybill_url.
@@ -617,7 +617,7 @@ const LogisticProcessed = () => {
 
     setIsDeleting(true);
     try {
-      const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+      const selectedOrdersList = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
 
       // Cancel Parcel Daily shipment for orders that have tracking numbers
       const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'];

@@ -229,7 +229,7 @@ const LogisticReturn = () => {
       return;
     }
 
-    const selectedOrdersList = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+    const selectedOrdersList = filteredOrders.filter((o: any) => selectedOrders.has(o.id));
 
     // Separate NinjaVan orders and Tiktok orders
     const ninjavanOrdersForPrint = selectedOrdersList.filter(

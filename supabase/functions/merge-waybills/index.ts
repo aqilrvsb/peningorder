@@ -66,35 +66,40 @@ serve(async (req) => {
     // For multiple URLs, fetch each PDF and merge them
     console.log('Fetching multiple waybills and merging...');
 
-    const pdfBuffers: Uint8Array[] = [];
     const failedUrls: string[] = [];
     const successUrls: string[] = [];
 
-    for (const url of validUrls) {
-      try {
-        console.log(`Fetching waybill from ${url}...`);
-
-        const response = await fetch(url);
-
-        if (response.ok) {
-          const buffer = await response.arrayBuffer();
-          if (buffer.byteLength > 0) {
-            pdfBuffers.push(new Uint8Array(buffer));
-            successUrls.push(url);
-            console.log(`Successfully fetched waybill, size: ${buffer.byteLength} bytes`);
-          } else {
+    // Fetch in parallel chunks (keeps original order) so 100+ waybills don't
+    // fetch one-by-one and blow the function wall-clock limit.
+    const CONCURRENCY = 15;
+    const fetched: (Uint8Array | null)[] = new Array(validUrls.length).fill(null);
+    for (let i = 0; i < validUrls.length; i += CONCURRENCY) {
+      const chunk = validUrls.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (url: string, j: number) => {
+          try {
+            const response = await fetch(url);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              if (buffer.byteLength > 0) {
+                fetched[i + j] = new Uint8Array(buffer);
+                successUrls.push(url);
+              } else {
+                failedUrls.push(url);
+              }
+            } else {
+              failedUrls.push(url);
+              console.log(`Failed to fetch waybill from ${url}: ${response.status}`);
+            }
+          } catch (e) {
             failedUrls.push(url);
-            console.log(`Empty PDF from ${url}`);
+            console.error(`Error fetching waybill from ${url}:`, e);
           }
-        } else {
-          failedUrls.push(url);
-          console.log(`Failed to fetch waybill from ${url}: ${response.status}`);
-        }
-      } catch (e) {
-        failedUrls.push(url);
-        console.error(`Error fetching waybill from ${url}:`, e);
-      }
+        })
+      );
     }
+    const pdfBuffers: Uint8Array[] = fetched.filter((b): b is Uint8Array => b !== null);
+    console.log(`Fetched ${pdfBuffers.length}/${validUrls.length} waybills`);
 
     if (pdfBuffers.length === 0) {
       return new Response(
@@ -112,11 +117,19 @@ serve(async (req) => {
     try {
       const mergedPdf = await PDFDocument.create();
 
+      let mergedCount = 0;
       for (const pdfBytes of pdfBuffers) {
-        const pdf = await PDFDocument.load(pdfBytes);
-        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
+        try {
+          const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+          const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+          copiedPages.forEach((page) => mergedPdf.addPage(page));
+          mergedCount++;
+        } catch (e) {
+          // One corrupt/non-PDF response must not abort the whole batch.
+          console.error("Skipping a PDF that failed to load:", e);
+        }
       }
+      console.log(`Merged ${mergedCount}/${pdfBuffers.length} PDFs`);
 
       const mergedPdfBytes = await mergedPdf.save();
       console.log(`Merged PDF created, size: ${mergedPdfBytes.byteLength} bytes`);
