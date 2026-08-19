@@ -24,6 +24,7 @@ import {
   Trophy,
   UserCircle,
   RotateCcw,
+  Ban,
   FileSpreadsheet,
   TrendingUp,
   Clock,
@@ -74,6 +75,7 @@ const logisticItems: NavItem[] = [
   { label: 'Order', path: '/dashboard/logistics/order', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Processed', path: '/dashboard/logistics/processed', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
+  { label: 'Rejected', path: '/dashboard/logistics/rejected', icon: <Ban className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
 ];
 

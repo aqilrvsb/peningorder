@@ -37,6 +37,10 @@ import {
   Navigation,
   Pencil,
   MessageCircle,
+  Ban,
+  Eye,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -81,6 +85,8 @@ const LogisticOrder = () => {
 
   // Loading states
   const [isShipping, setIsShipping] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [viewingPayment, setViewingPayment] = useState<any>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -331,6 +337,55 @@ const LogisticOrder = () => {
       toast.error(error.message || "Failed to update orders");
     } finally {
       setIsShipping(false);
+    }
+  };
+
+  // Reject selected orders (e.g. fake receipt / fishy order). Moves them out of
+  // the Order tab into the Rejected tab. Cancels the PD booking if one exists.
+  const handleBulkReject = async () => {
+    if (selectedOrders.size === 0) { toast.error("Please select orders to reject"); return; }
+    const { isConfirmed, value: reason } = await Swal.fire({
+      title: `Reject ${selectedOrders.size} order?`,
+      input: "text",
+      inputPlaceholder: "Sebab reject (cth: resit palsu) — optional",
+      text: "Order akan dipindah ke tab Rejected.",
+      showCancelButton: true,
+      confirmButtonText: "Reject",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#dc2626",
+    });
+    if (!isConfirmed) return;
+
+    setIsRejecting(true);
+    const today = getMalaysiaDate();
+    try {
+      const list = paginatedOrders.filter((o: any) => selectedOrders.has(o.id));
+      // Cancel any live ParcelDaily booking (frees the credit) — best effort.
+      for (const order of list) {
+        const isPdOrder = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'].some((c) => (order.kurier || '').includes(c));
+        if (order.tracking_number && isPdOrder) {
+          try {
+            await supabase.functions.invoke("parceldaily-cancel", {
+              body: { purchaseId: order.id, trackingNumber: order.tracking_number },
+            });
+          } catch { /* ignore — still reject the order */ }
+        }
+      }
+      await Promise.all(Array.from(selectedOrders).map((orderId) =>
+        supabase.from("customer_purchases").update({
+          delivery_status: "Rejected",
+          date_processed: today,
+          nota_staff: reason ? `[REJECT] ${reason}` : undefined,
+        }).eq("id", orderId)
+      ));
+      toast.success(`${selectedOrders.size} order(s) rejected`);
+      queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+      queryClient.invalidateQueries({ queryKey: ["logistic-rejected"] });
+      setSelectedOrders(new Set());
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject orders");
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -940,6 +995,15 @@ const LogisticOrder = () => {
                   Print ({selectedOrders.size})
                 </Button>
                 <Button
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={handleBulkReject}
+                  disabled={selectedOrders.size === 0 || isRejecting}
+                >
+                  {isRejecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
+                  Reject ({selectedOrders.size})
+                </Button>
+                <Button
                   onClick={handleBulkShipped}
                   disabled={selectedOrders.size === 0 || isShipping}
                 >
@@ -986,6 +1050,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left text-amber-600">Cost Postage</th>
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">Komisyen</th>
                       <th className="p-2 text-left">Cara Bayaran</th>
+                      <th className="p-2 text-left">Detail Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
                       <th className="p-2 text-left">Jenis Closing</th>
@@ -1073,6 +1138,15 @@ const LogisticOrder = () => {
                               {order.type_payment || "-"}
                             </span>
                           </td>
+                          <td className="p-2 whitespace-nowrap">
+                            {(order.type_payment === "CASH" || order.type_payment === "Pickup")
+                              ? (
+                                <Button size="sm" variant="outline" className="h-7"
+                                  onClick={() => setViewingPayment(order)}>
+                                  <Receipt className="w-3.5 h-3.5 mr-1" /> Lihat
+                                </Button>
+                              ) : <span className="text-xs text-muted-foreground">-</span>}
+                          </td>
                           <td className="p-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.delivery_status === "Pending" ? "bg-yellow-100 text-yellow-700" : order.delivery_status === "Shipped" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
                               {order.delivery_status || "-"}
@@ -1127,7 +1201,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={23} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>
@@ -1359,6 +1433,46 @@ const LogisticOrder = () => {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Bayaran — receipt + payment details for CASH / Pickup orders.
+          Lets the logistic verify the receipt and Reject a fake one. */}
+      <Dialog open={!!viewingPayment} onOpenChange={(o) => { if (!o) setViewingPayment(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}
+            </DialogTitle>
+          </DialogHeader>
+          {viewingPayment && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
+                <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{viewingPayment.date_payment || "-"}</b></div>
+              </div>
+              {viewingPayment.receipt_payment_url ? (
+                (viewingPayment.receipt_payment_type === "link" || !String(viewingPayment.receipt_payment_url).includes("vercel-storage.com")) ? (
+                  <Button variant="outline" className="w-full" onClick={() => window.open(viewingPayment.receipt_payment_url, "_blank")}>
+                    <ExternalLink className="w-4 h-4 mr-2" /> Buka link resit
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    <img src={viewingPayment.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[60vh] object-contain bg-muted" />
+                    <Button variant="outline" className="w-full" onClick={() => window.open(viewingPayment.receipt_payment_url, "_blank")}>
+                      <ExternalLink className="w-4 h-4 mr-2" /> Buka dalam tab baharu
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2">
+                  <Ban className="w-4 h-4" /> Tiada resit dimuat naik untuk order ini.
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

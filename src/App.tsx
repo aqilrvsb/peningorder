@@ -48,6 +48,7 @@ const LogisticBundleManagement = lazy(() => import("./components/logistic/Logist
 const LogisticOrder = lazy(() => import("./components/logistic/LogisticOrder"));
 const LogisticProcessed = lazy(() => import("./components/logistic/LogisticProcessed"));
 const LogisticReturn = lazy(() => import("./components/logistic/LogisticReturn"));
+const LogisticRejected = lazy(() => import("./components/logistic/LogisticRejected"));
 const LogisticPendingTracking = lazy(() => import("./components/logistic/LogisticPendingTracking"));
 // Account Role components
 const SalesOverview = lazy(() => import("./components/account/SalesOverview"));
@@ -172,6 +173,7 @@ const App = () => (
                     <Route path="logistics/order" element={logisticAllowed(<LogisticOrder />)} />
                     <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
                     <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
+                    <Route path="logistics/rejected" element={logisticAllowed(<LogisticRejected />)} />
                     <Route path="logistics/pending-tracking" element={logisticAllowed(<LogisticPendingTracking />)} />
                     <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />
                     <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
