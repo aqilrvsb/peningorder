@@ -10,6 +10,7 @@ import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM 
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
 import { TablePagination } from '@/components/TablePagination';
+import { ReceiptViewer } from '@/components/ReceiptViewer';
 
 type CashOrder = {
   id: string;
@@ -220,12 +221,7 @@ const AccountOrderCash: React.FC = () => {
             <DialogTitle>Resit Bayaran — {viewing?.id_sale || viewing?.name_customer || ''}</DialogTitle>
           </DialogHeader>
           {viewing?.receipt_payment_url && (
-            <div className="space-y-3">
-              <img src={viewing.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[70vh] object-contain bg-muted" />
-              <Button variant="outline" className="w-full" onClick={() => window.open(viewing.receipt_payment_url!, '_blank')}>
-                <ExternalLink className="w-4 h-4 mr-2" /> Buka dalam tab baharu
-              </Button>
-            </div>
+            <ReceiptViewer url={viewing.receipt_payment_url} type={viewing.receipt_payment_type} />
           )}
         </DialogContent>
       </Dialog>

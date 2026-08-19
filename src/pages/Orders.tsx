@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
+import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -1339,18 +1340,7 @@ ${trackingUrl}`;
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Resit Bayaran</p>
                 {selectedOrderPayment.receiptImageUrl ? (
-                  <a
-                    href={selectedOrderPayment.receiptImageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <img
-                      src={selectedOrderPayment.receiptImageUrl}
-                      alt="Resit Bayaran"
-                      className="max-w-full h-48 object-contain rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
-                    />
-                  </a>
+                  <ReceiptViewer url={selectedOrderPayment.receiptImageUrl} type={(selectedOrderPayment as any).receiptType} />
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-red-500 italic">Tiada resit dimuat naik</p>

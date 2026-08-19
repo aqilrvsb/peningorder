@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
+import { ReceiptViewer } from "@/components/ReceiptViewer";
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -1442,19 +1443,7 @@ const LogisticOrder = () => {
                 <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
                 <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{viewingPayment.date_payment || "-"}</b></div>
               </div>
-              {viewingPayment.receipt_payment_url ? (
-                (viewingPayment.receipt_payment_type === "link" || !String(viewingPayment.receipt_payment_url).includes("vercel-storage.com")) ? (
-                  <Button variant="outline" className="w-full" onClick={() => window.open(viewingPayment.receipt_payment_url, "_blank")}>
-                    <ExternalLink className="w-4 h-4 mr-2" /> Buka link resit
-                  </Button>
-                ) : (
-                  <img src={viewingPayment.receipt_payment_url} alt="Resit" className="w-full rounded-lg border border-border max-h-[70vh] object-contain bg-muted" />
-                )
-              ) : (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2">
-                  <Ban className="w-4 h-4" /> Tiada resit dimuat naik untuk order ini.
-                </div>
-              )}
+              <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>
           )}
         </DialogContent>
