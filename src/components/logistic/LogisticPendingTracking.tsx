@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, getMalaysiaDate, fetchAllRows } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import {
   Package,
@@ -24,7 +24,8 @@ import {
   Printer,
   Search,
   DollarSign,
-  Wallet,
+  CheckCircle2,
+  RotateCcw,
   MessageCircle,
   Filter,
   RefreshCw,
@@ -228,24 +229,32 @@ const LogisticPendingTracking = () => {
     }
   };
 
-  // Mark single order as COD received
-  const handleCODReceived = async (orderId: string) => {
-    const today = getMalaysiaDate();
+  // Update the delivery outcome for an in-transit order. Only Success or Return
+  // are valid terminal states (same rule the ParcelDaily webhook enforces).
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const handleStatusUpdate = async (order: any, status: "Success" | "Return") => {
+    const label = status === "Success" ? "Success (delivered)" : "Return";
+    if (!window.confirm(`Mark this order as ${label}?`)) return;
+    setUpdatingId(order.id);
     try {
+      // Delivery outcome only — COD cash collection stays a Finance action
+      // (Pending COD Collection), so date_payment is left untouched here.
+      const payload: Record<string, any> =
+        status === "Success"
+          ? { delivery_status: "Success", seo: "Successful Delivery", seos: "Successful Delivery" }
+          : { delivery_status: "Return", seos: "Return" };
       const { error } = await supabase
         .from("customer_purchases")
-        .update({
-          seo: "Successful Delivery",
-          seos: "Successful Delivery",
-          date_payment: today,
-        })
-        .eq("id", orderId);
+        .update(payload)
+        .eq("id", order.id);
       if (error) throw error;
 
-      toast.success("COD payment marked as received");
+      toast.success(`Order marked as ${status}`);
       queryClient.invalidateQueries({ queryKey: ["logistic-pending-tracking"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update order");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -537,19 +546,28 @@ const LogisticPendingTracking = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            {order.type_payment === "COD" ? (
+                            <div className="flex items-center gap-1">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-green-600 h-7 px-2 text-xs"
-                                onClick={() => handleCODReceived(order.id)}
+                                className="text-green-600 border-green-200 hover:bg-green-50 h-7 px-2 text-xs"
+                                disabled={updatingId === order.id}
+                                onClick={() => handleStatusUpdate(order, "Success")}
                               >
-                                <Wallet className="w-3 h-3 mr-1" />
-                                COD Received
+                                {updatingId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                Success
                               </Button>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 border-red-200 hover:bg-red-50 h-7 px-2 text-xs"
+                                disabled={updatingId === order.id}
+                                onClick={() => handleStatusUpdate(order, "Return")}
+                              >
+                                <RotateCcw className="w-3 h-3 mr-1" />
+                                Return
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))
