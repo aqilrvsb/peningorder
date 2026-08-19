@@ -100,6 +100,10 @@ const RoleGate = ({ need, allowExpired, marketerOk, logisticOk, children }: { ne
   if (need === "client" && isMarketer && !marketerOk) return <Navigate to="/dashboard" replace />;
   // Logistic staff: restricted to the Logistic section + Dashboard + Profile.
   if (need === "client" && isLogistic && !logisticOk) return <Navigate to="/dashboard" replace />;
+  // ...and can't reach a logistic tab the client hid for them (by URL either).
+  if (need === "client" && isLogistic && (profile?.hiddenTabs || []).some((k) => location.pathname.endsWith("/" + k))) {
+    return <Navigate to="/dashboard/logistics/order" replace />;
+  }
   // Expired / deactivated clients keep read access to nothing but Billing (to
   // resubscribe) and Profile. Staff (marketer/logistic) follow the client's
   // tenant and are never expiry-frozen or courier-gated here.

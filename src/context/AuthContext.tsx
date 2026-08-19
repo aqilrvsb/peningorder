@@ -17,6 +17,7 @@ interface UserProfile {
   parentUserId: string | null; // set for marketer staff → their client's id
   payMode: 'commission_order' | 'gross_profit'; // staff payout basis
   commissionPercent: number; // % of gross profit when payMode = gross_profit
+  hiddenTabs: string[]; // logistic tabs the client hid for this staff (path keys)
 }
 
 interface AuthContextType {
@@ -57,6 +58,7 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     parentUserId: profile.parent_user_id ?? null,
     payMode: (profile.pay_mode === 'gross_profit' ? 'gross_profit' : 'commission_order'),
     commissionPercent: Number(profile.commission_percent) || 0,
+    hiddenTabs: Array.isArray(profile.hidden_tabs) ? profile.hidden_tabs : [],
   };
 }
 

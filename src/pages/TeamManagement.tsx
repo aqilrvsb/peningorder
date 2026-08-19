@@ -8,9 +8,18 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid } from 'lucide-react';
 
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; product_scope: string[] | null; role?: string };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string };
+// Logistic tabs the client can hide from the logistic account (path keys).
+const LOGISTIC_TABS: { key: string; label: string }[] = [
+  { key: 'inventory-product', label: 'Product' },
+  { key: 'inventory-bundle', label: 'Bundle' },
+  { key: 'processed', label: 'Processed' },
+  { key: 'return', label: 'Return' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'pending-tracking', label: 'Pending Tracking' },
+];
 type BundleMin = { id: string; name: string };
 
 const call = async (action: string, extra: Record<string, unknown> = {}) => {
@@ -44,6 +53,9 @@ const TeamManagement: React.FC = () => {
   const [scopeDialogFor, setScopeDialogFor] = useState<Staff | null>(null);
   const [scopeDraft, setScopeDraft] = useState<string[]>([]);
   const [savingScope, setSavingScope] = useState(false);
+  const [tabDialogFor, setTabDialogFor] = useState<Staff | null>(null);
+  const [tabDraft, setTabDraft] = useState<string[]>([]); // hidden tab keys
+  const [savingTabs, setSavingTabs] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
@@ -117,6 +129,25 @@ const TeamManagement: React.FC = () => {
       toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
     } finally {
       setSavingScope(false);
+    }
+  };
+
+  const openTabDialog = (s: Staff) => {
+    setTabDraft(Array.isArray(s.hidden_tabs) ? s.hidden_tabs : []);
+    setTabDialogFor(s);
+  };
+  const saveTabs = async () => {
+    if (!tabDialogFor) return;
+    setSavingTabs(true);
+    try {
+      await call('set_tab_access', { user_id: tabDialogFor.id, hidden_tabs: tabDraft });
+      toast({ title: 'Akses tab dikemaskini', description: tabDraft.length ? `${tabDraft.length} tab disembunyi` : 'Semua tab dipapar' });
+      setTabDialogFor(null);
+      refresh();
+    } catch (e: any) {
+      toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingTabs(false);
     }
   };
 
@@ -244,8 +275,10 @@ const TeamManagement: React.FC = () => {
               <p className="font-mono font-medium">{logisticAccount.idstaff}</p>
               <p className="text-xs text-muted-foreground">{logisticAccount.full_name || '-'} · {logisticAccount.whatsapp || logisticAccount.whatsapp_number || '-'} · <span className={logisticAccount.is_active ? 'text-green-600' : 'text-red-500'}>{logisticAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
               <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><Package className="w-3 h-3" /> Akses: <span className="font-medium text-foreground">{logisticAccount.product_scope?.length ? `${logisticAccount.product_scope.length} produk` : 'Semua produk'}</span></p>
+              <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><LayoutGrid className="w-3 h-3" /> Tab: <span className="font-medium text-foreground">{logisticAccount.hidden_tabs?.length ? `${logisticAccount.hidden_tabs.length} disembunyi` : 'Semua dipapar'}</span></p>
             </div>
             <div className="flex gap-1">
+              <Button size="sm" variant="ghost" title="Akses tab" onClick={() => openTabDialog(logisticAccount)}><LayoutGrid className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" title="Akses produk" onClick={() => openScopeDialog(logisticAccount)}><Package className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Reset password" onClick={() => resetPassword(logisticAccount)}><KeyRound className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title={logisticAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(logisticAccount)}>{logisticAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
@@ -282,6 +315,34 @@ const TeamManagement: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setScopeDialogFor(null)} disabled={savingScope}>Batal</Button>
             <Button onClick={saveScope} disabled={savingScope}>{savingScope ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tab access for the logistic account — hide selected logistic tabs */}
+      <Dialog open={!!tabDialogFor} onOpenChange={(o) => { if (!o) setTabDialogFor(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><LayoutGrid className="w-5 h-5 text-primary" /> Akses Tab — {tabDialogFor?.idstaff}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Tandakan tab yang mahu <b>disembunyikan</b> dari akaun logistic. Tab <b>Order</b> sentiasa dipapar.</p>
+          <div className="rounded-lg border border-border divide-y divide-border">
+            {LOGISTIC_TABS.map((t) => {
+              const hidden = tabDraft.includes(t.key);
+              return (
+                <label key={t.key} className="flex items-center justify-between px-3 py-2.5 text-sm cursor-pointer hover:bg-muted/40">
+                  <span>{t.label}</span>
+                  <span className="flex items-center gap-2">
+                    <span className={`text-xs ${hidden ? 'text-red-500' : 'text-green-600'}`}>{hidden ? 'Disembunyi' : 'Dipapar'}</span>
+                    <Checkbox checked={hidden} onCheckedChange={() => setTabDraft((d) => d.includes(t.key) ? d.filter((x) => x !== t.key) : [...d, t.key])} />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTabDialogFor(null)} disabled={savingTabs}>Batal</Button>
+            <Button onClick={saveTabs} disabled={savingTabs}>{savingTabs ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -139,7 +139,11 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     : isMarketer
       ? [{ ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') }]
       : isLogistic
-        ? baseRoleGroups.filter((g) => g.key === 'logistic')
+        ? baseRoleGroups.filter((g) => g.key === 'logistic').map((g) => ({
+            ...g,
+            // Hide any logistic tab the client disabled for this staff.
+            items: g.items.filter((i) => !(profile?.hiddenTabs || []).some((k) => i.path.endsWith('/' + k))),
+          }))
         : baseRoleGroups;
 
   // ParcelDaily credit balance (clients only).

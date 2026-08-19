@@ -61,7 +61,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data } = await admin
         .from("profiles")
-        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, product_scope, created_at")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, product_scope, hidden_tabs, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       const staff = data || [];
@@ -175,6 +175,15 @@ serve(async (req) => {
         : [];
       await admin.from("profiles").update({ product_scope: scope.length ? scope : null }).eq("id", targetId);
       return json(200, { success: true, product_scope: scope });
+    }
+
+    if (action === "set_tab_access") {
+      // Hide specific logistic tabs from this staff (path keys). Empty = show all.
+      const tabs = Array.isArray(body?.hidden_tabs)
+        ? body.hidden_tabs.filter((x: unknown) => typeof x === "string")
+        : [];
+      await admin.from("profiles").update({ hidden_tabs: tabs.length ? tabs : null }).eq("id", targetId);
+      return json(200, { success: true, hidden_tabs: tabs });
     }
 
     if (action === "delete") {
