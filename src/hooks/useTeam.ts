@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
-export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string };
+export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string; role?: string };
 
 /**
  * The caller's tenant roster (client + their marketer staff), used for the

@@ -89,8 +89,9 @@ const LogisticProcessed = () => {
   const [search, setSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState('');
   const { nameByIdstaff, members } = useTeam();
-  // Hide the bundle Komisyen column when the whole marketer team is gross-profit.
-  const teamMarketers = members.filter((m: any) => !m.is_client);
+  // Hide the bundle Komisyen column when the whole MARKETER team is gross-profit
+  // (the logistic account is never counted — it earns no commission).
+  const teamMarketers = members.filter((m: any) => m.role === 'marketer');
   const hideKomisyen = teamMarketers.length > 0 && teamMarketers.every((m: any) => (m.pay_mode || 'commission_order') === 'gross_profit');
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
