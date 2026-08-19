@@ -178,6 +178,23 @@ const OrderForm: React.FC = () => {
   });
   const [waybillFile, setWaybillFile] = useState<File | null>(null);
   const [waybillFileName, setWaybillFileName] = useState<string>('');
+  // Per-tenant courier restriction (e.g. only JNT). null = all couriers.
+  const [allowedCouriers, setAllowedCouriers] = useState<string[] | null>(null);
+
+  // Restrict the Delivery Method dropdown to the tenant's allowed couriers.
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc('my_allowed_couriers');
+      const list = Array.isArray(data) ? (data as string[]).filter(Boolean) : [];
+      if (!list.length) { setAllowedCouriers(null); return; }
+      setAllowedCouriers(list);
+      if (!editOrder) {
+        const opts = DELIVERY_METHOD_OPTIONS.filter((o) => list.some((c) => o.toLowerCase() === c.toLowerCase()));
+        if (opts.length) setFormData((prev) => (opts.includes(prev.deliveryMethod) ? prev : { ...prev, deliveryMethod: opts[0] }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Populate form if editing
   useEffect(() => {
@@ -1604,7 +1621,10 @@ const OrderForm: React.FC = () => {
                     <SelectValue placeholder="Pilih Delivery Method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DELIVERY_METHOD_OPTIONS.map((opt) => (
+                    {(allowedCouriers && allowedCouriers.length
+                      ? DELIVERY_METHOD_OPTIONS.filter((o) => allowedCouriers.some((c) => o.toLowerCase() === c.toLowerCase()))
+                      : DELIVERY_METHOD_OPTIONS
+                    ).map((opt) => (
                       <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                     ))}
                   </SelectContent>

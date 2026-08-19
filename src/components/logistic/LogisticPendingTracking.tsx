@@ -536,15 +536,19 @@ const LogisticPendingTracking = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-green-600 h-7 px-2 text-xs"
-                              onClick={() => handleCODReceived(order.id)}
-                            >
-                              <Wallet className="w-3 h-3 mr-1" />
-                              COD Received
-                            </Button>
+                            {order.type_payment === "COD" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 h-7 px-2 text-xs"
+                                onClick={() => handleCODReceived(order.id)}
+                              >
+                                <Wallet className="w-3 h-3 mr-1" />
+                                COD Received
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
                           </td>
                         </tr>
                       ))
