@@ -193,6 +193,7 @@ const LogisticOrder = () => {
           bundle:logistic_bundles(name, sku, base_cost, kos_postage_sm, kos_postage_ss)
         `)
         .eq("delivery_status", "Pending")
+        .is("pospada_date", null) // Pospada bookings live in the Order Pospada tab, not here
         .order("created_at", { ascending: false });
 
       if (startDate) {

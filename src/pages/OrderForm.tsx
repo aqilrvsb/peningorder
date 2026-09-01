@@ -132,6 +132,9 @@ const OrderForm: React.FC = () => {
   const [tarikhBayaran, setTarikhBayaran] = useState<Date>();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
+  // Pospada = optional booking. When a date is set, the order is held as a
+  // booking (no tracking generated now); logistic generates it on that date.
+  const [pospadaDate, setPospadaDate] = useState<string>('');
   // CASH receipt can be a pasted link OR an uploaded image/PDF.
   const [receiptMethod, setReceiptMethod] = useState<'manual' | 'link'>('manual');
   const [receiptLink, setReceiptLink] = useState<string>('');
@@ -741,6 +744,8 @@ const OrderForm: React.FC = () => {
     let kurier = '';
     // Pickup (self collect) — pay like CASH, skip ParcelDaily entirely.
     const isPickup = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
+    // Pospada booking (courier orders only) — hold the order, generate tracking later.
+    const isPospada = !!pospadaDate && !isPickup && !isMarketplaceCourier;
     const dmLower = (formData.deliveryMethod || '').toLowerCase();
     const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'; label: string }> = {
       ninjavan: { code: 'ninjavan', label: 'Ninjavan' },
@@ -997,8 +1002,9 @@ const OrderForm: React.FC = () => {
           trackingNumber = formData.trackingNumber;
         }
 
-        // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup and marketplace couriers
-        const shouldCallKurier = !isPickup && !isMarketplaceCourier;
+        // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup, marketplace
+        // couriers, and Pospada bookings (tracking is generated later by logistic).
+        const shouldCallKurier = !isPickup && !isMarketplaceCourier && !isPospada;
         let waybillPdfUrl = ''; // For Poslaju PDF link
 
         if (shouldCallKurier) {
@@ -1210,12 +1216,14 @@ const OrderForm: React.FC = () => {
             waybillUrl: waybillUrl,
             seo: (formData.caraBayaran === 'CASH' || formData.caraBayaran === 'Pickup') ? 'Successful Delivery' : '', // Auto-collection for CASH + Pickup
             bundleId: selectedBundle?.id || '',
+            pospadaDate: isPospada ? pospadaDate : null, // booking held for logistic to process on this date
           });
         }
 
         // "Notify after Key-in" — only sends if the client enabled it in
-        // Courier Settings → Tracking Webhook (server-side check).
-        if (!isMarketplaceCourier) try {
+        // Courier Settings → Tracking Webhook (server-side check). Skip Pospada
+        // bookings — there is no tracking yet, so a shipping notice is premature.
+        if (!isMarketplaceCourier && !isPospada) try {
           const fullAddress = [
             formData.alamat, formData.daerah, formData.poskod, formData.negeri,
           ].filter(Boolean).join(', ');
@@ -1642,6 +1650,32 @@ const OrderForm: React.FC = () => {
                   onChange={(e) => handleChange('trackingNumber', e.target.value)}
                   className="bg-background"
                 />
+              </div>
+            )}
+
+            {/* Pospada (Booking) — optional. Courier orders only. When a date is
+                chosen the order is a booking: no tracking now, logistic generates
+                it on that date from the Order Pospada tab. */}
+            {!isMarketplaceCourier && !isPickupUI && (
+              <div>
+                <FormLabel>Pospada (Booking)</FormLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={pospadaDate}
+                    min={getMalaysiaDate()}
+                    onChange={(e) => setPospadaDate(e.target.value)}
+                    className="bg-background"
+                  />
+                  {pospadaDate && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setPospadaDate('')}>
+                      Kosongkan
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional — biar kosong untuk order biasa. Jika diisi, tracking dijana oleh logistik pada tarikh ini.
+                </p>
               </div>
             )}
 

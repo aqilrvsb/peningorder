@@ -19,6 +19,7 @@ interface CustomerOrder {
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
   seo: string; seos: string; bundleId: string;
   receiptType?: string | null; commission?: number; pdOrderId?: string;
+  pospadaDate?: string | null; // booking dispatch date; set = held as Pospada booking
 }
 
 interface Prospect {
@@ -95,6 +96,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dateOrder: d.date_order || '',
     dateProcessed: d.date_processed || '',
     dateReturn: d.date_return || '',
+    pospadaDate: d.pospada_date || '',
     jenisPlatform: d.jenis_platform || '',
     jenisCustomer: d.jenis_customer || '',
     jenisClosing: d.jenis_closing || '',
@@ -196,6 +198,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       pd_order_id: order.pdOrderId || null, // ParcelDaily orderId for cancel/refund
       waybill_url: order.waybillUrl || null,
       bundle_id: order.bundleId || null, // NEW: bundle_id
+      pospada_date: order.pospadaDate || null, // Pospada booking date (null = normal order)
       seos: 'Pending', // Delivery tracking status - starts as Pending
       // Auto-collection: CASH + Pickup pass 'Successful Delivery' from key-in;
       // courier orders pass '' and get their seo from the tracking webhook / manual receipt.

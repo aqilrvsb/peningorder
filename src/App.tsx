@@ -46,6 +46,7 @@ const MarketerWebhookSettings = lazy(() => import("./components/marketer/Markete
 const LogisticProductManagement = lazy(() => import("./components/logistic/LogisticProductManagement"));
 const LogisticBundleManagement = lazy(() => import("./components/logistic/LogisticBundleManagement"));
 const LogisticOrder = lazy(() => import("./components/logistic/LogisticOrder"));
+const LogisticOrderPospada = lazy(() => import("./components/logistic/LogisticOrderPospada"));
 const LogisticProcessed = lazy(() => import("./components/logistic/LogisticProcessed"));
 const LogisticReturn = lazy(() => import("./components/logistic/LogisticReturn"));
 const LogisticRejected = lazy(() => import("./components/logistic/LogisticRejected"));
@@ -175,6 +176,7 @@ const App = () => (
                     <Route path="logistics/inventory-bundle" element={logisticAllowed(<LogisticBundleManagement />)} />
                     {/* Logistic Role - Orders (client + logistic staff) */}
                     <Route path="logistics/order" element={logisticAllowed(<LogisticOrder />)} />
+                    <Route path="logistics/order-pospada" element={logisticAllowed(<LogisticOrderPospada />)} />
                     <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
                     <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
                     <Route path="logistics/rejected" element={logisticAllowed(<LogisticRejected />)} />
