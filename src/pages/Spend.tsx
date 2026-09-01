@@ -23,8 +23,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil, TrendingUp
+  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil, TrendingUp, Paperclip, Eye
 } from 'lucide-react';
+import { put } from '@vercel/blob';
+import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -58,6 +60,8 @@ interface Spend {
   tarikhSpend: string;
   marketerIdStaff: string;
   createdAt: string;
+  receiptUrl?: string;
+  receiptType?: string;
 }
 
 const Spend: React.FC = () => {
@@ -72,6 +76,8 @@ const Spend: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSpend, setEditingSpend] = useState<Spend | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);   // optional receipt (image/PDF)
+  const [viewingReceipt, setViewingReceipt] = useState<Spend | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [spendToDelete, setSpendToDelete] = useState<string | null>(null);
   // Sales in the selected period — used only to compute the ROAS KPI (Sale / Spend).
@@ -111,6 +117,8 @@ const Spend: React.FC = () => {
         tarikhSpend: d.tarikh_spend,
         marketerIdStaff: d.marketer_id_staff || '',
         createdAt: d.created_at,
+        receiptUrl: d.receipt_url || '',
+        receiptType: d.receipt_type || '',
       })));
     } catch (error) {
       console.error('Error fetching spends:', error);
@@ -202,6 +210,7 @@ const Spend: React.FC = () => {
       tarikhSpend: '',
     });
     setEditingSpend(null);
+    setReceiptFile(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,6 +229,16 @@ const Spend: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      // Optional receipt/proof upload (image or PDF) to Vercel Blob.
+      let receiptUrl: string | null = null;
+      if (receiptFile) {
+        const token = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN;
+        if (!token) throw new Error('Blob storage token not configured');
+        const cleanName = receiptFile.name.replace(/[^a-zA-Z0-9.-]/g, '-');
+        const blob = await put(`spends/${Date.now()}-${cleanName}`, receiptFile, { access: 'public', token });
+        receiptUrl = blob.url;
+      }
+
       if (editingSpend) {
         const { error } = await (supabase as any).from('spends').update({
           product: formData.product,
@@ -228,8 +247,10 @@ const Spend: React.FC = () => {
           total_spend: parseFloat(formData.totalSpend),
           tarikh_spend: formData.tarikhSpend,
           updated_at: new Date().toISOString(),
+          // Only overwrite the receipt when a new file is chosen; keep the old one otherwise.
+          ...(receiptUrl ? { receipt_url: receiptUrl, receipt_type: 'image' } : {}),
         }).eq('id', editingSpend.id);
-        
+
         if (error) throw error;
         toast({ title: 'Spend Dikemaskini', description: 'Spend telah berjaya dikemaskini.' });
       } else {
@@ -240,8 +261,10 @@ const Spend: React.FC = () => {
           total_spend: parseFloat(formData.totalSpend),
           tarikh_spend: formData.tarikhSpend,
           marketer_id_staff: profile?.idstaff || '',
+          receipt_url: receiptUrl,
+          receipt_type: receiptUrl ? 'image' : null,
         });
-        
+
         if (error) throw error;
         toast({ title: 'Spend Ditambah', description: 'Spend baru telah berjaya ditambah.' });
       }
@@ -266,6 +289,7 @@ const Spend: React.FC = () => {
       totalSpend: spend.totalSpend.toString(),
       tarikhSpend: spend.tarikhSpend,
     });
+    setReceiptFile(null); // keep the existing receipt unless a new file is picked
     setIsDialogOpen(true);
   };
 
@@ -354,12 +378,28 @@ const Spend: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tarikhSpend">Tarikh Spend *</Label>
-                  <Input 
-                    id="tarikhSpend" 
-                    type="date" 
-                    value={formData.tarikhSpend} 
-                    onChange={(e) => handleChange('tarikhSpend', e.target.value)} 
+                  <Input
+                    id="tarikhSpend"
+                    type="date"
+                    value={formData.tarikhSpend}
+                    onChange={(e) => handleChange('tarikhSpend', e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiptFile" className="flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5" /> Resit / Bukti Spend <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="receiptFile"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                  />
+                  {receiptFile ? (
+                    <p className="text-xs text-muted-foreground">Fail dipilih: {receiptFile.name}</p>
+                  ) : editingSpend?.receiptUrl ? (
+                    <p className="text-xs text-muted-foreground">Resit sedia ada dilampirkan — pilih fail baru untuk menggantikan.</p>
+                  ) : null}
                 </div>
                 <DialogFooter className="gap-3 pt-4">
                   <Button type="button" variant="outline" onClick={() => {
@@ -479,13 +519,14 @@ const Spend: React.FC = () => {
               <TableHead className="text-right">Total Spend</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Platform</TableHead>
+              <TableHead>Resit</TableHead>
               <TableHead className="w-24">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSpends.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Tiada data spend
                 </TableCell>
               </TableRow>
@@ -499,6 +540,15 @@ const Spend: React.FC = () => {
                   <TableCell className="text-right">RM {spend.totalSpend.toFixed(2)}</TableCell>
                   <TableCell>{spend.product}</TableCell>
                   <TableCell>{spend.jenisPlatform}</TableCell>
+                  <TableCell>
+                    {spend.receiptUrl ? (
+                      <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => setViewingReceipt(spend)}>
+                        <Eye className="w-3.5 h-3.5 mr-1" /> Lihat
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <button
@@ -525,6 +575,18 @@ const Spend: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Receipt viewer — image shows inline, PDF renders via shared ReceiptViewer */}
+      <Dialog open={!!viewingReceipt} onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Resit Spend — {viewingReceipt?.product || ''}</DialogTitle>
+          </DialogHeader>
+          {viewingReceipt?.receiptUrl && (
+            <ReceiptViewer url={viewingReceipt.receiptUrl} type={viewingReceipt.receiptType} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
