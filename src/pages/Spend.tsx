@@ -22,8 +22,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { 
-  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil
+import {
+  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil, TrendingUp
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -74,6 +74,8 @@ const Spend: React.FC = () => {
   const [editingSpend, setEditingSpend] = useState<Spend | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [spendToDelete, setSpendToDelete] = useState<string | null>(null);
+  // Sales in the selected period — used only to compute the ROAS KPI (Sale / Spend).
+  const [salesRows, setSalesRows] = useState<{ date_order: string; total_sale: number; marketer_id_staff: string }[]>([]);
 
   const [formData, setFormData] = useState({
     product: '',
@@ -121,6 +123,31 @@ const Spend: React.FC = () => {
     fetchSpends();
   }, [isMarketer, userIdStaff]);
 
+  // Fetch sales for the selected period to compute ROAS (Sale / Spend). Bounded
+  // by the date range so we never pull the whole customer_purchases table.
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const rows = await fetchAllRows(() => {
+          let q = (supabase as any)
+            .from('customer_purchases')
+            .select('date_order, total_sale, marketer_id_staff');
+          if (startDate) q = q.gte('date_order', startDate);
+          if (endDate) q = q.lte('date_order', endDate);
+          if (isMarketer && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
+          return q;
+        });
+        setSalesRows((rows || []).map((r: any) => ({
+          date_order: r.date_order,
+          total_sale: Number(r.total_sale) || 0,
+          marketer_id_staff: r.marketer_id_staff || '',
+        })));
+      } catch (error) {
+        console.error('Error fetching sales for ROAS:', error);
+      }
+    })();
+  }, [startDate, endDate, isMarketer, userIdStaff]);
+
   // Filter spends based on date range
   const filteredSpends = useMemo(() => {
     return spends.filter((spend) => {
@@ -147,6 +174,15 @@ const Spend: React.FC = () => {
 
     return { totalSpend, platformSpends };
   }, [filteredSpends]);
+
+  // ROAS = Total Sale / Total Spend for the same period + team filter.
+  const totalSales = useMemo(
+    () => salesRows
+      .filter((r) => !teamFilter || r.marketer_id_staff === teamFilter)
+      .reduce((sum, r) => sum + r.total_sale, 0),
+    [salesRows, teamFilter],
+  );
+  const roas = stats.totalSpend > 0 ? totalSales / stats.totalSpend : 0;
 
   const resetFilters = () => {
     setStartDate('');
@@ -349,6 +385,16 @@ const Spend: React.FC = () => {
             <span className="text-xs uppercase font-medium">Total Spend</span>
           </div>
           <p className="text-xl font-bold text-foreground">RM {stats.totalSpend.toFixed(2)}</p>
+        </div>
+
+        {/* ROAS = Sale / Spend for the selected period (informational KPI). */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <TrendingUp className="w-4 h-4 text-amber-500" />
+            <span className="text-xs uppercase font-medium">ROAS</span>
+          </div>
+          <p className="text-xl font-bold text-amber-600">{roas.toFixed(2)}x</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Sale RM {totalSales.toFixed(2)} / Spend</p>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
