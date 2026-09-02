@@ -223,6 +223,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.kurier !== undefined) upd.kurier = data.kurier;
     if ((data as any).waybillUrl !== undefined) upd.waybill_url = (data as any).waybillUrl;
     if (data.kosPos !== undefined) upd.cost_postage = data.kosPos;
+    if (data.notaStaff !== undefined) upd.nota_staff = data.notaStaff;
+    if (data.pospadaDate !== undefined) upd.pospada_date = data.pospadaDate || null;
     upd.updated_at = new Date().toISOString();
     const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;

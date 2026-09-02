@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMalaysiaDate, fetchAllRows } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
-import { CalendarClock, Loader2, Search, Truck, Lock, RefreshCw } from "lucide-react";
+import { CalendarClock, Loader2, Search, Truck, Lock, RefreshCw, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 
@@ -68,6 +68,7 @@ const LogisticOrderPospada = () => {
 
   const dueCount = filteredOrders.filter((o: any) => (o.pospada_date || "") <= today).length;
   const upcomingCount = filteredOrders.length - dueCount;
+  const totalBox = filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -76,6 +77,38 @@ const LogisticOrderPospada = () => {
 
   // Generate tracking for a due booking, then move it to Processed.
   const handleProcess = async (order: any) => {
+    const isPickup = String(order.kurier || "").toUpperCase() === "PICKUP";
+
+    // Self-collect bookings have no courier — just mark collected -> Processed.
+    if (isPickup) {
+      const { isConfirmed } = await Swal.fire({
+        title: "Proses Pospada (Pickup)",
+        text: "Tandakan order pickup ini sebagai selesai (Processed)?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Ya, proses",
+        cancelButtonText: "Batal",
+      });
+      if (!isConfirmed) return;
+      setProcessingId(order.id);
+      try {
+        const isCash = order.type_payment === "CASH" || order.type_payment === "Pickup";
+        const { error } = await supabase
+          .from("customer_purchases")
+          .update({ delivery_status: "Shipped", date_processed: today, ...(isCash ? {} : { seo: "Shipped" }) })
+          .eq("id", order.id);
+        if (error) throw error;
+        toast.success(`Pospada pickup ${order.id_sale || "order"} diproses.`);
+        queryClient.invalidateQueries({ queryKey: ["logistic-pospada"] });
+        queryClient.invalidateQueries({ queryKey: ["logistic-processed"] });
+      } catch (error: any) {
+        toast.error(error.message || "Gagal proses pospada");
+      } finally {
+        setProcessingId(null);
+      }
+      return;
+    }
+
     const { value: postcode, isConfirmed } = await Swal.fire({
       title: "Proses Pospada",
       text: "Sahkan poskod untuk jana tracking:",
@@ -161,13 +194,22 @@ const LogisticOrderPospada = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card><CardContent className="p-6">
           <div className="flex items-center gap-3">
             <CalendarClock className="w-8 h-8 text-purple-500" />
             <div>
               <p className="text-2xl font-bold">{filteredOrders.length}</p>
-              <p className="text-sm text-muted-foreground">Jumlah Booking</p>
+              <p className="text-sm text-muted-foreground">Total Order Pospada</p>
+            </div>
+          </div>
+        </CardContent></Card>
+        <Card><CardContent className="p-6">
+          <div className="flex items-center gap-3">
+            <Boxes className="w-8 h-8 text-blue-500" />
+            <div>
+              <p className="text-2xl font-bold text-blue-600">{totalBox}</p>
+              <p className="text-sm text-muted-foreground">Total Box Pospada</p>
             </div>
           </div>
         </CardContent></Card>

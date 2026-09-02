@@ -8,6 +8,7 @@ import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
 import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -131,7 +132,22 @@ const Orders: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+  const [savingNotaId, setSavingNotaId] = useState<string | null>(null);
+
+  // Inline-edit Nota Staff on the history table (save on blur if changed).
+  const handleNotaSave = async (order: any, value: string) => {
+    if ((value || '') === (order.notaStaff || '')) return;
+    setSavingNotaId(order.id);
+    try {
+      await updateOrder(order.id, { notaStaff: value });
+      toast({ title: 'Nota disimpan' });
+    } catch {
+      toast({ title: 'Error', description: 'Gagal simpan nota.', variant: 'destructive' });
+    } finally {
+      setSavingNotaId(null);
+    }
+  };
+
   // Bulk waybill print state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkPrinting, setIsBulkPrinting] = useState(false);
@@ -1012,6 +1028,7 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase">Pospada</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
@@ -1026,6 +1043,7 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Parcel Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Collection</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota Staff</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
               </tr>
             </thead>
@@ -1066,6 +1084,15 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {order.pospadaDate ? (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 whitespace-nowrap">
+                          {order.pospadaDate}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
                         <a
@@ -1173,6 +1200,16 @@ ${trackingUrl}`;
                       </button>
                     </td>
                     <td className="px-4 py-3">
+                      <Textarea
+                        defaultValue={order.notaStaff || ''}
+                        onBlur={(e) => handleNotaSave(order, e.target.value)}
+                        disabled={savingNotaId === order.id}
+                        placeholder="Nota..."
+                        rows={2}
+                        className="min-w-[180px] text-xs resize-y"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {/* Invoice Icon - always visible */}
                         <a
@@ -1212,7 +1249,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 23 : 24} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isMarketer ? 25 : 26} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>
