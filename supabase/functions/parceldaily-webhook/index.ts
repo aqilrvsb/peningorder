@@ -34,36 +34,31 @@ async function sendWhatsApp(
 ): Promise<string> {
   try {
     if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
-    // Client devices are Baileys on the Railway gateway — send from the client's
-    // own connected WhatsApp via the partner gateway (not Whacenter).
-    const { data: device } = await supabase
-      .from("device_setting")
-      .select("instance, status_wa")
+    // Customer notifications send via the tenant's own Whacenter device. The
+    // client pastes its instance (device_id) in Courier Settings; the device
+    // itself is created/paired on peningbot.com.
+    const { data: cfg } = await supabase
+      .from("parceldaily_config")
+      .select("whacenter_instance")
       .eq("owner_user_id", ownerUserId)
-      .eq("provider", "baileys")
       .maybeSingle();
-    if (!device?.instance) return "wa_skipped_no_device";
-
-    const { data: secretRow } = await supabase
-      .from("platform_secrets").select("value").eq("key", "baileys_gateway").maybeSingle();
-    const cfg = (secretRow?.value ?? {}) as { url?: string; api_key?: string };
-    if (!cfg.url || !cfg.api_key) return "wa_skipped_no_gateway";
+    const instance = (cfg?.whacenter_instance || "").trim();
+    if (!instance) return "wa_skipped_no_device";
 
     const number = waPhone(customerPhone);
     if (!number) return "wa_skipped_bad_phone";
 
     const form = new URLSearchParams();
-    form.append("api_key", cfg.api_key);
-    form.append("device_id", device.instance);
+    form.append("device_id", instance);
     form.append("number", number);
     form.append("message", message);
-    const res = await fetch(`${cfg.url.replace(/\/$/, "")}/api/send`, {
+    const res = await fetch("https://api.whacenter.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
     });
     const txt = await res.text();
-    console.log(`[whatsapp] gateway send status=${res.status} body=${txt.slice(0, 200)}`);
+    console.log(`[whatsapp] whacenter send status=${res.status} body=${txt.slice(0, 200)}`);
     try { const j = JSON.parse(txt); return j.status ? "wa_sent" : `wa_failed_${j.message || res.status}`; }
     catch { return res.ok ? "wa_sent" : `wa_failed_${res.status}`; }
   } catch (err) {

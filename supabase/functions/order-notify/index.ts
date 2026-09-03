@@ -1,6 +1,6 @@
 // order-notify — send the customer a WhatsApp right after an order is keyed in,
 // IF the client has enabled "Order Keyed In" notify in Courier Settings →
-// Tracking Webhook. Sends from the tenant's own connected Baileys device.
+// Tracking Webhook. Sends from the tenant's own Whacenter device.
 //
 // POST { order: { name, phone, address, product, price, courier, order_id, tracking } }
 // (caller's JWT = the marketer/client who created the order)
@@ -62,14 +62,12 @@ serve(async (req) => {
     const phone = waPhone(String(o.phone || ""));
     if (!phone) return json(200, { success: false, skipped: "no_phone" });
 
-    // Tenant's own Baileys device + the shared gateway.
-    const { data: device } = await admin
-      .from("device_setting").select("instance").eq("owner_user_id", ownerUuid).eq("provider", "baileys").maybeSingle();
-    if (!device?.instance) return json(200, { success: false, skipped: "no_device" });
-    const { data: secretRow } = await admin
-      .from("platform_secrets").select("value").eq("key", "baileys_gateway").maybeSingle();
-    const cfg = (secretRow?.value ?? {}) as { url?: string; api_key?: string };
-    if (!cfg.url || !cfg.api_key) return json(200, { success: false, skipped: "no_gateway" });
+    // Tenant's own Whacenter device (instance pasted in Courier Settings; the
+    // device is created/paired on peningbot.com).
+    const { data: cfg } = await admin
+      .from("parceldaily_config").select("whacenter_instance").eq("owner_user_id", ownerUuid).maybeSingle();
+    const instance = (cfg?.whacenter_instance || "").trim();
+    if (!instance) return json(200, { success: false, skipped: "no_device" });
 
     const vars: Record<string, string> = {
       name: o.name || "",
@@ -88,11 +86,10 @@ serve(async (req) => {
         `Terima kasih! Kami akan proses pesanan anda secepat mungkin. 🙏`;
 
     const form = new URLSearchParams();
-    form.append("api_key", cfg.api_key);
-    form.append("device_id", device.instance);
+    form.append("device_id", instance);
     form.append("number", phone);
     form.append("message", message);
-    const res = await fetch(`${cfg.url.replace(/\/$/, "")}/api/send`, {
+    const res = await fetch("https://api.whacenter.com/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -91,6 +91,7 @@ interface ParcelDailyConfig {
   allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
   pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
   webhook_confirmed: boolean; // client confirmed they set up the ParcelDaily webhook.
+  whacenter_instance: string; // Whacenter device id (pasted from peningbot.com) for WhatsApp notify.
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
@@ -116,6 +117,7 @@ const emptyConfig: ParcelDailyConfig = {
   allowed_couriers: [],
   pospada_enabled: false,
   webhook_confirmed: false,
+  whacenter_instance: '',
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -211,6 +213,12 @@ const CourierSettings: React.FC = () => {
   const [showCod, setShowCod] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
+  // Whacenter device status check.
+  const [checkingWa, setCheckingWa] = useState(false);
+  const [waStatus, setWaStatus] = useState<{ connected: boolean; status: string } | null>(null);
+  // Template test-send.
+  const [testPhone, setTestPhone] = useState('');
+  const [testingSend, setTestingSend] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const copyWebhook = async () => {
     try {
@@ -239,7 +247,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed, whacenter_instance: data.whacenter_instance || '' });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -307,6 +315,7 @@ const CourierSettings: React.FC = () => {
         allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
         pospada_enabled: formData.pospada_enabled,
         webhook_confirmed: formData.webhook_confirmed,
+        whacenter_instance: formData.whacenter_instance.trim() || null,
       };
 
       if (configId) {
@@ -339,6 +348,58 @@ const CourierSettings: React.FC = () => {
         ? f.allowed_couriers.filter((x) => x !== c)
         : [...f.allowed_couriers, c],
     }));
+
+  // Send a TEST WhatsApp using the current template draft + random sample values,
+  // through the configured Whacenter instance.
+  const handleTestSend = async () => {
+    const instance = formData.whacenter_instance.trim();
+    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi Whacenter Instance dahulu.', variant: 'destructive' }); return; }
+    if (!testPhone.trim()) { toast({ title: 'Tiada nombor', description: 'Masukkan nombor telefon untuk test.', variant: 'destructive' }); return; }
+    const rnd = Math.floor(1000 + Math.random() * 9000);
+    const sample: Record<string, string> = {
+      name: 'Ahmad Test',
+      tracking: `6321${rnd}0${rnd}`,
+      product: 'Combo 2 Botol',
+      price: (Math.floor(50 + Math.random() * 150)).toFixed(2),
+      address: 'No 12, Jalan Contoh, 43000 Kajang, Selangor',
+      phone: testPhone.trim(),
+      courier: 'JNT',
+      order_id: `ON-${String(rnd).padStart(8, '0')}`,
+      status: 'On Delivery',
+    };
+    const rendered = (tplDraft || '').replace(/\{(\w+)\}/g, (_m, k) => (k in sample ? sample[k] : `{${k}}`))
+      || `TEST mesej dari PeningOrder — ${sample.name}, tracking ${sample.tracking}.`;
+    setTestingSend(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('whacenter', {
+        body: { action: 'send', instance, phone: testPhone.trim(), message: rendered },
+      });
+      if (error) throw error;
+      if (data?.success) toast({ title: 'Test dihantar', description: `Mesej test dihantar ke ${testPhone.trim()}.` });
+      else toast({ title: 'Gagal hantar', description: 'Device mungkin tidak connected. Semak status device.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Gagal hantar', description: err.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally {
+      setTestingSend(false);
+    }
+  };
+
+  // Check the Whacenter device connection status.
+  const checkWaStatus = async () => {
+    const instance = formData.whacenter_instance.trim();
+    if (!instance) return;
+    setCheckingWa(true);
+    setWaStatus(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('whacenter', { body: { action: 'status', instance } });
+      if (error) throw error;
+      setWaStatus({ connected: !!data?.connected, status: data?.status || 'UNKNOWN' });
+    } catch (err: any) {
+      toast({ title: 'Gagal semak status', description: err.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally {
+      setCheckingWa(false);
+    }
+  };
 
   // Sign-up CTA shows only until the client has entered a Merchant ID.
   const hasMerchantId = !!formData.merchant_id.trim();
@@ -624,6 +685,53 @@ const CourierSettings: React.FC = () => {
         </div>
       </div>
 
+      {/* WhatsApp Notification (Whacenter) — the client pastes the device
+          instance from peningbot.com; customer notifications send through it. */}
+      <div className="bg-card rounded-lg border border-border p-5 mt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Bell className="w-5 h-5 text-primary" />
+          <span className="font-semibold text-lg">WhatsApp Notification</span>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Notifikasi WhatsApp ke pelanggan dihantar melalui device Whacenter anda. Cipta &amp; scan device di
+          {' '}<span className="font-medium">peningbot.com</span>, kemudian salin <span className="font-medium">instance</span> dan tampal di sini.
+        </p>
+        <FormLabel>Whacenter Instance (Device ID)</FormLabel>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            value={formData.whacenter_instance}
+            onChange={(e) => { setField('whacenter_instance', e.target.value); setWaStatus(null); }}
+            placeholder="cth: 64f1a2b3c4d5e6f7a8b9c0d1"
+            className="flex-1"
+          />
+          {formData.whacenter_instance.trim() ? (
+            <Button type="button" variant="outline" onClick={checkWaStatus} disabled={checkingWa}>
+              {checkingWa ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Radio className="w-4 h-4 mr-2" />}
+              Check Status Device
+            </Button>
+          ) : (
+            <Button type="button" onClick={() => window.open('https://www.peningbot.com/', '_blank')}>
+              <ExternalLink className="w-4 h-4 mr-2" /> Register Whatsapp Notification
+            </Button>
+          )}
+        </div>
+        {waStatus && (
+          <div className={`mt-2 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium ${
+            waStatus.connected
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            <span className={`h-2 w-2 rounded-full ${waStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+            {waStatus.connected ? 'Device CONNECTED' : `Device ${waStatus.status || 'NOT CONNECTED'}`}
+          </div>
+        )}
+        {!formData.whacenter_instance.trim() && (
+          <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
+            Belum ada instance — notifikasi WhatsApp ke pelanggan tidak akan dihantar sehingga instance diisi.
+          </p>
+        )}
+      </div>
+
       {/* Tracking Webhook — per-status Track / Notify. Saved to
           tracking_status_setting and read by parceldaily-webhook getTrackPref
           (owner + statusGroup); default: Track all ON, Notify on Delivered. */}
@@ -688,12 +796,26 @@ const CourierSettings: React.FC = () => {
                           ))}
                         </div>
                       </div>
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
                         <Button size="sm" onClick={() => saveTemplate(s.key)} disabled={savingTpl}>
                           {savingTpl ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />} Simpan
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setTplDraft(defaultTemplate(s.key))}>Reset ke default</Button>
                         <Button size="sm" variant="ghost" onClick={() => setEditingTpl(null)}>Batal</Button>
+                        {/* Test-send — only when a Whacenter instance is configured. */}
+                        {formData.whacenter_instance.trim() && (
+                          <div className="flex items-center gap-2 ml-auto">
+                            <Input
+                              value={testPhone}
+                              onChange={(e) => setTestPhone(e.target.value)}
+                              placeholder="No. telefon test"
+                              className="h-9 w-40"
+                            />
+                            <Button size="sm" variant="secondary" onClick={handleTestSend} disabled={testingSend}>
+                              {testingSend ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Bell className="w-4 h-4 mr-1" />} Test
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
