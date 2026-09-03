@@ -384,6 +384,28 @@ const CourierSettings: React.FC = () => {
     }
   };
 
+  // Standalone quick test — send a fixed test message to any Malaysia number
+  // using the configured instance (no template editor needed).
+  const handleQuickTest = async () => {
+    const instance = formData.whacenter_instance.trim();
+    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi Whacenter Instance dahulu.', variant: 'destructive' }); return; }
+    if (!testPhone.trim()) { toast({ title: 'Tiada nombor', description: 'Masukkan nombor telefon untuk test.', variant: 'destructive' }); return; }
+    setTestingSend(true);
+    try {
+      const msg = 'Ini mesej TEST dari PeningOrder ✅\n\nJika anda terima mesej ini, device WhatsApp anda berfungsi dengan baik.';
+      const { data, error } = await supabase.functions.invoke('whacenter', {
+        body: { action: 'send', instance, phone: testPhone.trim(), message: msg },
+      });
+      if (error) throw error;
+      if (data?.success) toast({ title: 'Test dihantar', description: `Mesej test dihantar ke ${testPhone.trim()}.` });
+      else toast({ title: 'Gagal hantar', description: 'Device mungkin tidak connected. Semak status device.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Gagal hantar', description: err.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally {
+      setTestingSend(false);
+    }
+  };
+
   // Check the Whacenter device connection status.
   const checkWaStatus = async () => {
     const instance = formData.whacenter_instance.trim();
@@ -729,6 +751,25 @@ const CourierSettings: React.FC = () => {
           <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
             Belum ada instance — notifikasi WhatsApp ke pelanggan tidak akan dihantar sehingga instance diisi.
           </p>
+        )}
+
+        {/* Quick test — send a test WhatsApp to any Malaysia number. */}
+        {formData.whacenter_instance.trim() && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <FormLabel>Test Hantar Mesej</FormLabel>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+                placeholder="No. telefon (cth: 0123456789)"
+                className="flex-1"
+              />
+              <Button type="button" variant="secondary" onClick={handleQuickTest} disabled={testingSend}>
+                {testingSend ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Bell className="w-4 h-4 mr-2" />} Test Hantar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Hantar mesej test ke mana-mana nombor Malaysia untuk sahkan device berfungsi.</p>
+          </div>
         )}
       </div>
 
