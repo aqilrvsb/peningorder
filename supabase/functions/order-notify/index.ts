@@ -62,11 +62,17 @@ serve(async (req) => {
     const phone = waPhone(String(o.phone || ""));
     if (!phone) return json(200, { success: false, skipped: "no_phone" });
 
-    // Tenant's own Whacenter device (instance pasted in Courier Settings; the
-    // device is created/paired on peningbot.com).
-    const { data: cfg } = await admin
-      .from("parceldaily_config").select("whacenter_instance").eq("owner_user_id", ownerUuid).maybeSingle();
-    const instance = (cfg?.whacenter_instance || "").trim();
+    // Send from the creator's own Whacenter device if they set one (marketer with
+    // their own instance in Profile), else the tenant/HQ instance from Courier
+    // Settings. Devices are created/paired on peningbot.com.
+    const { data: me } = await admin
+      .from("profiles").select("whacenter_instance").eq("id", user.id).maybeSingle();
+    let instance = (me?.whacenter_instance || "").trim();
+    if (!instance) {
+      const { data: cfg } = await admin
+        .from("parceldaily_config").select("whacenter_instance").eq("owner_user_id", ownerUuid).maybeSingle();
+      instance = (cfg?.whacenter_instance || "").trim();
+    }
     if (!instance) return json(200, { success: false, skipped: "no_device" });
 
     const vars: Record<string, string> = {

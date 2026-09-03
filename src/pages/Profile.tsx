@@ -48,6 +48,11 @@ const Profile: React.FC = () => {
   // Test WhatsApp message state
   const [testPhone, setTestPhone] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
+  // Whacenter instance (marketer's own device from peningbot.com).
+  const [waInstance, setWaInstance] = useState('');
+  const [savingInstance, setSavingInstance] = useState(false);
+  const [checkingInstance, setCheckingInstance] = useState(false);
+  const [instanceStatus, setInstanceStatus] = useState<{ connected: boolean; status: string } | null>(null);
 
   // Device state (for marketers only)
   const [device, setDevice] = useState<DeviceSetting | null>(null);
@@ -71,6 +76,41 @@ const Profile: React.FC = () => {
   useEffect(() => {
     if (profile?.fullName !== undefined) setDisplayName(profile.fullName || '');
   }, [profile?.fullName]);
+
+  // Save the marketer's own Whacenter instance to their profile.
+  const handleSaveInstance = async () => {
+    if (!profile?.id) return;
+    setSavingInstance(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ whacenter_instance: waInstance.trim() || null } as any)
+        .eq('id', profile.id);
+      if (error) throw error;
+      toast({ title: 'Berjaya', description: 'Instance WhatsApp disimpan.' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Gagal simpan instance.', variant: 'destructive' });
+    } finally {
+      setSavingInstance(false);
+    }
+  };
+
+  // Check the marketer's Whacenter device connection status.
+  const handleCheckInstance = async () => {
+    const instance = waInstance.trim();
+    if (!instance) return;
+    setCheckingInstance(true);
+    setInstanceStatus(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('whacenter', { body: { action: 'status', instance } });
+      if (error) throw error;
+      setInstanceStatus({ connected: !!data?.connected, status: data?.status || 'UNKNOWN' });
+    } catch (err: any) {
+      toast({ title: 'Gagal semak status', description: err.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally {
+      setCheckingInstance(false);
+    }
+  };
 
   const handleSaveName = async () => {
     const trimmed = nameInput.trim();
@@ -102,11 +142,12 @@ const Profile: React.FC = () => {
       (async () => {
         const { data } = await supabase
           .from('profiles')
-          .select('whatsapp_number')
+          .select('whatsapp_number, whacenter_instance')
           .eq('id', profile.id)
           .single();
         if (data) {
           setWhatsappNumber(data.whatsapp_number || '');
+          setWaInstance((data as any).whacenter_instance || '');
         }
       })();
     }
@@ -446,8 +487,56 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* WhatsApp Device — Baileys via Railway gateway (clients only; staff use the client's device) */}
-      {profile?.role !== 'superadmin' && profile?.role !== 'marketer' && profile?.role !== 'logistic' && (
+      {/* WhatsApp Notification (Whacenter) — marketers set their own device instance
+          (created/paired on peningbot.com). If set, their own orders' customer
+          notifications send from their own WhatsApp; else HQ's instance is used. */}
+      {isMarketer && (
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-1">
+            <Smartphone className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold text-foreground">WhatsApp Notification</h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Cipta &amp; scan device di <span className="font-medium">peningbot.com</span>, kemudian salin
+            {' '}<span className="font-medium">instance</span> dan tampal di sini. Order anda akan hantar notifikasi
+            dari WhatsApp anda sendiri. Jika kosong, device HQ digunakan.
+          </p>
+          <label className="block text-sm font-medium mb-1">Whacenter Instance (Device ID)</label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={waInstance}
+              onChange={(e) => { setWaInstance(e.target.value); setInstanceStatus(null); }}
+              placeholder="cth: 64f1a2b3c4d5e6f7a8b9c0d1"
+              className="flex-1"
+            />
+            <Button onClick={handleSaveInstance} disabled={savingInstance}>
+              {savingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Simpan
+            </Button>
+            {waInstance.trim() ? (
+              <Button variant="outline" onClick={handleCheckInstance} disabled={checkingInstance}>
+                {checkingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Check Status Device
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => window.open('https://www.peningbot.com/', '_blank')}>
+                Register Whatsapp Notification
+              </Button>
+            )}
+          </div>
+          {instanceStatus && (
+            <div className={`mt-2 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium ${
+              instanceStatus.connected
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            }`}>
+              <span className={`h-2 w-2 rounded-full ${instanceStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              {instanceStatus.connected ? 'Device CONNECTED' : `Device ${instanceStatus.status || 'NOT CONNECTED'}`}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* WhatsApp Device — legacy Baileys UI; device creation now lives on peningbot.com. */}
+      {false && (
         <div className="bg-card border border-border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">

@@ -24,25 +24,43 @@ const waPhone = (raw: string): string => {
   return "60" + digits;
 };
 
-// Fire-and-forget customer notification via the tenant's own Whacenter device.
-// Never throws — a WhatsApp failure must not break webhook processing.
+// Resolve which Whacenter device to send from for a given order: the order's
+// marketer's own instance (profiles.whacenter_instance) if set, otherwise the
+// tenant/HQ instance (parceldaily_config.whacenter_instance).
+async function resolveInstance(
+  supabase: any,
+  ownerUserId: string,
+  marketerIdStaff: string | null | undefined,
+): Promise<string> {
+  if (marketerIdStaff) {
+    const { data: rows } = await supabase
+      .from("profiles")
+      .select("whacenter_instance, parent_user_id, id")
+      .eq("username", marketerIdStaff);
+    const row = (rows || []).find((p: any) => p.parent_user_id === ownerUserId || p.id === ownerUserId) || (rows || [])[0];
+    const own = (row?.whacenter_instance || "").trim();
+    if (own) return own;
+  }
+  const { data: cfg } = await supabase
+    .from("parceldaily_config").select("whacenter_instance").eq("owner_user_id", ownerUserId).maybeSingle();
+  return (cfg?.whacenter_instance || "").trim();
+}
+
+// Fire-and-forget customer notification via the order's marketer (or HQ) Whacenter
+// device. Never throws — a WhatsApp failure must not break webhook processing.
 async function sendWhatsApp(
   supabase: any,
   ownerUserId: string | null | undefined,
   customerPhone: string | null | undefined,
   message: string,
+  marketerIdStaff?: string | null,
 ): Promise<string> {
   try {
     if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
-    // Customer notifications send via the tenant's own Whacenter device. The
-    // client pastes its instance (device_id) in Courier Settings; the device
-    // itself is created/paired on peningbot.com.
-    const { data: cfg } = await supabase
-      .from("parceldaily_config")
-      .select("whacenter_instance")
-      .eq("owner_user_id", ownerUserId)
-      .maybeSingle();
-    const instance = (cfg?.whacenter_instance || "").trim();
+    // Send from the order's own marketer instance when set, else the HQ instance.
+    // Devices are created/paired on peningbot.com; the instance is pasted into
+    // Courier Settings (HQ) or the marketer's Profile.
+    const instance = await resolveInstance(supabase, ownerUserId, marketerIdStaff);
     if (!instance) return "wa_skipped_no_device";
 
     const number = waPhone(customerPhone);
@@ -248,7 +266,7 @@ serve(async (req) => {
           `Pesanan anda telah dihantar ke ${courierName}.\n\n` +
           `No Tracking: ${trackingNumber}\n\n` +
           `Terima kasih kerana membeli dengan kami! 🙏`;
-        const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+        const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
         action = `${action}+${waResult}`;
       } else if (trackingNumber && orderId) {
         // Order row exists but we didn't find it — try id_sale match again with orderId
@@ -321,7 +339,7 @@ serve(async (req) => {
               : `Salam ${vars.name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: ${vars.tracking}):\n*${vars.status}*\n\nTerima kasih!`;
           }
           if (waMsg) {
-            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
             action = `${action}+${waResult}`;
           }
         }
@@ -392,7 +410,7 @@ serve(async (req) => {
           const waMsg = pref.template
             ? renderTemplate(pref.template, vars)
             : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
-          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg);
+          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
           action = `${action}+${waResult}`;
         }
       }
