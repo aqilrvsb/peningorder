@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -90,6 +90,7 @@ interface ParcelDailyConfig {
   default_courier: '' | 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
   allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
   pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
+  webhook_confirmed: boolean; // client confirmed they set up the ParcelDaily webhook.
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
@@ -114,6 +115,7 @@ const emptyConfig: ParcelDailyConfig = {
   default_courier: '',
   allowed_couriers: [],
   pospada_enabled: false,
+  webhook_confirmed: false,
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -237,7 +239,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -276,6 +278,12 @@ const CourierSettings: React.FC = () => {
         return;
       }
     }
+    // Force clients to set up the ParcelDaily webhook (too many skip it, so
+    // status/tracking/waybill/COD never flow back).
+    if (!formData.webhook_confirmed) {
+      toast({ title: 'Webhook belum disahkan', description: 'Sila setup webhook di portal ParcelDaily dan tick kotak pengesahan sebelum simpan.', variant: 'destructive' });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -298,6 +306,7 @@ const CourierSettings: React.FC = () => {
         default_courier: formData.default_courier || null,
         allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
         pospada_enabled: formData.pospada_enabled,
+        webhook_confirmed: formData.webhook_confirmed,
       };
 
       if (configId) {
@@ -412,6 +421,36 @@ const CourierSettings: React.FC = () => {
                 placeholder="••••••••-••••-••••-••••-••••••••••••"
               />
             </div>
+          </div>
+
+          {/* WAJIB: webhook setup — surfaced here (not buried in the SOP modal) so
+              clients actually do it. Save is blocked until the box is ticked. */}
+          <div className="mt-4 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+            <div className="flex items-start gap-2">
+              <Webhook className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">WAJIB: Setup Webhook ParcelDaily</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Di portal ParcelDaily (<span className="font-medium">Integrations → Webhook</span>), tampal URL di bawah untuk kedua-dua
+                  <span className="font-medium"> Tracking</span> &amp; <span className="font-medium">Checkout</span> webhook. Tanpa ini, status penghantaran, no. tracking, waybill, berat &amp; COD <b>tidak akan masuk automatik</b>.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-background p-2">
+              <code className="flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
+              <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={copyWebhook}>
+                {copiedWebhook ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin</>}
+              </Button>
+            </div>
+            <label className="mt-3 flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.webhook_confirmed}
+                onChange={(e) => setField('webhook_confirmed', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-amber-600"
+              />
+              <span className="text-sm font-medium">Saya sudah setup webhook Tracking &amp; Checkout di portal ParcelDaily.</span>
+            </label>
           </div>
         </div>
 
@@ -606,11 +645,10 @@ const CourierSettings: React.FC = () => {
         {showTracking && (
           <div className="px-4 pb-5">
             <p className="text-sm text-muted-foreground mb-4">
-              <b>Track</b> = update status order bila webhook masuk; <b>Notify</b> = hantar WhatsApp ke pelanggan; <b>Mesej</b> = ubah ayat template. Default: Track semua ON, Notify hanya "Delivered".
+              <b>Notify</b> = hantar WhatsApp ke pelanggan bila status berubah; <b>Mesej</b> = ubah ayat template. Semua status di-track automatik.
             </p>
-            <div className="hidden sm:grid grid-cols-[1fr_4rem_4rem_4rem] gap-x-4 items-center pb-1">
+            <div className="hidden sm:grid grid-cols-[1fr_4rem_4rem] gap-x-4 items-center pb-1">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 justify-center"><Radio className="w-3.5 h-3.5" /> Track</div>
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-center">Mesej</div>
             </div>
@@ -619,17 +657,13 @@ const CourierSettings: React.FC = () => {
               const editing = editingTpl === s.key;
               return (
                 <div key={s.key} className="border-t border-border/60">
-                  <div className="grid grid-cols-[1fr_4rem_4rem_4rem] gap-x-4 items-center py-2.5">
+                  <div className="grid grid-cols-[1fr_4rem_4rem] gap-x-4 items-center py-2.5">
                     <div className="text-sm">
                       {s.label}
                       {s.keyin && <span className="ml-2 text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">baru</span>}
                     </div>
                     <div className="flex justify-center">
-                      {s.keyin ? <span className="text-xs text-muted-foreground">—</span>
-                        : <Switch checked={p.track} onCheckedChange={(v) => toggleTrack(s.key, 'track', v)} />}
-                    </div>
-                    <div className="flex justify-center">
-                      <Switch checked={p.notify} disabled={!s.keyin && !p.track} onCheckedChange={(v) => toggleTrack(s.key, 'notify', v)} />
+                      <Switch checked={p.notify} onCheckedChange={(v) => toggleTrack(s.key, 'notify', v)} />
                     </div>
                     <div className="flex justify-center">
                       <button type="button" onClick={() => (editing ? setEditingTpl(null) : openTpl(s.key))}
@@ -666,7 +700,7 @@ const CourierSettings: React.FC = () => {
                 </div>
               );
             })}
-            <p className="text-xs text-muted-foreground mt-3">Notify hanya berfungsi bila Track ON (kecuali "Selepas Key-in"). Template kosong = guna ayat default.</p>
+            <p className="text-xs text-muted-foreground mt-3">Template kosong = guna ayat default.</p>
           </div>
         )}
       </div>
