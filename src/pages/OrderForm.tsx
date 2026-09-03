@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -1356,6 +1357,7 @@ const OrderForm: React.FC = () => {
     }
   };
 
+  const pospadaEnabled = usePospadaEnabled();
   const isTiktokShopee = formData.jenisPlatform === 'Tiktok';
   const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok';
   const isPickupUI = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
@@ -1653,10 +1655,11 @@ const OrderForm: React.FC = () => {
               </div>
             )}
 
-            {/* Pospada (Booking) — optional. Courier orders only. When a date is
+            {/* Pospada (Booking) — optional. Courier orders only, and only when
+                the tenant enabled Pospada in Courier Settings. When a date is
                 chosen the order is a booking: no tracking now, logistic generates
                 it on that date from the Order Pospada tab. */}
-            {!isMarketplaceCourier && !isPickupUI && (
+            {pospadaEnabled && !isMarketplaceCourier && !isPickupUI && (
               <div>
                 <FormLabel>Pospada (Booking)</FormLabel>
                 <div className="flex items-center gap-2">

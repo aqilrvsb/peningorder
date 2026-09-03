@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,6 +78,7 @@ interface Spend {
 const Dashboard: React.FC = () => {
   const { profile } = useAuth();
   const { orders, prospects, isLoading, ensureOrdersFrom } = useData();
+  const pospadaEnabled = usePospadaEnabled();
   const navigate = useNavigate();
   const [spends, setSpends] = useState<Spend[]>([]);
   const [spendsLoading, setSpendsLoading] = useState(true);
@@ -242,6 +244,8 @@ const Dashboard: React.FC = () => {
 
     // Total Sales
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    // Total Sales from Pospada bookings (orders with a pospada date).
+    const totalSalesPospada = filteredOrders.filter((o: any) => o.pospadaDate).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Collection = money in hand. CASH = paid upfront; COD = only after remittance
     // (date_payment stamped by the COD_REMITTED webhook). Returns = no money.
@@ -387,6 +391,7 @@ const Dashboard: React.FC = () => {
     return {
       totalParcel,
       totalSales,
+      totalSalesPospada,
       totalCollection,
       collectionPercent,
       totalRemaining,
@@ -537,6 +542,8 @@ const Dashboard: React.FC = () => {
   const bodStats = useMemo(() => {
     // Total Sales
     const totalSales = filteredAllOrders.reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+    // Total Sales from Pospada bookings (orders with a pospada date).
+    const totalSalesPospada = filteredAllOrders.filter((o: any) => o.pospada_date).reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
 
     // Total Collection (orders with seo === 'Successful Delivery')
     const collectionOrders = filteredAllOrders.filter(o => o.seo === 'Successful Delivery');
@@ -921,6 +928,17 @@ const Dashboard: React.FC = () => {
             <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">100%</p>
           </div>
+
+          {pospadaEnabled && (
+            <div className="stat-card border-l-4 border-l-purple-500">
+              <div className="flex items-center gap-2 text-purple-600 mb-2">
+                <Calendar className="w-5 h-5" />
+                <span className="text-sm font-medium">TOTAL SALES POSPADA</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSalesPospada)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Booking orders</p>
+            </div>
+          )}
 
           {/* Total Collection */}
           <div className="stat-card border-l-4 border-l-emerald-500">
@@ -1516,6 +1534,17 @@ const Dashboard: React.FC = () => {
             <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSales)}</p>
             <p className="text-xs text-muted-foreground mt-1">100%</p>
           </div>
+
+          {pospadaEnabled && (
+            <div className="stat-card border-l-4 border-l-purple-500">
+              <div className="flex items-center gap-2 text-purple-600 mb-2">
+                <Calendar className="w-5 h-5" />
+                <span className="text-sm font-medium">TOTAL SALES POSPADA</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSalesPospada)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Booking orders</p>
+            </div>
+          )}
 
           {/* Total Collection */}
           <div className="stat-card border-l-4 border-l-green-500">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
+import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
 import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutDashboard,
@@ -136,7 +137,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   const frozen = !isAdmin && !isMarketer && !isLogistic && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
   // Admin: no role groups. Marketer staff: only the Marketer group minus Team.
   // Logistic staff: only the Logistic group. Client: all groups.
-  const roleGroups: RoleGroup[] = isAdmin
+  const roleGroupsRaw: RoleGroup[] = isAdmin
     ? []
     : isMarketer
       ? [{ ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') }]
@@ -147,6 +148,12 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             items: g.items.filter((i) => !(profile?.hiddenTabs || []).some((k) => i.path.endsWith('/' + k))),
           }))
         : baseRoleGroups;
+
+  // Pospada feature flag (Courier Settings). When off, hide the Order Pospada tab.
+  const pospadaEnabled = usePospadaEnabled();
+  const roleGroups: RoleGroup[] = pospadaEnabled
+    ? roleGroupsRaw
+    : roleGroupsRaw.map((g) => ({ ...g, items: g.items.filter((i) => !i.path.endsWith('/order-pospada')) }));
 
   // ParcelDaily credit balance (clients only).
   const [pdCredit, setPdCredit] = useState<{ loading: boolean; credit: string | null; configured: boolean }>(

@@ -9,6 +9,7 @@ import { TeamFilter } from '@/components/TeamFilter';
 import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -120,6 +121,7 @@ const Orders: React.FC = () => {
   const { bundles, products } = useBundles();
   const { profile } = useAuth();
   const isMarketer = profile?.role === 'marketer';
+  const pospadaEnabled = usePospadaEnabled();
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
@@ -269,10 +271,13 @@ const Orders: React.FC = () => {
       costPostage: { cash: sumCost(filteredOrders, false, o => o.kosPos || 0),    cod: sumCost(filteredOrders, true, o => o.kosPos || 0) },
     };
 
+    // Pospada = booking orders (have a pospada date).
+    const totalSalesPospada = filteredOrders.filter((o: any) => o.pospadaDate).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
-      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, split
+      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, totalSalesPospada, split
     };
   }, [filteredOrders]);
 
@@ -777,6 +782,16 @@ ${trackingUrl}`;
           <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">RM {formatRM(stats.totalSales)}</p>
         </div>
 
+        {pospadaEnabled && (
+          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+              <Calendar className="w-4 h-4" />
+              <span className="text-xs uppercase font-medium">Total Sales Pospada</span>
+            </div>
+            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">RM {formatRM(stats.totalSalesPospada)}</p>
+          </div>
+        )}
+
         <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
             <DollarSign className="w-4 h-4" />
@@ -1028,7 +1043,7 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase">Pospada</th>
+                {pospadaEnabled && <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase">Pospada</th>}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
@@ -1084,15 +1099,17 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {order.pospadaDate ? (
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 whitespace-nowrap">
-                          {order.pospadaDate}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                    {pospadaEnabled && (
+                      <td className="px-4 py-3 text-sm">
+                        {order.pospadaDate ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 whitespace-nowrap">
+                            {order.pospadaDate}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noTracking ? (
                         <a
@@ -1249,7 +1266,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={isMarketer ? 25 : 26} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={(isMarketer ? 25 : 26) - (pospadaEnabled ? 0 : 1)} className="px-4 py-12 text-center text-muted-foreground">
                     No orders found.
                   </td>
                 </tr>

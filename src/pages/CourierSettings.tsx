@@ -89,6 +89,7 @@ interface ParcelDailyConfig {
   is_notify: 'SMS' | 'WhatsApp' | 'None';
   default_courier: '' | 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
   allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
+  pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
@@ -112,6 +113,7 @@ const emptyConfig: ParcelDailyConfig = {
   is_notify: 'None',
   default_courier: '',
   allowed_couriers: [],
+  pospada_enabled: false,
 };
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
@@ -235,7 +237,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [] });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -295,6 +297,7 @@ const CourierSettings: React.FC = () => {
         is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
         default_courier: formData.default_courier || null,
         allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
+        pospada_enabled: formData.pospada_enabled,
       };
 
       if (configId) {
@@ -522,6 +525,22 @@ const CourierSettings: React.FC = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Used for WooCommerce / Shoppego auto orders</p>
+            </div>
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-border">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+              <div>
+                <FormLabel>Pospada (Booking)</FormLabel>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Aktifkan ciri Pospada — order boleh dijadikan booking dengan tarikh hantar. Bila off, semua
+                  paparan Pospada tersembunyi (column, card, tab logistik).
+                </p>
+              </div>
+              <Switch
+                checked={formData.pospada_enabled}
+                onCheckedChange={(v) => setField('pospada_enabled', v)}
+              />
             </div>
           </div>
 
