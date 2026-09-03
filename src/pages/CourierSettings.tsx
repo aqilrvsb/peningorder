@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Radio, Bell, Copy, Check, Webhook, Banknote, RotateCcw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -205,6 +205,7 @@ const CourierSettings: React.FC = () => {
 
   const [showRates, setShowRates] = useState(false);
   const [showCod, setShowCod] = useState(false);
+  const [showReturn, setShowReturn] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const copyWebhook = async () => {
@@ -381,6 +382,9 @@ const CourierSettings: React.FC = () => {
             </Button>
             <Button type="button" variant="outline" onClick={() => setShowCod(true)}>
               <Banknote className="w-4 h-4 mr-2" /> Rate COD
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowReturn(true)}>
+              <RotateCcw className="w-4 h-4 mr-2" /> Rate Return
             </Button>
             <Button type="button" variant="outline" onClick={() => setShowGetKey(true)}>
               <KeyRound className="w-4 h-4 mr-2" /> Get Key
@@ -668,6 +672,34 @@ const CourierSettings: React.FC = () => {
             <DialogDescription>Kadar COD eksklusif merentas semua kurier ParcelDaily.</DialogDescription>
           </DialogHeader>
           <img src="/cod-charges.png" alt="COD Charges — Exclusive (Sales team)" className="w-full rounded-lg border border-border" />
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate Return modal — return-shipping charge policy */}
+      <Dialog open={showReturn} onOpenChange={setShowReturn}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><RotateCcw className="w-5 h-5 text-primary" /> Rate Return</DialogTitle>
+            <DialogDescription>Caj kos penghantaran untuk parcel yang di-return.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 px-4 py-3">
+              <p className="font-semibold text-green-700 dark:text-green-400">Return Semenanjung (West Malaysia)</p>
+              <p className="text-muted-foreground">TIADA caj return — semua kurier (PERCUMA).</p>
+            </div>
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
+              <p className="font-semibold text-amber-700 dark:text-amber-400">Return Sabah / Sarawak (East Malaysia)</p>
+              <p className="text-muted-foreground">Dicaj untuk <b>semua kurier</b> — <b>kecuali Poslaju</b>.</p>
+            </div>
+            <div className="rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-4 py-3">
+              <p className="font-semibold text-blue-700 dark:text-blue-400">Poslaju</p>
+              <p className="text-muted-foreground">TIADA caj return dari East &amp; West Malaysia (PERCUMA sepenuhnya).</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ringkasan: hanya <b>Poslaju</b> tidak dikenakan caj return dari mana-mana. Kurier lain percuma return dari
+              Semenanjung tetapi dikenakan caj return dari Sabah/Sarawak.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
 
