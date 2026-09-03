@@ -7,13 +7,14 @@ const corsHeaders = {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// Normalise a Malaysian phone to Whacenter digits (60…).
-const waPhone = (raw: string): string => {
-  const d = (raw || "").replace(/\D/g, "");
-  if (!d) return "";
-  if (d.startsWith("60")) return d;
-  if (d.startsWith("0")) return "60" + d.slice(1);
-  return "60" + d;
+// Malaysia digits for Whacenter — exact copy of HCKCREA's toMalayDigits (proven
+// working): 60XXXXXXXXX. Returns null for an invalid number.
+const toMalayDigits = (raw: string): string | null => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("60") && digits.length >= 11 && digits.length <= 13) return digits;
+  if (digits.startsWith("0") && digits.length >= 10 && digits.length <= 12) return "6" + digits;
+  return null;
 };
 
 serve(async (req) => {
@@ -39,10 +40,10 @@ serve(async (req) => {
       });
     }
 
-    // Send a WhatsApp message (used by the template Test button).
-    const number = waPhone(String(body.phone || ""));
+    // Send a WhatsApp message (used by the template + Profile Test buttons).
+    const number = toMalayDigits(String(body.phone || ""));
     const message = String(body.message || "");
-    if (!number) return json(400, { success: false, error: "phone diperlukan" });
+    if (!number) return json(400, { success: false, error: "Nombor telefon Malaysia tidak sah" });
     if (!message) return json(400, { success: false, error: "message diperlukan" });
 
     const form = new URLSearchParams();
@@ -54,11 +55,12 @@ serve(async (req) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
     });
+    // Whacenter accepts the message on HTTP 200 — match HCKCREA / Pening Bot,
+    // which trust res.ok and do NOT inspect the JSON body (avoids false errors).
     const txt = await res.text();
-    let sent = res.ok;
     let payload: any = null;
-    try { payload = JSON.parse(txt); sent = !!payload.status; } catch { /* keep res.ok */ }
-    return json(200, { success: sent, response: payload ?? txt });
+    try { payload = JSON.parse(txt); } catch { /* non-JSON body */ }
+    return json(200, { success: res.ok, response: payload ?? txt });
   } catch (err) {
     return json(500, { success: false, error: err instanceof Error ? err.message : "error" });
   }
