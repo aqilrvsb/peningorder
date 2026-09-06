@@ -369,8 +369,10 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           </Link>
         )}
 
-        {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly). */}
-        {!isAdmin && !isMarketer && !isLogistic && (
+        {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly).
+            Open to HQ (client) AND marketer staff so each can integrate their own
+            store (webhook URL is scoped to the logged-in user's idstaff). */}
+        {!isAdmin && !isLogistic && (
           <Link
             to="/dashboard/integration"
             title={collapsed ? 'Integration' : undefined}

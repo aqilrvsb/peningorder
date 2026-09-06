@@ -170,7 +170,7 @@ const App = () => (
                     <Route path="reporting-spend" element={marketerAllowed(<ReportingSpend />)} />
                     <Route path="team" element={clientOnly(<TeamManagement />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
-                    <Route path="integration" element={clientOnly(<Integration />)} />
+                    <Route path="integration" element={marketerAllowed(<Integration />)} />
                     {/* Logistic Role - Inventory (client + logistic staff) */}
                     <Route path="logistics/inventory-product" element={logisticAllowed(<LogisticProductManagement />)} />
                     <Route path="logistics/inventory-bundle" element={logisticAllowed(<LogisticBundleManagement />)} />
