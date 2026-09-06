@@ -25,8 +25,6 @@ type Unmatched = {
 };
 type Bundle = { id: string; name: string; sku: string | null };
 
-const COURIERS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
-
 // Orders from an integration channel that couldn't be auto-matched to a bundle.
 // Map one -> it becomes a real order AND teaches the system, so the same product
 // auto-tallies next time. Marketers should keep this list empty.
@@ -36,7 +34,7 @@ const IntegrationUnmatched: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [mapping, setMapping] = useState<Unmatched | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ bundleId: '', kurier: 'Poslaju', typePayment: 'CASH', totalSale: '' });
+  const [form, setForm] = useState({ bundleId: '', typePayment: 'CASH', totalSale: '' });
 
   const load = async () => {
     setLoading(true);
@@ -59,7 +57,6 @@ const IntegrationUnmatched: React.FC = () => {
   const openMap = (r: Unmatched) => {
     setForm({
       bundleId: '',
-      kurier: 'Poslaju',
       typePayment: r.type_payment === 'COD' ? 'COD' : 'CASH',
       totalSale: String(r.amount ?? ''),
     });
@@ -75,7 +72,6 @@ const IntegrationUnmatched: React.FC = () => {
         body: {
           unmatchedId: mapping.id,
           bundleId: form.bundleId,
-          kurier: form.kurier,
           typePayment: form.typePayment,
           totalSale: Number(form.totalSale) || 0,
         },
@@ -191,26 +187,17 @@ const IntegrationUnmatched: React.FC = () => {
                     {bundles.map((b) => <SelectItem key={b.id} value={b.id}>{b.sku ? `${b.sku} — ` : ''}{b.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">Kos (produk/HQ) auto dari bundle. Postage dijana masa proses.</p>
+                <p className="text-xs text-muted-foreground mt-1">Kos produk/HQ auto dari bundle; kurier ikut default Courier Settings; tracking &amp; postage dijana automatik (sama macam key-in manual).</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Kurier</label>
-                  <Select value={form.kurier} onValueChange={(v) => setForm((f) => ({ ...f, kurier: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{COURIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Cara Bayaran</label>
-                  <Select value={form.typePayment} onValueChange={(v) => setForm((f) => ({ ...f, typePayment: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CASH">CASH</SelectItem>
-                      <SelectItem value="COD">COD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cara Bayaran</label>
+                <Select value={form.typePayment} onValueChange={(v) => setForm((f) => ({ ...f, typePayment: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">CASH</SelectItem>
+                    <SelectItem value="COD">COD</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Harga Jual (RM)</label>

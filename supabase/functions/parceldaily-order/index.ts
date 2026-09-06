@@ -41,6 +41,7 @@ interface OrderData {
   isNotify?: string; // "SMS" | "WhatsApp"
   isReschedule?: string; // "WhatsApp"
   marketerIdStaff?: string;
+  ownerUserId?: string; // trusted server-to-server override (webhook / integration-map)
 }
 
 const clean = (v: unknown, fallback = ""): string => {
@@ -84,18 +85,12 @@ serve(async (req) => {
     // Build supabase client with the caller's JWT so RLS applies (multi-tenant).
     // Config lookup respects owner_user_id = auth.uid() automatically.
     const authHeader = req.headers.get("Authorization") || "";
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isServiceCall = !!SERVICE_KEY && authHeader === `Bearer ${SERVICE_KEY}`;
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    // Verify caller is authenticated
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return fail("Not authenticated. Sign in and try again.");
-    }
+    const service = createClient(supabaseUrl, SERVICE_KEY);
 
     const orderData: OrderData = await req.json();
 
@@ -105,11 +100,20 @@ serve(async (req) => {
       return fail(`Unsupported courier '${courier}'. Use one of: ${SUPPORTED_COURIERS.join(", ")}`);
     }
 
-    // Resolve the tenant owner (the client id — even when the caller is a staff
-    // member) and read the config with the service role, so a staff's order can
-    // ship without exposing the client's API token to the staff's browser.
-    const { data: ownerUuid } = await supabase.rpc("tenant_owner");
-    const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    // Resolve the tenant owner. Trusted server-to-server callers (the WooCommerce
+    // webhook / integration-map, authenticated with the service-role key) pass
+    // ownerUserId explicitly; interactive callers are resolved from their JWT.
+    let ownerUuid: string | null = null;
+    if (isServiceCall && orderData.ownerUserId) {
+      ownerUuid = orderData.ownerUserId;
+    } else {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return fail("Not authenticated. Sign in and try again.");
+      }
+      const { data } = await supabase.rpc("tenant_owner");
+      ownerUuid = data;
+    }
     const { data: config, error: configError } = await service
       .from("parceldaily_config")
       .select("*")

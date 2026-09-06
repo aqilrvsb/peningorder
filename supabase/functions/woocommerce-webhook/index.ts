@@ -1064,9 +1064,9 @@ serve(async (req) => {
       console.warn('Bundle not found:', { sku: orderData.sku, productNames: orderData.productNames, setIdentifier });
     }
 
-    // Determine payment method
+    // Determine payment method — same values as a manual key-in (CASH / COD).
     const isCOD = orderData.paymentMethod === 'COD';
-    const typePayment = isCOD ? 'COD' : 'Online Payment';
+    const typePayment = isCOD ? 'COD' : 'CASH';
 
     // No bundle mapping -> PARK in the Integration unmatched queue instead of
     // creating a half-empty order. It stays there until manually mapped (which
@@ -1137,11 +1137,53 @@ serve(async (req) => {
       ninjavan: 'Ninjavan', poslaju: 'Poslaju', jnt: 'JNT', dhl: 'DHL',
     };
     const defaultCourier = (pdConfig?.default_courier || 'poslaju').toLowerCase();
-    // Prefer the courier learned from the product mapping; else the tenant default.
+    // Courier = the tenant's default (Courier Settings); a product mapping may override.
+    const COURIER_CODES: Record<string, string> = { Ninjavan: 'ninjavan', Poslaju: 'poslaju', JNT: 'jnt', DHL: 'dhl', SPX: 'spx' };
     const courierLabel = mappedKurierLabel || COURIER_LABELS[defaultCourier] || 'Poslaju';
+    const courierCode = COURIER_CODES[courierLabel] || defaultCourier || 'poslaju';
 
-    // No shipment yet — order enters as Pending for the Order tab to process.
-    const trackingNumber = '';
+    // Auto-generate the ParcelDaily tracking now — exactly like a manual key-in —
+    // via parceldaily-order (trusted server-to-server with the service key). If it
+    // fails (e.g. no credit) the order is still created Pending so it isn't lost;
+    // logistic can generate the tracking later in the Order tab.
+    let trackingNumber = '';
+    let pdOrderId = '';
+    let resolvedPostage = 0;
+    try {
+      const pdRes = await fetch(`${supabaseUrl}/functions/v1/parceldaily-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({
+          ownerUserId,
+          idSale,
+          customerName: orderData.customerName,
+          phone: orderData.customerPhone,
+          address: orderData.address,
+          postcode: orderData.postcode,
+          city: orderData.city,
+          state: orderData.state,
+          price: orderData.totalPrice,
+          paymentMethod: isCOD ? 'COD' : 'CASH',
+          productName: bundleName,
+          productSku: bundleSku,
+          quantity: orderData.quantity,
+          weight: bundleWeight,
+          courier: courierCode,
+          marketerIdStaff,
+        }),
+      });
+      const pdJson = await pdRes.json().catch(() => ({}));
+      if (pdRes.ok && (pdJson?.trackingNumber || pdJson?.orderId)) {
+        trackingNumber = pdJson.trackingNumber || pdJson.orderId || '';
+        pdOrderId = pdJson.orderId || '';
+        if (pdJson.shippingPrice != null) resolvedPostage = Number(pdJson.shippingPrice) || 0;
+        console.log('PD tracking generated for integration order:', { trackingNumber, pdOrderId, resolvedPostage });
+      } else {
+        console.warn('PD tracking generation failed — creating order Pending without tracking:', pdJson?.error || pdRes.status);
+      }
+    } catch (e) {
+      console.error('PD tracking generation error:', e);
+    }
     const pdfLink = '';
 
     // Build insert data - common fields for both platforms
@@ -1165,9 +1207,12 @@ serve(async (req) => {
       kurier: `${courierLabel} ${isCOD ? 'COD' : 'CASH'}`,
       type_payment: typePayment,
       date_payment: !isCOD ? dateOrder : null,
+      // Non-COD (paid online) = collected upfront, same as a manual CASH key-in.
+      seo: !isCOD ? 'Successful Delivery' : null,
       nota_staff: orderData.productNames,
       bundle_id: bundleId,
-      cost_postage: postageCost,
+      pd_order_id: pdOrderId || null,
+      cost_postage: resolvedPostage, // real ParcelDaily price (like manual), else 0
       cost_baseproduct: totalBaseCost,
       cost_hq: totalHqCost,
       waybill_url: pdfLink || null,
