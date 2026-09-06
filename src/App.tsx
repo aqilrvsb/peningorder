@@ -47,7 +47,6 @@ const LogisticProductManagement = lazy(() => import("./components/logistic/Logis
 const LogisticBundleManagement = lazy(() => import("./components/logistic/LogisticBundleManagement"));
 const LogisticOrder = lazy(() => import("./components/logistic/LogisticOrder"));
 const LogisticOrderPospada = lazy(() => import("./components/logistic/LogisticOrderPospada"));
-const LogisticProblematic = lazy(() => import("./components/logistic/LogisticProblematic"));
 const LogisticProcessed = lazy(() => import("./components/logistic/LogisticProcessed"));
 const LogisticReturn = lazy(() => import("./components/logistic/LogisticReturn"));
 const LogisticRejected = lazy(() => import("./components/logistic/LogisticRejected"));
@@ -181,8 +180,7 @@ const App = () => (
                     <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
                     <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
                     <Route path="logistics/rejected" element={logisticAllowed(<LogisticRejected />)} />
-                    <Route path="logistics/pending-tracking" element={logisticAllowed(<LogisticPendingTracking />)} />
-                    <Route path="logistics/problematic" element={logisticAllowed(<LogisticProblematic />)} />
+                    <Route path="logistics/pending-tracking" element={<RoleGate need="client" marketerOk logisticOk><LogisticPendingTracking /></RoleGate>} />
                     <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />
                     <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
                     {/* Account Role */}

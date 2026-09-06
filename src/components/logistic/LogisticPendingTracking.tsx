@@ -35,7 +35,7 @@ import { toast } from "sonner";
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 const LogisticPendingTracking = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
 
@@ -61,6 +61,9 @@ const LogisticPendingTracking = () => {
   const [search, setSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState('');
   const { nameByIdstaff } = useTeam();
+  // A marketer staff sees ONLY their own orders (no team filter).
+  const isMarketer = profile?.role === 'marketer';
+  const ownIdStaff = profile?.idstaff || '';
   const [pendingStart, setPendingStart] = useState(getMalaysiaStartOfMonth());
   const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
@@ -119,8 +122,9 @@ const LogisticPendingTracking = () => {
   });
 
   // Filter orders
+  const effectiveFilter = isMarketer ? ownIdStaff : teamFilter;
   const filteredOrders = orders.filter((order: any) => {
-    if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
+    if (effectiveFilter && (order.marketer_id_staff || '') !== effectiveFilter) return false;
     // Platform filter
     if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
 
@@ -357,7 +361,7 @@ const LogisticPendingTracking = () => {
                   className="pl-10"
                 />
               </div>
-              <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
+              {!isMarketer && <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />}
               <div className="flex flex-wrap items-center gap-3">
                 <Input
                   type="date"

@@ -30,7 +30,6 @@ import {
   TrendingUp,
   Clock,
   CalendarClock,
-  AlertTriangle,
   CheckCircle,
   CreditCard,
   Ticket,
@@ -81,7 +80,6 @@ const logisticItems: NavItem[] = [
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
   { label: 'Rejected', path: '/dashboard/logistics/rejected', icon: <Ban className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
-  { label: 'Problematik', path: '/dashboard/logistics/problematic', icon: <AlertTriangle className="w-5 h-5" /> },
 ];
 
 // ============ FINANCE ROLE ============
@@ -143,7 +141,14 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     ? []
     : isMarketer
       ? [
-          { ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') },
+          {
+            ...baseRoleGroups[0],
+            // Marketer group minus Team, plus Pending Tracking (own orders only).
+            items: [
+              ...baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team'),
+              ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking')),
+            ],
+          },
           // Marketers also get Report Profit (own data only) — nothing else from Finance.
           { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />,
             items: financeItems.filter((i) => i.path.endsWith('/report-profit')) },
