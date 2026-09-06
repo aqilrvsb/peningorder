@@ -484,6 +484,23 @@ const LogisticOrder = () => {
     queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
   };
 
+  // Inline-edit the order's Tarikh Order via the date cell's calendar picker.
+  const [savingDateId, setSavingDateId] = useState<string | null>(null);
+  const handleDateOrderChange = async (order: any, value: string) => {
+    if (!value || value === order.date_order) return;
+    setSavingDateId(order.id);
+    try {
+      const { error } = await supabase.from("customer_purchases").update({ date_order: value }).eq("id", order.id);
+      if (error) throw error;
+      toast.success("Tarikh order dikemaskini");
+      queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+    } catch (e: any) {
+      toast.error(e.message || "Gagal kemaskini tarikh");
+    } finally {
+      setSavingDateId(null);
+    }
+  };
+
   const handleFilterChange = () => {
     setCurrentPage(1);
     setSelectedOrders(new Set());
@@ -1083,7 +1100,16 @@ const LogisticOrder = () => {
                           <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            <input
+                              type="date"
+                              value={order.date_order || ""}
+                              disabled={savingDateId === order.id}
+                              onChange={(e) => handleDateOrderChange(order, e.target.value)}
+                              title="Klik untuk tukar tarikh order"
+                              className="bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1 py-0.5 text-sm cursor-pointer focus:outline-none disabled:opacity-50"
+                            />
+                          </td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
