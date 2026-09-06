@@ -649,7 +649,11 @@ const OrderForm: React.FC = () => {
   const cancelCourierOrder = async (trackingNumber: string) => {
     try {
       const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('parceldaily-cancel', {
-        body: { trackingNumber }
+        body: {
+          purchaseId: editOrder?.id,
+          orderId: (editOrder as any)?.pdOrderId || undefined,
+          trackingNumber,
+        }
       });
 
       if (cancelError) {

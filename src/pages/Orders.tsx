@@ -132,7 +132,7 @@ const Orders: React.FC = () => {
   const [teamFilter, setTeamFilter] = useState('');
   const { nameByIdstaff } = useTeam();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; trackingNo: string; platform: string; kurier?: string; pdOrderId?: string; receiptImageUrl?: string; waybillUrl?: string; noPhone?: string; marketerIdStaff?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [savingNotaId, setSavingNotaId] = useState<string | null>(null);
 
@@ -450,6 +450,8 @@ ${trackingUrl}`;
       id: order.id,
       trackingNo: order.noTracking,
       platform: order.jenisPlatform,
+      kurier: order.kurier,
+      pdOrderId: (order as any).pdOrderId,
       receiptImageUrl: order.receiptImageUrl,
       waybillUrl: order.waybillUrl,
       noPhone: order.noPhone,
@@ -640,14 +642,18 @@ ${trackingUrl}`;
 
     setIsDeleting(true);
     try {
-      // Any parcel-daily-managed courier: cancel at PD first to refund credit
-      const isCourierOrder = ['Ninjavan', 'Poslaju', 'JNT', 'DHL'].includes(orderToDelete.platform);
+      // Any parcel-daily-managed courier: cancel at PD FIRST to free/refund credit.
+      // Check the KURIER (e.g. "JNT COD"), not jenis_platform — the old code checked
+      // jenis_platform (Facebook/Tiktok) so this never fired -> double cost.
+      const isCourierOrder = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'].some((c) => (orderToDelete.kurier || '').includes(c));
+      const hasBooking = !!(orderToDelete.trackingNo || orderToDelete.pdOrderId);
 
-      if (isCourierOrder && (orderToDelete.trackingNo || orderToDelete.id)) {
+      if (isCourierOrder && hasBooking) {
         try {
           const { data: cancelResult, error: cancelError } = await supabase.functions.invoke('parceldaily-cancel', {
             body: {
-              purchaseId: Number(orderToDelete.id),
+              purchaseId: orderToDelete.id,
+              orderId: orderToDelete.pdOrderId || undefined,
               trackingNumber: orderToDelete.trackingNo || undefined,
             },
           });

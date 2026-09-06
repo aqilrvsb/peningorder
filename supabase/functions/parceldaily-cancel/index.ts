@@ -17,9 +17,8 @@ const fail = (error: string, extra?: Record<string, unknown>) =>
   });
 
 // Cancel a Parcel Daily shipment.
-// Payload: { orderId?: string, trackingNumber?: string, purchaseId?: number }
-// One of the three IDs must be provided. purchaseId lets caller reference the DB row directly.
-
+// Payload: { orderId?: string, trackingNumber?: string, purchaseId?: string }
+// One of the three IDs must be provided. purchaseId lets the caller reference the DB row directly.
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -37,23 +36,31 @@ serve(async (req) => {
     } = await supabase.auth.getUser();
     if (userError || !user) return fail("Not authenticated. Sign in and try again.");
 
+    // Resolve the tenant owner (client id even when the caller is a staff member)
+    // and use the service role for config/row access — staff cannot read the
+    // tenant's parceldaily_config directly (RLS), which previously made cancels
+    // silently fail for staff and left the ParcelDaily booking active (double cost).
+    const { data: ownerUuid } = await supabase.rpc("tenant_owner");
+    if (!ownerUuid) return fail("Tenant not found.");
+    const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+
     const body: {
       orderId?: string;
       trackingNumber?: string;
-      purchaseId?: number;
+      purchaseId?: string;
     } = await req.json();
 
     let orderId = body.orderId?.trim() || null;
     let trackingNumber = body.trackingNumber?.trim() || null;
 
-    // If a purchaseId is given, look up its ids (RLS ensures own-row only)
+    // If a purchaseId is given, look up its ids (scoped to this tenant).
     if (body.purchaseId) {
-      const { data: row } = await supabase
+      const { data: row } = await service
         .from("customer_purchases")
-        .select("id, id_sale, pd_order_id, tracking_number")
+        .select("id, id_sale, pd_order_id, tracking_number, owner_user_id")
         .eq("id", body.purchaseId)
         .maybeSingle();
-      if (!row) return fail("Order not found or not yours");
+      if (!row || row.owner_user_id !== ownerUuid) return fail("Order not found or not yours");
       orderId = orderId || row.pd_order_id || null;
       trackingNumber = trackingNumber || row.tracking_number || null;
     }
@@ -62,10 +69,10 @@ serve(async (req) => {
       return fail("orderId, trackingNumber, or purchaseId required");
     }
 
-    // RLS: only own row
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await service
       .from("parceldaily_config")
       .select("*")
+      .eq("owner_user_id", ownerUuid)
       .maybeSingle();
     if (configError || !config) {
       return fail("Parcel Daily configuration not found. Configure in Courier Settings.");
@@ -82,7 +89,7 @@ serve(async (req) => {
       merchantid: config.merchant_id,
     };
 
-    // Parcel Daily cancel — try orderId first, then consign_no as fallback
+    // Parcel Daily cancel — try orderId first, then consign_no as fallback.
     const cancelPayload: Record<string, unknown> = {};
     if (orderId) cancelPayload.orderId = orderId;
     if (trackingNumber) cancelPayload.consign_no = trackingNumber;
@@ -105,22 +112,13 @@ serve(async (req) => {
       return fail(`Parcel Daily cancel: ${msg}`, { details: result, orderId, trackingNumber });
     }
 
-    // Mark the DB row as cancelled (RLS-scoped)
+    // Mark the DB row as cancelled (service-scoped).
     if (body.purchaseId) {
-      await supabase
-        .from("customer_purchases")
-        .update({ delivery_status: "Cancelled" })
-        .eq("id", body.purchaseId);
+      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("id", body.purchaseId);
     } else if (trackingNumber) {
-      await supabase
-        .from("customer_purchases")
-        .update({ delivery_status: "Cancelled" })
-        .eq("tracking_number", trackingNumber);
+      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("tracking_number", trackingNumber).eq("owner_user_id", ownerUuid);
     } else if (orderId) {
-      await supabase
-        .from("customer_purchases")
-        .update({ delivery_status: "Cancelled" })
-        .eq("pd_order_id", orderId);
+      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("pd_order_id", orderId).eq("owner_user_id", ownerUuid);
     }
 
     return ok({
