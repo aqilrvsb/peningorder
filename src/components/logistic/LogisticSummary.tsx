@@ -34,33 +34,59 @@ const LogisticSummary = () => {
 
   const rows = teamFilter ? orders.filter((o: any) => (o.marketer_id_staff || "") === teamFilter) : orders;
 
+  const isCod = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
+
+  const isPickup = (o: any) => (o.kurier || "").toUpperCase().includes("PICKUP");
+
+  // Count a subset and its COD / Cash / Pickup split in one pass.
+  const tally = (list: any[]) => {
+    let cod = 0, cash = 0, pickup = 0;
+    for (const o of list) {
+      if (isPickup(o)) pickup++;
+      isCod(o) ? cod++ : cash++;
+    }
+    return { n: list.length, cod, cash, pickup };
+  };
+
   const s = useMemo(() => {
     const platform = (o: any) => o.jenis_platform || "Manual";
-    const isCod = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
+    const by = (pred: (o: any) => boolean) => tally(rows.filter(pred));
     return {
-      total: rows.length,
-      success: rows.filter((o: any) => o.delivery_status === "Success").length,
-      pending: rows.filter((o: any) => o.delivery_status === "Pending").length,
-      process: rows.filter((o: any) => o.delivery_status === "Shipped").length,
-      returned: rows.filter((o: any) => o.delivery_status === "Return").length,
-      facebook: rows.filter((o: any) => platform(o) === "Facebook").length,
-      database: rows.filter((o: any) => platform(o) === "Database").length,
-      google: rows.filter((o: any) => platform(o) === "Google").length,
-      shopee: rows.filter((o: any) => platform(o) === "Shopee").length,
-      tiktok: rows.filter((o: any) => platform(o) === "Tiktok").length,
+      total: tally(rows),
+      success: by((o: any) => o.delivery_status === "Success"),
+      pending: by((o: any) => o.delivery_status === "Pending"),
+      process: by((o: any) => o.delivery_status === "Shipped"),
+      returned: by((o: any) => o.delivery_status === "Return"),
+      facebook: by((o: any) => platform(o) === "Facebook"),
+      database: by((o: any) => platform(o) === "Database"),
+      google: by((o: any) => platform(o) === "Google"),
+      shopee: by((o: any) => platform(o) === "Shopee"),
+      tiktok: by((o: any) => platform(o) === "Tiktok"),
       cash: rows.filter((o: any) => !isCod(o)).length,
       cod: rows.filter((o: any) => isCod(o)).length,
       // Pending Tracking = shipped & at courier (exclude pickup) — includes CASH + COD.
-      pendingTracking: rows.filter((o: any) =>
-        o.delivery_status === "Shipped" && !(o.kurier || "").toUpperCase().includes("PICKUP")).length,
+      pendingTracking: by((o: any) =>
+        o.delivery_status === "Shipped" && !(o.kurier || "").toUpperCase().includes("PICKUP")),
     };
   }, [rows]);
 
-  const Stat = ({ icon, label, value, sub, color, border }: any) => (
+  // Small COD/Cash/Pickup breakdown shown inside every lifecycle/platform box.
+  const Split = ({ v }: { v: { cod: number; cash: number; pickup: number } }) => (
+    <p className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
+      <span className="text-orange-600 font-medium">COD {v.cod}</span>
+      <span className="text-muted-foreground">·</span>
+      <span className="text-green-600 font-medium">Cash {v.cash}</span>
+      <span className="text-muted-foreground">·</span>
+      <span className="text-blue-600 font-medium">Pickup {v.pickup}</span>
+    </p>
+  );
+
+  const Stat = ({ icon, label, value, sub, color, border, split }: any) => (
     <div className={`bg-card border-l-4 ${border} border border-border rounded-xl p-4`}>
       <div className={`flex items-center gap-2 ${color} mb-1`}>{icon}<span className="text-xs uppercase font-semibold tracking-wide">{label}</span></div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+      {split && <Split v={split} />}
     </div>
   );
 
@@ -94,20 +120,20 @@ const LogisticSummary = () => {
         <>
           {/* Row 1 — order lifecycle (Total Order + Total Success first) */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <Stat icon={<Package className="w-4 h-4" />} label="Total Order" value={s.total} sub="All orders in period" color="text-primary" border="border-l-primary" />
-            <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
-            <Stat icon={<Clock className="w-4 h-4" />} label="Total Pending" value={s.pending} sub="Awaiting processing" color="text-amber-600" border="border-l-amber-500" />
-            <Stat icon={<Truck className="w-4 h-4" />} label="Total Process" value={s.process} sub="Shipped orders" color="text-blue-600" border="border-l-blue-500" />
-            <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-500" />
+            <Stat icon={<Package className="w-4 h-4" />} label="Total Order" value={s.total.n} split={s.total} sub="All orders in period" color="text-primary" border="border-l-primary" />
+            <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
+            <Stat icon={<Clock className="w-4 h-4" />} label="Total Pending" value={s.pending.n} split={s.pending} sub="Awaiting processing" color="text-amber-600" border="border-l-amber-500" />
+            <Stat icon={<Truck className="w-4 h-4" />} label="Total Process" value={s.process.n} split={s.process} sub="Shipped orders" color="text-blue-600" border="border-l-blue-500" />
+            <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-500" />
           </div>
 
           {/* Row 2 — platform breakdown */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <Stat icon={<Facebook className="w-4 h-4" />} label="Total Facebook" value={s.facebook} sub="Facebook orders" color="text-blue-600" border="border-l-blue-400" />
-            <Stat icon={<Database className="w-4 h-4" />} label="Total Database" value={s.database} sub="Database orders" color="text-purple-600" border="border-l-purple-400" />
-            <Stat icon={<Globe className="w-4 h-4" />} label="Total Google" value={s.google} sub="Google orders" color="text-green-600" border="border-l-green-400" />
-            <Stat icon={<ShoppingBag className="w-4 h-4" />} label="Total Shopee" value={s.shopee} sub="Shopee orders" color="text-orange-600" border="border-l-orange-400" />
-            <Stat icon={<Video className="w-4 h-4" />} label="Total Tiktok" value={s.tiktok} sub="TikTok orders" color="text-pink-600" border="border-l-pink-400" />
+            <Stat icon={<Facebook className="w-4 h-4" />} label="Total Facebook" value={s.facebook.n} split={s.facebook} sub="Facebook orders" color="text-blue-600" border="border-l-blue-400" />
+            <Stat icon={<Database className="w-4 h-4" />} label="Total Database" value={s.database.n} split={s.database} sub="Database orders" color="text-purple-600" border="border-l-purple-400" />
+            <Stat icon={<Globe className="w-4 h-4" />} label="Total Google" value={s.google.n} split={s.google} sub="Google orders" color="text-green-600" border="border-l-green-400" />
+            <Stat icon={<ShoppingBag className="w-4 h-4" />} label="Total Shopee" value={s.shopee.n} split={s.shopee} sub="Shopee orders" color="text-orange-600" border="border-l-orange-400" />
+            <Stat icon={<Video className="w-4 h-4" />} label="Total Tiktok" value={s.tiktok.n} split={s.tiktok} sub="TikTok orders" color="text-pink-600" border="border-l-pink-400" />
           </div>
 
           {/* Row 3 — payment + pending tracking (incl. cash) */}
@@ -116,8 +142,13 @@ const LogisticSummary = () => {
             <Stat icon={<CreditCard className="w-4 h-4" />} label="Total COD" value={s.cod} sub="Cash on Delivery" color="text-orange-600" border="border-l-orange-500" />
             <div className="bg-primary text-primary-foreground rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1"><ClipboardList className="w-4 h-4" /><span className="text-xs uppercase font-semibold tracking-wide">Pending Tracking</span></div>
-              <p className="text-2xl font-bold">{s.pendingTracking}</p>
+              <p className="text-2xl font-bold">{s.pendingTracking.n}</p>
               <p className="text-xs opacity-80 mt-0.5">Awaiting delivery confirmation (COD + Cash)</p>
+              <p className="text-[11px] mt-1 flex items-center gap-2 flex-wrap opacity-90">
+                <span className="font-medium">COD {s.pendingTracking.cod}</span>
+                <span className="opacity-60">·</span>
+                <span className="font-medium">Cash {s.pendingTracking.cash}</span>
+              </p>
             </div>
           </div>
         </>
