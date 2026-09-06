@@ -817,6 +817,8 @@ const AccountReportProfit: React.FC = () => {
                 <th className="p-3 text-left">ID Staff</th>
                 <th className="p-3 text-left">Nama</th>
                 <th className="p-3 text-right">Total Sales</th>
+                <th className="p-3 text-right text-indigo-600 dark:text-indigo-400">Total Spend</th>
+                <th className="p-3 text-right text-amber-600 dark:text-amber-400">ROAS</th>
                 <th className="p-3 text-right">Profit</th>
                 <th className="p-3 text-right text-blue-600 dark:text-blue-400">Komisyen Sales</th>
                 <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Komisyen Profit</th>
@@ -832,6 +834,8 @@ const AccountReportProfit: React.FC = () => {
                     <td className="p-3 font-mono">{s.idStaff}</td>
                     <td className="p-3">{nama}</td>
                     <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalSales)}</td>
+                    <td className="p-3 text-right tabular-nums text-indigo-600 dark:text-indigo-400">RM {formatNumber(s.totalSpend)}</td>
+                    <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{(s.roas || 0).toFixed(2)}x</td>
                     <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
                     <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400">RM {formatNumber(s.totalCommission)}</td>
                     <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({pct}%)</span></td>
@@ -839,7 +843,7 @@ const AccountReportProfit: React.FC = () => {
                 );
               })}
               {filteredStats.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
               )}
             </tbody>
           </table>
