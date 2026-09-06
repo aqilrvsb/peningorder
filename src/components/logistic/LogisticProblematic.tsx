@@ -38,7 +38,7 @@ const LogisticProblematic = () => {
         let query = supabase
           .from("customer_purchases")
           .select(`*, bundle:logistic_bundles(name, sku)`)
-          .in("delivery_status", ["Pending", "Shipped"]) // not yet Return/Success
+          .eq("delivery_status", "Shipped") // parcel already at courier (in transit) — high return risk
           .order("date_order", { ascending: false });
         if (startDate) query = query.gte("date_order", startDate);
         if (endDate) query = query.lte("date_order", endDate);
@@ -108,7 +108,7 @@ const LogisticProblematic = () => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2"><AlertTriangle className="w-7 h-7 text-amber-500" /> Problematik</h1>
-          <p className="text-muted-foreground mt-2">Order bermasalah (hampir Return) — gagal pickup / gagal hantar / customer enggan terima</p>
+          <p className="text-muted-foreground mt-2">Order Shipped yang bermasalah di kurier (gagal hantar / customer enggan terima) — risiko Return tinggi</p>
         </div>
         <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
           <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} /> Sync
