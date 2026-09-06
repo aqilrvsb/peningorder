@@ -29,7 +29,7 @@ const LogisticOrderPospada = () => {
   const [search, setSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
   const { nameByIdstaff } = useTeam();
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);

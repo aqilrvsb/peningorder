@@ -69,7 +69,7 @@ const LogisticPendingTracking = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [platformFilter, setPlatformFilter] = useState("all");
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Selection state

@@ -99,7 +99,7 @@ const LogisticProcessed = () => {
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");
   const [courierFilter, setCourierFilter] = useState("All");
-  const [pageSize, setPageSize] = useState<number | "All">(10);
+  const [pageSize, setPageSize] = useState<number | "All">(50);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Selection state

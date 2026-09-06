@@ -84,7 +84,7 @@ const LogisticOrder = () => {
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");
   const [courierFilter, setCourierFilter] = useState("All");
-  const [pageSize, setPageSize] = useState<number | "All">(10);
+  const [pageSize, setPageSize] = useState<number | "All">(50);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Selection state
@@ -1077,6 +1077,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left">Cara Bayaran</th>
                       <th className="p-2 text-left">Detail Bayaran</th>
                       <th className="p-2 text-left">Delivery Status</th>
+                      <th className="p-2 text-left">Parcel Status</th>
                       <th className="p-2 text-left">Jenis Platform</th>
                       <th className="p-2 text-left">Jenis Closing</th>
                       <th className="p-2 text-left">Jenis Customer</th>
@@ -1189,6 +1190,9 @@ const LogisticOrder = () => {
                             </span>
                           </td>
                           <td className="p-2">
+                            <span className="text-xs text-muted-foreground whitespace-normal max-w-[160px] block">{order.seos || "-"}</span>
+                          </td>
+                          <td className="p-2">
                             <span className={`text-xs font-medium ${
                               getOrderPlatform(order) === "Tiktok" ? "text-pink-600" :
                               getOrderPlatform(order) === "Threads" ? "text-slate-500" :
@@ -1237,7 +1241,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={hideKomisyen ? 23 : 24} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={hideKomisyen ? 24 : 25} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>

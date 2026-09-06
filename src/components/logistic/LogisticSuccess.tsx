@@ -50,7 +50,7 @@ const baseCourier = (kurier?: string): string => {
   return kurier?.trim() || "Lain";
 };
 
-const LogisticReturn = () => {
+const LogisticSuccess = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
@@ -116,7 +116,7 @@ const LogisticReturn = () => {
 
   // Fetch return orders - using new schema field names
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["logistic-return", startDate, endDate],
+    queryKey: ["logistic-success", startDate, endDate],
     queryFn: async () => {
       let query = supabase
         .from("customer_purchases")
@@ -124,14 +124,14 @@ const LogisticReturn = () => {
           *,
           bundle:logistic_bundles(name, sku)
         `)
-        .eq("delivery_status", "Return")
-        .order("date_return", { ascending: false });
+        .eq("delivery_status", "Success")
+        .order("date_order", { ascending: false });
 
       if (startDate) {
-        query = query.gte("date_return", startDate);
+        query = query.gte("date_order", startDate);
       }
       if (endDate) {
-        query = query.lte("date_return", endDate);
+        query = query.lte("date_order", endDate);
       }
 
       const { data, error } = await query.range(0, 49999);
@@ -291,29 +291,25 @@ const LogisticReturn = () => {
     }
   };
 
-  // Mark return order as Successful Delivery - reverts back to Shipped
+  // Reverse a wrongly-marked Success back to Return (e.g. parcel actually bounced).
   const handleSuccessfulDelivery = async (order: any) => {
-    if (!successDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
+    if (!window.confirm(`Tukar order ${order.id_sale || ""} kepada Return?`)) return;
     try {
       const { error } = await supabase
         .from("customer_purchases")
         .update({
-          seo: "Successful Delivery",
-          seos: "Successful Delivery",
-          delivery_status: "Shipped",
-          date_return: null,
-          date_payment: successDate,
+          delivery_status: "Return",
+          seos: "Return",
+          seo: null,
+          date_return: getMalaysiaDate(),
         })
         .eq("id", order.id);
 
       if (error) throw error;
 
-      toast.success(`${order.id_sale} marked as Successful Delivery`);
+      toast.success(`${order.id_sale} ditukar kepada Return`);
       setSuccessOrderId(null);
+      queryClient.invalidateQueries({ queryKey: ["logistic-success"] });
       queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update order");
@@ -328,7 +324,7 @@ const LogisticReturn = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Return Management</h1>
+        <h1 className="text-3xl font-bold">Success Management</h1>
         <p className="text-muted-foreground mt-2">
           View and manage returned orders
         </p>
@@ -342,7 +338,7 @@ const LogisticReturn = () => {
               <Clock className="w-6 h-6 text-red-500" />
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Return</p>
+                <p className="text-xs text-muted-foreground">Total Success</p>
               </div>
             </div>
           </CardContent>
@@ -522,7 +518,7 @@ const LogisticReturn = () => {
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">Nama</th>
                       <th className="p-2 text-left">Id Sales</th>
-                      <th className="p-2 text-left">Tarikh Return</th>
+                      <th className="p-2 text-left">Tarikh Success</th>
                       <th className="p-2 text-left">Tarikh Processed</th>
                       <th className="p-2 text-left">Tarikh Order</th>
                       <th className="p-2 text-left">Nama Pelanggan</th>
@@ -561,7 +557,7 @@ const LogisticReturn = () => {
                           <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_return || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{order.date_payment || order.date_processed || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
@@ -642,50 +638,22 @@ const LogisticReturn = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            {successOrderId === order.id ? (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="date"
-                                  value={successDate}
-                                  onChange={(e) => setSuccessDate(e.target.value)}
-                                  onClick={(e) => (e.target as HTMLInputElement).showPicker()}
-                                  className="h-7 px-1 py-0.5 rounded border border-input bg-background text-xs cursor-pointer w-[120px]"
-                                />
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handleSuccessfulDelivery(order)}
-                                  className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSuccessOrderId(null)}
-                                  className="h-7 px-1 text-xs"
-                                >
-                                  ✕
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => { setSuccessOrderId(order.id); setSuccessDate(today); }}
-                                className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                                Success
-                              </Button>
-                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSuccessfulDelivery(order)}
+                              className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                              Tanda Return
+                            </Button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
                         <td colSpan={27} className="text-center py-12 text-muted-foreground">
-                          No return orders found.
+                          No success orders found.
                         </td>
                       </tr>
                     )}
@@ -728,4 +696,4 @@ const LogisticReturn = () => {
   );
 };
 
-export default LogisticReturn;
+export default LogisticSuccess;

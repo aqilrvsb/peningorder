@@ -683,6 +683,16 @@ const OrderForm: React.FC = () => {
       return;
     }
 
+    // Customer name must be more than 3 characters (block junk 1-3 char names).
+    if (formData.namaPelanggan.trim().length <= 3) {
+      toast({
+        title: 'Error',
+        description: 'Nama customer mesti lebih daripada 3 aksara.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validate tracking number for marketplace couriers
     if (isMarketplaceCourier && !formData.trackingNumber) {
       toast({
@@ -743,11 +753,23 @@ const OrderForm: React.FC = () => {
 
     // Set kurier based on delivery method and cara bayaran (peningorder routes all through Parcel Daily)
     let kurier = '';
+    // Respect the tenant's allowed couriers (Courier Settings): if the marketer left
+    // the dropdown on a courier that isn't allowed (e.g. default Poslaju while only
+    // JNT is allowed), coerce to the first allowed courier — never silently book Poslaju.
+    let deliveryMethod = formData.deliveryMethod;
+    if (
+      allowedCouriers && allowedCouriers.length &&
+      deliveryMethod !== 'Self Pickup' && !isMarketplaceCourier &&
+      !allowedCouriers.some((c) => deliveryMethod.toLowerCase() === c.toLowerCase())
+    ) {
+      const opt = DELIVERY_METHOD_OPTIONS.find((o) => allowedCouriers.some((c) => o.toLowerCase() === c.toLowerCase()));
+      if (opt) deliveryMethod = opt;
+    }
     // Pickup (self collect) — pay like CASH, skip ParcelDaily entirely.
-    const isPickup = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
+    const isPickup = deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
     // Pospada booking (courier orders only) — hold the order, generate tracking later.
     const isPospada = !!pospadaDate && !isPickup && !isMarketplaceCourier;
-    const dmLower = (formData.deliveryMethod || '').toLowerCase();
+    const dmLower = (deliveryMethod || '').toLowerCase();
     const PD_COURIER_MAP: Record<string, { code: 'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'; label: string }> = {
       ninjavan: { code: 'ninjavan', label: 'Ninjavan' },
       poslaju: { code: 'poslaju', label: 'Poslaju' },

@@ -45,11 +45,13 @@ const MarketerWebhookSettings = lazy(() => import("./components/marketer/Markete
 // Logistic Role components
 const LogisticProductManagement = lazy(() => import("./components/logistic/LogisticProductManagement"));
 const LogisticBundleManagement = lazy(() => import("./components/logistic/LogisticBundleManagement"));
+const LogisticSummary = lazy(() => import("./components/logistic/LogisticSummary"));
 const LogisticOrder = lazy(() => import("./components/logistic/LogisticOrder"));
 const LogisticOrderPospada = lazy(() => import("./components/logistic/LogisticOrderPospada"));
 const LogisticProcessed = lazy(() => import("./components/logistic/LogisticProcessed"));
 const LogisticReturn = lazy(() => import("./components/logistic/LogisticReturn"));
 const LogisticRejected = lazy(() => import("./components/logistic/LogisticRejected"));
+const LogisticSuccess = lazy(() => import("./components/logistic/LogisticSuccess"));
 const LogisticPendingTracking = lazy(() => import("./components/logistic/LogisticPendingTracking"));
 // Account Role components
 const SalesOverview = lazy(() => import("./components/account/SalesOverview"));
@@ -172,6 +174,7 @@ const App = () => (
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={marketerAllowed(<Integration />)} />
                     {/* Logistic Role - Inventory (client + logistic staff) */}
+                    <Route path="logistics/summary" element={logisticAllowed(<LogisticSummary />)} />
                     <Route path="logistics/inventory-product" element={logisticAllowed(<LogisticProductManagement />)} />
                     <Route path="logistics/inventory-bundle" element={logisticAllowed(<LogisticBundleManagement />)} />
                     {/* Logistic Role - Orders (client + logistic staff) */}
@@ -179,6 +182,7 @@ const App = () => (
                     <Route path="logistics/order-pospada" element={logisticAllowed(<LogisticOrderPospada />)} />
                     <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
                     <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
+                    <Route path="logistics/success" element={logisticAllowed(<LogisticSuccess />)} />
                     <Route path="logistics/rejected" element={logisticAllowed(<LogisticRejected />)} />
                     <Route path="logistics/pending-tracking" element={<RoleGate need="client" marketerOk logisticOk><LogisticPendingTracking /></RoleGate>} />
                     <Route path="logistics/courier-settings" element={clientOnly(<CourierSettings />)} />

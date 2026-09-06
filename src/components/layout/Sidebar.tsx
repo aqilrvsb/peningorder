@@ -72,12 +72,14 @@ const marketerItems: NavItem[] = [
 
 // ============ LOGISTIC ROLE ============
 const logisticItems: NavItem[] = [
+  { label: 'Summary', path: '/dashboard/logistics/summary', icon: <BarChart3 className="w-5 h-5" /> },
   { label: 'Product', path: '/dashboard/logistics/inventory-product', icon: <Package className="w-5 h-5" /> },
   { label: 'Bundle', path: '/dashboard/logistics/inventory-bundle', icon: <Boxes className="w-5 h-5" /> },
   { label: 'Order', path: '/dashboard/logistics/order', icon: <ShoppingCart className="w-5 h-5" /> },
   { label: 'Order Pospada', path: '/dashboard/logistics/order-pospada', icon: <CalendarClock className="w-5 h-5" /> },
   { label: 'Processed', path: '/dashboard/logistics/processed', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
+  { label: 'Success', path: '/dashboard/logistics/success', icon: <CheckCircle className="w-5 h-5" /> },
   { label: 'Rejected', path: '/dashboard/logistics/rejected', icon: <Ban className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
 ];

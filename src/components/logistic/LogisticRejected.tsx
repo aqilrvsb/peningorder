@@ -26,7 +26,7 @@ const LogisticRejected = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isReverting, setIsReverting] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 50;
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-rejected", startDate, endDate],
