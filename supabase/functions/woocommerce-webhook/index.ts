@@ -798,7 +798,7 @@ serve(async (req) => {
     // Look up the marketer by idstaff
     const { data: marketerLookup, error: lookupError } = await supabase
       .from('profiles')
-      .select('id, idstaff, full_name')
+      .select('id, idstaff, full_name, parent_user_id')
       .eq('idstaff', marketerIdStaff)
       .single();
 
@@ -809,6 +809,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // The tenant owner: for a staff idstaff it's their parent; for the client, self.
+    const tenantOwnerId = marketerLookup.parent_user_id || marketerLookup.id;
 
     // Parse order based on platform
     let orderData: NormalizedOrder;
@@ -902,6 +905,36 @@ serve(async (req) => {
     let postageSmCost = 0;
     let postageSsCost = 0;
     let postageCodCost = 0;
+    let mappedKurierLabel: string | null = null;
+
+    // Learned product mapping takes priority: once a product signature has been
+    // manually mapped (Integration page), future orders auto-resolve to that bundle.
+    const productSignature = ((orderData.sku || '').trim().toLowerCase()) || ((orderData.productNames || '').trim().toLowerCase());
+    if (productSignature) {
+      const { data: mapRow } = await supabase
+        .from('integration_product_map')
+        .select('bundle_id, kurier')
+        .eq('owner_user_id', tenantOwnerId)
+        .eq('product_signature', productSignature)
+        .maybeSingle();
+      if (mapRow?.bundle_id) {
+        const { data: mb } = await supabase
+          .from('logistic_bundles')
+          .select('id, name, sku, weight, base_cost, hq_cost')
+          .eq('id', mapRow.bundle_id)
+          .maybeSingle();
+        if (mb) {
+          bundleId = mb.id;
+          bundleName = mb.name;
+          bundleSku = mb.sku;
+          bundleWeight = mb.weight || 0.5;
+          baseCost = mb.base_cost || 0;
+          hqCost = mb.hq_cost || 0;
+          mappedKurierLabel = mapRow.kurier || null;
+          console.log('Bundle resolved via learned mapping:', { bundleId, productSignature });
+        }
+      }
+    }
 
     // Extract SET identifier from product name (case insensitive)
     // Handles: "SET A", "SET B", "SET C", "SET D", "SET BUNDLE"
@@ -967,7 +1000,7 @@ serve(async (req) => {
       .from('logistic_bundles')
       .select('id, name, sku, weight, base_cost, hq_cost, kos_postage_sm, kos_postage_ss, postage_cod')
       .eq('is_active', true)
-      .eq('owner_user_id', marketerLookup.id);
+      .eq('owner_user_id', tenantOwnerId);
 
     // If no bundles found for marketer, try ALL logistic_bundles as fallback
     if (!allBundles || allBundles.length === 0) {
@@ -979,7 +1012,7 @@ serve(async (req) => {
       allBundles = allLogisticBundles;
     }
 
-    if (allBundles && allBundles.length > 0) {
+    if (!bundleId && allBundles && allBundles.length > 0) {
       console.log('Available bundles:', allBundles.map((b: any) => ({ name: b.name, sku: b.sku })));
 
       let matchingBundle = null;
@@ -1035,6 +1068,44 @@ serve(async (req) => {
     const isCOD = orderData.paymentMethod === 'COD';
     const typePayment = isCOD ? 'COD' : 'Online Payment';
 
+    // No bundle mapping -> PARK in the Integration unmatched queue instead of
+    // creating a half-empty order. It stays there until manually mapped (which
+    // learns the mapping so future same-product orders auto-tally).
+    if (!bundleId) {
+      const { error: parkErr } = await supabase.from('integration_unmatched').insert({
+        owner_user_id: tenantOwnerId,
+        marketer_id_staff: marketerIdStaff,
+        source_platform: platform,
+        platform_order_id: String(orderData.platformOrderId || ''),
+        product_signature: productSignature,
+        raw_product: orderData.productNames,
+        quantity: orderData.quantity,
+        amount: orderData.totalPrice,
+        type_payment: typePayment,
+        name_customer: orderData.customerName,
+        phone_customer: orderData.customerPhone,
+        address_customer: orderData.address,
+        postcode_customer: orderData.postcode,
+        city_customer: orderData.city,
+        state_customer: orderData.state,
+        raw_payload: parsedBody,
+      });
+      await supabase.from('webhook_logs').insert({
+        webhook_type: platform,
+        request_method: 'POST',
+        request_body: parsedBody,
+        request_headers: { signature, source, topic },
+        parsed_data: { marketerIdStaff, productSignature, ...orderData },
+        error_message: parkErr ? parkErr.message : null,
+        response_status: 200,
+        processing_time_ms: Date.now() - startTime,
+      });
+      return new Response(
+        JSON.stringify({ ok: true, parked: true, reason: 'no bundle mapping — sent to Integration for manual mapping' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Generate Sale ID
     const idSale = await generateSaleId(supabase);
 
@@ -1052,12 +1123,7 @@ serve(async (req) => {
     // Resolve the tenant (owner_user_id) + their default courier from the
     // marketer_id (idstaff, e.g. PO-0002). The webhook creates a PENDING order;
     // tracking + waybill are generated later via the Order tab (Parcel Daily).
-    const { data: ownerProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('idstaff', marketerIdStaff)
-      .maybeSingle();
-    const ownerUserId = ownerProfile?.id || null;
+    const ownerUserId = tenantOwnerId;
 
     const { data: pdConfig } = ownerUserId
       ? await supabase
@@ -1071,7 +1137,8 @@ serve(async (req) => {
       ninjavan: 'Ninjavan', poslaju: 'Poslaju', jnt: 'JNT', dhl: 'DHL',
     };
     const defaultCourier = (pdConfig?.default_courier || 'poslaju').toLowerCase();
-    const courierLabel = COURIER_LABELS[defaultCourier] || 'Poslaju';
+    // Prefer the courier learned from the product mapping; else the tenant default.
+    const courierLabel = mappedKurierLabel || COURIER_LABELS[defaultCourier] || 'Poslaju';
 
     // No shipment yet — order enters as Pending for the Order tab to process.
     const trackingNumber = '';

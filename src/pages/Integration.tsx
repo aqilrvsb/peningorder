@@ -6,6 +6,7 @@ import { toast } from '@/hooks/use-toast';
 import {
   Plug, ShoppingBag, Store, CreditCard, Sparkles, Copy, Check, ArrowLeft, ExternalLink,
 } from 'lucide-react';
+import IntegrationUnmatched from './IntegrationUnmatched';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -196,6 +197,9 @@ const Integration: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Orders that couldn't auto-match a bundle — map them here (learns for next time). */}
+      <IntegrationUnmatched />
     </div>
   );
 };
