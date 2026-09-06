@@ -116,6 +116,23 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{(\w+)\}/g, (_m, k) => (k in vars ? vars[k] : `{${k}}`));
 }
 
+// All template variables the customer message templates can use — kept in one
+// place so every notify branch (checkout / status / cancel) resolves the same
+// set (name, phone, tracking, status, courier, order_id, product, address, price).
+function orderVars(m: any, statusLabel: string, trackingOverride?: string): Record<string, string> {
+  return {
+    name: m.name_customer || "",
+    phone: m.phone_customer || "",
+    tracking: trackingOverride || m.tracking_number || "",
+    status: statusLabel || "",
+    courier: (m.kurier || "").replace(/\s+(COD|CASH)$/i, ""),
+    order_id: m.id_sale || "",
+    product: m.bundle?.name || m.nota_staff || "",
+    address: [m.address_customer, m.city_customer, m.postcode_customer, m.state_customer].filter(Boolean).join(", "),
+    price: Number(m.total_sale || 0).toFixed(2),
+  };
+}
+
 // The seller's own WhatsApp number (for COD-remit / weight-update alerts to them).
 async function clientPhone(supabase: any, ownerUserId: string | null | undefined): Promise<string> {
   if (!ownerUserId) return "";
@@ -215,7 +232,7 @@ serve(async (req) => {
     // 1) Try to locate the customer_purchases row this webhook is about.
     //    We stamp orderId at create-time and tracking_number after CHECKOUT/STATUS webhooks.
     const findRow = async (): Promise<any> => {
-      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id";
+      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, bundle:logistic_bundles(name)";
       if (consignNo) {
         const r = await supabase.from("customer_purchases").select(cols).eq("tracking_number", consignNo).maybeSingle();
         if (r.data) return r.data;
@@ -259,15 +276,19 @@ serve(async (req) => {
           .eq("id", matched.id);
         action = "checkout_tracking_saved";
 
-        // Notify customer via the tenant's WhatsApp device
-        const courierName = (matched.kurier || "").replace(/\s+(COD|CASH)$/i, "") || "kurier";
-        const waMsg =
-          `Salam ${matched.name_customer || ""}! 📦\n\n` +
-          `Pesanan anda telah dihantar ke ${courierName}.\n\n` +
-          `No Tracking: ${trackingNumber}\n\n` +
-          `Terima kasih kerana membeli dengan kami! 🙏`;
-        const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
-        action = `${action}+${waResult}`;
+        // Notify the customer ONLY if the client enabled notify for "Shipment Data
+        // Received" (checkout = tracking created). Previously this always sent,
+        // ignoring the client's toggle — the "disabled but still sends" bug.
+        const pref = await getTrackPref(supabase, matched.owner_user_id, "Shipment Data Received");
+        if (pref.notify) {
+          const vars = orderVars(matched, "Shipment Data Received", trackingNumber);
+          const courierName = vars.courier || "kurier";
+          const waMsg = pref.template
+            ? renderTemplate(pref.template, vars)
+            : `Salam ${vars.name}! 📦\n\nPesanan anda telah dihantar ke ${courierName}.\n\nNo Tracking: ${trackingNumber}\n\nTerima kasih kerana membeli dengan kami! 🙏`;
+          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
+          action = `${action}+${waResult}`;
+        }
       } else if (trackingNumber && orderId) {
         // Order row exists but we didn't find it — try id_sale match again with orderId
         await supabase
@@ -317,14 +338,7 @@ serve(async (req) => {
         }
 
         if (pref.notify) {
-          const vars: Record<string, string> = {
-            name: matched.name_customer || "",
-            tracking: matched.tracking_number || consignNo || "",
-            status: statusGroup || rawStatus || "",
-            courier: (matched.kurier || "").replace(/\s+(COD|CASH)$/i, ""),
-            order_id: matched.id_sale || "",
-            phone: matched.phone_customer || "",
-          };
+          const vars = orderVars(matched, statusGroup || rawStatus || "", matched.tracking_number || consignNo || "");
           let waMsg: string | null = null;
           if (isDelivered) {
             // thank-you only on the transition into delivered, never on repeats
@@ -399,14 +413,7 @@ serve(async (req) => {
         }
         action = "cancelled";
         if (pref.notify) {
-          const vars: Record<string, string> = {
-            name: matched.name_customer || "",
-            tracking: matched.tracking_number || consignNo || "",
-            status: "Cancelled",
-            courier: (matched.kurier || "").replace(/\s+(COD|CASH)$/i, ""),
-            order_id: matched.id_sale || "",
-            phone: matched.phone_customer || "",
-          };
+          const vars = orderVars(matched, "Cancelled", matched.tracking_number || consignNo || "");
           const waMsg = pref.template
             ? renderTemplate(pref.template, vars)
             : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
