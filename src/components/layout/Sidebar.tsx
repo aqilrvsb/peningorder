@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Clock,
   CalendarClock,
+  AlertTriangle,
   CheckCircle,
   CreditCard,
   Ticket,
@@ -80,6 +81,7 @@ const logisticItems: NavItem[] = [
   { label: 'Return', path: '/dashboard/logistics/return', icon: <RotateCcw className="w-5 h-5" /> },
   { label: 'Rejected', path: '/dashboard/logistics/rejected', icon: <Ban className="w-5 h-5" /> },
   { label: 'Pending Tracking', path: '/dashboard/logistics/pending-tracking', icon: <Clock className="w-5 h-5" /> },
+  { label: 'Problematik', path: '/dashboard/logistics/problematic', icon: <AlertTriangle className="w-5 h-5" /> },
 ];
 
 // ============ FINANCE ROLE ============
