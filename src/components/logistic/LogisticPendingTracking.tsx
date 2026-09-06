@@ -125,6 +125,8 @@ const LogisticPendingTracking = () => {
   const effectiveFilter = isMarketer ? ownIdStaff : teamFilter;
   const filteredOrders = orders.filter((order: any) => {
     if (effectiveFilter && (order.marketer_id_staff || '') !== effectiveFilter) return false;
+    // Exclude Self Pickup — self-collect has no courier tracking to await.
+    if ((order.kurier || '').toUpperCase().includes('PICKUP')) return false;
     // Platform filter
     if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
 
