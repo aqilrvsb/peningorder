@@ -140,7 +140,12 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   const roleGroupsRaw: RoleGroup[] = isAdmin
     ? []
     : isMarketer
-      ? [{ ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') }]
+      ? [
+          { ...baseRoleGroups[0], items: baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team') },
+          // Marketers also get Report Profit (own data only) — nothing else from Finance.
+          { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />,
+            items: financeItems.filter((i) => i.path.endsWith('/report-profit')) },
+        ]
       : isLogistic
         ? baseRoleGroups.filter((g) => g.key === 'logistic').map((g) => ({
             ...g,

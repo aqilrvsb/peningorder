@@ -10,6 +10,7 @@ import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/
 import { isOrderCollected } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
 import { useTeam } from '@/hooks/useTeam';
+import { useAuth } from '@/context/AuthContext';
 
 interface Order {
   id: string;
@@ -51,7 +52,8 @@ interface MarketerProfitStats {
   totalUnitBundle: number;
   roas: number;
   profit: number;
-  totalCommission: number; // sum of per-order bundle commission (Komisyen Sales)
+  totalCommission: number; // sum of per-order bundle commission (all orders)
+  totalCommissionReturn: number; // commission of Return orders — deducted from Komisyen Sales
   // Facebook
   salesFB: number;
   collectionFB: number;
@@ -101,6 +103,10 @@ const AccountReportProfit: React.FC = () => {
   // RLS-safe name + commission lookup via the team_roster RPC (the direct profiles
   // read only returns the caller's own row, so staff names/percent came back blank).
   const { nameByIdstaff, metaByIdstaff } = useTeam();
+  const { profile } = useAuth();
+  // A marketer staff sees ONLY their own data (no team filter, own row only).
+  const isMarketer = profile?.role === 'marketer';
+  const ownIdStaff = profile?.idstaff || '';
 
   // Date filter state - default to current month (Malaysia timezone)
   // pendingStart/End are what the user picks; startDate/endDate are applied on "Filter" click
@@ -179,10 +185,12 @@ const AccountReportProfit: React.FC = () => {
   const isLoading = ordersLoading || spendsLoading;
 
   // Orders already filtered by date at DB level
-  const filteredOrders = teamFilter ? allOrders.filter((o: any) => (o.marketer_id_staff || '') === teamFilter) : allOrders;
+  // Marketers are locked to their own idstaff; clients use the team filter.
+  const effectiveFilter = isMarketer ? ownIdStaff : teamFilter;
+  const filteredOrders = effectiveFilter ? allOrders.filter((o: any) => (o.marketer_id_staff || '') === effectiveFilter) : allOrders;
 
   // Spends already filtered by date at DB level
-  const filteredSpends = teamFilter ? spends.filter((s: any) => (s.marketer_id_staff || '') === teamFilter) : spends;
+  const filteredSpends = effectiveFilter ? spends.filter((s: any) => (s.marketer_id_staff || '') === effectiveFilter) : spends;
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {
@@ -203,6 +211,7 @@ const AccountReportProfit: React.FC = () => {
           roas: 0,
           profit: 0,
           totalCommission: 0,
+          totalCommissionReturn: 0,
           salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
           salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
           salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0, profitThreads: 0,
@@ -237,6 +246,8 @@ const AccountReportProfit: React.FC = () => {
       }
       if (order.delivery_status === 'Return') {
         stats[idStaff].totalReturn += sale;
+        // A returned order earns no commission — track it to deduct from Komisyen Sales.
+        stats[idStaff].totalCommissionReturn += Number(order.commission_amount) || 0;
       }
       stats[idStaff].totalCostProduct += costProduct;
       stats[idStaff].totalPostage += postage;
@@ -502,7 +513,7 @@ const AccountReportProfit: React.FC = () => {
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
               Filter
             </Button>
-            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+            {!isMarketer && <TeamFilter value={teamFilter} onChange={setTeamFilter} />}
 
           </div>
         </div>
@@ -820,6 +831,7 @@ const AccountReportProfit: React.FC = () => {
                 <th className="p-3 text-right text-indigo-600 dark:text-indigo-400">Total Spend</th>
                 <th className="p-3 text-right text-amber-600 dark:text-amber-400">ROAS</th>
                 <th className="p-3 text-right">Profit</th>
+                <th className="p-3 text-right text-red-600 dark:text-red-400">Return</th>
                 <th className="p-3 text-right text-blue-600 dark:text-blue-400">Komisyen Sales</th>
                 <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Komisyen Profit</th>
               </tr>
@@ -828,6 +840,8 @@ const AccountReportProfit: React.FC = () => {
               {filteredStats.map((s) => {
                 const pct = metaByIdstaff.get(s.idStaff)?.percent ?? (staffMeta[s.idStaff]?.percent || 0);
                 const komProfit = (s.profit * pct) / 100;
+                // Komisyen Sales = commission on delivered sales only (returns earn none).
+                const komSalesNet = s.totalCommission - s.totalCommissionReturn;
                 const nama = nameByIdstaff.get(s.idStaff) || (s.name !== s.idStaff ? s.name : (s.idStaff === 'HQ' ? 'HQ' : s.idStaff));
                 return (
                   <tr key={s.idStaff} className="border-t border-border hover:bg-muted/30">
@@ -837,13 +851,14 @@ const AccountReportProfit: React.FC = () => {
                     <td className="p-3 text-right tabular-nums text-indigo-600 dark:text-indigo-400">RM {formatNumber(s.totalSpend)}</td>
                     <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{(s.roas || 0).toFixed(2)}x</td>
                     <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
-                    <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400">RM {formatNumber(s.totalCommission)}</td>
+                    <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(s.totalReturn)}</td>
+                    <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400" title="Komisyen sales tolak komisyen order return">RM {formatNumber(komSalesNet)}</td>
                     <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({pct}%)</span></td>
                   </tr>
                 );
               })}
               {filteredStats.length === 0 && (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
               )}
             </tbody>
           </table>
