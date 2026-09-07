@@ -102,8 +102,10 @@ async function createOrderFromRow(
     nota_staff: row.raw_product,
     bundle_id: bundle.id,
     cost_postage: resolvedPostage,
-    cost_baseproduct: (Number(bundle.base_cost) || 0) * qty,
-    cost_hq: (Number(bundle.hq_cost) || 0) * qty,
+    // Flat bundle cost — EXACTLY like a manual key-in (base_cost/hq_cost are the
+    // cost of the whole bundle, not per unit; never multiply by qty).
+    cost_baseproduct: Number(bundle.base_cost) || 0,
+    cost_hq: Number(bundle.hq_cost) || 0,
     owner_user_id: ownerUuid,
     seos: "Pending",
     ...(row.source_platform === "shoppego"

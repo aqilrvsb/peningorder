@@ -909,7 +909,12 @@ serve(async (req) => {
 
     // Learned product mapping takes priority: once a product signature has been
     // manually mapped (Integration page), future orders auto-resolve to that bundle.
-    const productSignature = ((orderData.sku || '').trim().toLowerCase()) || ((orderData.productNames || '').trim().toLowerCase());
+    // Signature = the full PRODUCT NAME first (specific per variant, e.g. "set 1
+    // botol..." vs "set 3 botol..."), falling back to SKU. Using the parsed SKU
+    // strips the quantity ("01-1"/"01-2"/"01-3" all collapse to "01"), which made
+    // different set sizes map to the SAME bundle — the wrong package. The name is
+    // the reliable distinguisher.
+    const productSignature = ((orderData.productNames || '').trim().toLowerCase()) || ((orderData.sku || '').trim().toLowerCase());
     if (productSignature) {
       const { data: mapRow } = await supabase
         .from('integration_product_map')
@@ -1144,9 +1149,12 @@ serve(async (req) => {
     const malaysiaTime = new Date(nowUTC.getTime() + (8 * 60 * 60 * 1000));
     const dateOrder = malaysiaTime.toISOString().split('T')[0];
 
-    // Calculate costs
-    const totalBaseCost = baseCost * orderData.quantity;
-    const totalHqCost = hqCost * orderData.quantity;
+    // Calculate costs — EXACTLY like a manual key-in: the bundle's base_cost and
+    // hq_cost are the cost for the whole bundle (e.g. a "3 BOTOL" set), NOT per
+    // botol. Manual key-in stores base_cost/hq_cost flat (no × quantity); the
+    // integration must match or its profit numbers are inflated.
+    const totalBaseCost = baseCost;
+    const totalHqCost = hqCost;
     // Postage is priced by Parcel Daily at processing time (Order tab), not estimated here.
     const postageCost = 0;
 
