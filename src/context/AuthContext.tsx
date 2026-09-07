@@ -44,6 +44,14 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     supabase.from('user_roles').select('role').eq('user_id', userId).limit(1),
   ]);
   if (!profile) return null;
+  const parentUserId = profile.parent_user_id ?? null;
+  // SAFETY: a staff account (one with an HQ parent) must NEVER fall back to the
+  // full "client" shell — that view exposes the tenant's Courier Settings / API
+  // credentials and forces courier setup. If the user_roles read momentarily
+  // returns empty (login race / transient RLS hiccup), default a staff member to
+  // the least-privileged staff role instead of client. Only a true owner (no
+  // parent) may default to client.
+  const role = (roles?.[0]?.role || (parentUserId ? 'marketer' : 'client')) as UserRole;
   return {
     id: profile.id,
     email: profile.email || '',
@@ -51,11 +59,11 @@ async function fetchProfile(userId: string): Promise<UserProfile | null> {
     fullName: profile.full_name || '',
     businessName: profile.business_name || '',
     idstaff: profile.idstaff || '',
-    role: (roles?.[0]?.role || 'client') as UserRole,
+    role,
     plan: profile.plan ?? null,
     planExpiresAt: profile.plan_expires_at ?? null,
     isActive: profile.is_active !== false,
-    parentUserId: profile.parent_user_id ?? null,
+    parentUserId,
     payMode: (profile.pay_mode === 'gross_profit' ? 'gross_profit' : 'commission_order'),
     commissionPercent: Number(profile.commission_percent) || 0,
     hiddenTabs: Array.isArray(profile.hidden_tabs) ? profile.hidden_tabs : [],

@@ -1143,16 +1143,21 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' ? (
+                      {/* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
+                          order that already has an uploaded receipt (image/PDF) —
+                          e.g. a COD→CASH conversion — so history can view it too. */}
+                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
                         <button
                           onClick={() => handlePaymentClick(order)}
-                          className={`hover:underline cursor-pointer font-medium ${
+                          title="Lihat butiran bayaran"
+                          className={`hover:underline cursor-pointer font-medium inline-flex items-center gap-1 ${
                             order.receiptImageUrl
                               ? 'text-blue-600 dark:text-blue-400'
                               : 'text-red-600 dark:text-red-400'
                           }`}
                         >
-                          {order.kurier || 'CASH'}
+                          {order.receiptImageUrl && <Receipt className="w-3.5 h-3.5" />}
+                          {order.kurier || order.caraBayaran || 'CASH'}
                         </button>
                       ) : (
                         <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
