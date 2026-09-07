@@ -95,8 +95,7 @@ interface ParcelDailyConfig {
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
-// SPX hidden — Parcel Daily SPX bookings were failing; use JNT instead.
-const COURIER_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL'];
+const COURIER_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
 
 const emptyConfig: ParcelDailyConfig = {
   merchant_id: '',

@@ -34,8 +34,7 @@ const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google']
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD', 'Pickup'];
-// SPX hidden — Parcel Daily SPX bookings were failing; JNT is used instead.
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL'];
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -241,7 +240,7 @@ const OrderForm: React.FC = () => {
           if (k.includes('NINJAVAN')) return 'Ninjavan';
           if (k.includes('JNT')) return 'JNT';
           if (k.includes('DHL')) return 'DHL';
-          if (k.includes('SPX')) return 'JNT';
+          if (k.includes('SPX')) return 'SPX';
           return 'Poslaju';
         })(),
         jenisBayaran: editOrder.jenisBayaran || '',
