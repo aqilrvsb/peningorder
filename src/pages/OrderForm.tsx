@@ -68,7 +68,13 @@ const OrderForm: React.FC = () => {
   const { addOrder, updateOrder, orders, refreshData } = useData();
   // Fetch logistic bundles (active only) - this is the main bundle source for Marketer orders
   const { data: logisticBundles = [], isLoading: bundlesLoading, refetch: refetchLogisticBundles } = useQuery({
-    queryKey: ['logistic-bundles-for-order'],
+    // Scope the cache key to the signed-in user AND only run once auth is ready.
+    // Without this, (a) a first paint before the session token is established made
+    // RLS see no user and return 0 bundles ("Pilih Produk" empty), and (b) the
+    // un-scoped key could serve another account's cached list when switching
+    // accounts in the same tab. Staff read their HQ's bundles via tenant_owner().
+    queryKey: ['logistic-bundles-for-order', profile?.id],
+    enabled: !!profile?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('logistic_bundles')
@@ -236,10 +242,11 @@ const OrderForm: React.FC = () => {
     }
   }, [editOrder]);
 
-  // Refresh logistic bundles when component mounts to ensure fresh data
+  // Refresh logistic bundles once auth is ready (profile.id present) so the read
+  // runs with the user's session — not during the pre-auth first paint.
   useEffect(() => {
-    refetchLogisticBundles();
-  }, []);
+    if (profile?.id) refetchLogisticBundles();
+  }, [profile?.id]);
 
   // Check for admin lead order data from sessionStorage
   useEffect(() => {
