@@ -1390,8 +1390,7 @@ const LogisticOrder = () => {
                   <SelectItem value="JNT CASH">JNT CASH</SelectItem>
                   <SelectItem value="DHL COD">DHL COD</SelectItem>
                   <SelectItem value="DHL CASH">DHL CASH</SelectItem>
-                  <SelectItem value="SPX COD">SPX COD</SelectItem>
-                  <SelectItem value="SPX CASH">SPX CASH</SelectItem>
+                  {/* SPX hidden — Parcel Daily SPX bookings failing; use JNT. */}
                 </SelectContent>
               </Select>
             </div>

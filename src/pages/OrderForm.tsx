@@ -34,7 +34,8 @@ const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google']
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD', 'Pickup'];
-const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
+// SPX hidden — Parcel Daily SPX bookings were failing; JNT is used instead.
+const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL'];
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
