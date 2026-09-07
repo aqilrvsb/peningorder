@@ -1147,7 +1147,21 @@ ${trackingUrl}`;
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{order.kurier || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">
+                      {/* No tracking yet → inline courier dropdown (options = couriers
+                          enabled in Courier Settings). Selecting saves the courier;
+                          the Generate-Tracking icon then books THAT courier. */}
+                      {!order.noTracking && order.jenisPlatform !== 'Tiktok' && !(order.kurier || '').toUpperCase().includes('PICKUP') ? (
+                        <Select value={kurierToCode(order.kurier)} onValueChange={(v) => handleInlineCourierSave(order, v)}>
+                          <SelectTrigger className="h-8 w-28"><SelectValue placeholder="Pilih Kurier" /></SelectTrigger>
+                          <SelectContent>
+                            {availableCouriers.map((c) => (
+                              <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (order.kurier || '-')}
+                    </td>
                     {pospadaEnabled && (
                       <td className="px-4 py-3 text-sm">
                         {order.pospadaDate ? (
@@ -1186,22 +1200,10 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {/* No tracking yet → inline courier dropdown. Selecting saves
-                          the courier onto the order; the Generate-Tracking icon then
-                          books THAT courier. (Skip Pickup / marketplace Tiktok.) */}
-                      {!order.noTracking && order.jenisPlatform !== 'Tiktok' && !(order.kurier || '').toUpperCase().includes('PICKUP') ? (
-                        <Select value={kurierToCode(order.kurier)} onValueChange={(v) => handleInlineCourierSave(order, v)}>
-                          <SelectTrigger className="h-8 w-28"><SelectValue placeholder="Pilih Kurier" /></SelectTrigger>
-                          <SelectContent>
-                            {availableCouriers.map((c) => (
-                              <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : /* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
+                      {/* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
                           order that already has an uploaded receipt (image/PDF) —
-                          e.g. a COD→CASH conversion — so history can view it too. */
-                      order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
+                          e.g. a COD→CASH conversion — so history can view it too. */}
+                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
                         <button
                           onClick={() => handlePaymentClick(order)}
                           title="Lihat butiran bayaran"
