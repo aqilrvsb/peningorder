@@ -1091,13 +1091,13 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
                 {pospadaEnabled && <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase">Pospada</th>}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">Cost Postage</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Delivery Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Platform</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Closing</th>
@@ -1147,6 +1147,30 @@ ${trackingUrl}`;
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{order.produk}</td>
+                    {/* Cara Bayaran — payment type ONLY (COD / CASH / PICKUP), never
+                        the courier. CASH (or any order with a receipt) stays clickable
+                        to view Butiran Bayaran. Sits before the Kurier column. */}
+                    <td className="px-4 py-3 text-sm">
+                      {(() => {
+                        const isPickup = (order.kurier || '').toUpperCase().includes('PICKUP') || order.caraBayaran === 'Pickup';
+                        const isCod = order.caraBayaran === 'COD' || (order.kurier || '').includes('COD');
+                        const payLabel = isPickup ? 'PICKUP' : isCod ? 'COD' : 'CASH';
+                        return (payLabel === 'CASH' || order.receiptImageUrl) ? (
+                          <button
+                            onClick={() => handlePaymentClick(order)}
+                            title="Lihat butiran bayaran"
+                            className={`hover:underline cursor-pointer font-medium inline-flex items-center gap-1 ${
+                              order.receiptImageUrl ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'
+                            }`}
+                          >
+                            {order.receiptImageUrl && <Receipt className="w-3.5 h-3.5" />}
+                            {payLabel}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">{payLabel}</span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-sm text-foreground">
                       {/* No tracking yet → inline courier dropdown (options = couriers
                           enabled in Courier Settings). Selecting saves the courier;
@@ -1199,27 +1223,6 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm font-medium text-foreground">RM {order.hargaJualanSebenar.toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm">
-                      {/* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
-                          order that already has an uploaded receipt (image/PDF) —
-                          e.g. a COD→CASH conversion — so history can view it too. */}
-                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
-                        <button
-                          onClick={() => handlePaymentClick(order)}
-                          title="Lihat butiran bayaran"
-                          className={`hover:underline cursor-pointer font-medium inline-flex items-center gap-1 ${
-                            order.receiptImageUrl
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}
-                        >
-                          {order.receiptImageUrl && <Receipt className="w-3.5 h-3.5" />}
-                          {order.kurier || order.caraBayaran || 'CASH'}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">{order.kurier || order.caraBayaran || '-'}</span>
-                      )}
-                    </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         order.deliveryStatus === 'Success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
