@@ -1072,7 +1072,7 @@ serve(async (req) => {
     // creating a half-empty order. It stays there until manually mapped (which
     // learns the mapping so future same-product orders auto-tally).
     if (!bundleId) {
-      const { error: parkErr } = await supabase.from('integration_unmatched').insert({
+      const parkRow = {
         owner_user_id: tenantOwnerId,
         marketer_id_staff: marketerIdStaff,
         source_platform: platform,
@@ -1089,7 +1089,37 @@ serve(async (req) => {
         city_customer: orderData.city,
         state_customer: orderData.state,
         raw_payload: parsedBody,
-      });
+      };
+      // IDEMPOTENT PARK: the "Order updated" webhook re-fires several times per
+      // order (payment, stock, status saves), so a blind insert produced 2-3
+      // duplicate rows in "Belum Match". Dedupe on (tenant, platform, order id):
+      // update the existing parked row if we've seen this order, else insert.
+      // Applies to every platform (woocommerce, shoppego) via source_platform.
+      let parkErr: any = null;
+      const pid = String(orderData.platformOrderId || '');
+      if (pid) {
+        const { data: existingPark } = await supabase
+          .from('integration_unmatched')
+          .select('id')
+          .eq('owner_user_id', tenantOwnerId)
+          .eq('source_platform', platform)
+          .eq('platform_order_id', pid)
+          .maybeSingle();
+        if (existingPark) {
+          ({ error: parkErr } = await supabase
+            .from('integration_unmatched').update(parkRow).eq('id', existingPark.id));
+        } else {
+          ({ error: parkErr } = await supabase.from('integration_unmatched').insert(parkRow));
+          // Race: a concurrent re-fire inserted first → unique index rejects.
+          // Treat the duplicate as success (the row is already parked).
+          if (parkErr && (parkErr.code === '23505' || /duplicate key/i.test(parkErr.message || ''))) {
+            parkErr = null;
+          }
+        }
+      } else {
+        // No platform order id → can't dedupe; insert as before.
+        ({ error: parkErr } = await supabase.from('integration_unmatched').insert(parkRow));
+      }
       await supabase.from('webhook_logs').insert({
         webhook_type: platform,
         request_method: 'POST',
