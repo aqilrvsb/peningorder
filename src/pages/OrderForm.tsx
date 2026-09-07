@@ -660,6 +660,10 @@ const OrderForm: React.FC = () => {
           purchaseId: editOrder?.id,
           orderId: (editOrder as any)?.pdOrderId || undefined,
           trackingNumber,
+          // Re-booking during an edit: release the old Parcel Daily booking but do
+          // NOT mark the order Cancelled — the edit sets the final status itself.
+          // (Prevents orders being stranded "Cancelled" and vanishing from the list.)
+          keepStatus: true,
         }
       });
 

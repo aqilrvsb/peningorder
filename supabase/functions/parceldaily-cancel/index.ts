@@ -48,10 +48,17 @@ serve(async (req) => {
       orderId?: string;
       trackingNumber?: string;
       purchaseId?: string;
+      keepStatus?: boolean;
     } = await req.json();
 
     let orderId = body.orderId?.trim() || null;
     let trackingNumber = body.trackingNumber?.trim() || null;
+    // keepStatus = cancel ONLY at Parcel Daily (release the old booking), do NOT
+    // mark the order Cancelled. Used when an EDIT changes courier: the order is
+    // being re-booked, not cancelled, and the edit itself sets the final status.
+    // Without this the order could be stranded "Cancelled" if the re-book/status
+    // reset raced or failed — the order then "disappeared" from the active list.
+    const keepStatus = body.keepStatus === true;
 
     // If a purchaseId is given, look up its ids (scoped to this tenant).
     if (body.purchaseId) {
@@ -112,13 +119,16 @@ serve(async (req) => {
       return fail(`Parcel Daily cancel: ${msg}`, { details: result, orderId, trackingNumber });
     }
 
-    // Mark the DB row as cancelled (service-scoped).
-    if (body.purchaseId) {
-      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("id", body.purchaseId);
-    } else if (trackingNumber) {
-      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("tracking_number", trackingNumber).eq("owner_user_id", ownerUuid);
-    } else if (orderId) {
-      await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("pd_order_id", orderId).eq("owner_user_id", ownerUuid);
+    // Mark the DB row as cancelled (service-scoped) — UNLESS this is a re-book
+    // (edit changing courier), where the caller keeps ownership of the status.
+    if (!keepStatus) {
+      if (body.purchaseId) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("id", body.purchaseId);
+      } else if (trackingNumber) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("tracking_number", trackingNumber).eq("owner_user_id", ownerUuid);
+      } else if (orderId) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("pd_order_id", orderId).eq("owner_user_id", ownerUuid);
+      }
     }
 
     return ok({
