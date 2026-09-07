@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
 import { useBundles } from '@/context/BundleContext';
@@ -158,7 +158,16 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
-  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju' | 'jnt' | 'dhl'>('poslaju');
+  const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'>('poslaju');
+  // Couriers the client enabled in Courier Settings (labels e.g. ['Poslaju','JNT']).
+  const [allowedCouriers, setAllowedCouriers] = useState<string[] | null>(null);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc('my_allowed_couriers');
+      const list = Array.isArray(data) ? (data as string[]).filter(Boolean) : [];
+      setAllowedCouriers(list.length ? list : null);
+    })();
+  }, []);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Payment details modal state
@@ -460,7 +469,40 @@ ${trackingUrl}`;
     setDeleteDialogOpen(true);
   };
 
+  // All couriers (used to map a code -> label).
+  const COURIER_CHOICES: { code: 'poslaju' | 'ninjavan' | 'jnt' | 'dhl' | 'spx'; label: string }[] = [
+    { code: 'poslaju', label: 'Poslaju' },
+    { code: 'ninjavan', label: 'Ninjavan' },
+    { code: 'jnt', label: 'JNT' },
+    { code: 'dhl', label: 'DHL' },
+    { code: 'spx', label: 'SPX' },
+  ];
+  // Only the couriers the client enabled in Courier Settings are offered in the
+  // dropdown (fall back to all if none configured).
+  const availableCouriers = allowedCouriers && allowedCouriers.length
+    ? COURIER_CHOICES.filter((c) => allowedCouriers.some((a) => a.toLowerCase() === c.label.toLowerCase()))
+    : COURIER_CHOICES;
+  // Map a saved kurier string ("JNT COD") back to a courier code.
+  const kurierToCode = (kurier?: string): 'poslaju' | 'ninjavan' | 'jnt' | 'dhl' | 'spx' => {
+    const k = (kurier || '').toUpperCase();
+    if (k.includes('NINJAVAN')) return 'ninjavan';
+    if (k.includes('JNT')) return 'jnt';
+    if (k.includes('DHL')) return 'dhl';
+    if (k.includes('SPX')) return 'spx';
+    return 'poslaju';
+  };
+  // Inline courier pick in History (only for orders with no tracking yet). Saves
+  // the chosen courier onto the order so the Generate-Tracking icon books it.
+  const handleInlineCourierSave = async (order: typeof orders[0], code: string) => {
+    const label = COURIER_CHOICES.find((c) => c.code === code)?.label || 'Poslaju';
+    const isCod = (order.kurier || '').includes('COD') || order.caraBayaran === 'COD';
+    await updateOrder(order.id, { kurier: `${label} ${isCod ? 'COD' : 'CASH'}` });
+    toast({ title: 'Kurier disimpan', description: `${label} — klik ikon tracking untuk jana.` });
+  };
+
   const handleRegenerateClick = (order: typeof orders[0]) => {
+    // Generate using the courier the client already saved on this order.
+    setRegenerateCourier(kurierToCode(order.kurier));
     setOrderForTracking({
       id: order.id,
       idSale: order.idSale,
@@ -576,6 +618,7 @@ ${trackingUrl}`;
         poslaju: 'Poslaju',
         jnt: 'JNT',
         dhl: 'DHL',
+        spx: 'SPX',
       };
       const courierLabel = COURIER_LABELS[regenerateCourier] || regenerateCourier;
 
@@ -1143,10 +1186,22 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">
-                      {/* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
+                      {/* No tracking yet → inline courier dropdown. Selecting saves
+                          the courier onto the order; the Generate-Tracking icon then
+                          books THAT courier. (Skip Pickup / marketplace Tiktok.) */}
+                      {!order.noTracking && order.jenisPlatform !== 'Tiktok' && !(order.kurier || '').toUpperCase().includes('PICKUP') ? (
+                        <Select value={kurierToCode(order.kurier)} onValueChange={(v) => handleInlineCourierSave(order, v)}>
+                          <SelectTrigger className="h-8 w-28"><SelectValue placeholder="Pilih Kurier" /></SelectTrigger>
+                          <SelectContent>
+                            {availableCouriers.map((c) => (
+                              <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : /* Clickable "Butiran Bayaran" for CASH (needs receipt) OR any
                           order that already has an uploaded receipt (image/PDF) —
-                          e.g. a COD→CASH conversion — so history can view it too. */}
-                      {order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
+                          e.g. a COD→CASH conversion — so history can view it too. */
+                      order.kurier?.includes('CASH') || order.caraBayaran === 'CASH' || order.receiptImageUrl ? (
                         <button
                           onClick={() => handlePaymentClick(order)}
                           title="Lihat butiran bayaran"
@@ -1339,10 +1394,9 @@ ${trackingUrl}`;
                   <SelectValue placeholder="Pilih kurier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ninjavan">Ninjavan</SelectItem>
-                  <SelectItem value="poslaju">Poslaju</SelectItem>
-                  <SelectItem value="jnt">JNT Express</SelectItem>
-                  <SelectItem value="dhl">DHL</SelectItem>
+                  {availableCouriers.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
