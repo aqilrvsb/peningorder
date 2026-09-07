@@ -230,7 +230,20 @@ const OrderForm: React.FC = () => {
         quantity: 1, // Always 1 for edit mode
         hargaJualan: editOrder.hargaJualanSebenar || 0,
         caraBayaran: editOrder.caraBayaran || '',
-        deliveryMethod: editOrder.kurier === 'PICKUP' ? 'Self Pickup' : (editOrder.kurier?.includes('Ninjavan') ? 'Ninjavan' : 'Poslaju'),
+        // Populate the EXISTING courier from the order's kurier (e.g. "JNT COD").
+        // Previously only Ninjavan/PICKUP were recognised so JNT/DHL/SPX orders
+        // wrongly defaulted to Poslaju on edit. SPX is hidden now -> map to JNT.
+        deliveryMethod: (() => {
+          const k = (editOrder.kurier || '').toUpperCase();
+          if (k.includes('PICKUP')) return 'Self Pickup';
+          if (k.includes('TIKTOK')) return 'Kurier Tiktok';
+          if (k.includes('SHOPEE')) return 'Kurier Shopee';
+          if (k.includes('NINJAVAN')) return 'Ninjavan';
+          if (k.includes('JNT')) return 'JNT';
+          if (k.includes('DHL')) return 'DHL';
+          if (k.includes('SPX')) return 'JNT';
+          return 'Poslaju';
+        })(),
         jenisBayaran: editOrder.jenisBayaran || '',
         pilihBank: editOrder.bank || '',
         nota: editOrder.notaStaff || '',
