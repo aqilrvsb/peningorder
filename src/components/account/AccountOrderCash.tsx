@@ -20,6 +20,7 @@ type CashOrder = {
   phone_customer: string | null;
   total_sale: number | null;
   bank_payment: string | null;
+  tracking_number: string | null;
   marketer_id_staff: string | null;
   receipt_payment_url: string | null;
   receipt_payment_type: string | null;
@@ -53,7 +54,7 @@ const AccountOrderCash: React.FC = () => {
       const data = await fetchAllRows<CashOrder>(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
+          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
           .in('type_payment', ['CASH', 'Pickup'])
           .gte('date_order', startDate)
           .lte('date_order', endDate)
@@ -155,6 +156,7 @@ const AccountOrderCash: React.FC = () => {
                   <th className="p-2 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
                   <th className="p-2 text-left text-blue-600 dark:text-blue-400">Nama</th>
                   <th className="p-2 text-left">Id Sales</th>
+                  <th className="p-2 text-left">Tracking</th>
                   <th className="p-2 text-left">Tarikh Order</th>
                   <th className="p-2 text-left">Pelanggan</th>
                   <th className="p-2 text-left">Produk</th>
@@ -172,6 +174,7 @@ const AccountOrderCash: React.FC = () => {
                       <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || '') || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{o.id_sale || '-'}</td>
+                      <td className="p-2 whitespace-nowrap font-mono text-xs">{o.tracking_number || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{o.date_order || '-'}</td>
                       <td className="p-2">{o.name_customer || '-'}</td>
                       <td className="p-2">{o.bundle?.name || '-'}</td>
@@ -196,13 +199,13 @@ const AccountOrderCash: React.FC = () => {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">Tiada order cash dalam tempoh ini.</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">Tiada order cash dalam tempoh ini.</td></tr>
                 )}
               </tbody>
               {filtered.length > 0 && (
                 <tfoot>
                   <tr className="border-t border-border bg-muted/30 font-semibold">
-                    <td className="p-2" colSpan={8}>Jumlah Cash ({filtered.length} order)</td>
+                    <td className="p-2" colSpan={9}>Jumlah Cash ({filtered.length} order)</td>
                     <td className="p-2 text-right tabular-nums text-green-600 dark:text-green-400">{formatRM(totalCash)}</td>
                     <td />
                   </tr>
