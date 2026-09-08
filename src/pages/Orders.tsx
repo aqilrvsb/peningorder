@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban
 } from 'lucide-react';
 import { put } from '@vercel/blob';
 import {
