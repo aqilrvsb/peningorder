@@ -74,13 +74,17 @@ const LogisticSummary = () => {
       .sort((a, b) => b.t.n - a.t.n);
     return {
       total: tally(rows),
+      // Success & Return are OUTCOMES of a shipped parcel — subsets of Shipped,
+      // shown for detail. They are NOT added into the top-line tally.
       success: by((o: any) => o.delivery_status === "Success"),
       pending: by((o: any) => o.delivery_status === "Pending"),
-      process: by((o: any) => o.delivery_status === "Shipped"),
+      // Total Shipped = ever shipped (in-transit + delivered + returned) so the
+      // three top-line states partition every order:
+      //   Pending + Shipped + Reject = Total Order.
+      process: by((o: any) => ["Shipped", "Success", "Return"].includes(o.delivery_status)),
       returned: by((o: any) => o.delivery_status === "Return"),
       // Reject = catch-all for anything not Pending/Shipped/Success/Return
-      // (Rejected, Cancelled, …) so the lifecycle boxes tally exactly to Total Order:
-      // Pending + Shipped + Reject + Success + Return = Total Order.
+      // (Rejected, Cancelled, …).
       rejected: by((o: any) => !["Pending", "Shipped", "Success", "Return"].includes(o.delivery_status)),
       problematic: by(isProblem),
       pickup: by(isPickup),
@@ -144,15 +148,23 @@ const LogisticSummary = () => {
         <div className="flex items-center justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : (
         <>
-          {/* Row 1 — order lifecycle. Mutually exclusive → they tally:
-              Pending + Shipped + Reject + Success + Return = Total Order. */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Row 1 — top-line lifecycle. These three partition every order, so:
+              Total Order = Total Pending + Total Shipped + Total Reject. */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Stat icon={<Package className="w-4 h-4" />} label="Total Order" value={s.total.n} split={s.total} sub="All orders in period" color="text-primary" border="border-l-primary" />
             <Stat icon={<Clock className="w-4 h-4" />} label="Total Pending" value={s.pending.n} split={s.pending} sub="Awaiting processing" color="text-amber-600" border="border-l-amber-500" />
-            <Stat icon={<Truck className="w-4 h-4" />} label="Total Shipped" value={s.process.n} split={s.process} sub="Shipped / in transit" color="text-blue-600" border="border-l-blue-500" />
+            <Stat icon={<Truck className="w-4 h-4" />} label="Total Shipped" value={s.process.n} split={s.process} sub="Ever shipped (incl. success/return)" color="text-blue-600" border="border-l-blue-500" />
             <Stat icon={<Ban className="w-4 h-4" />} label="Total Reject" value={s.rejected.n} split={s.rejected} sub="Rejected / cancelled" color="text-slate-600" border="border-l-slate-500" />
-            <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
-            <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-600" />
+          </div>
+
+          {/* Breakdown of Shipped — Success vs Return (subsets of Total Shipped). */}
+          <div>
+            <p className="text-sm font-semibold text-muted-foreground mb-2">Breakdown of Shipped</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
+              <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-600" />
+              <Stat icon={<Truck className="w-4 h-4" />} label="Remaining Ship" value={s.process.n - s.success.n - s.returned.n} sub="Shipped, still in transit" color="text-cyan-600" border="border-l-cyan-500" />
+            </div>
           </div>
 
           {/* Row 2 — Courier Compare (per courier keyed in, by date range) */}
