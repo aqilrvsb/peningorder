@@ -164,9 +164,14 @@ const LogisticSuccess = () => {
       if (!matchesSearch) return false;
     }
 
-    // Payment filter - using new type_payment field
-    if (paymentFilter !== "All" && order.type_payment !== paymentFilter) {
-      return false;
+    // Payment filter — "Pickup" matches by kurier (self-collect), else COD/CASH.
+    {
+      const cod = order.type_payment === "COD" || (order.kurier || "").includes("COD");
+      const pickup = (order.kurier || "").toUpperCase().includes("PICKUP");
+      if (paymentFilter === "Pickup") { if (!pickup) return false; }
+      else if (paymentFilter === "COD") { if (!cod) return false; }
+      else if (paymentFilter === "CASH") { if (cod || pickup) return false; }
+      else if (paymentFilter !== "All" && order.type_payment !== paymentFilter) return false;
     }
 
     if (courierFilter !== "All" && baseCourier(order.kurier) !== courierFilter) {
@@ -341,7 +346,7 @@ const LogisticSuccess = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
+        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => { setPaymentFilter("All"); handleFilterChange(); }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <Clock className="w-6 h-6 text-red-500" />
@@ -352,29 +357,38 @@ const LogisticSuccess = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <DollarSign className="w-6 h-6 text-yellow-600" />
               <div>
-                <p className="text-xl font-bold">{counts.ninjavanCod}</p>
+                <p className="text-xl font-bold">{counts.cod}</p>
                 <p className="text-xs text-muted-foreground">COD Orders</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-6 h-6 text-green-500" />
               <div>
-                <p className="text-xl font-bold">{counts.ninjavanCash}</p>
+                <p className="text-xl font-bold">{counts.cash}</p>
                 <p className="text-xs text-muted-foreground">CASH Orders</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "Pickup" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "Pickup" ? "All" : "Pickup"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <Package className="w-6 h-6 text-blue-500" />

@@ -35,6 +35,21 @@ import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
+// Problematic = Shipped order whose live parcel status hints a delivery problem.
+const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not available|no answer|wrong address|attempt|tidak dapat|return/i;
+// Courier name from the kurier field ("JNT COD" -> "JNT").
+const ptBaseCourier = (kurier?: string): string => {
+  const k = (kurier || "").toLowerCase();
+  if (k.includes("poslaju")) return "Poslaju";
+  if (k.includes("ninjavan")) return "Ninjavan";
+  if (k.includes("jnt")) return "JNT";
+  if (k.includes("dhl")) return "DHL";
+  if (k.includes("spx")) return "SPX";
+  if (k.includes("tiktok")) return "Kurier Tiktok";
+  if (k.includes("shopee")) return "Kurier Shopee";
+  return (kurier || "").replace(/\s+(COD|CASH)$/i, "").trim() || "Lain";
+};
+
 const LogisticPendingTracking = () => {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -70,6 +85,10 @@ const LogisticPendingTracking = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [platformFilter, setPlatformFilter] = useState("all");
+  // Clickable summary-box filters.
+  const [paymentFilter, setPaymentFilter] = useState<"All" | "COD" | "CASH">("All");
+  const [courierFilter, setCourierFilter] = useState("All");
+  const [problematicOnly, setProblematicOnly] = useState(false);
   const [pageSize, setPageSize] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -131,6 +150,15 @@ const LogisticPendingTracking = () => {
     // Platform filter
     if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
 
+    // Clickable box filters: payment / courier / problematic
+    {
+      const cod = order.type_payment === "COD" || (order.kurier || "").includes("COD");
+      if (paymentFilter === "COD" && !cod) return false;
+      if (paymentFilter === "CASH" && cod) return false;
+    }
+    if (courierFilter !== "All" && ptBaseCourier(order.kurier) !== courierFilter) return false;
+    if (problematicOnly && !PROBLEM_RE.test(order.seos || "")) return false;
+
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
@@ -154,28 +182,12 @@ const LogisticPendingTracking = () => {
     currentPage * pageSize
   );
 
-  // A "problematic" order is a Shipped order whose LIVE parcel status (seos, the
-  // raw ParcelDaily text) hints a delivery problem — failed attempt, unable to
-  // deliver, rejected, reschedule, address/recipient issue, etc. High chance of
-  // a Return, so logistic should act on these first.
-  const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not available|no answer|wrong address|attempt|tidak dapat|return/i;
   const isProblematic = (o: any) => PROBLEM_RE.test(o.seos || "");
   const isCod = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
 
-  // Courier name from the kurier field ("JNT COD" -> "JNT").
-  const baseCourier = (kurier?: string): string => {
-    const k = (kurier || "").toLowerCase();
-    if (k.includes("poslaju")) return "Poslaju";
-    if (k.includes("ninjavan")) return "Ninjavan";
-    if (k.includes("jnt")) return "JNT";
-    if (k.includes("dhl")) return "DHL";
-    if (k.includes("spx")) return "SPX";
-    if (k.includes("tiktok")) return "Kurier Tiktok";
-    if (k.includes("shopee")) return "Kurier Shopee";
-    return (kurier || "").replace(/\s+(COD|CASH)$/i, "").trim() || "Lain";
-  };
-
   // Counts — all rows here are SHIPPED (pickup already excluded above).
+  // Computed over orders that pass every filter EXCEPT the box filters, so each
+  // box shows its true total and clicking one narrows the table.
   const counts = {
     total: filteredOrders.length,
     cod: filteredOrders.filter(isCod).length,
@@ -188,7 +200,7 @@ const LogisticPendingTracking = () => {
   const courierStats = (() => {
     const map = new Map<string, { name: string; total: number; cod: number; cash: number; problematic: number }>();
     for (const o of filteredOrders) {
-      const name = baseCourier(o.kurier);
+      const name = ptBaseCourier(o.kurier);
       const e = map.get(name) || { name, total: 0, cod: 0, cash: 0, problematic: 0 };
       e.total++;
       isCod(o) ? e.cod++ : e.cash++;
@@ -324,9 +336,13 @@ const LogisticPendingTracking = () => {
         </Button>
       </div>
 
-      {/* Stats Cards — Total Shipped / COD / Cash / Problematic (pickup excluded) */}
+      {/* Stats Cards — clickable filters. Total Shipped clears; COD/Cash filter by
+          payment; Problematic filters to problem parcels only. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "All" && !problematicOnly && courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter("All"); setProblematicOnly(false); setCourierFilter("All"); handleFilterChange(); }}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <Clock className="w-8 h-8 text-purple-500" />
@@ -337,7 +353,10 @@ const LogisticPendingTracking = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <DollarSign className="w-8 h-8 text-orange-500" />
@@ -348,7 +367,10 @@ const LogisticPendingTracking = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <DollarSign className="w-8 h-8 text-green-500" />
@@ -359,9 +381,11 @@ const LogisticPendingTracking = () => {
             </div>
           </CardContent>
         </Card>
-        {/* Problematic — Shipped orders whose parcel status hints a delivery
-            problem (high chance of Return). Highlighted red in the table below. */}
-        <Card className={counts.problematic > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}>
+        {/* Problematic — click to show only problem parcels (high chance of Return). */}
+        <Card
+          className={`cursor-pointer transition-colors ${problematicOnly ? "border-primary ring-1 ring-primary/30 bg-red-50/60 dark:bg-red-950/20" : counts.problematic > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : "hover:border-primary"}`}
+          onClick={() => { setProblematicOnly(!problematicOnly); handleFilterChange(); }}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <AlertTriangle className={`w-8 h-8 ${counts.problematic > 0 ? "text-red-500" : "text-muted-foreground"}`} />
@@ -374,10 +398,14 @@ const LogisticPendingTracking = () => {
         </Card>
       </div>
 
-      {/* Kurier breakdown — per courier: Shipped / COD / Cash / Problematic */}
+      {/* Kurier breakdown — click to filter by courier. Shipped / COD / Cash / Problematic */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {courierStats.map((cs) => (
-          <Card key={cs.name} className={cs.problematic > 0 ? "border-l-4 border-l-red-500" : "border-l-4 border-l-purple-500"}>
+          <Card
+            key={cs.name}
+            onClick={() => { setCourierFilter(courierFilter === cs.name ? "All" : cs.name); handleFilterChange(); }}
+            className={`cursor-pointer transition-colors ${courierFilter === cs.name ? "border-primary ring-1 ring-primary/30" : cs.problematic > 0 ? "border-l-4 border-l-red-500" : "border-l-4 border-l-purple-500"}`}
+          >
             <CardContent className="p-4">
               <div>
                 <p className="text-sm font-semibold">{cs.name}</p>

@@ -101,6 +101,7 @@ const LogisticProcessed = () => {
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");
   const [courierFilter, setCourierFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All"); // Success / Return cards
   const [pageSize, setPageSize] = useState<number | "All">(50);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -320,8 +321,18 @@ const LogisticProcessed = () => {
       if (!matchesSearch) return false;
     }
 
-    // Payment filter - using new type_payment field
-    if (paymentFilter !== "All" && order.type_payment !== paymentFilter) {
+    // Payment filter — "Pickup" matches by kurier (self-collect), else COD/CASH.
+    {
+      const cod = order.type_payment === "COD" || (order.kurier || "").includes("COD");
+      const pickup = (order.kurier || "").toUpperCase().includes("PICKUP");
+      if (paymentFilter === "Pickup") { if (!pickup) return false; }
+      else if (paymentFilter === "COD") { if (!cod) return false; }
+      else if (paymentFilter === "CASH") { if (cod || pickup) return false; }
+      else if (paymentFilter !== "All" && order.type_payment !== paymentFilter) return false;
+    }
+
+    // Delivery-status filter (Success / Return cards).
+    if (statusFilter !== "All" && order.delivery_status !== statusFilter) {
       return false;
     }
 
@@ -669,7 +680,7 @@ const LogisticProcessed = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Processed Orders</h1>
+        <h1 className="text-3xl font-bold">Shipped Orders</h1>
         <p className="text-muted-foreground mt-2">
           View and manage shipped orders
         </p>
@@ -683,7 +694,7 @@ const LogisticProcessed = () => {
               <Clock className="w-6 h-6 text-green-500" />
               <div>
                 <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Processed</p>
+                <p className="text-xs text-muted-foreground">Total Shipped</p>
               </div>
             </div>
           </CardContent>
@@ -699,29 +710,38 @@ const LogisticProcessed = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <DollarSign className="w-6 h-6 text-yellow-600" />
               <div>
-                <p className="text-xl font-bold">{counts.ninjavanCod}</p>
+                <p className="text-xl font-bold">{counts.cod}</p>
                 <p className="text-xs text-muted-foreground">COD Orders</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-6 h-6 text-green-500" />
               <div>
-                <p className="text-xl font-bold">{counts.ninjavanCash}</p>
+                <p className="text-xl font-bold">{counts.cash}</p>
                 <p className="text-xs text-muted-foreground">CASH Orders</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${paymentFilter === "Pickup" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setPaymentFilter(paymentFilter === "Pickup" ? "All" : "Pickup"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <Package className="w-6 h-6 text-blue-500" />
@@ -732,7 +752,10 @@ const LogisticProcessed = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === "Success" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setStatusFilter(statusFilter === "Success" ? "All" : "Success"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -743,7 +766,10 @@ const LogisticProcessed = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${statusFilter === "Return" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+          onClick={() => { setStatusFilter(statusFilter === "Return" ? "All" : "Return"); handleFilterChange(); }}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <RotateCcw className="w-6 h-6 text-red-500" />

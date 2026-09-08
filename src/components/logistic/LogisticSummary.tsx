@@ -6,7 +6,7 @@ import { TeamFilter } from "@/components/TeamFilter";
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
 import {
   Package, Clock, Truck, RotateCcw, CheckCircle2, Loader2, Calendar,
-  Banknote, CreditCard, AlertTriangle, PackageCheck,
+  Banknote, CreditCard, AlertTriangle, PackageCheck, Ban,
 } from "lucide-react";
 
 // Logistic Summary — top-of-page overview of all orders in a date range.
@@ -78,6 +78,10 @@ const LogisticSummary = () => {
       pending: by((o: any) => o.delivery_status === "Pending"),
       process: by((o: any) => o.delivery_status === "Shipped"),
       returned: by((o: any) => o.delivery_status === "Return"),
+      // Reject = catch-all for anything not Pending/Shipped/Success/Return
+      // (Rejected, Cancelled, …) so the lifecycle boxes tally exactly to Total Order:
+      // Pending + Shipped + Reject + Success + Return = Total Order.
+      rejected: by((o: any) => !["Pending", "Shipped", "Success", "Return"].includes(o.delivery_status)),
       problematic: by(isProblem),
       pickup: by(isPickup),
       cash: rows.filter((o: any) => !isCod(o)).length,
@@ -140,13 +144,13 @@ const LogisticSummary = () => {
         <div className="flex items-center justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : (
         <>
-          {/* Row 1 — order lifecycle, in order:
-              Order → Pending → Process → Problematic → Success → Return */}
+          {/* Row 1 — order lifecycle. Mutually exclusive → they tally:
+              Pending + Shipped + Reject + Success + Return = Total Order. */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <Stat icon={<Package className="w-4 h-4" />} label="Total Order" value={s.total.n} split={s.total} sub="All orders in period" color="text-primary" border="border-l-primary" />
             <Stat icon={<Clock className="w-4 h-4" />} label="Total Pending" value={s.pending.n} split={s.pending} sub="Awaiting processing" color="text-amber-600" border="border-l-amber-500" />
-            <Stat icon={<Truck className="w-4 h-4" />} label="Total Process" value={s.process.n} split={s.process} sub="Shipped orders" color="text-blue-600" border="border-l-blue-500" />
-            <Stat icon={<AlertTriangle className="w-4 h-4" />} label="Total Problematic" value={s.problematic.n} split={s.problematic} sub="Shipped — status ada masalah" color="text-red-600" border="border-l-red-500" />
+            <Stat icon={<Truck className="w-4 h-4" />} label="Total Shipped" value={s.process.n} split={s.process} sub="Shipped / in transit" color="text-blue-600" border="border-l-blue-500" />
+            <Stat icon={<Ban className="w-4 h-4" />} label="Total Reject" value={s.rejected.n} split={s.rejected} sub="Rejected / cancelled" color="text-slate-600" border="border-l-slate-500" />
             <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
             <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-600" />
           </div>
