@@ -30,6 +30,7 @@ import {
   Receipt,
   Ban,
   ExternalLink,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
@@ -189,17 +190,25 @@ const LogisticReturn = () => {
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Counts - all platforms now use NinjaVan
+  const isCodOrder = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
+  const isPickupOrder = (o: any) => (o.kurier || "").toUpperCase().includes("PICKUP");
+
   const counts = {
     total: orders.length,
     ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
     ninjavanCash: orders.filter((o: any) => o.type_payment === "CASH").length,
+    cod: orders.filter(isCodOrder).length,
+    cash: orders.filter((o: any) => !isCodOrder(o)).length,
+    pickup: orders.filter(isPickupOrder).length,
   };
 
-  const courierCounts = orders.reduce((acc: Record<string, number>, o: any) => {
+  const courierStats = orders.reduce((acc: Record<string, { n: number; cod: number; cash: number }>, o: any) => {
     const c = baseCourier(o.kurier);
-    acc[c] = (acc[c] || 0) + 1;
+    const e = acc[c] || (acc[c] = { n: 0, cod: 0, cash: 0 });
+    e.n++;
+    isCodOrder(o) ? e.cod++ : e.cash++;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { n: number; cod: number; cash: number }>);
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -335,7 +344,7 @@ const LogisticReturn = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -369,10 +378,22 @@ const LogisticReturn = () => {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Package className="w-6 h-6 text-blue-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.pickup}</p>
+                <p className="text-xs text-muted-foreground">Total Pickup</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Courier summary cards — click a card to filter the table by that courier */}
-      {Object.keys(courierCounts).length > 0 && (
+      {/* Courier summary cards — click a card to filter the table by that courier.
+          Each shows its COD / Cash split. */}
+      {Object.keys(courierStats).length > 0 && (
         <div className="flex flex-wrap gap-3">
           <Card
             className={`cursor-pointer transition-colors ${courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
@@ -381,17 +402,25 @@ const LogisticReturn = () => {
             <CardContent className="py-3 px-4">
               <p className="text-lg font-bold">{counts.total}</p>
               <p className="text-xs text-muted-foreground">Semua Kurier</p>
+              <p className="text-[11px] mt-0.5 flex items-center gap-2">
+                <span className="text-orange-600 font-medium">COD {counts.cod}</span>
+                <span className="text-green-600 font-medium">Cash {counts.cash}</span>
+              </p>
             </CardContent>
           </Card>
-          {Object.entries(courierCounts).sort((a, b) => b[1] - a[1]).map(([courier, n]) => (
+          {Object.entries(courierStats).sort((a, b) => b[1].n - a[1].n).map(([courier, st]) => (
             <Card
               key={courier}
               className={`cursor-pointer transition-colors ${courierFilter === courier ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
               onClick={() => { setCourierFilter(courierFilter === courier ? "All" : courier); handleFilterChange(); }}
             >
               <CardContent className="py-3 px-4">
-                <p className="text-lg font-bold">{n}</p>
+                <p className="text-lg font-bold">{st.n}</p>
                 <p className="text-xs text-muted-foreground">{courier}</p>
+                <p className="text-[11px] mt-0.5 flex items-center gap-2">
+                  <span className="text-orange-600 font-medium">COD {st.cod}</span>
+                  <span className="text-green-600 font-medium">Cash {st.cash}</span>
+                </p>
               </CardContent>
             </Card>
           ))}

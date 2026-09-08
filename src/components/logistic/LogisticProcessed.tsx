@@ -41,6 +41,8 @@ import {
   Receipt,
   Ban,
   ExternalLink,
+  Package,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -344,17 +346,30 @@ const LogisticProcessed = () => {
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Counts - all platforms now use NinjaVan
+  const isCodOrder = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
+  const isPickupOrder = (o: any) => (o.kurier || "").toUpperCase().includes("PICKUP");
+
   const counts = {
     total: orders.length,
     ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
     ninjavanCash: orders.filter((o: any) => o.type_payment === "CASH").length,
+    cod: orders.filter(isCodOrder).length,
+    cash: orders.filter((o: any) => !isCodOrder(o)).length,
+    pickup: orders.filter(isPickupOrder).length,
+    success: orders.filter((o: any) => o.delivery_status === "Success").length,
+    returned: orders.filter((o: any) => o.delivery_status === "Return").length,
   };
 
-  const courierCounts = orders.reduce((acc: Record<string, number>, o: any) => {
+  // Per-courier split: count + COD/Cash + Success/Return, for the clickable cards.
+  const courierStats = orders.reduce((acc: Record<string, { n: number; cod: number; cash: number; success: number; returned: number }>, o: any) => {
     const c = baseCourier(o.kurier);
-    acc[c] = (acc[c] || 0) + 1;
+    const e = acc[c] || (acc[c] = { n: 0, cod: 0, cash: 0, success: 0, returned: 0 });
+    e.n++;
+    isCodOrder(o) ? e.cod++ : e.cash++;
+    if (o.delivery_status === "Success") e.success++;
+    if (o.delivery_status === "Return") e.returned++;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { n: number; cod: number; cash: number; success: number; returned: number }>);
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -706,10 +721,44 @@ const LogisticProcessed = () => {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Package className="w-6 h-6 text-blue-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.pickup}</p>
+                <p className="text-xs text-muted-foreground">Total Pickup</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
+              <div>
+                <p className="text-xl font-bold">{counts.success}</p>
+                <p className="text-xs text-muted-foreground">Total Success</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-6 h-6 text-red-500" />
+              <div>
+                <p className="text-xl font-bold">{counts.returned}</p>
+                <p className="text-xs text-muted-foreground">Total Return</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Courier summary cards — click a card to filter the table by that courier */}
-      {Object.keys(courierCounts).length > 0 && (
+      {/* Courier summary cards — click a card to filter the table by that courier.
+          Each shows COD/Cash + Success/Return. */}
+      {Object.keys(courierStats).length > 0 && (
         <div className="flex flex-wrap gap-3">
           <Card
             className={`cursor-pointer transition-colors ${courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
@@ -718,17 +767,33 @@ const LogisticProcessed = () => {
             <CardContent className="py-3 px-4">
               <p className="text-lg font-bold">{counts.total}</p>
               <p className="text-xs text-muted-foreground">Semua Kurier</p>
+              <p className="text-[11px] mt-0.5 flex items-center gap-2">
+                <span className="text-orange-600 font-medium">COD {counts.cod}</span>
+                <span className="text-green-600 font-medium">Cash {counts.cash}</span>
+              </p>
+              <p className="text-[11px] flex items-center gap-2">
+                <span className="text-green-600 font-medium">Success {counts.success}</span>
+                <span className="text-red-600 font-medium">Return {counts.returned}</span>
+              </p>
             </CardContent>
           </Card>
-          {Object.entries(courierCounts).sort((a, b) => b[1] - a[1]).map(([courier, n]) => (
+          {Object.entries(courierStats).sort((a, b) => b[1].n - a[1].n).map(([courier, st]) => (
             <Card
               key={courier}
               className={`cursor-pointer transition-colors ${courierFilter === courier ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
               onClick={() => { setCourierFilter(courierFilter === courier ? "All" : courier); handleFilterChange(); }}
             >
               <CardContent className="py-3 px-4">
-                <p className="text-lg font-bold">{n}</p>
+                <p className="text-lg font-bold">{st.n}</p>
                 <p className="text-xs text-muted-foreground">{courier}</p>
+                <p className="text-[11px] mt-0.5 flex items-center gap-2">
+                  <span className="text-orange-600 font-medium">COD {st.cod}</span>
+                  <span className="text-green-600 font-medium">Cash {st.cash}</span>
+                </p>
+                <p className="text-[11px] flex items-center gap-2">
+                  <span className="text-green-600 font-medium">Success {st.success}</span>
+                  <span className="text-red-600 font-medium">Return {st.returned}</span>
+                </p>
               </CardContent>
             </Card>
           ))}

@@ -160,29 +160,43 @@ const LogisticPendingTracking = () => {
   // a Return, so logistic should act on these first.
   const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not available|no answer|wrong address|attempt|tidak dapat|return/i;
   const isProblematic = (o: any) => PROBLEM_RE.test(o.seos || "");
+  const isCod = (o: any) => o.type_payment === "COD" || (o.kurier || "").includes("COD");
 
-  // Counts (unit = main product qty, already stored on the order)
+  // Courier name from the kurier field ("JNT COD" -> "JNT").
+  const baseCourier = (kurier?: string): string => {
+    const k = (kurier || "").toLowerCase();
+    if (k.includes("poslaju")) return "Poslaju";
+    if (k.includes("ninjavan")) return "Ninjavan";
+    if (k.includes("jnt")) return "JNT";
+    if (k.includes("dhl")) return "DHL";
+    if (k.includes("spx")) return "SPX";
+    if (k.includes("tiktok")) return "Kurier Tiktok";
+    if (k.includes("shopee")) return "Kurier Shopee";
+    return (kurier || "").replace(/\s+(COD|CASH)$/i, "").trim() || "Lain";
+  };
+
+  // Counts — all rows here are SHIPPED (pickup already excluded above).
   const counts = {
     total: filteredOrders.length,
-    cod: filteredOrders.filter((o: any) => o.type_payment === "COD").length,
-    cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
+    cod: filteredOrders.filter(isCod).length,
+    cash: filteredOrders.filter((o: any) => !isCod(o)).length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
-    totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0),
     problematic: filteredOrders.filter(isProblematic).length,
   };
 
-  // Platform breakdown
-  const PLATFORM_NAMES = ["Facebook", "Threads", "Tiktok", "Database", "Google"];
-  const platformStats = PLATFORM_NAMES.map((name) => {
-    const platformOrders = filteredOrders.filter((o: any) => (o.jenis_platform || "Manual") === name);
-    return {
-      name,
-      total: platformOrders.length,
-      cod: platformOrders.filter((o: any) => o.type_payment === "COD").length,
-      cashOnline: platformOrders.filter((o: any) => o.type_payment !== "COD").length,
-      units: platformOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0),
-    };
-  });
+  // Per-courier breakdown: Shipped / COD / Cash / Problematic.
+  const courierStats = (() => {
+    const map = new Map<string, { name: string; total: number; cod: number; cash: number; problematic: number }>();
+    for (const o of filteredOrders) {
+      const name = baseCourier(o.kurier);
+      const e = map.get(name) || { name, total: 0, cod: 0, cash: 0, problematic: 0 };
+      e.total++;
+      isCod(o) ? e.cod++ : e.cash++;
+      if (isProblematic(o)) e.problematic++;
+      map.set(name, e);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  })();
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -310,19 +324,26 @@ const LogisticPendingTracking = () => {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Stats Cards — Total Shipped / COD / Cash / Problematic (pickup excluded) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <Clock className="w-8 h-8 text-purple-500" />
               <div>
                 <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">In Transit</p>
-                <div className="flex gap-2 mt-1 text-xs">
-                  <span className="text-orange-600">{counts.cod} COD</span>
-                  <span className="text-green-600">{counts.cashOnline} CASH</span>
-                </div>
+                <p className="text-sm text-muted-foreground">Total Shipped</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-8 h-8 text-orange-500" />
+              <div>
+                <p className="text-2xl font-bold text-orange-600">{counts.cod}</p>
+                <p className="text-sm text-muted-foreground">Total COD</p>
               </div>
             </div>
           </CardContent>
@@ -332,8 +353,8 @@ const LogisticPendingTracking = () => {
             <div className="flex items-center gap-3">
               <DollarSign className="w-8 h-8 text-green-500" />
               <div>
-                <p className="text-2xl font-bold">RM {counts.totalSales.toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground">Total Value</p>
+                <p className="text-2xl font-bold text-green-600">{counts.cash}</p>
+                <p className="text-sm text-muted-foreground">Total Cash</p>
               </div>
             </div>
           </CardContent>
@@ -346,25 +367,28 @@ const LogisticPendingTracking = () => {
               <AlertTriangle className={`w-8 h-8 ${counts.problematic > 0 ? "text-red-500" : "text-muted-foreground"}`} />
               <div>
                 <p className={`text-2xl font-bold ${counts.problematic > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{counts.problematic}</p>
-                <p className="text-sm text-muted-foreground">Problematic Order</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Shipped — parcel status ada masalah</p>
+                <p className="text-sm text-muted-foreground">Total Problematic</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Platform Breakdown */}
+      {/* Kurier breakdown — per courier: Shipped / COD / Cash / Problematic */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {platformStats.map((ps) => (
-          <Card key={ps.name} className={ps.total > 0 ? "border-l-4 border-l-purple-500" : ""}>
+        {courierStats.map((cs) => (
+          <Card key={cs.name} className={cs.problematic > 0 ? "border-l-4 border-l-red-500" : "border-l-4 border-l-purple-500"}>
             <CardContent className="p-4">
               <div>
-                <p className="text-sm font-semibold">{ps.name}</p>
-                <p className="text-xl font-bold">{ps.total}</p>
-                <div className="flex gap-2 mt-1 text-xs">
-                  <span className="text-orange-600">{ps.cod} COD</span>
-                  <span className="text-green-600">{ps.cashOnline} CASH</span>
+                <p className="text-sm font-semibold">{cs.name}</p>
+                <p className="text-xl font-bold">{cs.total}</p>
+                <p className="text-[11px] text-muted-foreground">Shipped</p>
+                <div className="flex gap-2 mt-1 text-xs flex-wrap">
+                  <span className="text-orange-600">{cs.cod} COD</span>
+                  <span className="text-green-600">{cs.cash} Cash</span>
+                </div>
+                <div className="mt-0.5 text-xs">
+                  <span className={cs.problematic > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>{cs.problematic} Problematic</span>
                 </div>
               </div>
             </CardContent>
