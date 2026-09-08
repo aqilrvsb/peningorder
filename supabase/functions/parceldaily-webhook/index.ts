@@ -426,6 +426,14 @@ serve(async (req) => {
       action = "connote_link";
     }
 
+    // Stamp that a webhook touched this order today, so the nightly reconcile
+    // (safety net for missed webhooks) skips it — it clearly still gets events.
+    if (matched?.id) {
+      await supabase.from("customer_purchases")
+        .update({ last_webhook_at: new Date().toISOString() })
+        .eq("id", matched.id);
+    }
+
     logEntry.parsed_data = { event, consignNo, orderId, action, matched_id: matched?.id };
     logEntry.response_status = 200;
     logEntry.processing_time_ms = Date.now() - startedAt;
