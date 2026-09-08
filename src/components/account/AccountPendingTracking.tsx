@@ -37,6 +37,7 @@ import {
   Download,
   Filter,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -157,6 +158,13 @@ const AccountPendingTracking = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Overdue COD safety net: a delivered COD sitting here uncollected for too long
+  // likely means a COD_REMITTED webhook was missed (ParcelDaily has no remittance
+  // API to poll). Flag it so Finance chases the remittance.
+  const OVERDUE_DAYS = 7;
+  const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0);
+  const isOverdue = (o: any) => daysSince(o.date_processed || o.date_order) > OVERDUE_DAYS;
+
   // Counts
   const counts = {
     total: filteredOrders.length,
@@ -164,6 +172,7 @@ const AccountPendingTracking = () => {
     cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
     totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + getOrderUnits(o), 0),
+    overdue: filteredOrders.filter(isOverdue).length,
   };
 
   // Platform breakdown (Facebook, Threads, Tiktok, Database, Google)
@@ -452,7 +461,7 @@ const AccountPendingTracking = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
@@ -475,6 +484,20 @@ const AccountPendingTracking = () => {
               <div>
                 <p className="text-2xl font-bold">{counts.totalUnits}</p>
                 <p className="text-sm text-muted-foreground">Total Unit</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* Remittance overdue — delivered COD uncollected > 7 days (possible
+            missed COD_REMITTED webhook). Highlighted red in the table below. */}
+        <Card className={counts.overdue > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className={`w-8 h-8 ${counts.overdue > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+              <div>
+                <p className={`text-2xl font-bold ${counts.overdue > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{counts.overdue}</p>
+                <p className="text-sm text-muted-foreground">Remittance Overdue</p>
+                <p className="text-xs text-muted-foreground mt-0.5">COD &gt; {OVERDUE_DAYS} hari belum settle</p>
               </div>
             </div>
           </CardContent>
@@ -679,7 +702,12 @@ const AccountPendingTracking = () => {
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((order: any, index: number) => (
-                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                        <tr
+                          key={order.id}
+                          className={`border-b hover:bg-muted/30 ${
+                            isOverdue(order) ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500" : ""
+                          }`}
+                        >
                           <td className="p-3">
                             <Checkbox
                               checked={selectedOrders.has(order.id)}
