@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Banknote, Receipt, LinkIcon, Loader2, Calendar, ExternalLink, Eye } from 'lucide-react';
+import { Banknote, Loader2, Calendar, ExternalLink, Eye, Package, Truck } from 'lucide-react';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
@@ -22,6 +22,7 @@ type CashOrder = {
   bank_payment: string | null;
   tracking_number: string | null;
   type_payment: string | null;
+  kurier: string | null;
   marketer_id_staff: string | null;
   receipt_payment_url: string | null;
   receipt_payment_type: string | null;
@@ -36,13 +37,28 @@ const proofType = (o: CashOrder): 'image' | 'link' | 'none' => {
   return o.receipt_payment_url.includes('vercel-storage.com') ? 'image' : 'link';
 };
 
+// Normalise a stored kurier to its base courier for grouping + filtering.
+const baseCourier = (kurier?: string): string => {
+  const k = (kurier || '').toLowerCase();
+  if (k.includes('poslaju')) return 'Poslaju';
+  if (k.includes('ninjavan')) return 'Ninjavan';
+  if (k.includes('jnt')) return 'JNT';
+  if (k.includes('dhl')) return 'DHL';
+  if (k.includes('spx')) return 'SPX';
+  if (k.includes('tiktok')) return 'Tiktok';
+  return kurier?.trim() || 'Lain';
+};
+
 const AccountOrderCash: React.FC = () => {
   const [orders, setOrders] = useState<CashOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [teamFilter, setTeamFilter] = useState('');
-  const [box, setBox] = useState<'all' | 'receipt' | 'link' | 'cash' | 'pickup'>('all');
+  // Independent filters so a courier box and a proof sub-line can compose.
+  const [payFilter, setPayFilter] = useState<'All' | 'CASH' | 'Pickup'>('All');
+  const [proofFilter, setProofFilter] = useState<'All' | 'image' | 'link' | 'none'>('All');
+  const [courierFilter, setCourierFilter] = useState<string>('All');
   const [viewing, setViewing] = useState<CashOrder | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -55,7 +71,7 @@ const AccountOrderCash: React.FC = () => {
       const data = await fetchAllRows<CashOrder>(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, type_payment, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
+          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, type_payment, kurier, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
           .in('type_payment', ['CASH', 'Pickup'])
           .gte('date_order', startDate)
           .lte('date_order', endDate)
@@ -72,41 +88,65 @@ const AccountOrderCash: React.FC = () => {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [startDate, endDate]);
 
   const isPickup = (o: CashOrder) => (o.type_payment || '') === 'Pickup';
-  const hasProof = (o: CashOrder) => proofType(o) !== 'none';
+  // Group key for the by-Kurier summary: pickup self-collect has no courier.
+  const courierOf = (o: CashOrder) => (isPickup(o) ? 'Pickup' : baseCourier(o.kurier || undefined));
+
+  // A proof breakdown {total, resit(image), link, tiada(none)} for any subset.
+  const breakdown = (arr: CashOrder[]) => ({
+    total: arr.length,
+    resit: arr.filter((o) => proofType(o) === 'image').length,
+    link: arr.filter((o) => proofType(o) === 'link').length,
+    tiada: arr.filter((o) => proofType(o) === 'none').length,
+  });
 
   const counts = useMemo(() => {
     const teamed = teamFilter ? orders.filter((o) => (o.marketer_id_staff || '') === teamFilter) : orders;
     const cash = teamed.filter((o) => !isPickup(o));
     const pickup = teamed.filter((o) => isPickup(o));
+    // By-courier groups (across CASH + PICKUP), sorted by volume.
+    const byCourier = new Map<string, CashOrder[]>();
+    teamed.forEach((o) => {
+      const c = courierOf(o);
+      if (!byCourier.has(c)) byCourier.set(c, []);
+      byCourier.get(c)!.push(o);
+    });
+    const couriers = Array.from(byCourier.entries())
+      .map(([name, arr]) => ({ name, ...breakdown(arr) }))
+      .sort((a, b) => b.total - a.total);
     return {
       all: teamed.length,
-      receipt: teamed.filter((o) => proofType(o) === 'image').length,
-      link: teamed.filter((o) => proofType(o) === 'link').length,
-      cash: cash.length,
-      cashWithProof: cash.filter(hasProof).length,
-      cashNoProof: cash.filter((o) => !hasProof(o)).length,
-      pickup: pickup.length,
-      pickupWithProof: pickup.filter(hasProof).length,
-      pickupNoProof: pickup.filter((o) => !hasProof(o)).length,
+      cash: breakdown(cash),
+      pickup: breakdown(pickup),
+      couriers,
     };
   }, [orders, teamFilter]);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       if (teamFilter && (o.marketer_id_staff || '') !== teamFilter) return false;
-      if (box === 'receipt') return proofType(o) === 'image';
-      if (box === 'link') return proofType(o) === 'link';
-      if (box === 'cash') return !isPickup(o);
-      if (box === 'pickup') return isPickup(o);
+      if (payFilter === 'CASH' && isPickup(o)) return false;
+      if (payFilter === 'Pickup' && !isPickup(o)) return false;
+      if (proofFilter !== 'All' && proofType(o) !== proofFilter) return false;
+      if (courierFilter !== 'All' && courierOf(o) !== courierFilter) return false;
       return true;
     });
-  }, [orders, teamFilter, box]);
+  }, [orders, teamFilter, payFilter, proofFilter, courierFilter]);
 
   const totalCash = useMemo(() => filtered.reduce((s, o) => s + (Number(o.total_sale) || 0), 0), [filtered]);
 
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => { setPage(1); }, [teamFilter, box, startDate, endDate]);
+  useEffect(() => { setPage(1); }, [teamFilter, payFilter, proofFilter, courierFilter, startDate, endDate]);
+
+  // Box/sub-line filter helpers. Setting pay/courier resets proof unless one is given.
+  const setFilter = (opts: { pay?: 'All' | 'CASH' | 'Pickup'; proof?: 'All' | 'image' | 'link' | 'none'; courier?: string }) => {
+    setPayFilter(opts.pay ?? 'All');
+    setCourierFilter(opts.courier ?? 'All');
+    setProofFilter(opts.proof ?? 'All');
+  };
+  const allCleared = payFilter === 'All' && proofFilter === 'All' && courierFilter === 'All';
+  const boxCls = (active: boolean) =>
+    `rounded-xl border p-4 text-left transition-colors ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'}`;
 
   return (
     <div className="p-6 space-y-6">
@@ -114,8 +154,8 @@ const AccountOrderCash: React.FC = () => {
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Banknote className="w-6 h-6" /></span>
         <div>
-          <h1 className="text-2xl font-bold">Order Cash</h1>
-          <p className="text-muted-foreground text-sm">Semua order CASH dengan bukti bayaran (resit atau link), ikut tarikh order.</p>
+          <h1 className="text-2xl font-bold">Order CASH + PICKUP</h1>
+          <p className="text-muted-foreground text-sm">Semua order CASH &amp; PICKUP dengan bukti bayaran (resit atau link), ikut tarikh order.</p>
         </div>
       </div>
 
@@ -139,44 +179,57 @@ const AccountOrderCash: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary boxes (clickable filter) */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">
+      {/* Summary — Total Order (CASH+PICKUP), Total CASH, Total PICKUP.
+          The three proof sub-lines under CASH/PICKUP are themselves clickable. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {/* Total Order — clears every filter */}
+        <button onClick={() => setFilter({})} className={boxCls(allCleared)}>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Banknote className="w-4 h-4" />Total Order (CASH + PICKUP)</p>
+          <p className="text-2xl font-bold mt-1 text-primary">{counts.all}</p>
+        </button>
+
+        {/* Total CASH */}
         {([
-          { key: 'all', label: 'All', value: counts.all, icon: <Banknote className="w-4 h-4" />, accent: 'text-primary' },
-          { key: 'receipt', label: 'Receipt', value: counts.receipt, icon: <Receipt className="w-4 h-4" />, accent: 'text-emerald-600 dark:text-emerald-400' },
-          { key: 'link', label: 'Link', value: counts.link, icon: <LinkIcon className="w-4 h-4" />, accent: 'text-blue-600 dark:text-blue-400' },
-        ] as const).map((b) => (
-          <button
-            key={b.key}
-            onClick={() => setBox(b.key)}
-            className={`rounded-xl border p-4 text-left transition-colors ${box === b.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'}`}
-          >
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">{b.icon}{b.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.value}</p>
-          </button>
+          { pay: 'CASH' as const, label: 'Total CASH', bd: counts.cash, accent: 'text-green-600 dark:text-green-400' },
+          { pay: 'Pickup' as const, label: 'Total PICKUP', bd: counts.pickup, accent: 'text-blue-600 dark:text-blue-400' },
+        ]).map((b) => (
+          <div key={b.pay} className={boxCls(payFilter === b.pay)}>
+            <button onClick={() => setFilter({ pay: b.pay })} className="w-full text-left">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
+              <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.bd.total}</p>
+            </button>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+              <button onClick={() => setFilter({ pay: b.pay, proof: 'image' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'image' ? 'font-bold underline' : ''} text-emerald-600 dark:text-emerald-400`}>Resit {b.bd.resit}</button>
+              <button onClick={() => setFilter({ pay: b.pay, proof: 'link' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'link' ? 'font-bold underline' : ''} text-blue-600 dark:text-blue-400`}>Link {b.bd.link}</button>
+              <button onClick={() => setFilter({ pay: b.pay, proof: 'none' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'none' ? 'font-bold underline' : ''} text-red-600 dark:text-red-400`}>Tiada Both {b.bd.tiada}</button>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Total Cash / Total Pickup — with ada-resit vs xde-resit breakdown (clickable) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
-        {([
-          { key: 'cash', label: 'Total Cash', total: counts.cash, withProof: counts.cashWithProof, noProof: counts.cashNoProof, accent: 'text-green-600 dark:text-green-400' },
-          { key: 'pickup', label: 'Total Pickup', total: counts.pickup, withProof: counts.pickupWithProof, noProof: counts.pickupNoProof, accent: 'text-blue-600 dark:text-blue-400' },
-        ] as const).map((b) => (
-          <button
-            key={b.key}
-            onClick={() => setBox(box === b.key ? 'all' : b.key)}
-            className={`rounded-xl border p-4 text-left transition-colors ${box === b.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'}`}
-          >
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.total}</p>
-            <div className="flex gap-3 mt-1 text-xs">
-              <span className="text-emerald-600 dark:text-emerald-400">{b.withProof} ada resit</span>
-              <span className="text-red-600 dark:text-red-400">{b.noProof} xde resit</span>
-            </div>
-          </button>
-        ))}
-      </div>
+      {/* Summary by Kurier — each courier with proof breakdown, all clickable */}
+      {counts.couriers.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5"><Truck className="w-4 h-4" />Ringkasan Ikut Kurier</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {counts.couriers.map((c) => (
+              <div key={c.name} className={boxCls(courierFilter === c.name)}>
+                <button onClick={() => setFilter({ courier: c.name })} className="w-full text-left">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                    {c.name === 'Pickup' ? <Package className="w-4 h-4" /> : <Truck className="w-4 h-4" />}{c.name}
+                  </p>
+                  <p className="text-2xl font-bold mt-1 text-foreground">{c.total}</p>
+                </button>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+                  <button onClick={() => setFilter({ courier: c.name, proof: 'none' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'none' ? 'font-bold underline' : ''} text-red-600 dark:text-red-400`}>Tiada {c.tiada}</button>
+                  <button onClick={() => setFilter({ courier: c.name, proof: 'image' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'image' ? 'font-bold underline' : ''} text-emerald-600 dark:text-emerald-400`}>Resit {c.resit}</button>
+                  <button onClick={() => setFilter({ courier: c.name, proof: 'link' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'link' ? 'font-bold underline' : ''} text-blue-600 dark:text-blue-400`}>Link {c.link}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
