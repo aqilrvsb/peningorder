@@ -129,6 +129,7 @@ const Orders: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
   const [collectionFilter, setCollectionFilter] = useState("All");
+  const [paymentFilter, setPaymentFilter] = useState("All"); // All | Cash | COD | Pickup (clickable boxes)
   const [teamFilter, setTeamFilter] = useState('');
   const { nameByIdstaff } = useTeam();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -183,38 +184,58 @@ const Orders: React.FC = () => {
   // Widen the server-side fetch window if the user filters earlier than loaded
   React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
 
-  const filteredOrders = useMemo(() => {
+  // baseOrders = team + search + date only. The summary boxes are computed from
+  // THIS set, so their totals stay stable and clicking a box narrows the table
+  // (payment / delivery / collection) without changing the box numbers.
+  const baseOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Team filter: a client can narrow to one staff (marketer_id_staff).
       if (teamFilter && (order.marketerIdStaff || '') !== teamFilter) return false;
-
-      // Delivery status filter (Pending / Shipped / Return / Success)
-      if (deliveryStatusFilter !== "All" && order.deliveryStatus !== deliveryStatusFilter) {
-        return false;
-      }
-
-      // Collection status filter
-      if (collectionFilter !== "All") {
-        const target = collectionFilter === 'Collection' ? 'Success' : collectionFilter === 'Remaining' ? 'Pending' : collectionFilter;
-        if (getCollectionStatus(order) !== target) {
-          return false;
-        }
-      }
-
       const matchesSearch =
         order.noTempahan.toLowerCase().includes(search.toLowerCase()) ||
         order.produk.toLowerCase().includes(search.toLowerCase()) ||
         order.marketerName.toLowerCase().includes(search.toLowerCase()) ||
         order.noPhone.toLowerCase().includes(search.toLowerCase()) ||
         (order.noTracking || '').toLowerCase().includes(search.toLowerCase());
-
       const orderDate = order.dateOrder || order.tarikhTempahan;
       const matchesStartDate = !startDate || orderDate >= startDate;
       const matchesEndDate = !endDate || orderDate <= endDate;
-
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [orders, search, startDate, endDate, deliveryStatusFilter, collectionFilter, teamFilter]);
+  }, [orders, search, startDate, endDate, teamFilter]);
+
+  const filteredOrders = useMemo(() => {
+    return baseOrders.filter((order) => {
+      // Payment box filter — Pickup by kurier, else CASH/COD.
+      if (paymentFilter !== "All") {
+        const isCodO = order.caraBayaran === 'COD' || (order.kurier?.includes('COD') ?? false);
+        const isPickupO = (order.kurier || '').toUpperCase().includes('PICKUP');
+        if (paymentFilter === 'Pickup' && !isPickupO) return false;
+        if (paymentFilter === 'COD' && !isCodO) return false;
+        if (paymentFilter === 'Cash' && (isCodO || isPickupO)) return false;
+      }
+
+      // Delivery status box filter. "Shipped" = ever shipped (Shipped/Success/Return);
+      // "RemainingShip" = shipped but not yet Success/Return (delivery_status Shipped).
+      if (deliveryStatusFilter !== "All") {
+        const ds = order.deliveryStatus;
+        if (deliveryStatusFilter === 'Shipped') {
+          if (!['Shipped', 'Success', 'Return'].includes(ds)) return false;
+        } else if (deliveryStatusFilter === 'RemainingShip') {
+          if (ds !== 'Shipped') return false;
+        } else if (ds !== deliveryStatusFilter) {
+          return false;
+        }
+      }
+
+      // Collection status filter
+      if (collectionFilter !== "All") {
+        const target = collectionFilter === 'Collection' ? 'Success' : collectionFilter === 'Remaining' ? 'Pending' : collectionFilter;
+        if (getCollectionStatus(order) !== target) return false;
+      }
+
+      return true;
+    });
+  }, [baseOrders, deliveryStatusFilter, collectionFilter, paymentFilter]);
 
   // Pagination
   const effectivePageSize = pageSize === "All" ? filteredOrders.length : pageSize;
@@ -225,13 +246,22 @@ const Orders: React.FC = () => {
 
   // Calculate stats - use filteredOrders to match date range filters
   const stats = useMemo(() => {
+    // Boxes are computed from baseOrders (team/search/date only) so their totals
+    // stay stable while clicking a box narrows the table. (Local shadow.)
+    const filteredOrders = baseOrders;
     const totalCustomer = filteredOrders.length;
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalUnit = filteredOrders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
-    const totalCash = filteredOrders.filter(o => o.caraBayaran === 'CASH' || o.kurier?.includes('CASH')).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const isPickupO = (o: any) => (o.kurier || '').toUpperCase().includes('PICKUP');
+    const totalCash = filteredOrders.filter(o => !isPickupO(o) && (o.caraBayaran === 'CASH' || o.kurier?.includes('CASH'))).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalCOD = filteredOrders.filter(o => o.caraBayaran === 'COD' || o.kurier?.includes('COD')).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    const totalPickup = filteredOrders.filter(isPickupO).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
-    const totalShipped = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
+    const totalRejected = filteredOrders.filter(o => o.deliveryStatus === 'Rejected').length;
+    // Shipped = ever shipped (in transit + delivered + returned); RemainingShip =
+    // shipped but not yet Success/Return (still in transit).
+    const totalShipped = filteredOrders.filter(o => ['Shipped', 'Success', 'Return'].includes(o.deliveryStatus)).length;
+    const totalRemainingShip = filteredOrders.filter(o => o.deliveryStatus === 'Shipped').length;
 
     // Success = delivered (webhook set delivery_status = Success when seo = Successful Delivery)
     const successOrders = filteredOrders.filter(o => o.deliveryStatus === 'Success');
@@ -285,10 +315,11 @@ const Orders: React.FC = () => {
 
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
+      totalPickup, totalRejected, totalRemainingShip,
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
       totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, totalSalesPospada, split
     };
-  }, [filteredOrders]);
+  }, [baseOrders]);
 
   const resetFilters = () => {
     setSearch('');
@@ -802,6 +833,18 @@ ${trackingUrl}`;
     }
   };
 
+  // Click a summary box → filter the table on a single dimension (payment /
+  // delivery / collection); the box totals stay stable (computed from baseOrders).
+  const boxFilter = (opts: { pay?: string; del?: string; coll?: string }) => {
+    setPaymentFilter(opts.pay ?? "All");
+    setDeliveryStatusFilter(opts.del ?? "All");
+    setCollectionFilter(opts.coll ?? "All");
+    setCurrentPage(1);
+  };
+  const allCleared = paymentFilter === "All" && deliveryStatusFilter === "All" && collectionFilter === "All";
+  const boxCls = (active: boolean) =>
+    `cursor-pointer transition-all ${active ? "ring-2 ring-primary" : "hover:border-primary/60 hover:shadow-sm"}`;
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -812,9 +855,10 @@ ${trackingUrl}`;
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
-        <div className="bg-card border border-border rounded-lg p-4">
+      {/* Stats — Row 1: money & collection (clickable). Boxes computed from
+          baseOrders so totals stay stable while a click narrows the table. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div onClick={() => boxFilter({})} className={`bg-card border border-border rounded-lg p-4 ${boxCls(allCleared)}`}>
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="w-4 h-4 text-blue-500" />
             <span className="text-xs uppercase font-medium">Total Customer</span>
@@ -823,7 +867,7 @@ ${trackingUrl}`;
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.customer.cash} · COD {stats.split.customer.cod}</p>
         </div>
 
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({})} className={`bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 ${boxCls(false)}`}>
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total Sales</span>
@@ -831,17 +875,7 @@ ${trackingUrl}`;
           <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">RM {formatRM(stats.totalSales)}</p>
         </div>
 
-        {pospadaEnabled && (
-          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
-              <Calendar className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Total Sales Pospada</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">RM {formatRM(stats.totalSalesPospada)}</p>
-          </div>
-        )}
-
-        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ pay: "Cash" })} className={`bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 ${boxCls(paymentFilter === "Cash")}`}>
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total Cash</span>
@@ -849,7 +883,7 @@ ${trackingUrl}`;
           <p className="text-2xl font-bold text-green-700 dark:text-green-300">RM {formatRM(stats.totalCash)}</p>
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ pay: "COD" })} className={`bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 ${boxCls(paymentFilter === "COD")}`}>
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Total COD</span>
@@ -857,7 +891,15 @@ ${trackingUrl}`;
           <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {formatRM(stats.totalCOD)}</p>
         </div>
 
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ pay: "Pickup" })} className={`bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-lg p-4 ${boxCls(paymentFilter === "Pickup")}`}>
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 mb-1">
+            <Package className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Total Pickup</span>
+          </div>
+          <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">RM {formatRM(stats.totalPickup)}</p>
+        </div>
+
+        <div onClick={() => boxFilter({ coll: "Collection" })} className={`bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 ${boxCls(collectionFilter === "Collection")}`}>
           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
             <DollarSign className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Collection</span>
@@ -867,17 +909,31 @@ ${trackingUrl}`;
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.collection.cash)} · COD RM {formatRM(stats.split.collection.cod)}</p>
         </div>
 
-        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ coll: "Remaining" })} className={`bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4 ${boxCls(collectionFilter === "Remaining")}`}>
           <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
             <Clock className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Remaining</span>
+            <span className="text-xs uppercase font-medium">Remain Coll</span>
           </div>
           <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
           <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {formatRM(stats.totalSalesRemaining)}</p>
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.remaining.cash)} · COD RM {formatRM(stats.split.remaining.cod)}</p>
         </div>
 
-        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+        {pospadaEnabled && (
+          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+              <Calendar className="w-4 h-4" />
+              <span className="text-xs uppercase font-medium">Sales Pospada</span>
+            </div>
+            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">RM {formatRM(stats.totalSalesPospada)}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Stats — Row 2: lifecycle (clickable) + costs.
+          Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div onClick={() => boxFilter({ del: "Pending" })} className={`bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Pending")}`}>
           <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
             <Clock className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Pending</span>
@@ -886,16 +942,33 @@ ${trackingUrl}`;
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.pending.cash} · COD {stats.split.pending.cod}</p>
         </div>
 
-        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ del: "Rejected" })} className={`bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Rejected")}`}>
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-1">
+            <Ban className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Rejected</span>
+          </div>
+          <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{stats.totalRejected}</p>
+        </div>
+
+        <div onClick={() => boxFilter({ del: "Shipped" })} className={`bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Shipped")}`}>
           <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
             <Truck className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Shipped</span>
           </div>
           <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.shipped.cash} · COD {stats.split.shipped.cod}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">ever shipped</p>
         </div>
 
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ del: "RemainingShip" })} className={`bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "RemainingShip")}`}>
+          <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 mb-1">
+            <Truck className="w-4 h-4" />
+            <span className="text-xs uppercase font-medium">Remaining Ship</span>
+          </div>
+          <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-300">{stats.totalRemainingShip}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">in transit</p>
+        </div>
+
+        <div onClick={() => boxFilter({ del: "Success" })} className={`bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Success")}`}>
           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
             <Package className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Success</span>
@@ -905,7 +978,7 @@ ${trackingUrl}`;
           <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.success.cash)} · COD RM {formatRM(stats.split.success.cod)}</p>
         </div>
 
-        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div onClick={() => boxFilter({ del: "Return" })} className={`bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Return")}`}>
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
             <RotateCw className="w-4 h-4" />
             <span className="text-xs uppercase font-medium">Return</span>
@@ -913,7 +986,6 @@ ${trackingUrl}`;
           <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {formatRM(stats.totalSalesReturn)}</p>
           <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.ret.cash)} · COD RM {formatRM(stats.split.ret.cod)}</p>
         </div>
 
         <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
