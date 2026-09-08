@@ -84,7 +84,7 @@ serve(async (req) => {
     // today — oldest first so the cursor rotates the whole backlog through the day.
     const { data: pool, error: poolErr } = await admin
       .from("customer_purchases")
-      .select("id, owner_user_id, tracking_number, delivery_status, type_payment, date_processed, seos")
+      .select("id, owner_user_id, tracking_number, delivery_status, type_payment, date_processed, date_return, seos")
       .eq("delivery_status", "Shipped")
       .not("tracking_number", "is", null)
       .neq("tracking_number", "")
@@ -162,6 +162,8 @@ serve(async (req) => {
             delivered++;
           } else if (cls === "Return") {
             upd.delivery_status = "Return";
+            // Stamp date_return so it surfaces in the Return tab (filtered by it).
+            if (!o.date_return) upd.date_return = dateStr;
             returned++;
           } else {
             seosUpdated++;

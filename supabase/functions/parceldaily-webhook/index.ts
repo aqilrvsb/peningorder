@@ -232,7 +232,7 @@ serve(async (req) => {
     // 1) Try to locate the customer_purchases row this webhook is about.
     //    We stamp orderId at create-time and tracking_number after CHECKOUT/STATUS webhooks.
     const findRow = async (): Promise<any> => {
-      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, bundle:logistic_bundles(name)";
+      const cols = "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, date_return, bundle:logistic_bundles(name)";
       if (consignNo) {
         const r = await supabase.from("customer_purchases").select(cols).eq("tracking_number", consignNo).maybeSingle();
         if (r.data) return r.data;
@@ -324,6 +324,9 @@ serve(async (req) => {
                 delivery_status: isDelivered ? "Success" : "Return",
                 seos: rawStatus,
                 seo: isDelivered ? "Successful Delivery" : null,
+                // Stamp date_return on a return so it surfaces in the Return tab
+                // (which filters by date_return). Only set it once.
+                ...(isReturn && !matched.date_return ? { date_return: mYmd } : {}),
                 // If it was still Pending (never manually processed), stamp a
                 // processed date so it's recorded as handled.
                 ...(matched.delivery_status === "Pending" ? { date_processed: mYmd } : {}),
