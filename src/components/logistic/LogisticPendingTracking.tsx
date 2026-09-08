@@ -29,6 +29,7 @@ import {
   MessageCircle,
   Filter,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -153,6 +154,13 @@ const LogisticPendingTracking = () => {
     currentPage * pageSize
   );
 
+  // A "problematic" order is a Shipped order whose LIVE parcel status (seos, the
+  // raw ParcelDaily text) hints a delivery problem — failed attempt, unable to
+  // deliver, rejected, reschedule, address/recipient issue, etc. High chance of
+  // a Return, so logistic should act on these first.
+  const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not available|no answer|wrong address|attempt|tidak dapat|return/i;
+  const isProblematic = (o: any) => PROBLEM_RE.test(o.seos || "");
+
   // Counts (unit = main product qty, already stored on the order)
   const counts = {
     total: filteredOrders.length,
@@ -160,6 +168,7 @@ const LogisticPendingTracking = () => {
     cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
     totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
     totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.unit) || 0), 0),
+    problematic: filteredOrders.filter(isProblematic).length,
   };
 
   // Platform breakdown
@@ -329,6 +338,20 @@ const LogisticPendingTracking = () => {
             </div>
           </CardContent>
         </Card>
+        {/* Problematic — Shipped orders whose parcel status hints a delivery
+            problem (high chance of Return). Highlighted red in the table below. */}
+        <Card className={counts.problematic > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className={`w-8 h-8 ${counts.problematic > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+              <div>
+                <p className={`text-2xl font-bold ${counts.problematic > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{counts.problematic}</p>
+                <p className="text-sm text-muted-foreground">Problematic Order</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Shipped — parcel status ada masalah</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Platform Breakdown */}
@@ -471,7 +494,14 @@ const LogisticPendingTracking = () => {
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((order: any, index: number) => (
-                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                        <tr
+                          key={order.id}
+                          className={`border-b hover:bg-muted/30 ${
+                            isProblematic(order)
+                              ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
+                              : ""
+                          }`}
+                        >
                           <td className="p-2">
                             <Checkbox
                               checked={selectedOrders.has(order.id)}
@@ -535,9 +565,16 @@ const LogisticPendingTracking = () => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seos || "-"}
-                            </span>
+                            {isProblematic(order) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                <AlertTriangle className="w-3 h-3" />
+                                {order.seos || "Problematic"}
+                              </span>
+                            ) : (
+                              <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
+                                {order.seos || "-"}
+                              </span>
+                            )}
                           </td>
                           <td className="p-2">
                             {whatsappMap.get(order.marketer_id_staff) && (
@@ -552,28 +589,34 @@ const LogisticPendingTracking = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-green-600 border-green-200 hover:bg-green-50 h-7 px-2 text-xs"
-                                disabled={updatingId === order.id}
-                                onClick={() => handleStatusUpdate(order, "Success")}
-                              >
-                                {updatingId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                Success
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 border-red-200 hover:bg-red-50 h-7 px-2 text-xs"
-                                disabled={updatingId === order.id}
-                                onClick={() => handleStatusUpdate(order, "Return")}
-                              >
-                                <RotateCcw className="w-3 h-3 mr-1" />
-                                Return
-                              </Button>
-                            </div>
+                            {/* Marketer (team staff) can VIEW but not set the delivery
+                                outcome — only HQ / logistic update Success / Return. */}
+                            {isMarketer ? (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-600 border-green-200 hover:bg-green-50 h-7 px-2 text-xs"
+                                  disabled={updatingId === order.id}
+                                  onClick={() => handleStatusUpdate(order, "Success")}
+                                >
+                                  {updatingId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                  Success
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-200 hover:bg-red-50 h-7 px-2 text-xs"
+                                  disabled={updatingId === order.id}
+                                  onClick={() => handleStatusUpdate(order, "Return")}
+                                >
+                                  <RotateCcw className="w-3 h-3 mr-1" />
+                                  Return
+                                </Button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
