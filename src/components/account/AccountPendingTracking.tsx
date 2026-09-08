@@ -749,6 +749,9 @@ const AccountPendingTracking = () => {
                           </td>
                           <td className="p-3">
                             <div className="flex gap-2">
+                              {/* Only "Collected" here — the order is already
+                                  delivered/received (Success). Return is a
+                                  before-delivery action handled in Pending Tracking. */}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -757,15 +760,6 @@ const AccountPendingTracking = () => {
                               >
                                 <Wallet className="w-4 h-4 mr-1" />
                                 Collected
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600"
-                                onClick={() => handleOpenReturnDialog(order.id)}
-                              >
-                                <RotateCcw className="w-4 h-4 mr-1" />
-                                Return
                               </Button>
                             </div>
                           </td>
