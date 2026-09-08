@@ -21,6 +21,7 @@ type CashOrder = {
   total_sale: number | null;
   bank_payment: string | null;
   tracking_number: string | null;
+  type_payment: string | null;
   marketer_id_staff: string | null;
   receipt_payment_url: string | null;
   receipt_payment_type: string | null;
@@ -41,7 +42,7 @@ const AccountOrderCash: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [teamFilter, setTeamFilter] = useState('');
-  const [box, setBox] = useState<'all' | 'receipt' | 'link'>('all');
+  const [box, setBox] = useState<'all' | 'receipt' | 'link' | 'cash' | 'pickup'>('all');
   const [viewing, setViewing] = useState<CashOrder | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -54,7 +55,7 @@ const AccountOrderCash: React.FC = () => {
       const data = await fetchAllRows<CashOrder>(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
+          .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, type_payment, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
           .in('type_payment', ['CASH', 'Pickup'])
           .gte('date_order', startDate)
           .lte('date_order', endDate)
@@ -70,12 +71,23 @@ const AccountOrderCash: React.FC = () => {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [startDate, endDate]);
 
+  const isPickup = (o: CashOrder) => (o.type_payment || '') === 'Pickup';
+  const hasProof = (o: CashOrder) => proofType(o) !== 'none';
+
   const counts = useMemo(() => {
     const teamed = teamFilter ? orders.filter((o) => (o.marketer_id_staff || '') === teamFilter) : orders;
+    const cash = teamed.filter((o) => !isPickup(o));
+    const pickup = teamed.filter((o) => isPickup(o));
     return {
       all: teamed.length,
       receipt: teamed.filter((o) => proofType(o) === 'image').length,
       link: teamed.filter((o) => proofType(o) === 'link').length,
+      cash: cash.length,
+      cashWithProof: cash.filter(hasProof).length,
+      cashNoProof: cash.filter((o) => !hasProof(o)).length,
+      pickup: pickup.length,
+      pickupWithProof: pickup.filter(hasProof).length,
+      pickupNoProof: pickup.filter((o) => !hasProof(o)).length,
     };
   }, [orders, teamFilter]);
 
@@ -84,6 +96,8 @@ const AccountOrderCash: React.FC = () => {
       if (teamFilter && (o.marketer_id_staff || '') !== teamFilter) return false;
       if (box === 'receipt') return proofType(o) === 'image';
       if (box === 'link') return proofType(o) === 'link';
+      if (box === 'cash') return !isPickup(o);
+      if (box === 'pickup') return isPickup(o);
       return true;
     });
   }, [orders, teamFilter, box]);
@@ -143,6 +157,27 @@ const AccountOrderCash: React.FC = () => {
         ))}
       </div>
 
+      {/* Total Cash / Total Pickup — with ada-resit vs xde-resit breakdown (clickable) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
+        {([
+          { key: 'cash', label: 'Total Cash', total: counts.cash, withProof: counts.cashWithProof, noProof: counts.cashNoProof, accent: 'text-green-600 dark:text-green-400' },
+          { key: 'pickup', label: 'Total Pickup', total: counts.pickup, withProof: counts.pickupWithProof, noProof: counts.pickupNoProof, accent: 'text-blue-600 dark:text-blue-400' },
+        ] as const).map((b) => (
+          <button
+            key={b.key}
+            onClick={() => setBox(box === b.key ? 'all' : b.key)}
+            className={`rounded-xl border p-4 text-left transition-colors ${box === b.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'}`}
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.total}</p>
+            <div className="flex gap-3 mt-1 text-xs">
+              <span className="text-emerald-600 dark:text-emerald-400">{b.withProof} ada resit</span>
+              <span className="text-red-600 dark:text-red-400">{b.noProof} xde resit</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
       {/* Table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {loading ? (
@@ -160,6 +195,7 @@ const AccountOrderCash: React.FC = () => {
                   <th className="p-2 text-left">Tarikh Order</th>
                   <th className="p-2 text-left">Pelanggan</th>
                   <th className="p-2 text-left">Produk</th>
+                  <th className="p-2 text-left">Cara Bayaran</th>
                   <th className="p-2 text-left">Bank</th>
                   <th className="p-2 text-right">Jumlah (RM)</th>
                   <th className="p-2 text-center">Bukti</th>
@@ -178,6 +214,11 @@ const AccountOrderCash: React.FC = () => {
                       <td className="p-2 whitespace-nowrap">{o.date_order || '-'}</td>
                       <td className="p-2">{o.name_customer || '-'}</td>
                       <td className="p-2">{o.bundle?.name || '-'}</td>
+                      <td className="p-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${isPickup(o) ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                          {isPickup(o) ? 'PICKUP' : 'CASH'}
+                        </span>
+                      </td>
                       <td className="p-2">{o.bank_payment || '-'}</td>
                       <td className="p-2 text-right tabular-nums">{formatRM(Number(o.total_sale) || 0)}</td>
                       <td className="p-2 text-center">
@@ -199,13 +240,13 @@ const AccountOrderCash: React.FC = () => {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">Tiada order cash dalam tempoh ini.</td></tr>
+                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground">Tiada order cash dalam tempoh ini.</td></tr>
                 )}
               </tbody>
               {filtered.length > 0 && (
                 <tfoot>
                   <tr className="border-t border-border bg-muted/30 font-semibold">
-                    <td className="p-2" colSpan={9}>Jumlah Cash ({filtered.length} order)</td>
+                    <td className="p-2" colSpan={10}>Jumlah Cash ({filtered.length} order)</td>
                     <td className="p-2 text-right tabular-nums text-green-600 dark:text-green-400">{formatRM(totalCash)}</td>
                     <td />
                   </tr>
