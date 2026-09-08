@@ -61,7 +61,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data } = await admin
         .from("profiles")
-        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, product_scope, hidden_tabs, created_at")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, roas_tiers, product_scope, hidden_tabs, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       const staff = data || [];
@@ -157,14 +157,35 @@ serve(async (req) => {
 
     if (action === "set_pay_mode") {
       const mode = String(body?.pay_mode || "");
-      if (mode !== "commission_order" && mode !== "gross_profit") return json(400, { error: "invalid_pay_mode" });
-      // Percent only meaningful for gross_profit; clamp 0–100. Reset to 0 for commission_order.
+      if (mode !== "commission_order" && mode !== "gross_profit" && mode !== "roas") return json(400, { error: "invalid_pay_mode" });
+      // Percent only meaningful for gross_profit; clamp 0–100. Reset to 0 otherwise.
       let pct = Number(body?.commission_percent);
       if (!Number.isFinite(pct)) pct = 0;
       pct = Math.max(0, Math.min(100, pct));
-      const patch: Record<string, unknown> = { pay_mode: mode, commission_percent: mode === "gross_profit" ? pct : 0 };
+
+      // ROAS mode carries up to 5 tiers [{start,end,percent}]. Sanitise: keep
+      // numeric rows with start<=end, clamp percent 0–100, cap at 5.
+      let tiers: any = null;
+      if (mode === "roas") {
+        const raw = Array.isArray(body?.roas_tiers) ? body.roas_tiers : [];
+        tiers = raw
+          .map((t: any) => ({
+            start: Number(t?.start),
+            end: Number(t?.end),
+            percent: Number(t?.percent),
+          }))
+          .filter((t: any) => Number.isFinite(t.start) && Number.isFinite(t.end) && Number.isFinite(t.percent) && t.end >= t.start)
+          .map((t: any) => ({ start: t.start, end: t.end, percent: Math.max(0, Math.min(100, t.percent)) }))
+          .slice(0, 5);
+      }
+
+      const patch: Record<string, unknown> = {
+        pay_mode: mode,
+        commission_percent: mode === "gross_profit" ? pct : 0,
+        roas_tiers: mode === "roas" ? tiers : null,
+      };
       await admin.from("profiles").update(patch).eq("id", targetId);
-      return json(200, { success: true, pay_mode: mode, commission_percent: patch.commission_percent });
+      return json(200, { success: true, pay_mode: mode, commission_percent: patch.commission_percent, roas_tiers: tiers });
     }
 
     if (action === "set_product_scope") {

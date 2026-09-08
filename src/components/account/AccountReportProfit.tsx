@@ -838,8 +838,26 @@ const AccountReportProfit: React.FC = () => {
             </thead>
             <tbody>
               {filteredStats.map((s) => {
-                const pct = metaByIdstaff.get(s.idStaff)?.percent ?? (staffMeta[s.idStaff]?.percent || 0);
-                const komProfit = (s.profit * pct) / 100;
+                const meta = metaByIdstaff.get(s.idStaff);
+                const pct = meta?.percent ?? (staffMeta[s.idStaff]?.percent || 0);
+                const mode = meta?.mode ?? (staffMeta[s.idStaff]?.mode || 'commission_order');
+                // Komisyen Profit:
+                //   roas  → % of (Sales − Return − Postage), % chosen by the tier
+                //           the staff's actual ROAS (Sales/Spend) falls into; no
+                //           matching tier ⇒ 0.
+                //   else  → staff's % of gross profit (commission_order pct = 0).
+                let komProfit = 0;
+                let komLabel = `${pct}%`;
+                if (mode === 'roas') {
+                  const tiers = meta?.tiers ?? [];
+                  const roas = s.roas || 0;
+                  const tier = tiers.find((t) => roas >= t.start && roas <= t.end);
+                  const base = s.totalSales - s.totalReturn - s.totalPostage;
+                  komProfit = tier ? (base * tier.percent) / 100 : 0;
+                  komLabel = tier ? `${tier.percent}% @ ${roas.toFixed(2)}x` : `no tier @ ${roas.toFixed(2)}x`;
+                } else {
+                  komProfit = (s.profit * pct) / 100;
+                }
                 // Komisyen Sales = commission on delivered sales only (returns earn none).
                 const komSalesNet = s.totalCommission - s.totalCommissionReturn;
                 const nama = nameByIdstaff.get(s.idStaff) || (s.name !== s.idStaff ? s.name : (s.idStaff === 'HQ' ? 'HQ' : s.idStaff));
@@ -853,7 +871,7 @@ const AccountReportProfit: React.FC = () => {
                     <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
                     <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(s.totalReturn)}</td>
                     <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400" title="Komisyen sales tolak komisyen order return">RM {formatNumber(komSalesNet)}</td>
-                    <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({pct}%)</span></td>
+                    <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({komLabel})</span></td>
                   </tr>
                 );
               })}

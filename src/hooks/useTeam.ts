@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
-export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string; role?: string };
+export type RoasTier = { start: number; end: number; percent: number };
+export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string; roas_tiers?: RoasTier[] | null; role?: string };
 
 /**
  * The caller's tenant roster (client + their marketer staff), used for the
@@ -23,9 +24,13 @@ export function useTeam() {
   });
   const members = data || [];
   const nameByIdstaff = new Map(members.map((m) => [m.idstaff, m.name] as const));
-  // idstaff -> { percent, mode } for commission calculations (RLS-safe via RPC).
+  // idstaff -> { percent, mode, tiers } for commission calculations (RLS-safe via RPC).
   const metaByIdstaff = new Map(
-    members.map((m) => [m.idstaff, { percent: Number(m.commission_percent) || 0, mode: m.pay_mode || 'commission_order' }] as const),
+    members.map((m) => [m.idstaff, {
+      percent: Number(m.commission_percent) || 0,
+      mode: m.pay_mode || 'commission_order',
+      tiers: Array.isArray(m.roas_tiers) ? (m.roas_tiers as RoasTier[]) : [],
+    }] as const),
   );
   const showFilter = profile?.role === 'client' && members.length > 1;
   return { members, nameByIdstaff, metaByIdstaff, showFilter };

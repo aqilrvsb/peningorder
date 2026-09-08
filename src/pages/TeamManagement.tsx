@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid } from 'lucide-react';
 
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string };
+type RoasTier = { start: number; end: number; percent: number };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string };
 // Logistic tabs the client can hide from the logistic account (path keys).
 const LOGISTIC_TABS: { key: string; label: string }[] = [
   { key: 'inventory-product', label: 'Product' },
@@ -190,12 +191,22 @@ const TeamManagement: React.FC = () => {
     finally { setBusyId(null); }
   };
 
-  // Pembayaran mode: 'commission_order' (bundle commission per order) vs
-  // 'gross_profit' (a % of gross profit). Percent only applies to gross_profit.
-  const setPayMode = async (s: Staff, mode: 'commission_order' | 'gross_profit', percent?: number) => {
+  // Pembayaran mode: 'commission_order' (bundle commission per order),
+  // 'gross_profit' (a % of gross profit), or 'roas' (a % of Sales−Return−Postage
+  // chosen by the ROAS tier the staff's actual ROAS falls into).
+  const setPayMode = async (
+    s: Staff,
+    mode: 'commission_order' | 'gross_profit' | 'roas',
+    opts?: { percent?: number; roas_tiers?: RoasTier[] },
+  ) => {
     setBusyId(s.id);
     try {
-      await call('set_pay_mode', { user_id: s.id, pay_mode: mode, commission_percent: percent ?? s.commission_percent ?? 0 });
+      await call('set_pay_mode', {
+        user_id: s.id,
+        pay_mode: mode,
+        commission_percent: opts?.percent ?? s.commission_percent ?? 0,
+        roas_tiers: opts?.roas_tiers ?? s.roas_tiers ?? [],
+      });
       refresh();
     } catch (e: any) { toast({ title: 'Gagal', description: e.message, variant: 'destructive' }); }
     finally { setBusyId(null); }
@@ -205,7 +216,36 @@ const TeamManagement: React.FC = () => {
     const raw = prompt(`Peratus komisyen dari Gross Profit untuk ${s.idstaff} (%):`, String(s.commission_percent ?? 0));
     if (raw === null) return;
     const pct = Math.max(0, Math.min(100, parseFloat(raw) || 0));
-    await setPayMode(s, 'gross_profit', pct);
+    await setPayMode(s, 'gross_profit', { percent: pct });
+  };
+
+  // ROAS tier editor — a dialog (a prompt can't hold up to 5 × 3 fields).
+  const [roasStaff, setRoasStaff] = useState<Staff | null>(null);
+  const [roasRows, setRoasRows] = useState<{ start: string; end: string; percent: string }[]>([]);
+
+  const openRoas = (s: Staff) => {
+    const existing = Array.isArray(s.roas_tiers) ? s.roas_tiers : [];
+    setRoasRows(
+      existing.length
+        ? existing.map((t) => ({ start: String(t.start), end: String(t.end), percent: String(t.percent) }))
+        : [{ start: '', end: '', percent: '' }],
+    );
+    setRoasStaff(s);
+  };
+
+  const saveRoas = async () => {
+    if (!roasStaff) return;
+    const tiers: RoasTier[] = roasRows
+      .map((r) => ({ start: parseFloat(r.start), end: parseFloat(r.end), percent: parseFloat(r.percent) }))
+      .filter((t) => Number.isFinite(t.start) && Number.isFinite(t.end) && Number.isFinite(t.percent) && t.end >= t.start)
+      .map((t) => ({ start: t.start, end: t.end, percent: Math.max(0, Math.min(100, t.percent)) }))
+      .slice(0, 5);
+    if (tiers.length === 0) {
+      toast({ title: 'Tiada tier sah', description: 'Isi sekurang-kurangnya satu tier: Start ROAS ≤ End ROAS, dan % Sales.', variant: 'destructive' });
+      return;
+    }
+    await setPayMode(roasStaff, 'roas', { roas_tiers: tiers });
+    setRoasStaff(null);
   };
 
   const removeStaff = async (s: Staff) => {
@@ -382,10 +422,17 @@ const TeamManagement: React.FC = () => {
                           </button>
                           <button
                             disabled={busyId === s.id}
-                            onClick={() => (s.pay_mode === 'gross_profit' ? editPercent(s) : setPayMode(s, 'gross_profit', s.commission_percent ?? 0))}
+                            onClick={() => (s.pay_mode === 'gross_profit' ? editPercent(s) : setPayMode(s, 'gross_profit', { percent: s.commission_percent ?? 0 }))}
                             className={`px-2.5 py-1 transition-colors border-l border-border ${s.pay_mode === 'gross_profit' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
                           >
                             Gross Profit
+                          </button>
+                          <button
+                            disabled={busyId === s.id}
+                            onClick={() => openRoas(s)}
+                            className={`px-2.5 py-1 transition-colors border-l border-border ${s.pay_mode === 'roas' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
+                          >
+                            ROAS
                           </button>
                         </div>
                         {s.pay_mode === 'gross_profit' && (
@@ -396,6 +443,16 @@ const TeamManagement: React.FC = () => {
                             className="inline-flex items-center gap-0.5 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100"
                           >
                             {Number(s.commission_percent ?? 0)}<Percent className="w-3 h-3" />
+                          </button>
+                        )}
+                        {s.pay_mode === 'roas' && (
+                          <button
+                            disabled={busyId === s.id}
+                            onClick={() => openRoas(s)}
+                            title="Set ROAS tiers"
+                            className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100"
+                          >
+                            {(s.roas_tiers?.length ?? 0)} tier{(s.roas_tiers?.length ?? 0) === 1 ? '' : 's'}
                           </button>
                         )}
                       </div>
@@ -428,6 +485,49 @@ const TeamManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ROAS tier editor */}
+      <Dialog open={!!roasStaff} onOpenChange={(o) => { if (!o) setRoasStaff(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>ROAS Komisyen — {roasStaff?.idstaff}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              ROAS staff = Total Sales ÷ Spend. Ikut tier yang padan, staff dapat
+              <b> % Sales</b> daripada (Total Sales − Return − Cost Postage).
+              ROAS boleh 1 digit atau perpuluhan (cth: 2 atau 2.5). Maksimum 5 tier.
+            </p>
+            <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center text-xs font-medium text-muted-foreground">
+              <span>Start ROAS</span><span>End ROAS</span><span>% Sales</span><span />
+            </div>
+            {roasRows.map((r, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+                <Input type="number" step="0.1" min="0" placeholder="2" value={r.start}
+                  onChange={(e) => setRoasRows((rows) => rows.map((x, j) => j === i ? { ...x, start: e.target.value } : x))} />
+                <Input type="number" step="0.1" min="0" placeholder="2.9" value={r.end}
+                  onChange={(e) => setRoasRows((rows) => rows.map((x, j) => j === i ? { ...x, end: e.target.value } : x))} />
+                <Input type="number" step="0.1" min="0" max="100" placeholder="8" value={r.percent}
+                  onChange={(e) => setRoasRows((rows) => rows.map((x, j) => j === i ? { ...x, percent: e.target.value } : x))} />
+                <Button size="sm" variant="ghost" title="Buang tier"
+                  disabled={roasRows.length === 1}
+                  onClick={() => setRoasRows((rows) => rows.filter((_, j) => j !== i))}>
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </Button>
+              </div>
+            ))}
+            {roasRows.length < 5 && (
+              <Button size="sm" variant="outline" onClick={() => setRoasRows((rows) => [...rows, { start: '', end: '', percent: '' }])}>
+                + Tambah Tier
+              </Button>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoasStaff(null)}>Batal</Button>
+            <Button disabled={busyId === roasStaff?.id} onClick={saveRoas}>Simpan ROAS</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
