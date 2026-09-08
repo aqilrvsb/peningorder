@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows, formatRM } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
 import {
-  BarChart3, RefreshCw, Clock, Truck, RotateCcw, CheckCircle2, DollarSign, Wallet, Loader2,
+  BarChart3, RefreshCw, RotateCcw, DollarSign, Wallet, Loader2,
 } from 'lucide-react';
 
 type Order = { date_order: string | null; delivery_status: string | null; tracking_number: string | null; total_sale: number | null; type_payment: string | null; date_payment: string | null; kurier: string | null; marketer_id_staff: string | null };
@@ -23,15 +23,14 @@ const collectionStatus = (o: Order): 'Success' | 'Pending' | 'Return' => {
   return o.date_payment ? 'Success' : 'Pending';
 };
 
-// Two dimensions: delivery lifecycle (Pending -> Shipped -> Return/Success,
-// driven by the courier webhook) and money collection.
+// Money view only. collectionStatus partitions every order into exactly one of
+// Return / Success(collected) / Pending, so:
+//   Total Sales = Total Return + Total Collection + Total Remaining Collection.
+// Collection == order cash submit + order pickup submit + order COD remitted.
 const STATUS_ROWS: { key: string; label: string; color: string; icon: React.ReactNode; test: (o: Order) => boolean }[] = [
-  { key: 'pending', label: 'Pending', color: 'text-yellow-500', icon: <Clock className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Pending' },
-  { key: 'shipped', label: 'Shipped', color: 'text-blue-500', icon: <Truck className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Shipped' },
-  { key: 'return', label: 'Return', color: 'text-red-500', icon: <RotateCcw className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Return' },
-  { key: 'success', label: 'Success', color: 'text-green-500', icon: <CheckCircle2 className="w-3.5 h-3.5" />, test: (o) => o.delivery_status === 'Success' },
-  { key: 'remainCollect', label: 'Remaining Collection', color: 'text-amber-500', icon: <DollarSign className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Pending' },
-  { key: 'successCollect', label: 'Success Collection', color: 'text-emerald-600', icon: <Wallet className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Success' },
+  { key: 'return', label: 'Total Return', color: 'text-red-500', icon: <RotateCcw className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Return' },
+  { key: 'collection', label: 'Total Collection', color: 'text-emerald-600', icon: <Wallet className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Success' },
+  { key: 'remainCollect', label: 'Total Remaining Collection', color: 'text-amber-500', icon: <DollarSign className="w-3.5 h-3.5" />, test: (o) => collectionStatus(o) === 'Pending' },
 ];
 
 function nowMY() { return new Date(Date.now() + 8 * 3600 * 1000); }
@@ -169,20 +168,22 @@ const SalesOverview: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr className="border-t border-border font-bold">
+                    <td className="py-2">
+                      <span className="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400"><DollarSign className="w-3.5 h-3.5" />Total Sales</span>
+                    </td>
+                    <td className="py-2 text-center tabular-nums">{c.total.orders}</td>
+                    <td className="py-2 text-right tabular-nums">RM {formatRM(c.total.sales)}</td>
+                  </tr>
                   {STATUS_ROWS.map((r) => (
                     <tr key={r.key} className="border-t border-border/50">
                       <td className="py-2">
                         <span className={`inline-flex items-center gap-2 font-medium ${r.color}`}>{r.icon}{r.label}</span>
                       </td>
-                      <td className={`py-2 text-center tabular-nums ${(r.key === 'success' || r.key === 'successCollect') ? 'text-green-600 dark:text-green-400 font-medium' : 'text-foreground'}`}>{c.stats[r.key].orders}</td>
+                      <td className={`py-2 text-center tabular-nums ${r.key === 'collection' ? 'text-green-600 dark:text-green-400 font-medium' : 'text-foreground'}`}>{c.stats[r.key].orders}</td>
                       <td className="py-2 text-right tabular-nums text-muted-foreground">RM {formatRM(c.stats[r.key].sales)}</td>
                     </tr>
                   ))}
-                  <tr className="border-t border-border font-bold">
-                    <td className="py-2">TOTAL</td>
-                    <td className="py-2 text-center tabular-nums">{c.total.orders}</td>
-                    <td className="py-2 text-right tabular-nums">RM {formatRM(c.total.sales)}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>

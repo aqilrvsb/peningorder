@@ -27,7 +27,6 @@ import {
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, getMalaysiaDate, fetchAllRows } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import {
-  Package,
   Clock,
   Loader2,
   Printer,
@@ -43,6 +42,18 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
+
+// Normalise a stored kurier to its base courier for grouping + filtering.
+const baseCourier = (kurier?: string | null): string => {
+  const k = (kurier || "").toLowerCase();
+  if (k.includes("poslaju")) return "Poslaju";
+  if (k.includes("ninjavan")) return "Ninjavan";
+  if (k.includes("jnt")) return "JNT";
+  if (k.includes("dhl")) return "DHL";
+  if (k.includes("spx")) return "SPX";
+  if (k.includes("tiktok")) return "Tiktok";
+  return kurier?.trim() || "Lain";
+};
 
 const AccountPendingTracking = () => {
   const { user } = useAuth();
@@ -60,6 +71,9 @@ const AccountPendingTracking = () => {
   const [startDate, setStartDate] = useState(firstDay);
   const [endDate, setEndDate] = useState(lastDay);
   const [platformFilter, setPlatformFilter] = useState("all");
+  // Clickable summary-box filters (compose on top of team/search/date).
+  const [courierFilter, setCourierFilter] = useState("all");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [trackingSearch, setTrackingSearch] = useState("");
@@ -96,11 +110,6 @@ const AccountPendingTracking = () => {
     return "Manual";
   };
 
-  // Helper to calculate units for an order - simplified
-  const getOrderUnits = (order: any): number => {
-    return Number(order.unit) || 1;
-  };
-
   // Fetch pending COD collection orders: delivered (Success) but not yet remitted
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["account-pending-tracking", startDate, endDate, trackingSearch],
@@ -129,13 +138,19 @@ const AccountPendingTracking = () => {
     },
   });
 
-  // Filter orders
-  const filteredOrders = orders.filter((order: any) => {
+  // Overdue COD safety net: a delivered COD sitting here uncollected for too long
+  // likely means a COD_REMITTED webhook was missed (ParcelDaily has no remittance
+  // API to poll). Flag it so Finance chases the remittance.
+  const OVERDUE_DAYS = 7;
+  const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0);
+  const isOverdue = (o: any) => daysSince(o.date_processed || o.date_order) > OVERDUE_DAYS;
+
+  // Base set — team/platform/search only. Summary-box totals compute from this so
+  // they stay stable while a box click narrows the table below.
+  const baseOrders = orders.filter((order: any) => {
     if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
-    // Platform filter
     if (platformFilter !== "all" && getOrderPlatformName(order) !== platformFilter) return false;
 
-    // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
       const matchesSearch = searchTerms.every((term) =>
@@ -151,6 +166,13 @@ const AccountPendingTracking = () => {
     return true;
   });
 
+  // Displayed set — base + clickable box filters (courier, overdue).
+  const filteredOrders = baseOrders.filter((order: any) => {
+    if (courierFilter !== "all" && baseCourier(order.kurier) !== courierFilter) return false;
+    if (overdueOnly && !isOverdue(order)) return false;
+    return true;
+  });
+
   // Pagination
   const effectivePageSize = pageSize === 0 ? filteredOrders.length || 1 : pageSize;
   const totalPages = Math.ceil(filteredOrders.length / effectivePageSize);
@@ -158,35 +180,30 @@ const AccountPendingTracking = () => {
     ? filteredOrders
     : filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Overdue COD safety net: a delivered COD sitting here uncollected for too long
-  // likely means a COD_REMITTED webhook was missed (ParcelDaily has no remittance
-  // API to poll). Flag it so Finance chases the remittance.
-  const OVERDUE_DAYS = 7;
-  const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0);
-  const isOverdue = (o: any) => daysSince(o.date_processed || o.date_order) > OVERDUE_DAYS;
-
-  // Counts
+  // Counts (from the stable base set)
   const counts = {
-    total: filteredOrders.length,
-    cod: filteredOrders.filter((o: any) => o.type_payment === "COD").length,
-    cashOnline: filteredOrders.filter((o: any) => o.type_payment !== "COD").length,
-    totalSales: filteredOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
-    totalUnits: filteredOrders.reduce((sum: number, o: any) => sum + getOrderUnits(o), 0),
-    overdue: filteredOrders.filter(isOverdue).length,
+    total: baseOrders.length,
+    cod: baseOrders.filter((o: any) => o.type_payment === "COD").length,
+    cashOnline: baseOrders.filter((o: any) => o.type_payment !== "COD").length,
+    totalSales: baseOrders.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
+    overdue: baseOrders.filter(isOverdue).length,
   };
 
-  // Platform breakdown (Facebook, Threads, Tiktok, Database, Google)
-  const PLATFORM_NAMES = ["Facebook", "Threads", "Tiktok", "Database", "Google"];
-  const platformStats = PLATFORM_NAMES.map((name) => {
-    const platformOrders = filteredOrders.filter((o: any) => getOrderPlatformName(o) === name);
-    return {
-      name,
-      total: platformOrders.length,
-      cod: platformOrders.filter((o: any) => o.type_payment === "COD").length,
-      cashOnline: platformOrders.filter((o: any) => o.type_payment !== "COD").length,
-      units: platformOrders.reduce((sum: number, o: any) => sum + getOrderUnits(o), 0),
-    };
+  // Breakdown by Kurier (COD delivered awaiting remittance), sorted by volume.
+  const courierMap = new Map<string, any[]>();
+  baseOrders.forEach((o: any) => {
+    const c = baseCourier(o.kurier);
+    if (!courierMap.has(c)) courierMap.set(c, []);
+    courierMap.get(c)!.push(o);
   });
+  const courierStats = Array.from(courierMap.entries())
+    .map(([name, arr]) => ({
+      name,
+      total: arr.length,
+      overdue: arr.filter(isOverdue).length,
+      sales: arr.reduce((sum: number, o: any) => sum + (Number(o.total_sale) || 0), 0),
+    }))
+    .sort((a, b) => b.total - a.total);
 
   // Checkbox handlers
   const handleSelectAll = (checked: boolean) => {
@@ -460,37 +477,29 @@ const AccountPendingTracking = () => {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+      {/* Stats Cards (clickable filters) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card
+          onClick={() => { setCourierFilter("all"); setOverdueOnly(false); handleFilterChange(); }}
+          className={`cursor-pointer transition-all ${courierFilter === "all" && !overdueOnly ? "ring-2 ring-primary" : "hover:border-primary/60 hover:shadow-sm"}`}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <Clock className="w-8 h-8 text-purple-500" />
               <div>
                 <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">Total Pending</p>
-                <div className="flex gap-2 mt-1 text-xs">
-                  <span className="text-orange-600">{counts.cod} COD</span>
-                  <span className="text-green-600">{counts.cashOnline} CASH</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Package className="w-8 h-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.totalUnits}</p>
-                <p className="text-sm text-muted-foreground">Total Unit</p>
+                <p className="text-sm text-muted-foreground">Total Pending Collection (COD)</p>
+                <p className="text-xs text-muted-foreground mt-0.5">RM {counts.totalSales.toFixed(2)} belum kutip</p>
               </div>
             </div>
           </CardContent>
         </Card>
         {/* Remittance overdue — delivered COD uncollected > 7 days (possible
             missed COD_REMITTED webhook). Highlighted red in the table below. */}
-        <Card className={counts.overdue > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}>
+        <Card
+          onClick={() => { setOverdueOnly((v) => !v); setCourierFilter("all"); handleFilterChange(); }}
+          className={`cursor-pointer transition-all ${overdueOnly ? "ring-2 ring-red-500" : "hover:shadow-sm"} ${counts.overdue > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}`}
+        >
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <AlertTriangle className={`w-8 h-8 ${counts.overdue > 0 ? "text-red-500" : "text-muted-foreground"}`} />
@@ -504,24 +513,29 @@ const AccountPendingTracking = () => {
         </Card>
       </div>
 
-      {/* Platform Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {platformStats.map((ps) => (
-          <Card key={ps.name} className={ps.total > 0 ? "border-l-4 border-l-purple-500" : ""}>
-            <CardContent className="p-4">
-              <div>
-                <p className="text-sm font-semibold">{ps.name}</p>
-                <p className="text-xl font-bold">{ps.total}</p>
-                <div className="flex gap-2 mt-1 text-xs">
-                  <span className="text-orange-600">{ps.cod} COD</span>
-                  <span className="text-green-600">{ps.cashOnline} CASH</span>
+      {/* Breakdown by Kurier (clickable filter) */}
+      {courierStats.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {courierStats.map((cs) => (
+            <Card
+              key={cs.name}
+              onClick={() => { setCourierFilter(courierFilter === cs.name ? "all" : cs.name); setOverdueOnly(false); handleFilterChange(); }}
+              className={`cursor-pointer transition-all ${courierFilter === cs.name ? "ring-2 ring-primary" : "hover:shadow-sm"} ${cs.total > 0 ? "border-l-4 border-l-purple-500" : ""}`}
+            >
+              <CardContent className="p-4">
+                <div>
+                  <p className="text-sm font-semibold">{cs.name}</p>
+                  <p className="text-xl font-bold">{cs.total}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">RM {cs.sales.toFixed(2)}</p>
+                  {cs.overdue > 0 && (
+                    <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{cs.overdue} overdue</p>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Unit: <span className="font-semibold text-foreground">{ps.units}</span></p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
