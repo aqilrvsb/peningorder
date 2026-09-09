@@ -19,6 +19,28 @@ export function formatRM(value: number | string | null | undefined): string {
 }
 
 /**
+ * Format a date value as DD-MM-YYYY for table display (e.g. 2029-03-02 ->
+ * "02-03-2029"). Accepts a plain 'YYYY-MM-DD' DATE, an ISO timestamp, or a Date.
+ * Returns '-' for empty/null and the raw input if it can't be parsed.
+ *
+ * The 'YYYY-MM-DD' fast path is string-only (no Date construction) so a stored
+ * DATE never shifts a day across timezones. Use ONLY for display — never for
+ * date <input> values (need YYYY-MM-DD) or DB query bounds.
+ */
+export function formatDMY(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+
+/**
  * Fetch ALL rows from a Supabase query using pagination.
  * Supabase/PostgREST has a server-side max_rows limit (default 1000).
  * This function fetches in batches to guarantee all rows are returned.

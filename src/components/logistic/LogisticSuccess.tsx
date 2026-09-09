@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getMalaysiaDate, getMalaysiaStartOfMonth } from "@/lib/utils";
+import { getMalaysiaDate, getMalaysiaStartOfMonth, formatDMY } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import {
   Clock,
@@ -600,9 +600,9 @@ const LogisticSuccess = () => {
                           <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_payment || order.date_processed || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_payment || order.date_processed)}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_processed)}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_order)}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
@@ -728,7 +728,7 @@ const LogisticSuccess = () => {
                 <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
                 <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
                 <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{viewingPayment.date_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{formatDMY(viewingPayment.date_payment)}</b></div>
               </div>
               <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>

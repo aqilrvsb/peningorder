@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Ban, Loader2, Search, Calendar, Receipt, ExternalLink, RotateCcw } from "lucide-react";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, formatRM } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, formatRM, formatDMY } from "@/lib/utils";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
 import { TablePagination } from "@/components/TablePagination";
@@ -155,7 +155,7 @@ const LogisticRejected = () => {
                     <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || "") || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{o.id_sale || "-"}</td>
-                    <td className="p-2 whitespace-nowrap">{o.date_order || "-"}</td>
+                    <td className="p-2 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                     <td className="p-2">{o.name_customer || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{o.phone_customer || "-"}</td>
                     <td className="p-2">{o.bundle?.name || "-"}</td>
@@ -190,7 +190,7 @@ const LogisticRejected = () => {
                 <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
                 <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
                 <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{viewingPayment.date_payment || "-"}</b></div>
+                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{formatDMY(viewingPayment.date_payment)}</b></div>
               </div>
               <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>

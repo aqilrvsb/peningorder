@@ -47,7 +47,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { getMalaysiaYesterday, fetchAllRows } from '@/lib/utils';
+import { getMalaysiaYesterday, fetchAllRows, formatDMY } from '@/lib/utils';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 
@@ -536,7 +536,7 @@ const Spend: React.FC = () => {
                   <TableCell className="font-medium">{idx + 1}</TableCell>
                   <TableCell className="font-mono text-blue-600 dark:text-blue-400">{spend.marketerIdStaff || '-'}</TableCell>
                   <TableCell>{nameByIdstaff.get(spend.marketerIdStaff || '') || '-'}</TableCell>
-                  <TableCell>{spend.tarikhSpend}</TableCell>
+                  <TableCell>{formatDMY(spend.tarikhSpend)}</TableCell>
                   <TableCell className="text-right">RM {spend.totalSpend.toFixed(2)}</TableCell>
                   <TableCell>{spend.product}</TableCell>
                   <TableCell>{spend.jenisPlatform}</TableCell>

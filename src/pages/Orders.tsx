@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { AUDIT_MODE } from '@/lib/audit';
 import { TablePagination } from '@/components/TablePagination';
-import { formatRM } from '@/lib/utils';
+import { formatRM, formatDMY } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1200,8 +1200,8 @@ ${trackingUrl}`;
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
                     <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{order.marketerIdStaff || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get(order.marketerIdStaff || '') || order.marketerName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{order.dateOrder || order.tarikhTempahan}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{order.dateProcessed || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(order.dateOrder || order.tarikhTempahan)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(order.dateProcessed)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">
                       {order.noPhone && waLink(order.noPhone) ? (
@@ -1262,7 +1262,7 @@ ${trackingUrl}`;
                       <td className="px-4 py-3 text-sm">
                         {order.pospadaDate ? (
                           <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 whitespace-nowrap">
-                            {order.pospadaDate}
+                            {formatDMY(order.pospadaDate)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -1516,7 +1516,7 @@ ${trackingUrl}`;
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Tarikh Bayaran</p>
-                  <p className="text-sm font-medium text-foreground">{selectedOrderPayment.tarikhBayaran || '-'}</p>
+                  <p className="text-sm font-medium text-foreground">{formatDMY(selectedOrderPayment.tarikhBayaran)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Jenis Bayaran</p>

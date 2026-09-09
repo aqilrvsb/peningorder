@@ -6,7 +6,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Banknote, Loader2, Calendar, ExternalLink, Eye, Package, Truck } from 'lucide-react';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
 import { TablePagination } from '@/components/TablePagination';
@@ -264,7 +264,7 @@ const AccountOrderCash: React.FC = () => {
                       <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || '') || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{o.id_sale || '-'}</td>
                       <td className="p-2 whitespace-nowrap font-mono text-xs">{o.tracking_number || '-'}</td>
-                      <td className="p-2 whitespace-nowrap">{o.date_order || '-'}</td>
+                      <td className="p-2 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                       <td className="p-2">{o.name_customer || '-'}</td>
                       <td className="p-2">{o.bundle?.name || '-'}</td>
                       <td className="p-2">

@@ -42,7 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMalaysiaDate } from '@/lib/utils';
+import { getMalaysiaDate, formatDMY } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
 import Swal from 'sweetalert2';
@@ -801,7 +801,7 @@ const Prospects: React.FC = () => {
                     <td className="px-4 py-3 text-sm text-foreground">{(page - 1) * pageSize + index + 1}</td>
                     <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{(prospect as any).marketerIdStaff || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get((prospect as any).marketerIdStaff || '') || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{prospect.tarikhPhoneNumber || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(prospect.tarikhPhoneNumber)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
                     <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{prospect.niche}</td>
@@ -988,7 +988,7 @@ const Prospects: React.FC = () => {
                   <tbody className="divide-y divide-border">
                     {selectedProspectOrders.map((order, idx) => (
                       <tr key={idx} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 text-foreground">{order.date_order || '-'}</td>
+                        <td className="px-3 py-2 text-foreground">{formatDMY(order.date_order)}</td>
                         <td className="px-3 py-2 text-foreground">{order.id_sale || '-'}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-foreground">RM {(Number(order.total_sale) || 0).toFixed(2)}</td>
                       </tr>

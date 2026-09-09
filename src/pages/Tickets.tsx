@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { put } from '@vercel/blob';
+import { formatDMY } from '@/lib/utils';
 import {
   Ticket, Plus, Search, Loader2, Send, ImagePlus, X, MessageCircle, Clock,
 } from 'lucide-react';
@@ -281,7 +282,7 @@ const Tickets: React.FC = () => {
                     >
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-sm">{o.id_sale || o.tracking_number}</span>
-                        <span className="text-xs text-muted-foreground">{o.date_order}</span>
+                        <span className="text-xs text-muted-foreground">{formatDMY(o.date_order)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {o.name_customer} · {o.kurier} · RM {Number(o.total_sale || 0).toFixed(2)} · {o.delivery_status}

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar, CreditCard, Building2, Receipt, ExternalLink, X } from "lucide-react";
+import { formatDMY } from "@/lib/utils";
 
 interface PaymentDetailsModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ const PaymentDetailsModal = ({ isOpen, onClose, order }: PaymentDetailsModalProp
             <Calendar className="w-5 h-5 text-blue-500" />
             <div>
               <p className="text-xs text-muted-foreground">Payment Date</p>
-              <p className="font-medium">{order.date_payment || "-"}</p>
+              <p className="font-medium">{formatDMY(order.date_payment)}</p>
             </div>
           </div>
 

@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatDMY } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import {
   Package,
@@ -564,8 +564,8 @@ const LogisticPendingTracking = () => {
                           <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || '') || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.id_sale || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_processed || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_order)}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_processed)}</td>
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">

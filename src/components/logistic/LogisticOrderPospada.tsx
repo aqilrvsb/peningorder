@@ -7,7 +7,7 @@ import { TeamFilter } from "@/components/TeamFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMalaysiaDate, fetchAllRows } from "@/lib/utils";
+import { getMalaysiaDate, fetchAllRows, formatDMY } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import { CalendarClock, Loader2, Search, Truck, Lock, RefreshCw, Boxes } from "lucide-react";
 import { toast } from "sonner";
@@ -284,10 +284,10 @@ const LogisticOrderPospada = () => {
                           <td className="p-2">{(currentPage - 1) * pageSize + index + 1}</td>
                           <td className="p-2 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{order.marketer_id_staff || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(order.marketer_id_staff || "") || "-"}</td>
-                          <td className="p-2 whitespace-nowrap">{order.date_order || "-"}</td>
+                          <td className="p-2 whitespace-nowrap">{formatDMY(order.date_order)}</td>
                           <td className="p-2 whitespace-nowrap">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${due ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                              {order.pospada_date}
+                              {formatDMY(order.pospada_date)}
                             </span>
                           </td>
                           <td className="p-2">{order.name_customer || "-"}</td>
