@@ -407,21 +407,30 @@ serve(async (req) => {
       }
     } else if (event === "CANCEL_STATUS_UPDATED") {
       if (matched) {
-        const pref = await getTrackPref(supabase, matched.owner_user_id, "Cancelled");
-        if (pref.track) {
-          await supabase
-            .from("customer_purchases")
-            .update({ delivery_status: "Cancelled" })
-            .eq("id", matched.id);
-        }
-        action = "cancelled";
-        if (pref.notify) {
-          const vars = orderVars(matched, "Cancelled", matched.tracking_number || consignNo || "");
-          const waMsg = pref.template
-            ? renderTemplate(pref.template, vars)
-            : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
-          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
-          action = `${action}+${waResult}`;
+        // CONFIRM-ONLY. A courier cancel webhook must NEVER initiate a cancel on
+        // an order that is still active — during an EDIT we cancel the OLD Parcel
+        // Daily booking and re-book; PD then fires this webhook for the old
+        // consign. If the re-book didn't change the tracking (failed/raced), this
+        // webhook still matches the row and would flip it to "Cancelled", hiding
+        // the order from the list ("edit → order hilang"). Every LEGIT cancel is a
+        // deliberate in-app action that already set delivery_status='Cancelled'
+        // (bulk cancel / delete via parceldaily-cancel). So: only confirm when the
+        // order is ALREADY Cancelled; otherwise leave the active order untouched.
+        if (matched.delivery_status === "Cancelled") {
+          await supabase.from("customer_purchases").update({ seos: "Cancelled" }).eq("id", matched.id);
+          action = "cancel_confirmed";
+          const pref = await getTrackPref(supabase, matched.owner_user_id, "Cancelled");
+          if (pref.notify) {
+            const vars = orderVars(matched, "Cancelled", matched.tracking_number || consignNo || "");
+            const waMsg = pref.template
+              ? renderTemplate(pref.template, vars)
+              : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
+            action = `${action}+${waResult}`;
+          }
+        } else {
+          // Active order (likely an edit re-book) — do not hide it, do not notify.
+          action = "cancel_ignored_active";
         }
       }
     } else if (event === "CONNOTE_LINK") {
