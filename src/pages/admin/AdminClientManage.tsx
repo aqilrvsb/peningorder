@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  UsersRound, UserPlus, Search, Loader2, KeyRound, CalendarPlus, Trash2, LogIn,
+  UsersRound, UserPlus, Search, Loader2, KeyRound, CalendarPlus, Trash2, LogIn, Mail,
 } from 'lucide-react';
 
 const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale'];
@@ -59,6 +59,11 @@ const AdminClientManage: React.FC = () => {
   const [pwClient, setPwClient] = useState<ClientRow | null>(null);
   const [newPw, setNewPw] = useState('');
   const [savingPw, setSavingPw] = useState(false);
+
+  // email dialog
+  const [emailClient, setEmailClient] = useState<ClientRow | null>(null);
+  const [newEmail, setNewEmail] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
 
   // delete confirm
   const [delClient, setDelClient] = useState<ClientRow | null>(null);
@@ -142,6 +147,24 @@ const AdminClientManage: React.FC = () => {
     } catch (e: any) {
       toast({ title: 'Reset failed', description: e.message, variant: 'destructive' });
     } finally { setSavingPw(false); }
+  };
+
+  const saveEmail = async () => {
+    if (!emailClient) return;
+    const email = newEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Invalid email', description: 'Enter a valid email address', variant: 'destructive' });
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      await callAdmin({ action: 'set_email', user_id: emailClient.id, email });
+      toast({ title: 'Email updated', description: `${emailClient.email} → ${email}` });
+      setEmailClient(null); setNewEmail('');
+      load();
+    } catch (e: any) {
+      toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+    } finally { setSavingEmail(false); }
   };
 
   const confirmDelete = async () => {
@@ -258,6 +281,7 @@ const AdminClientManage: React.FC = () => {
                       <td className="p-3">
                         <div className="flex gap-1 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => openEdit(c)}><CalendarPlus className="w-3.5 h-3.5 mr-1" /> Plan</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEmailClient(c); setNewEmail(c.email || ''); }}><Mail className="w-3.5 h-3.5 mr-1" /> Email</Button>
                           <Button size="sm" variant="outline" onClick={() => { setPwClient(c); setNewPw(''); }}><KeyRound className="w-3.5 h-3.5 mr-1" /> Password</Button>
                           <Button size="sm" variant="ghost" onClick={() => setDelClient(c)} title="Delete client"><Trash2 className="w-4 h-4 text-red-500" /></Button>
                         </div>
@@ -316,6 +340,20 @@ const AdminClientManage: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-1">Current: {editing?.plan_expires_at ? new Date(editing.plan_expires_at).toLocaleDateString('en-MY') : '-'} — adds on top if still valid, else from today.</p>
             </div>
             <Button className="w-full" onClick={savePlan} disabled={savingPlan}>{savingPlan && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email */}
+      <Dialog open={!!emailClient} onOpenChange={(o) => { if (!o) setEmailClient(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Change Email</DialogTitle><DialogDescription>Current: {emailClient?.email}</DialogDescription></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>New email</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="client@email.com" className="mt-1" /></div>
+            <p className="text-xs text-muted-foreground">The client logs in with this email immediately after saving. Their ID staff and password stay the same.</p>
+            <Button className="w-full" onClick={saveEmail} disabled={savingEmail || !newEmail.trim() || newEmail.trim().toLowerCase() === (emailClient?.email || '').toLowerCase()}>
+              {savingEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save email
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

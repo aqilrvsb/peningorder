@@ -4,6 +4,7 @@
  * Actions (POST JSON { action, ... }):
  *   create        { email, password, full_name, business_name, plan, days }
  *   set_password  { user_id, password }
+ *   set_email     { user_id, email }  -> change the client's login email
  *   delete        { user_id }
  *   impersonate   { user_id }  -> returns { email, token_hash } for the caller
  *                                 to verifyOtp() and become that client.
@@ -90,6 +91,24 @@ serve(async (req) => {
       const { error } = await admin.auth.admin.updateUserById(user_id, { password });
       if (error) return json(500, { error: "set_password_failed", detail: error.message });
       return json(200, { success: true });
+    }
+
+    if (action === "set_email") {
+      const user_id = String(body.user_id || "");
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!user_id) return json(400, { error: "missing_user_id" });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { error: "invalid_email" });
+      // Change the auth email immediately (email_confirm skips the verification
+      // round-trip so the client can log in with the new email right away).
+      const { error: authErr } = await admin.auth.admin.updateUserById(user_id, { email, email_confirm: true });
+      if (authErr) {
+        const msg = authErr.message || "set_email_failed";
+        return json(/already|exist|registered|duplicate/i.test(msg) ? 409 : 500, { error: "set_email_failed", detail: msg });
+      }
+      // Mirror to profiles.email (read by impersonate + the admin list). idstaff
+      // and username are intentionally left unchanged.
+      await admin.from("profiles").update({ email }).eq("id", user_id);
+      return json(200, { success: true, email });
     }
 
     if (action === "delete") {
