@@ -5,6 +5,9 @@
  *   create        { email, password, full_name, business_name, plan, days }
  *   set_password  { user_id, password }
  *   set_email     { user_id, email }  -> change the client's login email
+ *   send_credentials { user_id, password? } -> (re)send login via WhatsApp; sets
+ *                     the password (typed or auto-generated) since the current
+ *                     one can't be recovered, then WhatsApps email + password.
  *   delete        { user_id }
  *   impersonate   { user_id }  -> returns { email, token_hash } for the caller
  *                                 to verifyOtp() and become that client.
@@ -28,6 +31,48 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// ---- WhatsApp credential (re)send via the platform ADMIN device ------------
+const WHACENTER = "https://api.whacenter.com/api/send";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://peningorder.com";
+const LOGIN_URL = `${APP_ORIGIN}/auth`;
+
+function toMalayDigits(raw: string): string | null {
+  const d = (raw || "").replace(/\D/g, "");
+  if (!d) return null;
+  if (/^60\d{8,12}$/.test(d)) return d;
+  if (/^0\d{8,11}$/.test(d)) return "6" + d;
+  if (/^1\d{8,10}$/.test(d)) return "60" + d;
+  return d.length >= 9 ? d : null;
+}
+// Send from the platform admin device (Whacenter). Mirrors billing-webhook's
+// sender — api_key is required or Whacenter silently drops the message.
+async function sendWhatsAppAdmin(admin: any, toPhone: string, message: string): Promise<boolean> {
+  const number = toMalayDigits(toPhone);
+  if (!number) return false;
+  const { data: device } = await admin.from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
+  if (!device?.instance) return false;
+  const form = new URLSearchParams();
+  if (device.api_key) form.append("api_key", device.api_key);
+  form.append("device_id", device.instance);
+  form.append("number", number);
+  form.append("message", message);
+  try {
+    const res = await fetch(WHACENTER, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+// Readable random password (no ambiguous chars) for a credential resend.
+function genPassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const arr = new Uint32Array(10);
+  crypto.getRandomValues(arr);
+  let s = "";
+  for (let i = 0; i < 10; i++) s += chars[arr[i] % chars.length];
+  return s;
 }
 
 // Tables owned by a tenant via owner_user_id — cleaned on delete.
@@ -109,6 +154,37 @@ serve(async (req) => {
       // and username are intentionally left unchanged.
       await admin.from("profiles").update({ email }).eq("id", user_id);
       return json(200, { success: true, email });
+    }
+
+    if (action === "send_credentials") {
+      const user_id = String(body.user_id || "");
+      if (!user_id) return json(400, { error: "missing_user_id" });
+      const provided = String(body.password || "").trim();
+      if (provided && provided.length < 6) return json(400, { error: "password_min_6" });
+
+      const { data: prof } = await admin.from("profiles")
+        .select("email, full_name, business_name, whatsapp, whatsapp_number, plan, plan_expires_at")
+        .eq("id", user_id).maybeSingle();
+      if (!prof?.email) return json(404, { error: "client_not_found" });
+
+      // The stored hash can't be reversed, so to send WORKING credentials we set
+      // the password we're about to send: the admin-typed one, or a fresh random
+      // one when left blank.
+      const password = provided || genPassword();
+      const { error: pwErr } = await admin.auth.admin.updateUserById(user_id, { password });
+      if (pwErr) return json(500, { error: "set_password_failed", detail: pwErr.message });
+
+      const phone = String(prof.whatsapp_number || prof.whatsapp || "").trim();
+      const name = prof.full_name || prof.business_name || "pelanggan";
+      const label = String(prof.plan || "-");
+      const expires = prof.plan_expires_at ? new Date(prof.plan_expires_at).toLocaleDateString("en-MY") : "-";
+      const msg = `*PeningOrder — Login Info Anda* 🔐\n\nSalam ${name},\n\nBerikut maklumat login akaun anda:\n\nEmail    : ${prof.email}\nPassword : ${password}\n\nPlan     : ${label}\nSah hingga: ${expires}\n\nLogin di: ${LOGIN_URL}\n\nSila tukar password selepas login (Profile → Tukar Password).\n\nSebarang masalah? Reply WhatsApp ini.`;
+
+      // Send if we have a phone; always return the password so the admin can copy
+      // and pass it on manually if WhatsApp delivery failed / no number on file.
+      let sent = false;
+      if (phone) sent = await sendWhatsAppAdmin(admin, phone, msg);
+      return json(200, { success: true, sent, phone: phone || null, email: prof.email, password });
     }
 
     if (action === "delete") {

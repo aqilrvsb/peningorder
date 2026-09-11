@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  UsersRound, UserPlus, Search, Loader2, KeyRound, CalendarPlus, Trash2, LogIn, Mail,
+  UsersRound, UserPlus, Search, Loader2, KeyRound, CalendarPlus, Trash2, LogIn, Mail, Send, Copy,
 } from 'lucide-react';
 
 const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale'];
@@ -64,6 +64,12 @@ const AdminClientManage: React.FC = () => {
   const [emailClient, setEmailClient] = useState<ClientRow | null>(null);
   const [newEmail, setNewEmail] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
+
+  // send-credentials dialog
+  const [sendClient, setSendClient] = useState<ClientRow | null>(null);
+  const [sendPw, setSendPw] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ sent: boolean; phone: string | null; email: string; password: string } | null>(null);
 
   // delete confirm
   const [delClient, setDelClient] = useState<ClientRow | null>(null);
@@ -165,6 +171,26 @@ const AdminClientManage: React.FC = () => {
     } catch (e: any) {
       toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
     } finally { setSavingEmail(false); }
+  };
+
+  const openSend = (c: ClientRow) => { setSendClient(c); setSendPw(''); setSendResult(null); };
+
+  const sendCredentials = async () => {
+    if (!sendClient) return;
+    const pw = sendPw.trim();
+    if (pw && pw.length < 6) { toast({ title: 'Too short', description: 'Password min 6 characters (or leave blank to auto-generate)', variant: 'destructive' }); return; }
+    setSending(true);
+    try {
+      const data = await callAdmin({ action: 'send_credentials', user_id: sendClient.id, ...(pw ? { password: pw } : {}) });
+      setSendResult({ sent: !!data.sent, phone: data.phone ?? null, email: data.email, password: data.password });
+      toast({
+        title: data.sent ? 'Credentials sent' : 'Password set — WhatsApp not delivered',
+        description: data.sent ? `WhatsApp sent to ${data.phone}` : (data.phone ? 'Send failed — copy & share manually' : 'No WhatsApp number — copy & share manually'),
+        variant: data.sent ? undefined : 'destructive',
+      });
+    } catch (e: any) {
+      toast({ title: 'Send failed', description: e.message, variant: 'destructive' });
+    } finally { setSending(false); }
   };
 
   const confirmDelete = async () => {
@@ -283,6 +309,7 @@ const AdminClientManage: React.FC = () => {
                           <Button size="sm" variant="outline" onClick={() => openEdit(c)}><CalendarPlus className="w-3.5 h-3.5 mr-1" /> Plan</Button>
                           <Button size="sm" variant="outline" onClick={() => { setEmailClient(c); setNewEmail(c.email || ''); }}><Mail className="w-3.5 h-3.5 mr-1" /> Email</Button>
                           <Button size="sm" variant="outline" onClick={() => { setPwClient(c); setNewPw(''); }}><KeyRound className="w-3.5 h-3.5 mr-1" /> Password</Button>
+                          <Button size="sm" variant="outline" onClick={() => openSend(c)} title="Resend login (email + password) via WhatsApp"><Send className="w-3.5 h-3.5 mr-1" /> Send Login</Button>
                           <Button size="sm" variant="ghost" onClick={() => setDelClient(c)} title="Delete client"><Trash2 className="w-4 h-4 text-red-500" /></Button>
                         </div>
                       </td>
@@ -341,6 +368,46 @@ const AdminClientManage: React.FC = () => {
             </div>
             <Button className="w-full" onClick={savePlan} disabled={savingPlan}>{savingPlan && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send login credentials (WhatsApp) */}
+      <Dialog open={!!sendClient} onOpenChange={(o) => { if (!o) { setSendClient(null); setSendResult(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Resend Login</DialogTitle>
+            <DialogDescription>{sendClient?.email}{sendClient?.whatsapp ? ` · ${sendClient.whatsapp}` : ' · no WhatsApp on file'}</DialogDescription>
+          </DialogHeader>
+          {!sendResult ? (
+            <div className="space-y-4">
+              <div>
+                <Label>Password to send</Label>
+                <Input type="text" value={sendPw} onChange={(e) => setSendPw(e.target.value)} placeholder="leave blank to auto-generate" className="mt-1" />
+                <p className="text-xs text-muted-foreground mt-1">The current password can't be retrieved, so this <b>sets</b> the password and WhatsApps it to the client. Type the existing one to resend it unchanged, or leave blank for a new random one.</p>
+              </div>
+              <Button className="w-full" onClick={sendCredentials} disabled={sending}>
+                {sending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} <Send className="w-4 h-4 mr-2" /> Set &amp; Send via WhatsApp
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className={`rounded-md border p-3 text-sm ${sendResult.sent ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20'}`}>
+                {sendResult.sent
+                  ? <p className="text-emerald-700 dark:text-emerald-400 font-medium">WhatsApp sent to {sendResult.phone}.</p>
+                  : <p className="text-amber-700 dark:text-amber-400 font-medium">{sendResult.phone ? 'WhatsApp delivery failed' : 'No WhatsApp number on file'} — share these manually:</p>}
+              </div>
+              <div className="rounded-md border border-border bg-muted/40 p-3 font-mono text-xs space-y-1">
+                <div>Email: {sendResult.email}</div>
+                <div>Password: {sendResult.password}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { navigator.clipboard?.writeText(`Email: ${sendResult.email}\nPassword: ${sendResult.password}\nLogin: https://peningorder.com/auth`); toast({ title: 'Copied' }); }}>
+                  <Copy className="w-4 h-4 mr-2" /> Copy
+                </Button>
+                <Button className="flex-1" onClick={() => { setSendClient(null); setSendResult(null); }}>Done</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
