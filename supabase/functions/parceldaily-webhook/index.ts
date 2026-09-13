@@ -305,9 +305,19 @@ serve(async (req) => {
       if (matched) {
         const rawStatus = payload.status || payload.statusGroup || "";
         const statusGroup = payload.statusGroup || rawStatus || "";
+        const rawLower = String(rawStatus).toLowerCase();
+        const groupLower = String(statusGroup).toLowerCase();
+        // GUARD: "Pickup Success" / "Picked Up" (courier collected the parcel FROM
+        // the sender — first-mile) contains "success" but is NOT a delivery. Bare
+        // "success" must never count. Only genuine last-mile delivery flips the
+        // order to Success: a "deliver…" status, PD's normalized group "Delivered",
+        // or an explicit received/signed phrase.
         const isDelivered =
-          /delivered|success/i.test(rawStatus) || /Delivered/i.test(statusGroup);
-        const isReturn = /return/i.test(rawStatus) || /return/i.test(statusGroup);
+          !/pick/i.test(rawLower) &&
+          (/deliver/i.test(rawLower) ||
+            groupLower === "delivered" ||
+            /been received|signed by|collected by consignee|received by/i.test(rawLower));
+        const isReturn = /return/i.test(rawLower) || /return/i.test(groupLower);
         const pref = await getTrackPref(supabase, matched.owner_user_id, statusGroup);
 
         if (pref.track) {
