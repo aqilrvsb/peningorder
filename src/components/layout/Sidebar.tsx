@@ -89,6 +89,7 @@ const financeItems: NavItem[] = [
   { label: 'Sales Overview', path: '/dashboard/account/sales-overview', icon: <BarChart3 className="w-5 h-5" /> },
   { label: 'Report Profit', path: '/dashboard/account/report-profit', icon: <TrendingUp className="w-5 h-5" /> },
   { label: 'Pending COD Collection', path: '/dashboard/account/pending-tracking', icon: <DollarSign className="w-5 h-5" /> },
+  { label: 'Success COD Collection', path: '/dashboard/account/success-collection', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Order Cash', path: '/dashboard/account/order-cash', icon: <Banknote className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
 ];

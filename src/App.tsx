@@ -59,6 +59,7 @@ const AccountReportProfit = lazy(() => import("./components/account/AccountRepor
 const AccountInvoiceSettings = lazy(() => import("./components/account/AccountInvoiceSettings"));
 const AccountOrderCash = lazy(() => import("./components/account/AccountOrderCash"));
 const AccountPendingTracking = lazy(() => import("./components/account/AccountPendingTracking"));
+const AccountSuccessCollection = lazy(() => import("./components/account/AccountSuccessCollection"));
 
 const queryClient = new QueryClient();
 
@@ -191,6 +192,7 @@ const App = () => (
                     <Route path="account/sales-overview" element={clientOnly(<SalesOverview />)} />
                     <Route path="account/report-profit" element={marketerAllowed(<AccountReportProfit />)} />
                     <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
+                    <Route path="account/success-collection" element={clientOnly(<AccountSuccessCollection />)} />
                     <Route path="account/order-cash" element={clientOnly(<AccountOrderCash />)} />
                     <Route path="account/invoice-settings" element={clientOnly(<AccountInvoiceSettings />)} />
                     {/* Support — client ticket submission */}
