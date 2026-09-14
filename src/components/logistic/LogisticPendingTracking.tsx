@@ -37,6 +37,14 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Problematic = Shipped order whose live parcel status hints a delivery problem.
 const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not available|no answer|wrong address|attempt|tidak dapat|return/i;
+// "Awaiting handover" = booked but the courier has NOT collected it yet (no real
+// movement scan). Excluded from Pending Tracking, which is for parcels actually
+// in transit ("courier tak ambil lagi" — belongs in the Shipped tab, not here).
+const isAwaitingHandover = (o: any): boolean => {
+  const s = String(o?.seos || "").trim().toLowerCase();
+  if (!s || s === "pending") return true;
+  return /dropped off|drop off|awaiting pickup|awaiting handover/.test(s);
+};
 // Courier name from the kurier field ("JNT COD" -> "JNT").
 const ptBaseCourier = (kurier?: string): string => {
   const k = (kurier || "").toLowerCase();
@@ -147,6 +155,9 @@ const LogisticPendingTracking = () => {
     if (effectiveFilter && (order.marketer_id_staff || '') !== effectiveFilter) return false;
     // Exclude Self Pickup — self-collect has no courier tracking to await.
     if ((order.kurier || '').toUpperCase().includes('PICKUP')) return false;
+    // Exclude "Awaiting Handover" — courier hasn't collected the parcel yet, so
+    // it isn't in transit. It still shows in the Shipped tab, just not here.
+    if (isAwaitingHandover(order)) return false;
     // Platform filter
     if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
 
