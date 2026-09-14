@@ -291,10 +291,13 @@ const LogisticPendingTracking = () => {
     try {
       // Delivery outcome only — COD cash collection stays a Finance action
       // (Pending COD Collection), so date_payment is left untouched here.
+      // delivery_status_manual flags this as a manual (staff) outcome, not webhook.
+      // Manual Return also stamps date_return so it surfaces in the Return tab.
+      const klToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
       const payload: Record<string, any> =
         status === "Success"
-          ? { delivery_status: "Success", seo: "Successful Delivery", seos: "Successful Delivery" }
-          : { delivery_status: "Return", seos: "Return" };
+          ? { delivery_status: "Success", seo: "Successful Delivery", seos: "Successful Delivery", delivery_status_manual: true }
+          : { delivery_status: "Return", seos: "Return", delivery_status_manual: true, ...(order.date_return ? {} : { date_return: klToday }) };
       const { error } = await supabase
         .from("customer_purchases")
         .update(payload)

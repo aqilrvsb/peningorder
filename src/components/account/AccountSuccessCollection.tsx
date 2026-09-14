@@ -126,6 +126,7 @@ const AccountSuccessCollection = () => {
       "Id Sales": o.id_sale || "-",
       "Tarikh Order": o.date_order || "-",
       "Tarikh Remit": o.date_payment || "-",
+      "Sumber": o.cod_remit_manual ? "Manual" : "Auto",
       "Nama Pelanggan": o.name_customer || "-",
       "Phone": o.phone_customer || "-",
       "Produk": o.bundle?.name || o.nota_staff || "-",
@@ -255,6 +256,7 @@ const AccountSuccessCollection = () => {
                       <th className="p-3 text-left">Id Sales</th>
                       <th className="p-3 text-left">Tarikh Order</th>
                       <th className="p-3 text-left">Tarikh Remit</th>
+                      <th className="p-3 text-left">Sumber</th>
                       <th className="p-3 text-left">Nama Pelanggan</th>
                       <th className="p-3 text-left">Phone</th>
                       <th className="p-3 text-left">Produk</th>
@@ -276,6 +278,11 @@ const AccountSuccessCollection = () => {
                           <td className="p-3 whitespace-nowrap">{o.id_sale || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                           <td className="p-3 whitespace-nowrap text-emerald-600 dark:text-emerald-400">{formatDMY(o.date_payment)}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${o.cod_remit_manual ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+                              {o.cod_remit_manual ? "Manual" : "Auto"}
+                            </span>
+                          </td>
                           <td className="p-3">{o.name_customer || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{o.phone_customer || "-"}</td>
                           <td className="p-3"><span className="truncate max-w-[150px] block">{o.bundle?.name || o.nota_staff || "-"}</span></td>
@@ -288,7 +295,7 @@ const AccountSuccessCollection = () => {
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={15} className="text-center py-12 text-muted-foreground">No remitted COD orders found.</td></tr>
+                      <tr><td colSpan={16} className="text-center py-12 text-muted-foreground">No remitted COD orders found.</td></tr>
                     )}
                   </tbody>
                 </table>

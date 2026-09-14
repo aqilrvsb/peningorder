@@ -631,9 +631,12 @@ const LogisticReturn = () => {
                               ? <Button size="sm" variant="outline" className="h-7" onClick={() => setViewingPayment(order)}><Receipt className="w-3.5 h-3.5 mr-1" />Lihat</Button>
                               : <span className="text-xs text-muted-foreground">-</span>}
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 whitespace-nowrap">
                             <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
                               {order.delivery_status || "-"}
+                            </span>
+                            <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${order.delivery_status_manual ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+                              {order.delivery_status_manual ? "Manual" : "Auto"}
                             </span>
                           </td>
                           <td className="p-2">

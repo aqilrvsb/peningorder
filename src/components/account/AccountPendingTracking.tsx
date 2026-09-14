@@ -343,21 +343,22 @@ const AccountPendingTracking = () => {
     }
   };
 
-  // Mark single order as collected
+  // Mark single order as collected MANUALLY (Finance confirms COD money received).
+  // Stamps date_payment (so it moves to Success COD Collection) and flags the
+  // source as manual — keeping delivery_status='Success' (it IS delivered).
   const handleCollected = async (orderId: string) => {
     const today = getMalaysiaDate();
     try {
       const { error } = await supabase
         .from("customer_purchases")
         .update({
-          seo: "Successful Delivery",
           date_payment: today,
-          delivery_status: "Shipped",
+          cod_remit_manual: true,
         })
         .eq("id", orderId);
       if (error) throw error;
 
-      toast.success("Order marked as collected");
+      toast.success("Ditanda terima bayaran (manual)");
       queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
     } catch (error: any) {
       toast.error(error.message || "Failed to update order");
@@ -801,7 +802,7 @@ const AccountPendingTracking = () => {
                                 onClick={() => handleCollected(order.id)}
                               >
                                 <Wallet className="w-4 h-4 mr-1" />
-                                Collected
+                                Sudah Terima Bayaran
                               </Button>
                             </div>
                           </td>
