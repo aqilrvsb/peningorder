@@ -307,16 +307,19 @@ serve(async (req) => {
         const statusGroup = payload.statusGroup || rawStatus || "";
         const rawLower = String(rawStatus).toLowerCase();
         const groupLower = String(statusGroup).toLowerCase();
-        // GUARD: "Pickup Success" / "Picked Up" (courier collected the parcel FROM
-        // the sender — first-mile) contains "success" but is NOT a delivery. Bare
-        // "success" must never count. Only genuine last-mile delivery flips the
-        // order to Success: a "deliver…" status, PD's normalized group "Delivered",
-        // or an explicit received/signed phrase.
+        // Only a genuine LAST-MILE delivery flips the order to Success. Two traps
+        // to avoid:
+        //   • first-mile "Pickup Success" (collected FROM sender) contains "success"
+        //   • in-transit / failed statuses contain the word "delivery", e.g.
+        //     "Parcel on its way for delivery", "Failed delivery attempt".
+        // So: exclude any pickup / in-transit / failed / problem status, then match
+        // only past-tense delivered or an explicit received/signed phrase. Matching
+        // on bare "success" or the noun "delivery" is NOT allowed.
+        const notDelivered = /pick|fail|unsuccess|attempt|problem|exception|pending another|unable|reschedul|on its way|on the way|out for delivery|for delivery|in transit|arrived|depart|hub|sorting|processing/i.test(rawLower);
         const isDelivered =
-          !/pick/i.test(rawLower) &&
-          (/deliver/i.test(rawLower) ||
-            groupLower === "delivered" ||
-            /been received|signed by|collected by consignee|received by/i.test(rawLower));
+          !notDelivered &&
+          (/\bdelivered\b|successful delivery|parcel delivered|signed by|collected by consignee|been received|received by/i.test(rawLower) ||
+            groupLower === "delivered");
         const isReturn = /return/i.test(rawLower) || /return/i.test(groupLower);
         const pref = await getTrackPref(supabase, matched.owner_user_id, statusGroup);
 

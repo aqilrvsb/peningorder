@@ -52,7 +52,7 @@ function classify(statusRaw: string): "Success" | "Return" | null {
   if (!s) return null;
   const bad = /(fail|unsuccess|attempt|problem|pending another|unable|reschedul)/.test(s);
   if (/(returned|return to sender|\brts\b|\brto\b|parcel returned|dipulang)/.test(s)) return "Return";
-  if (!bad && /(delivered|successful delivery|parcel delivered|signed by|collected by consignee)/.test(s)) return "Success";
+  if (!bad && /(delivered|successful delivery|parcel delivered|signed by|collected by consignee|been received|received by)/.test(s)) return "Success";
   return null;
 }
 
