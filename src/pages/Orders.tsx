@@ -159,6 +159,7 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
+  const [regeneratePrice, setRegeneratePrice] = useState('');
   const [regenerateError, setRegenerateError] = useState('');
   const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'>('poslaju');
   // Couriers the client enabled in Courier Settings (labels e.g. ['Poslaju','JNT']).
@@ -550,6 +551,7 @@ ${trackingUrl}`;
       hargaJualanSebenar: order.hargaJualanSebenar,
     });
     setRegeneratePoskod(order.poskod);
+    setRegeneratePrice(order.hargaJualanSebenar > 0 ? String(order.hargaJualanSebenar) : '');
     setRegenerateError('');
     setRegenerateDialogOpen(true);
   };
@@ -644,11 +646,11 @@ ${trackingUrl}`;
     if (!orderForTracking) return;
     setRegenerateError('');
 
-    // Pre-check: ParcelDaily needs a price > 0 (COD amount / parcel value). Catch
-    // it here with a clear message instead of the cryptic "Price is required".
-    const orderPrice = Number(orderForTracking.hargaJualanSebenar) || 0;
+    // ParcelDaily needs a price > 0 (COD amount / parcel value). The client fills
+    // it in right here in the dialog — no need to go edit the order separately.
+    const orderPrice = Number(regeneratePrice) || 0;
     if (orderPrice <= 0) {
-      setRegenerateError('Order ini tiada harga jualan (RM 0). Sila edit order dan isi "Harga Jualan" dahulu sebelum jana tracking number.');
+      setRegenerateError('Sila isi "Harga Jualan (RM)" dahulu — kurier perlukan harga untuk jana tracking.');
       return;
     }
     if (!regeneratePoskod.trim()) {
@@ -669,6 +671,12 @@ ${trackingUrl}`;
         await supabase.from('customer_purchases').update({ id_sale: idSale }).eq('id', orderForTracking.id);
       }
       
+      // Save the price the client entered so the order records it (was RM 0
+      // before, or the client corrected it here).
+      if (orderPrice !== Number(orderForTracking.hargaJualanSebenar)) {
+        await supabase.from('customer_purchases').update({ total_sale: orderPrice }).eq('id', orderForTracking.id);
+      }
+
       // Determine COD based on cara_bayaran
       const isCOD = orderForTracking.caraBayaran === 'COD';
 
@@ -695,7 +703,7 @@ ${trackingUrl}`;
           paymentMethod: orderForTracking.caraBayaran,
           productName: orderForTracking.produk,
           marketerIdStaff: orderForTracking.marketerIdStaff,
-          price: orderForTracking.hargaJualanSebenar,
+          price: orderPrice,
         }
       });
 
@@ -1518,9 +1526,18 @@ ${trackingUrl}`;
                 className="mt-1"
               />
             </div>
-            <div className="text-xs text-muted-foreground">
-              Harga jualan order: <span className={`font-semibold ${Number(orderForTracking?.hargaJualanSebenar || 0) > 0 ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>RM {Number(orderForTracking?.hargaJualanSebenar || 0).toFixed(2)}</span>
-              {Number(orderForTracking?.hargaJualanSebenar || 0) <= 0 && ' — perlu isi harga dahulu'}
+            <div>
+              <label className="text-sm font-medium text-foreground">Harga Jualan (RM)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={regeneratePrice}
+                onChange={(e) => { setRegeneratePrice(e.target.value); setRegenerateError(''); }}
+                placeholder="cth: 84.00"
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Kurier perlukan harga (jumlah COD / nilai parcel) untuk jana tracking. Harga akan disimpan ke order.</p>
             </div>
             {regenerateError && (
               <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400">
@@ -1532,7 +1549,7 @@ ${trackingUrl}`;
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)} disabled={isRegenerating}>
               Batal
             </Button>
-            <Button onClick={handleConfirmRegenerate} disabled={isRegenerating || !regeneratePoskod}>
+            <Button onClick={handleConfirmRegenerate} disabled={isRegenerating || !regeneratePoskod || !(Number(regeneratePrice) > 0)}>
               {isRegenerating ? 'Menjana...' : 'Jana Tracking'}
             </Button>
           </DialogFooter>
