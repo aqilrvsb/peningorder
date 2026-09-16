@@ -159,6 +159,7 @@ const Orders: React.FC = () => {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [orderForTracking, setOrderForTracking] = useState<OrderForTracking | null>(null);
   const [regeneratePoskod, setRegeneratePoskod] = useState('');
+  const [regenerateError, setRegenerateError] = useState('');
   const [regenerateCourier, setRegenerateCourier] = useState<'ninjavan' | 'poslaju' | 'jnt' | 'dhl' | 'spx'>('poslaju');
   // Couriers the client enabled in Courier Settings (labels e.g. ['Poslaju','JNT']).
   const [allowedCouriers, setAllowedCouriers] = useState<string[] | null>(null);
@@ -549,6 +550,7 @@ ${trackingUrl}`;
       hargaJualanSebenar: order.hargaJualanSebenar,
     });
     setRegeneratePoskod(order.poskod);
+    setRegenerateError('');
     setRegenerateDialogOpen(true);
   };
 
@@ -624,9 +626,36 @@ ${trackingUrl}`;
     }
   };
 
+  // Turn a raw ParcelDaily/API error into a clear message the seller can act on.
+  const translateTrackingError = (raw: string): string => {
+    const s = (raw || '').toLowerCase();
+    if (/price is required|price/.test(s)) return 'Order ini tiada harga jualan (RM 0). Sila edit order dan isi "Harga Jualan" dahulu, kemudian cuba jana tracking semula.';
+    if (/credit|insufficient|balance|top.?up|baki/.test(s)) return 'Kredit ParcelDaily tak cukup untuk book kurier ini. Sila top up kredit ParcelDaily dahulu.';
+    if (/postcode|poskod|postal/.test(s)) return 'Poskod tidak sah atau kurier ini tak cover kawasan tu. Sila semak poskod penerima atau pilih kurier lain.';
+    if (/phone|contact|mobile/.test(s)) return 'Nombor telefon penerima tidak sah. Sila edit order dan betulkan nombor telefon.';
+    if (/address|alamat/.test(s)) return 'Alamat penerima tidak lengkap. Sila edit order dan lengkapkan alamat.';
+    if (/weight|kg|dimension|parcel size/.test(s)) return 'Berat/saiz parcel tidak sah. Sila semak produk/bundle order.';
+    if (/token|unauthor|auth|merchant/.test(s)) return 'Sambungan ParcelDaily bermasalah (token/akaun). Sila semak tetapan di Courier Settings.';
+    if (/not found|no service|no courier|unavailable/.test(s)) return 'Kurier ini tak tersedia untuk order ni. Sila cuba kurier lain.';
+    return raw || 'Gagal menjana tracking number. Sila cuba lagi.';
+  };
+
   const handleConfirmRegenerate = async () => {
     if (!orderForTracking) return;
-    
+    setRegenerateError('');
+
+    // Pre-check: ParcelDaily needs a price > 0 (COD amount / parcel value). Catch
+    // it here with a clear message instead of the cryptic "Price is required".
+    const orderPrice = Number(orderForTracking.hargaJualanSebenar) || 0;
+    if (orderPrice <= 0) {
+      setRegenerateError('Order ini tiada harga jualan (RM 0). Sila edit order dan isi "Harga Jualan" dahulu sebelum jana tracking number.');
+      return;
+    }
+    if (!regeneratePoskod.trim()) {
+      setRegenerateError('Sila masukkan poskod penerima dahulu.');
+      return;
+    }
+
     setIsRegenerating(true);
     try {
       // Generate new id_sale if order doesn't have one
@@ -701,9 +730,11 @@ ${trackingUrl}`;
       await refreshData();
     } catch (error: any) {
       console.error('Regenerate tracking error:', error);
+      const friendly = translateTrackingError(String(error?.message || ''));
+      setRegenerateError(friendly);
       toast({
-        title: 'Error',
-        description: error.message || 'Gagal menjana tracking number. Sila cuba lagi.',
+        title: 'Tak boleh jana tracking',
+        description: friendly,
         variant: 'destructive',
       });
     } finally {
@@ -1482,11 +1513,20 @@ ${trackingUrl}`;
               <Input
                 type="text"
                 value={regeneratePoskod}
-                onChange={(e) => setRegeneratePoskod(e.target.value)}
+                onChange={(e) => { setRegeneratePoskod(e.target.value); setRegenerateError(''); }}
                 placeholder="Masukkan poskod"
                 className="mt-1"
               />
             </div>
+            <div className="text-xs text-muted-foreground">
+              Harga jualan order: <span className={`font-semibold ${Number(orderForTracking?.hargaJualanSebenar || 0) > 0 ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>RM {Number(orderForTracking?.hargaJualanSebenar || 0).toFixed(2)}</span>
+              {Number(orderForTracking?.hargaJualanSebenar || 0) <= 0 && ' — perlu isi harga dahulu'}
+            </div>
+            {regenerateError && (
+              <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400">
+                <span className="font-semibold">Tak boleh jana tracking:</span> {regenerateError}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)} disabled={isRegenerating}>
