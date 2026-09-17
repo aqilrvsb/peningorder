@@ -60,9 +60,8 @@ const AdminCommission: React.FC = () => {
 
   const apply = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
 
-  const exportExcel = () => {
-    if (shownDetails.length === 0) return;
-    const rows = shownDetails.map((d, i) => ({
+  const exportRows = () =>
+    shownDetails.map((d, i) => ({
       No: i + 1,
       Client: d.client,
       'Id Sales': d.id_sale || '-',
@@ -72,10 +71,32 @@ const AdminCommission: React.FC = () => {
       Tarikh: d.remark_date || '-',
       'Komisen (RM)': RATE.toFixed(2),
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
+
+  const exportExcel = () => {
+    if (shownDetails.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(exportRows());
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'PD Commission');
     XLSX.writeFile(wb, `PD_Commission_${startDate}_${endDate}.xlsx`);
+  };
+
+  const exportCSV = () => {
+    if (shownDetails.length === 0) return;
+    const rows = exportRows();
+    const headers = Object.keys(rows[0]);
+    const esc = (v: any) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => esc((r as any)[h])).join(','))].join('\n');
+    // Prepend BOM so Excel opens UTF-8 correctly.
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PD_Commission_${startDate}_${endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
@@ -100,9 +121,14 @@ const AdminCommission: React.FC = () => {
             <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
           </div>
           <Button onClick={apply}>Apply</Button>
-          <Button variant="outline" onClick={exportExcel} disabled={shownDetails.length === 0} className="ml-auto">
-            <Download className="w-4 h-4 mr-2" /> Export Excel
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" onClick={exportCSV} disabled={shownDetails.length === 0}>
+              <Download className="w-4 h-4 mr-2" /> Export CSV
+            </Button>
+            <Button variant="outline" onClick={exportExcel} disabled={shownDetails.length === 0}>
+              <Download className="w-4 h-4 mr-2" /> Export Excel
+            </Button>
+          </div>
         </div>
       </div>
 
