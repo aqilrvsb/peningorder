@@ -244,11 +244,22 @@ serve(async (req) => {
     const quoteRoot = quoteResult?.success || quoteResult?.data || quoteResult;
     const priceKey = `${courier}Price`;
     const rawPrice = quoteRoot?.[priceKey];
-    const shippingPrice = rawPrice != null ? Number(rawPrice) : NaN;
-    if (!isFinite(shippingPrice)) {
+    // Parcel Daily returns an EMPTY string for a courier that doesn't service the
+    // destination (e.g. Poslaju to many East-Malaysia postcodes). Number("") is 0
+    // — which is "finite" — so guarding only NaN would let a price:0 through and
+    // the create endpoint rejects it with the cryptic "Price is required". Treat
+    // blank / non-positive as "no coverage" and tell the seller to pick another.
+    const rawPriceStr = rawPrice == null ? "" : String(rawPrice).trim();
+    const shippingPrice = rawPriceStr === "" ? NaN : Number(rawPrice);
+    if (!isFinite(shippingPrice) || shippingPrice <= 0) {
+      // Which couriers DO cover this postcode? (non-empty *Price keys)
+      const covered = Object.keys(quoteRoot || {})
+        .filter((k) => k.endsWith("Price") && String((quoteRoot as any)[k] || "").trim() !== "")
+        .map((k) => k.replace(/Price$/, ""));
+      const suggest = covered.length ? ` Kurier yang boleh: ${covered.join(", ")}.` : "";
       return fail(
-        `Parcel Daily quote: no price returned for courier '${courier}' (key=${priceKey})`,
-        { details: quoteResult, courier },
+        `Kurier '${courier}' tidak servis kawasan poskod ${orderData.postcode}. Sila pilih kurier lain.${suggest}`,
+        { code: "courier_no_coverage", courier, postcode: orderData.postcode, covered, details: quoteResult },
       );
     }
 
