@@ -670,7 +670,16 @@ const LogisticOrder = () => {
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
     } catch (error: any) {
       console.error("Generate tracking error:", error);
-      toast.error(error.message || "Failed to generate tracking number");
+      // Prominent modal (not a fleeting toast) so the client sees WHY it failed —
+      // e.g. the chosen courier doesn't cover the destination postcode.
+      const msg = String(error?.message || "Gagal menjana tracking number.");
+      const noCoverage = /tidak servis|not.*cover|coverage|kurier yang boleh/i.test(msg);
+      await Swal.fire({
+        icon: noCoverage ? "warning" : "error",
+        title: noCoverage ? "Kurier tak cover kawasan" : "Tak boleh jana tracking",
+        text: msg,
+        confirmButtonText: "OK",
+      });
     } finally {
       setGeneratingTrackingFor(null);
     }
@@ -837,7 +846,13 @@ const LogisticOrder = () => {
       setEditingOrder(null);
     } catch (error: any) {
       console.error("Save edit error:", error);
-      toast.error(error.message || "Failed to save changes");
+      const msg = String(error?.message || "Gagal simpan perubahan.");
+      const noCoverage = /tidak servis|not.*cover|coverage|kurier yang boleh/i.test(msg);
+      if (noCoverage) {
+        await Swal.fire({ icon: "warning", title: "Kurier tak cover kawasan", text: msg, confirmButtonText: "OK" });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsSavingEdit(false);
     }

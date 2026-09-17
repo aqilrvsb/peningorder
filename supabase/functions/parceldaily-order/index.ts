@@ -257,9 +257,15 @@ serve(async (req) => {
         .filter((k) => k.endsWith("Price") && String((quoteRoot as any)[k] || "").trim() !== "")
         .map((k) => k.replace(/Price$/, ""));
       const suggest = covered.length ? ` Kurier yang boleh: ${covered.join(", ")}.` : "";
+      // For COD this is usually a COD-service limit (e.g. Poslaju COD is not
+      // offered to Sabah/Sarawak) rather than the courier not covering the area
+      // at all — say so, so the seller isn't confused ("Poslaju cover semua MY").
+      const reason = isCOD
+        ? `Kurier '${courier}' COD tidak tersedia ke poskod ${orderData.postcode} (servis COD mungkin tak sampai kawasan ni).`
+        : `Kurier '${courier}' tidak servis poskod ${orderData.postcode}.`;
       return fail(
-        `Kurier '${courier}' tidak servis kawasan poskod ${orderData.postcode}. Sila pilih kurier lain.${suggest}`,
-        { code: "courier_no_coverage", courier, postcode: orderData.postcode, covered, details: quoteResult },
+        `${reason} Sila pilih kurier lain.${suggest}`,
+        { code: "courier_no_coverage", courier, postcode: orderData.postcode, cod: isCOD, covered, details: quoteResult },
       );
     }
 
