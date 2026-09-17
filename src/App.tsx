@@ -40,6 +40,7 @@ const AdminTickets = lazy(() => import("./pages/admin/AdminTickets"));
 const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
 const AdminClientManage = lazy(() => import("./pages/admin/AdminClientManage"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminCommission = lazy(() => import("./pages/admin/AdminCommission"));
 // Marketer components
 const MarketerWebhookSettings = lazy(() => import("./components/marketer/MarketerWebhookSettings"));
 // Logistic Role components
@@ -202,6 +203,7 @@ const App = () => (
                     <Route path="admin/manage-clients" element={adminOnly(<AdminClientManage />)} />
                     <Route path="admin/settings" element={adminOnly(<AdminSettings />)} />
                     <Route path="admin/transactions" element={adminOnly(<AdminTransactions />)} />
+                    <Route path="admin/commission" element={adminOnly(<AdminCommission />)} />
                     <Route path="admin/tickets" element={adminOnly(<AdminTickets />)} />
                     <Route path="admin/pricing" element={adminOnly(<AdminPricing />)} />
                     {/* Bottom nav — Billing is client-only; Profile shared */}
