@@ -41,6 +41,7 @@ const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
 const AdminClientManage = lazy(() => import("./pages/admin/AdminClientManage"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminCommission = lazy(() => import("./pages/admin/AdminCommission"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 // Marketer components
 const MarketerWebhookSettings = lazy(() => import("./components/marketer/MarketerWebhookSettings"));
 // Logistic Role components
@@ -199,6 +200,7 @@ const App = () => (
                     {/* Support — client ticket submission */}
                     <Route path="tickets" element={clientOnly(<Tickets />)} />
                     {/* Superadmin — reporting + settings only */}
+                    <Route path="admin/dashboard" element={adminOnly(<AdminDashboard />)} />
                     <Route path="admin/clients" element={adminOnly(<AdminClients />)} />
                     <Route path="admin/manage-clients" element={adminOnly(<AdminClientManage />)} />
                     <Route path="admin/settings" element={adminOnly(<AdminSettings />)} />

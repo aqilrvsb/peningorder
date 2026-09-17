@@ -100,6 +100,7 @@ const financeItems: NavItem[] = [
 // clients do, plus manage plan pricing & settings. Hence a flat reporting nav,
 // no Marketer/Management role menus.
 const adminItems: NavItem[] = [
+  { label: 'Dashboard', path: '/dashboard/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { label: 'Reporting', path: '/dashboard/admin/clients', icon: <BarChart3 className="w-5 h-5" /> },
   { label: 'Client Management', path: '/dashboard/admin/manage-clients', icon: <Users className="w-5 h-5" /> },
   { label: 'Transactions', path: '/dashboard/admin/transactions', icon: <CreditCard className="w-5 h-5" /> },
