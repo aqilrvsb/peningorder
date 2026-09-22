@@ -342,37 +342,69 @@ const AccountSalary: React.FC = () => {
   // Salary slip — dynamic line items driven by the PNL config, opened as a
   // print-ready page (issuer = Invoice Settings, bill-to = the staff's invoice
   // details, brand = peningorder). Beautiful red-accent invoice, like a proper slip.
-  const openSlip = (r: SalaryRow) => {
+  const openSlip = async (r: SalaryRow) => {
     if (!config) return;
     const esc = (v: any) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (v: number) => `RM ${formatNumber(v)}`;
     const inv = invoiceByIdstaff.get(r.idStaff) || { full_name: null, address: null, phone: null };
     const co = invoiceSettings || {};
 
-    type Line = { label: string; amount: number; strong?: boolean; sub?: boolean; muted?: boolean };
-    const lines: Line[] = [];
-    if (isKomisyenOrder) {
-      lines.push({ label: 'Total Sales', amount: r.totalSales, muted: true });
-      lines.push({ label: 'Return', amount: -r.returnSales, muted: true });
-      if (basisIsCollection) lines.push({ label: 'Collection', amount: r.collection, muted: true });
-      lines.push({ label: `Komisyen Order — ${basisIsCollection ? 'Collection' : 'Total Sales − Return'}`, amount: r.commission, strong: true });
-    } else if (isProfitSharing) {
-      lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
-      if (config.deduct_spend) lines.push({ label: '(−) Kos Spend', amount: -r.spend, muted: true });
-      if (config.deduct_product) lines.push({ label: '(−) Kos Product', amount: -r.costProduct, muted: true });
-      if (config.deduct_postage) lines.push({ label: '(−) Kos Postage', amount: -r.postage, muted: true });
-      lines.push({ label: 'Gross Profit', amount: r.base, sub: true });
-      lines.push({ label: `Komisyen — ${r.commissionPercent}% × Gross Profit`, amount: r.commission, strong: true });
-    } else {
-      lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
-      lines.push({ label: `Komisyen — ${r.commissionPercent}% × ${basisIsCollection ? 'Collection' : 'Nett Sales'}`, amount: r.commission, strong: true });
-    }
+    let tableHead = '';
+    let rowsHtml = '';
+    let summaryRightHtml = '';
+    let modalHtml = '';
+    let script = '';
 
-    const rowsHtml = lines.map((l) => `
-      <tr class="${l.strong ? 'strong' : ''} ${l.sub ? 'sub' : ''} ${l.muted ? 'muted' : ''}">
-        <td class="desc">${esc(l.label)}</td>
-        <td class="amt">${l.amount < 0 ? '−' : ''}RM ${formatNumber(Math.abs(l.amount))}</td>
-      </tr>`).join('');
+    if (isKomisyenOrder) {
+      // Komisyen Order slip → an invoice grouped by BUNDLE. Each bundle row is
+      // clickable to open a modal listing that bundle's orders. No Total Sales /
+      // Return lines here — commission is purely the sum of per-bundle komisyen.
+      let orderRows: any[] = [];
+      try {
+        orderRows = await fetchAllRows(() => (supabase as any)
+          .from('customer_purchases')
+          .select('id_sale, date_order, name_customer, phone_customer, tracking_number, commission_amount, delivery_status, type_payment, date_payment, kurier, nota_staff, bundle:logistic_bundles(name)')
+          .eq('marketer_id_staff', r.idStaff)
+          .gte('date_order', startDate)
+          .lte('date_order', endDate));
+      } catch (_e) { orderRows = []; }
+      const qualifies = (o: any) => basisIsCollection ? isOrderCollected(o) : o.delivery_status !== 'Return';
+      const map = new Map<string, { name: string; sum: number; orders: any[] }>();
+      orderRows.filter(qualifies).forEach((o: any) => {
+        const nm = (o.bundle?.name) || o.nota_staff || 'Lain-lain';
+        if (!map.has(nm)) map.set(nm, { name: nm, sum: 0, orders: [] });
+        const g = map.get(nm)!;
+        const comm = Number(o.commission_amount) || 0;
+        g.sum += comm;
+        g.orders.push({ id: o.id_sale || '-', date: formatDMY(o.date_order), product: nm, name: o.name_customer || '-', phone: o.phone_customer || '-', tracking: o.tracking_number || '-', komisyen: money(comm) });
+      });
+      const groups = [...map.values()].sort((a, b) => b.sum - a.sum);
+      const totalOrders = groups.reduce((s, g) => s + g.orders.length, 0);
+      tableHead = `<tr><th class="desc">Bundle</th><th class="amt">Kuantiti</th><th class="amt">Komisyen</th></tr>`;
+      rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc">${esc(g.name)} <span class="hint">(klik untuk lihat order)</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
+        || `<tr><td class="desc" colspan="3" style="color:#9ca3af">Tiada order layak untuk tempoh ini.</td></tr>`;
+      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>Bil. Order: <b>${totalOrders}</b></div><div>Jumlah Bundle: <b>${groups.length}</b></div><div>Asas: <b>${basisIsCollection ? 'Collection' : 'Total Sales − Return'}</b></div></div>`;
+      modalHtml = `<div id="ov" class="ov" onclick="if(event.target===this)hideG()"><div class="mdl"><div class="mhead"><span id="mt"></span><button onclick="hideG()">&#10005;</button></div><div class="mbody"><table class="mtab"><thead><tr><th>ID Order</th><th>Tarikh</th><th>Produk</th><th>Nama</th><th>Telefon</th><th>Tracking</th><th class="amt">Komisyen</th></tr></thead><tbody id="mb"></tbody></table></div></div></div>`;
+      const data = JSON.stringify(groups.map((g) => ({ name: g.name, orders: g.orders }))).replace(/</g, '\\u003c');
+      script = `<script>var G=${data};function e(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}function showG(i){var g=G[i];document.getElementById('mt').textContent=g.name+' — '+g.orders.length+' order';document.getElementById('mb').innerHTML=g.orders.map(function(o){return '<tr><td>'+e(o.id)+'</td><td>'+e(o.date)+'</td><td>'+e(o.product)+'</td><td>'+e(o.name)+'</td><td>'+e(o.phone)+'</td><td>'+e(o.tracking)+'</td><td class="amt">'+e(o.komisyen)+'</td></tr>';}).join('');document.getElementById('ov').style.display='flex';}function hideG(){document.getElementById('ov').style.display='none';}</script>`;
+    } else {
+      type Line = { label: string; amount: number; strong?: boolean; sub?: boolean; muted?: boolean };
+      const lines: Line[] = [];
+      if (isProfitSharing) {
+        lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+        if (config.deduct_spend) lines.push({ label: '(−) Kos Spend', amount: -r.spend, muted: true });
+        if (config.deduct_product) lines.push({ label: '(−) Kos Product', amount: -r.costProduct, muted: true });
+        if (config.deduct_postage) lines.push({ label: '(−) Kos Postage', amount: -r.postage, muted: true });
+        lines.push({ label: 'Gross Profit', amount: r.base, sub: true });
+        lines.push({ label: `Komisyen — ${r.commissionPercent}% × Gross Profit`, amount: r.commission, strong: true });
+      } else {
+        lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+        lines.push({ label: `Komisyen — ${r.commissionPercent}% × ${basisIsCollection ? 'Collection' : 'Nett Sales'}`, amount: r.commission, strong: true });
+      }
+      tableHead = `<tr><th class="desc">Keterangan</th><th class="amt">Jumlah</th></tr>`;
+      rowsHtml = lines.map((l) => `<tr class="${l.strong ? 'strong' : ''} ${l.sub ? 'sub' : ''} ${l.muted ? 'muted' : ''}"><td class="desc">${esc(l.label)}</td><td class="amt">${l.amount < 0 ? '−' : ''}RM ${formatNumber(Math.abs(l.amount))}</td></tr>`).join('');
+      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>${basisIsCollection ? 'Collection' : 'Nett Sales'}: <b>${money(r.revenue)}</b></div><div>Komisyen %: <b>${pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales)}</b></div></div>`;
+    }
 
     const today = new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
     const invNo = `SAL-${esc(r.idStaff)}-${startDate.replace(/-/g, '')}`;
@@ -412,7 +444,18 @@ const AccountSalary: React.FC = () => {
   .foot .sig div{border-top:1px solid #cbd5e1;padding-top:6px;width:200px;text-align:center;font-size:11px}
   .actions{max-width:800px;margin:16px auto 0;text-align:right}
   .actions button{background:#e11d48;color:#fff;border:0;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer}
-  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0}.actions{display:none}}
+  tbody tr.clickable{cursor:pointer}tbody tr.clickable:hover td{background:#fff1f2}
+  .hint{font-size:10px;color:#9ca3af;font-weight:400}
+  .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;z-index:50}
+  .mdl{background:#fff;border-radius:12px;max-width:940px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .mhead{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#111827;color:#fff;font-weight:700;font-size:14px}
+  .mhead button{background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer;line-height:1}
+  .mbody{overflow:auto}
+  .mtab{width:100%;border-collapse:collapse;margin:0}
+  .mtab th{position:sticky;top:0;background:#f8fafc;text-align:left;padding:10px 14px;font-size:11px;text-transform:uppercase;color:#6b7280;border-bottom:1px solid #e5e7eb}
+  .mtab td{padding:9px 14px;font-size:12px;border-bottom:1px solid #f1f5f9;color:#374151}
+  .mtab th.amt,.mtab td.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0}.actions,.ov{display:none!important}}
 </style></head><body>
   <div class="sheet">
     <div class="top">
@@ -441,15 +484,10 @@ const AccountSalary: React.FC = () => {
         ${inv.address ? `<div>${esc(inv.address).replace(/\n/g, '<br>')}</div>` : ''}
         ${inv.phone ? `<div>Tel: ${esc(inv.phone)}</div>` : ''}
       </div>
-      <div class="party" style="text-align:right">
-        <div class="lbl">Ringkasan</div>
-        <div>Total Sales: <b>${money(r.totalSales)}</b></div>
-        <div>Return: <b>${money(r.returnSales)}</b></div>
-        <div>Komisyen %: <b>${pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales)}</b></div>
-      </div>
+      ${summaryRightHtml}
     </div>
     <table>
-      <thead><tr><th class="desc">Keterangan</th><th class="amt">Jumlah</th></tr></thead>
+      <thead>${tableHead}</thead>
       <tbody>${rowsHtml}</tbody>
     </table>
     <div class="totalbox"><div class="box"><span class="t">Jumlah Komisyen</span><span class="v">${money(r.commission)}</span></div></div>
@@ -459,6 +497,8 @@ const AccountSalary: React.FC = () => {
     </div>
   </div>
   <div class="actions"><button onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>
+  ${modalHtml}
+  ${script}
 </body></html>`;
 
     const w = window.open('', '_blank');
