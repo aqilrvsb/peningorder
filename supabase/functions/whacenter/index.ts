@@ -41,20 +41,35 @@ serve(async (req) => {
     }
 
     // Send a WhatsApp message (used by the template + Profile Test buttons).
+    // Optional imageUrl -> send as an image with `message` as the caption. This
+    // supports image+text, text-only, and image-only (empty message + imageUrl).
     const number = toMalayDigits(String(body.phone || ""));
     const message = String(body.message || "");
+    const imageUrl = String(body.imageUrl || "").trim();
     if (!number) return json(400, { success: false, error: "Nombor telefon Malaysia tidak sah" });
-    if (!message) return json(400, { success: false, error: "message diperlukan" });
+    if (!message && !imageUrl) return json(400, { success: false, error: "message atau imageUrl diperlukan" });
 
-    const form = new URLSearchParams();
-    form.append("device_id", instance);
-    form.append("number", number);
-    form.append("message", message);
-    const res = await fetch("https://api.whacenter.com/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
-    });
+    let res: Response;
+    if (imageUrl) {
+      // Whacenter sends an image when `file` is a public image URL; `message` is
+      // the caption (may be empty). FormData, not urlencoded.
+      const fd = new FormData();
+      fd.append("device_id", instance);
+      fd.append("number", number);
+      fd.append("message", message);
+      fd.append("file", imageUrl);
+      res = await fetch("https://api.whacenter.com/api/send", { method: "POST", body: fd });
+    } else {
+      const form = new URLSearchParams();
+      form.append("device_id", instance);
+      form.append("number", number);
+      form.append("message", message);
+      res = await fetch("https://api.whacenter.com/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+      });
+    }
     // Whacenter accepts the message on HTTP 200 — match HCKCREA / Pening Bot,
     // which trust res.ok and do NOT inspect the JSON body (avoids false errors).
     const txt = await res.text();

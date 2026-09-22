@@ -54,6 +54,7 @@ async function sendWhatsApp(
   customerPhone: string | null | undefined,
   message: string,
   marketerIdStaff?: string | null,
+  imageUrl?: string | null,
 ): Promise<string> {
   try {
     if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
@@ -66,15 +67,27 @@ async function sendWhatsApp(
     const number = waPhone(customerPhone);
     if (!number) return "wa_skipped_bad_phone";
 
-    const form = new URLSearchParams();
-    form.append("device_id", instance);
-    form.append("number", number);
-    form.append("message", message);
-    const res = await fetch("https://api.whacenter.com/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
-    });
+    // With an imageUrl, Whacenter sends an image (file = public URL) and `message`
+    // becomes the caption (may be empty = image-only). FormData, not urlencoded.
+    let res: Response;
+    if (imageUrl) {
+      const fd = new FormData();
+      fd.append("device_id", instance);
+      fd.append("number", number);
+      fd.append("message", message || "");
+      fd.append("file", imageUrl);
+      res = await fetch("https://api.whacenter.com/api/send", { method: "POST", body: fd });
+    } else {
+      const form = new URLSearchParams();
+      form.append("device_id", instance);
+      form.append("number", number);
+      form.append("message", message);
+      res = await fetch("https://api.whacenter.com/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+      });
+    }
     const txt = await res.text();
     console.log(`[whatsapp] whacenter send status=${res.status} body=${txt.slice(0, 200)}`);
     try { const j = JSON.parse(txt); return j.status ? "wa_sent" : `wa_failed_${j.message || res.status}`; }
@@ -94,18 +107,18 @@ async function getTrackPref(
   supabase: any,
   ownerUserId: string | null | undefined,
   statusGroup: string,
-): Promise<{ track: boolean; notify: boolean; template: string | null }> {
-  const fallback = { track: true, notify: /deliver/i.test(statusGroup || ""), template: null };
+): Promise<{ track: boolean; notify: boolean; template: string | null; image: string | null }> {
+  const fallback = { track: true, notify: /deliver/i.test(statusGroup || ""), template: null, image: null };
   try {
     if (!ownerUserId || !statusGroup) return fallback;
     const { data } = await supabase
       .from("tracking_status_setting")
-      .select("track, notify, message_template")
+      .select("track, notify, message_template, message_image_url")
       .eq("owner_user_id", ownerUserId)
       .eq("status_key", statusGroup)
       .maybeSingle();
     if (!data) return fallback;
-    return { track: data.track !== false, notify: !!data.notify, template: data.message_template || null };
+    return { track: data.track !== false, notify: !!data.notify, template: data.message_template || null, image: data.message_image_url || null };
   } catch (_e) {
     return fallback;
   }
@@ -283,11 +296,14 @@ serve(async (req) => {
         if (pref.notify) {
           const vars = orderVars(matched, "Shipment Data Received", trackingNumber);
           const courierName = vars.courier || "kurier";
+          // With an image set, an empty template means image-only (no default text).
           const waMsg = pref.template
             ? renderTemplate(pref.template, vars)
-            : `Salam ${vars.name}! 📦\n\nPesanan anda telah dihantar ke ${courierName}.\n\nNo Tracking: ${trackingNumber}\n\nTerima kasih kerana membeli dengan kami! 🙏`;
-          const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
-          action = `${action}+${waResult}`;
+            : (pref.image ? "" : `Salam ${vars.name}! 📦\n\nPesanan anda telah dihantar ke ${courierName}.\n\nNo Tracking: ${trackingNumber}\n\nTerima kasih kerana membeli dengan kami! 🙏`);
+          if (waMsg || pref.image) {
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image);
+            action = `${action}+${waResult}`;
+          }
         }
       } else if (trackingNumber && orderId) {
         // Order row exists but we didn't find it — try id_sale match again with orderId
@@ -356,20 +372,22 @@ serve(async (req) => {
         if (pref.notify) {
           const vars = orderVars(matched, statusGroup || rawStatus || "", matched.tracking_number || consignNo || "");
           let waMsg: string | null = null;
+          // Empty template + an image = image-only ("" caption); waMsg stays null
+          // only to SKIP (e.g. a repeat delivered event).
           if (isDelivered) {
             // thank-you only on the transition into delivered, never on repeats
             if (matched.delivery_status !== "Success") {
               waMsg = pref.template
                 ? renderTemplate(pref.template, vars)
-                : `Salam ${vars.name}! ✅\n\nPesanan anda (Tracking: ${vars.tracking}) telah BERJAYA dihantar.\n\nTerima kasih kerana membeli dengan kami! 🙏`;
+                : (pref.image ? "" : `Salam ${vars.name}! ✅\n\nPesanan anda (Tracking: ${vars.tracking}) telah BERJAYA dihantar.\n\nTerima kasih kerana membeli dengan kami! 🙏`);
             }
           } else {
             waMsg = pref.template
               ? renderTemplate(pref.template, vars)
-              : `Salam ${vars.name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: ${vars.tracking}):\n*${vars.status}*\n\nTerima kasih!`;
+              : (pref.image ? "" : `Salam ${vars.name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: ${vars.tracking}):\n*${vars.status}*\n\nTerima kasih!`);
           }
-          if (waMsg) {
-            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
+          if (waMsg !== null && (waMsg || pref.image)) {
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg || "", matched.marketer_id_staff, pref.image);
             action = `${action}+${waResult}`;
           }
         }
@@ -437,9 +455,11 @@ serve(async (req) => {
             const vars = orderVars(matched, "Cancelled", matched.tracking_number || consignNo || "");
             const waMsg = pref.template
               ? renderTemplate(pref.template, vars)
-              : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`;
-            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff);
-            action = `${action}+${waResult}`;
+              : (pref.image ? "" : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`);
+            if (waMsg || pref.image) {
+              const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image);
+              action = `${action}+${waResult}`;
+            }
           }
         } else {
           // Active order (likely an edit re-book) — do not hide it, do not notify.

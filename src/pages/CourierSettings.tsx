@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio, ImagePlus, X } from 'lucide-react';
+import { put } from '@vercel/blob';
 import { Switch } from '@/components/ui/switch';
 import { NEGERI_OPTIONS } from '@/types';
 import {
@@ -56,7 +57,7 @@ const TRACKING_STATUSES: { key: string; label: string }[] = [
   // they are seller-facing (money received / postage cost), always tracked, and
   // notify the CLIENT via the admin device, not the customer.
 ];
-type TrackPref = { track: boolean; notify: boolean; template?: string };
+type TrackPref = { track: boolean; notify: boolean; template?: string; image?: string };
 
 // SOP for obtaining the Merchant ID + Token Key from the ParcelDaily portal.
 const GET_KEY_STEPS = [
@@ -146,9 +147,9 @@ const CourierSettings: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase.from('tracking_status_setting').select('status_key, track, notify, message_template');
+      const { data } = await supabase.from('tracking_status_setting').select('status_key, track, notify, message_template, message_image_url');
       const map: Record<string, TrackPref> = {};
-      (data || []).forEach((r: any) => { map[r.status_key] = { track: r.track, notify: r.notify, template: r.message_template || undefined }; });
+      (data || []).forEach((r: any) => { map[r.status_key] = { track: r.track, notify: r.notify, template: r.message_template || undefined, image: r.message_image_url || undefined }; });
       setTrackPrefs(map);
     })();
   }, [user]);
@@ -192,16 +193,36 @@ const CourierSettings: React.FC = () => {
 
   const [editingTpl, setEditingTpl] = useState<string | null>(null);
   const [tplDraft, setTplDraft] = useState('');
+  const [tplImage, setTplImage] = useState('');   // draft image URL for the open status
+  const [uploadingImg, setUploadingImg] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
-  const openTpl = (key: string) => { setTplDraft(prefFor(key).template ?? defaultTemplate(key)); setEditingTpl(key); };
+  const openTpl = (key: string) => { setTplDraft(prefFor(key).template ?? defaultTemplate(key)); setTplImage(prefFor(key).image ?? ''); setEditingTpl(key); };
+
+  // Upload a picture to Vercel Blob (same store as receipts) and keep its URL.
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) { toast({ title: 'Bukan gambar', description: 'Sila pilih fail gambar (jpg/png).', variant: 'destructive' }); return; }
+    if (file.size > 5 * 1024 * 1024) { toast({ title: 'Terlalu besar', description: 'Maksimum 5MB.', variant: 'destructive' }); return; }
+    setUploadingImg(true);
+    try {
+      const token = import.meta.env.VITE_BLOB_READ_WRITE_TOKEN;
+      if (!token) throw new Error('Blob storage token not configured');
+      const clean = file.name.replace(/[^a-zA-Z0-9.-]/g, '-');
+      const blob = await put(`wa-templates/${Date.now()}-${clean}`, file, { access: 'public', token });
+      setTplImage(blob.url);
+    } catch (e: any) {
+      toast({ title: 'Gagal muat naik', description: e.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally { setUploadingImg(false); }
+  };
+
   const saveTemplate = async (key: string) => {
     setSavingTpl(true);
     const p = prefFor(key);
     const tpl = tplDraft.trim();
-    setTrackPrefs((prev) => ({ ...prev, [key]: { ...p, template: tpl || undefined } }));
+    const img = tplImage.trim();
+    setTrackPrefs((prev) => ({ ...prev, [key]: { ...p, template: tpl || undefined, image: img || undefined } }));
     const { error } = await supabase.from('tracking_status_setting').upsert({
       owner_user_id: user!.id, status_key: key, track: p.track, notify: p.notify,
-      message_template: tpl || null, updated_at: new Date().toISOString(),
+      message_template: tpl || null, message_image_url: img || null, updated_at: new Date().toISOString(),
     }, { onConflict: 'owner_user_id,status_key' });
     setSavingTpl(false);
     if (error) { toast({ title: 'Save failed', description: error.message, variant: 'destructive' }); return; }
@@ -367,12 +388,14 @@ const CourierSettings: React.FC = () => {
       order_id: `ON-${String(rnd).padStart(8, '0')}`,
       status: 'On Delivery',
     };
-    const rendered = (tplDraft || '').replace(/\{(\w+)\}/g, (_m, k) => (k in sample ? sample[k] : `{${k}}`))
-      || `TEST mesej dari PeningOrder — ${sample.name}, tracking ${sample.tracking}.`;
+    const renderedRaw = (tplDraft || '').replace(/\{(\w+)\}/g, (_m, k) => (k in sample ? sample[k] : `{${k}}`));
+    const img = tplImage.trim();
+    // Image-only = empty caption; text-only = fallback when nothing typed.
+    const message = renderedRaw || (img ? '' : `TEST mesej dari PeningOrder — ${sample.name}, tracking ${sample.tracking}.`);
     setTestingSend(true);
     try {
       const { data, error } = await supabase.functions.invoke('whacenter', {
-        body: { action: 'send', instance, phone: testPhone.trim(), message: rendered },
+        body: { action: 'send', instance, phone: testPhone.trim(), message, imageUrl: img || undefined },
       });
       if (error) throw error;
       if (data?.success) toast({ title: 'Test dihantar', description: `Mesej test dihantar ke ${testPhone.trim()}.` });
@@ -837,6 +860,41 @@ const CourierSettings: React.FC = () => {
                           ))}
                         </div>
                       </div>
+
+                      {/* Gambar (pilihan): hantar gambar+teks, teks sahaja, atau gambar sahaja */}
+                      <div className="mt-3">
+                        <p className="text-[11px] text-muted-foreground mb-1">Gambar (pilihan) — boleh hantar gambar + teks, teks sahaja, atau gambar sahaja:</p>
+                        {tplImage ? (
+                          <div className="flex items-start gap-3">
+                            <img src={tplImage} alt="preview" className="w-28 h-28 object-cover rounded-lg border border-border" />
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[11px] text-muted-foreground">Gambar akan dihantar bersama mesej ini.</span>
+                              <Button size="sm" variant="outline" onClick={() => setTplImage('')}>
+                                <X className="w-3.5 h-3.5 mr-1" /> Buang gambar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer rounded-md border border-dashed border-border px-3 py-2 hover:bg-muted/40">
+                            {uploadingImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                            {uploadingImg ? 'Memuat naik...' : 'Muat naik gambar'}
+                            <input type="file" accept="image/*" className="hidden" disabled={uploadingImg}
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ''; }} />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Preview mesej */}
+                      <div className="mt-3 rounded-lg border border-border bg-[#e5ddd5] dark:bg-muted/30 p-3">
+                        <p className="text-[11px] text-muted-foreground mb-1.5">Preview WhatsApp:</p>
+                        <div className="max-w-xs rounded-lg bg-white dark:bg-card shadow-sm p-2 text-sm">
+                          {tplImage && <img src={tplImage} alt="preview" className="w-full rounded mb-1.5" />}
+                          {tplDraft.trim()
+                            ? <p className="whitespace-pre-wrap break-words">{tplDraft}</p>
+                            : (!tplImage && <p className="text-muted-foreground italic">(guna ayat default)</p>)}
+                        </div>
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-2 mt-3">
                         <Button size="sm" onClick={() => saveTemplate(s.key)} disabled={savingTpl}>
                           {savingTpl ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />} Simpan
