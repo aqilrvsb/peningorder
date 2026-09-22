@@ -94,6 +94,7 @@ const financeItems: NavItem[] = [
   { label: 'Success COD Collection', path: '/dashboard/account/success-collection', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Order Cash', path: '/dashboard/account/order-cash', icon: <Banknote className="w-5 h-5" /> },
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
+  { label: 'PNL Config', path: '/dashboard/account/pnl-config', icon: <Settings className="w-5 h-5" /> },
 ];
 
 // ============ SUPERADMIN (SaaS owner) ============

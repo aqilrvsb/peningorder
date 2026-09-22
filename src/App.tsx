@@ -59,6 +59,7 @@ const LogisticPendingTracking = lazy(() => import("./components/logistic/Logisti
 const SalesOverview = lazy(() => import("./components/account/SalesOverview"));
 const AccountReportProfit = lazy(() => import("./components/account/AccountReportProfit"));
 const AccountExpenses = lazy(() => import("./components/account/AccountExpenses"));
+const AccountPNLConfig = lazy(() => import("./components/account/AccountPNLConfig"));
 const AccountInvoiceSettings = lazy(() => import("./components/account/AccountInvoiceSettings"));
 const AccountOrderCash = lazy(() => import("./components/account/AccountOrderCash"));
 const AccountPendingTracking = lazy(() => import("./components/account/AccountPendingTracking"));
@@ -195,6 +196,7 @@ const App = () => (
                     <Route path="account/sales-overview" element={clientOnly(<SalesOverview />)} />
                     <Route path="account/report-profit" element={marketerAllowed(<AccountReportProfit />)} />
                     <Route path="account/expenses" element={clientOnly(<AccountExpenses />)} />
+                    <Route path="account/pnl-config" element={clientOnly(<AccountPNLConfig />)} />
                     <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
                     <Route path="account/success-collection" element={clientOnly(<AccountSuccessCollection />)} />
                     <Route path="account/order-cash" element={clientOnly(<AccountOrderCash />)} />
