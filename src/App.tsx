@@ -195,7 +195,7 @@ const App = () => (
                     <Route path="settings/courier" element={clientOnly(<CourierSettings />)} />
                     {/* Account Role */}
                     <Route path="account/sales-overview" element={clientOnly(<SalesOverview />)} />
-                    <Route path="account/report-profit" element={marketerAllowed(<AccountReportProfit />)} />
+                    <Route path="account/report-profit" element={clientOnly(<AccountReportProfit />)} />
                     <Route path="account/expenses" element={clientOnly(<AccountExpenses />)} />
                     <Route path="account/pnl-config" element={clientOnly(<AccountPNLConfig />)} />
                     <Route path="account/salary" element={marketerAllowed(<AccountSalary />)} />

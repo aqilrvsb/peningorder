@@ -158,9 +158,9 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
               ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking')),
             ],
           },
-          // Marketers also get Report Profit + their own Salary (own data only).
+          // Marketers only get their own Salary from Finance (Report Profit hidden).
           { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />,
-            items: financeItems.filter((i) => i.path.endsWith('/report-profit') || i.path.endsWith('/salary')) },
+            items: financeItems.filter((i) => i.path.endsWith('/salary')) },
         ]
       : isLogistic
         ? baseRoleGroups.filter((g) => g.key === 'logistic').map((g) => ({
