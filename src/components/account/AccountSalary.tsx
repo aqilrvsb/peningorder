@@ -405,9 +405,9 @@ const AccountSalary: React.FC = () => {
       const groups = await loadBundleGroups(r.idStaff);
       const totalOrders = groups.reduce((s, g) => s + g.orders.length, 0);
       tableHead = `<tr><th class="desc">Bundle</th><th class="amt">Kuantiti</th><th class="amt">Komisyen</th></tr>`;
-      rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc"><b>${esc(g.name)}</b>${g.sku ? ` <span style="color:#6b7280">(${esc(g.sku)})</span>` : ''} <span class="hint">— klik untuk lihat order</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
+      rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc"><b>${esc(g.name)}</b>${g.sku ? ` <span style="color:#111827">(${esc(g.sku)})</span>` : ''} <span class="hint">— klik untuk lihat order</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
         || `<tr><td class="desc" colspan="3" style="color:#9ca3af">Tiada order layak untuk tempoh ini.</td></tr>`;
-      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>Bil. Order: <b>${totalOrders}</b></div><div>Jumlah Bundle: <b>${groups.length}</b></div><div>Asas: <b>${basisIsCollection ? 'Collection' : 'Total Sales − Return'}</b></div></div>`;
+      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>Bil. Order: <b>${totalOrders}</b></div><div>Jumlah Bundle: <b>${groups.length}</b></div></div>`;
       modalHtml = `<div id="ov" class="ov" onclick="if(event.target===this)hideG()"><div class="mdl"><div class="mhead"><span id="mt"></span><button onclick="hideG()">&#10005;</button></div><div class="mbody"><table class="mtab"><thead><tr><th>ID Order</th><th>Tarikh</th><th>Produk</th><th>Nama</th><th>Telefon</th><th>Tracking</th><th class="amt">Komisyen</th></tr></thead><tbody id="mb"></tbody></table></div></div></div>`;
       const data = JSON.stringify(groups.map((g) => ({ name: g.sku ? `${g.name} (${g.sku})` : g.name, orders: g.orders.map((o) => ({ ...o, komisyen: money(o.komisyen) })) }))).replace(/</g, '\\u003c');
       script = `<script>var G=${data};function e(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}function showG(i){var g=G[i];document.getElementById('mt').textContent=g.name+' — '+g.orders.length+' order';document.getElementById('mb').innerHTML=g.orders.map(function(o){return '<tr><td>'+e(o.id)+'</td><td>'+e(o.date)+'</td><td>'+e(o.product)+'</td><td>'+e(o.name)+'</td><td>'+e(o.phone)+'</td><td>'+e(o.tracking)+'</td><td class="amt">'+e(o.komisyen)+'</td></tr>';}).join('');document.getElementById('ov').style.display='flex';}function hideG(){document.getElementById('ov').style.display='none';}</script>`;
@@ -430,7 +430,6 @@ const AccountSalary: React.FC = () => {
       summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>${basisIsCollection ? 'Collection' : 'Nett Sales'}: <b>${money(r.revenue)}</b></div><div>Komisyen %: <b>${pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales)}</b></div></div>`;
     }
 
-    const today = new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
     const invNo = `SAL-${esc(r.idStaff)}-${startDate.replace(/-/g, '')}`;
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Slip ${esc(r.idStaff)}</title>
 <link rel="icon" type="image/svg+xml" href="${favicon}">
@@ -445,19 +444,19 @@ const AccountSalary: React.FC = () => {
   .brand small{display:block;font-size:11px;font-weight:600;color:#6b7280;letter-spacing:2px;margin-top:2px}
   .slip-title{text-align:right}
   .slip-title h1{font-size:30px;font-weight:800;color:#e11d48;letter-spacing:1px}
-  .slip-title .meta{margin-top:8px;font-size:12px;color:#6b7280;line-height:1.6}
+  .slip-title .meta{margin-top:8px;font-size:12px;color:#111827;line-height:1.6}
   .slip-title .meta b{color:#111827}
   .bar{height:5px;background:linear-gradient(90deg,#e11d48,#9f1239)}
   .parties{display:flex;justify-content:space-between;gap:24px;padding:26px 36px}
-  .party{font-size:13px;line-height:1.65;color:#374151;max-width:48%}
+  .party{font-size:13px;line-height:1.65;color:#111827;max-width:48%}
   .party .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#e11d48;margin-bottom:6px}
   .party .nm{font-weight:700;color:#111827;font-size:14px}
   table{width:100%;border-collapse:collapse;margin:6px 0 0}
-  thead th{background:#111827;color:#fff;text-align:left;padding:12px 36px;font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+  thead th{background:#111827;color:#fff;text-align:left;padding:12px 36px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #111827}
   thead th.amt{text-align:right}
-  tbody td{padding:12px 36px;font-size:13px;border-bottom:1px solid #f1f5f9}
+  tbody td{padding:12px 36px;font-size:13px;color:#111827;border:1px solid #111827}
   tbody td.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  tbody tr.muted td{color:#6b7280}
+  tbody tr.muted td{color:#111827}
   tbody tr.sub td{font-weight:700;background:#f8fafc}
   tbody tr.strong td{font-weight:700;color:#111827}
   .totalbox{display:flex;justify-content:flex-end;padding:20px 36px 32px}
@@ -470,7 +469,7 @@ const AccountSalary: React.FC = () => {
   .actions{max-width:800px;margin:16px auto 0;text-align:right}
   .actions button{background:#e11d48;color:#fff;border:0;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer}
   tbody tr.clickable{cursor:pointer}tbody tr.clickable:hover td{background:#fff1f2}
-  .hint{font-size:10px;color:#9ca3af;font-weight:400}
+  .hint{font-size:10px;color:#4b5563;font-weight:400}
   .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;z-index:50}
   .mdl{background:#fff;border-radius:12px;max-width:940px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
   .mhead{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#111827;color:#fff;font-weight:700;font-size:14px}
@@ -485,7 +484,7 @@ const AccountSalary: React.FC = () => {
   <div class="sheet">
     <div class="top">
       <div class="brand"><span class="p">pening</span><span class="o">order</span><small>SALARY SLIP</small>
-        ${co.company_name ? `<div style="margin-top:12px;font-size:12px;color:#374151;font-weight:400;max-width:280px;line-height:1.5">
+        ${co.company_name ? `<div style="margin-top:12px;font-size:12px;color:#111827;font-weight:400;max-width:280px;line-height:1.5">
           <b style="color:#111827">${esc(co.company_name)}${co.registration_no ? ` (${esc(co.registration_no)})` : ''}</b>
           ${co.address ? `<br>${esc(co.address).replace(/\n/g, '<br>')}` : ''}
           ${co.phone ? `<br>Tel: ${esc(co.phone)}` : ''}${co.email ? ` · ${esc(co.email)}` : ''}
@@ -495,7 +494,6 @@ const AccountSalary: React.FC = () => {
         <h1>SALARY</h1>
         <div class="meta">
           <div>No: <b>${invNo}</b></div>
-          <div>Tarikh: <b>${today}</b></div>
           <div>Tempoh: <b>${esc(formatDMY(startDate))} – ${esc(formatDMY(endDate))}</b></div>
         </div>
       </div>
