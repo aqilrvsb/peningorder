@@ -18,9 +18,12 @@ interface Tier {
   value: number;      // commission %
 }
 
+type KomisyenBasis = 'nett_sales' | 'collection';
+
 interface PnlConfig {
   id: string | null;
   revenue_basis: RevenueBasis;
+  komisyen_basis: KomisyenBasis;
   commission_mode: CommissionMode;
   deduct_postage: boolean;
   deduct_product: boolean;
@@ -32,6 +35,7 @@ interface PnlConfig {
 const DEFAULT_CONFIG: PnlConfig = {
   id: null,
   revenue_basis: 'nett_sales',
+  komisyen_basis: 'nett_sales',
   commission_mode: 'profit_sharing',
   deduct_postage: true,
   deduct_product: true,
@@ -54,6 +58,7 @@ const AccountPNLConfig: React.FC = () => {
         setConfig({
           id: data.id,
           revenue_basis: data.revenue_basis,
+          komisyen_basis: data.komisyen_basis || 'nett_sales',
           commission_mode: data.commission_mode,
           deduct_postage: !!data.deduct_postage,
           deduct_product: !!data.deduct_product,
@@ -99,6 +104,7 @@ const AccountPNLConfig: React.FC = () => {
     try {
       const payload = {
         revenue_basis: config.revenue_basis,
+        komisyen_basis: config.komisyen_basis,
         commission_mode: config.commission_mode,
         deduct_postage: config.deduct_postage,
         deduct_product: config.deduct_product,
@@ -188,8 +194,31 @@ const AccountPNLConfig: React.FC = () => {
       </div>
 
       {isKomisyenOrder && (
-        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-          Komisyen dikira <b className="text-foreground">100% dari Komisyen Order bundle</b> yang ditetapkan di Logistic (setiap bundle ada nilai komisyen sendiri). Tak perlu set apa-apa lagi — terus <b className="text-foreground">Simpan</b>.
+        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
+            <Percent className="w-4 h-4 text-primary" />
+            Order yang dikira untuk komisyen
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Komisyen = jumlah komisyen bundle (setup di Logistic). Pilih order mana yang layak dapat komisyen:
+          </p>
+          <RadioGroup value={config.komisyen_basis} onValueChange={(v: KomisyenBasis) => set({ komisyen_basis: v })} className="grid sm:grid-cols-2 gap-3">
+            <label htmlFor="kb-nett" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+              <RadioGroupItem value="nett_sales" id="kb-nett" className="mt-0.5" />
+              <div>
+                <div className="font-medium">Total Sales − Return</div>
+                <div className="text-xs text-muted-foreground">Semua order kira komisyen kecuali order Return</div>
+              </div>
+            </label>
+            <label htmlFor="kb-coll" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+              <RadioGroupItem value="collection" id="kb-coll" className="mt-0.5" />
+              <div>
+                <div className="font-medium">Collection</div>
+                <div className="text-xs text-muted-foreground">Hanya order yang dah collect (COD selepas remit) dikira</div>
+              </div>
+            </label>
+          </RadioGroup>
         </div>
       )}
 
@@ -328,7 +357,7 @@ const AccountPNLConfig: React.FC = () => {
       <div className="bg-card border border-border rounded-lg p-4 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Cara kira: </span>
         {isKomisyenOrder ? (
-          <>Komisyen = jumlah <b>Komisyen Order</b> setiap bundle (ikut setup Logistic), tolak order yang Return.</>
+          <>Komisyen = jumlah <b>Komisyen Order</b> setiap bundle (ikut setup Logistic), dikira untuk order <b>{config.komisyen_basis === 'collection' ? 'yang dah Collect sahaja' : 'Total Sales − Return (semua kecuali Return)'}</b>.</>
         ) : (
           <>
             Asas = <b>{config.revenue_basis === 'nett_sales' ? 'Nett Sales (Sales − Return)' : 'Collection'}</b>.{' '}

@@ -29,7 +29,8 @@ interface Spend {
 interface Tier { start: number; end: number | null; value: number; }
 
 interface PnlConfig {
-  revenue_basis: 'nett_sales' | 'collection';
+  revenue_basis: 'nett_sales' | 'collection' | 'komisyen_order';
+  komisyen_basis: 'nett_sales' | 'collection';
   commission_mode: 'profit_sharing' | 'percent_direct';
   deduct_postage: boolean;
   deduct_product: boolean;
@@ -114,18 +115,19 @@ const AccountSalary: React.FC = () => {
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
-    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komisyenOrder: number }> = {};
-    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komisyenOrder: 0 });
+    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komNett: number; komColl: number }> = {};
+    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0 });
 
     allOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
       const a = ensure(id);
       const sale = Number(o.total_sale) || 0;
+      const comm = Number(o.commission_amount) || 0;
       a.totalSales += sale;
       if (o.delivery_status === 'Return') a.returnSales += sale;
-      else a.komisyenOrder += Number(o.commission_amount) || 0; // bundle commission, returns earn none
-      if (isOrderCollected(o)) a.collection += sale;
+      else a.komNett += comm;            // komisyen basis "Total Sales − Return": all except Return
+      if (isOrderCollected(o)) { a.collection += sale; a.komColl += comm; } // basis "Collection": collected only
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
     });
@@ -143,20 +145,22 @@ const AccountSalary: React.FC = () => {
     const isKomisyenOrder = config.revenue_basis === 'komisyen_order';
 
     const rows = staff.map((m) => {
-      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komisyenOrder: 0 };
+      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0 };
       const nettSales = a.totalSales - a.returnSales;
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
 
-      // Komisyen Order: commission is 100% the sum of per-bundle commission
-      // (returns earn none) — the tier / revenue-basis / deductions don't apply.
+      // Komisyen Order: commission = sum of per-bundle komisyen. The basis decides
+      // which orders qualify: "Total Sales − Return" (all except Return) or
+      // "Collection" (collected only). Tier / deductions don't apply.
       if (isKomisyenOrder) {
+        const commission = config.komisyen_basis === 'collection' ? a.komColl : a.komNett;
         return {
           idStaff: m.idstaff,
           name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
           totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
           collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
           revenue: 0, base: 0, roas, kpiValue: 0, commissionPercent: 0,
-          commission: a.komisyenOrder,
+          commission,
         };
       }
 
@@ -260,7 +264,7 @@ const AccountSalary: React.FC = () => {
       {config && (
         <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
           {isKomisyenOrder ? (
-            <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen 100% ikut komisyen bundle (setup Logistic), tolak order Return.</span>
+            <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen bundle (setup Logistic), dikira untuk order <b className="text-foreground">{config.komisyen_basis === 'collection' ? 'yang dah Collect' : 'Total Sales − Return'}</b>.</span>
           ) : (
             <>
               <span>Asas: <b className="text-foreground">{config.revenue_basis === 'nett_sales' ? 'Nett Sales' : 'Collection'}</b></span>
