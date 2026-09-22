@@ -348,6 +348,8 @@ const AccountSalary: React.FC = () => {
     const money = (v: number) => `RM ${formatNumber(v)}`;
     const inv = invoiceByIdstaff.get(r.idStaff) || { full_name: null, address: null, phone: null };
     const co = invoiceSettings || {};
+    // peningorder favicon for the slip tab (self-contained data-URI SVG "PO" mark).
+    const favicon = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#e11d48"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="26" fill="#fff">PO</text></svg>')}`;
 
     let tableHead = '';
     let rowsHtml = '';
@@ -409,6 +411,7 @@ const AccountSalary: React.FC = () => {
     const today = new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
     const invNo = `SAL-${esc(r.idStaff)}-${startDate.replace(/-/g, '')}`;
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Slip ${esc(r.idStaff)}</title>
+<link rel="icon" type="image/svg+xml" href="${favicon}">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:#f3f4f6;padding:24px}
