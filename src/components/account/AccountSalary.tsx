@@ -6,8 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Loader2, Filter, Wallet, Download, Users, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
+import { useAuth } from '@/context/AuthContext';
+import { FileText } from 'lucide-react';
+
+interface InvoiceSettings {
+  company_name?: string | null;
+  registration_no?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+}
 
 interface Order {
   marketer_id_staff: string;
@@ -59,7 +70,11 @@ interface SalaryRow {
 }
 
 const AccountSalary: React.FC = () => {
-  const { members, nameByIdstaff } = useTeam();
+  const { members, nameByIdstaff, invoiceByIdstaff } = useTeam();
+  const { profile } = useAuth();
+  // A marketer sees ONLY their own row (own data).
+  const isMarketer = profile?.role === 'marketer';
+  const ownIdStaff = profile?.idstaff || '';
 
   const [pendingStart, setPendingStart] = useState(getMalaysiaStartOfMonth());
   const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
@@ -106,6 +121,14 @@ const AccountSalary: React.FC = () => {
     },
   });
 
+  const { data: invoiceSettings } = useQuery<InvoiceSettings | null>({
+    queryKey: ['salary-invoice-settings'],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from('invoice_settings').select('company_name, registration_no, address, phone, email, website').limit(1).maybeSingle();
+      return (data || null) as InvoiceSettings | null;
+    },
+  });
+
   const isLoading = ordersLoading || spendsLoading || configLoading;
 
   const formatNumber = (v: number) =>
@@ -144,7 +167,7 @@ const AccountSalary: React.FC = () => {
       ensure(id).spend += Number(s.total_spend) || 0;
     });
 
-    const staff = members.filter((m) => !m.is_client);
+    const staff = members.filter((m) => !m.is_client && (!isMarketer || m.idstaff === ownIdStaff));
 
     const matchTier = (kpi: number): Tier | null =>
       config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;
@@ -188,7 +211,7 @@ const AccountSalary: React.FC = () => {
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
-  }, [allOrders, spends, members, nameByIdstaff, config]);
+  }, [allOrders, spends, members, nameByIdstaff, config, isMarketer, ownIdStaff]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
@@ -316,6 +339,135 @@ const AccountSalary: React.FC = () => {
     red: 'border-l-red-500 text-red-600',
   };
 
+  // Salary slip — dynamic line items driven by the PNL config, opened as a
+  // print-ready page (issuer = Invoice Settings, bill-to = the staff's invoice
+  // details, brand = peningorder). Beautiful red-accent invoice, like a proper slip.
+  const openSlip = (r: SalaryRow) => {
+    if (!config) return;
+    const esc = (v: any) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const money = (v: number) => `RM ${formatNumber(v)}`;
+    const inv = invoiceByIdstaff.get(r.idStaff) || { full_name: null, address: null, phone: null };
+    const co = invoiceSettings || {};
+
+    type Line = { label: string; amount: number; strong?: boolean; sub?: boolean; muted?: boolean };
+    const lines: Line[] = [];
+    if (isKomisyenOrder) {
+      lines.push({ label: 'Total Sales', amount: r.totalSales, muted: true });
+      lines.push({ label: 'Return', amount: -r.returnSales, muted: true });
+      if (basisIsCollection) lines.push({ label: 'Collection', amount: r.collection, muted: true });
+      lines.push({ label: `Komisyen Order — ${basisIsCollection ? 'Collection' : 'Total Sales − Return'}`, amount: r.commission, strong: true });
+    } else if (isProfitSharing) {
+      lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+      if (config.deduct_spend) lines.push({ label: '(−) Kos Spend', amount: -r.spend, muted: true });
+      if (config.deduct_product) lines.push({ label: '(−) Kos Product', amount: -r.costProduct, muted: true });
+      if (config.deduct_postage) lines.push({ label: '(−) Kos Postage', amount: -r.postage, muted: true });
+      lines.push({ label: 'Gross Profit', amount: r.base, sub: true });
+      lines.push({ label: `Komisyen — ${r.commissionPercent}% × Gross Profit`, amount: r.commission, strong: true });
+    } else {
+      lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+      lines.push({ label: `Komisyen — ${r.commissionPercent}% × ${basisIsCollection ? 'Collection' : 'Nett Sales'}`, amount: r.commission, strong: true });
+    }
+
+    const rowsHtml = lines.map((l) => `
+      <tr class="${l.strong ? 'strong' : ''} ${l.sub ? 'sub' : ''} ${l.muted ? 'muted' : ''}">
+        <td class="desc">${esc(l.label)}</td>
+        <td class="amt">${l.amount < 0 ? '−' : ''}RM ${formatNumber(Math.abs(l.amount))}</td>
+      </tr>`).join('');
+
+    const today = new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+    const invNo = `SAL-${esc(r.idStaff)}-${startDate.replace(/-/g, '')}`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Slip ${esc(r.idStaff)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:#f3f4f6;padding:24px}
+  .sheet{max-width:800px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;padding:32px 36px 24px;position:relative}
+  .top:after{content:"";position:absolute;top:0;right:0;width:44%;height:100%;background:linear-gradient(135deg,#e11d48,#9f1239);clip-path:polygon(22% 0,100% 0,100% 100%,0 100%);opacity:.06}
+  .brand{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  .brand .p{color:#111827}.brand .o{color:#e11d48}
+  .brand small{display:block;font-size:11px;font-weight:600;color:#6b7280;letter-spacing:2px;margin-top:2px}
+  .slip-title{text-align:right}
+  .slip-title h1{font-size:30px;font-weight:800;color:#e11d48;letter-spacing:1px}
+  .slip-title .meta{margin-top:8px;font-size:12px;color:#6b7280;line-height:1.6}
+  .slip-title .meta b{color:#111827}
+  .bar{height:5px;background:linear-gradient(90deg,#e11d48,#9f1239)}
+  .parties{display:flex;justify-content:space-between;gap:24px;padding:26px 36px}
+  .party{font-size:13px;line-height:1.65;color:#374151;max-width:48%}
+  .party .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#e11d48;margin-bottom:6px}
+  .party .nm{font-weight:700;color:#111827;font-size:14px}
+  table{width:100%;border-collapse:collapse;margin:6px 0 0}
+  thead th{background:#111827;color:#fff;text-align:left;padding:12px 36px;font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+  thead th.amt{text-align:right}
+  tbody td{padding:12px 36px;font-size:13px;border-bottom:1px solid #f1f5f9}
+  tbody td.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr.muted td{color:#6b7280}
+  tbody tr.sub td{font-weight:700;background:#f8fafc}
+  tbody tr.strong td{font-weight:700;color:#111827}
+  .totalbox{display:flex;justify-content:flex-end;padding:20px 36px 32px}
+  .totalbox .box{background:#e11d48;color:#fff;border-radius:10px;padding:16px 26px;min-width:280px;display:flex;justify-content:space-between;align-items:center}
+  .totalbox .box .t{font-size:13px;text-transform:uppercase;letter-spacing:1px;opacity:.9}
+  .totalbox .box .v{font-size:24px;font-weight:800}
+  .foot{padding:0 36px 34px;color:#6b7280;font-size:12px;line-height:1.6}
+  .foot .sig{margin-top:34px;display:flex;justify-content:space-between}
+  .foot .sig div{border-top:1px solid #cbd5e1;padding-top:6px;width:200px;text-align:center;font-size:11px}
+  .actions{max-width:800px;margin:16px auto 0;text-align:right}
+  .actions button{background:#e11d48;color:#fff;border:0;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer}
+  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0}.actions{display:none}}
+</style></head><body>
+  <div class="sheet">
+    <div class="top">
+      <div class="brand"><span class="p">pening</span><span class="o">order</span><small>SALARY SLIP</small>
+        ${co.company_name ? `<div style="margin-top:12px;font-size:12px;color:#374151;font-weight:400;max-width:280px;line-height:1.5">
+          <b style="color:#111827">${esc(co.company_name)}${co.registration_no ? ` (${esc(co.registration_no)})` : ''}</b>
+          ${co.address ? `<br>${esc(co.address).replace(/\n/g, '<br>')}` : ''}
+          ${co.phone ? `<br>Tel: ${esc(co.phone)}` : ''}${co.email ? ` · ${esc(co.email)}` : ''}
+        </div>` : ''}
+      </div>
+      <div class="slip-title">
+        <h1>SALARY</h1>
+        <div class="meta">
+          <div>No: <b>${invNo}</b></div>
+          <div>Tarikh: <b>${today}</b></div>
+          <div>Tempoh: <b>${esc(formatDMY(startDate))} – ${esc(formatDMY(endDate))}</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="bar"></div>
+    <div class="parties">
+      <div class="party">
+        <div class="lbl">Bill To</div>
+        <div class="nm">${esc(inv.full_name || r.name)}</div>
+        <div>ID Staff: ${esc(r.idStaff)}</div>
+        ${inv.address ? `<div>${esc(inv.address).replace(/\n/g, '<br>')}</div>` : ''}
+        ${inv.phone ? `<div>Tel: ${esc(inv.phone)}</div>` : ''}
+      </div>
+      <div class="party" style="text-align:right">
+        <div class="lbl">Ringkasan</div>
+        <div>Total Sales: <b>${money(r.totalSales)}</b></div>
+        <div>Return: <b>${money(r.returnSales)}</b></div>
+        <div>Komisyen %: <b>${pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales)}</b></div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th class="desc">Keterangan</th><th class="amt">Jumlah</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="totalbox"><div class="box"><span class="t">Jumlah Komisyen</span><span class="v">${money(r.commission)}</span></div></div>
+    <div class="foot">
+      Slip ini dijana secara automatik oleh peningorder berdasarkan konfigurasi PNL semasa.
+      <div class="sig"><div>Disediakan oleh</div><div>Diterima oleh</div></div>
+    </div>
+  </div>
+  <div class="actions"><button onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('Sila benarkan popup untuk melihat slip.'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -412,6 +564,7 @@ const AccountSalary: React.FC = () => {
                 {columns.map((c) => (
                   <th key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.headClass || ''}`}>{c.label}</th>
                 ))}
+                <th className="p-3 text-center">Slip</th>
               </tr>
             </thead>
             <tbody>
@@ -420,10 +573,15 @@ const AccountSalary: React.FC = () => {
                   {columns.map((c) => (
                     <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{c.cell(r)}</td>
                   ))}
+                  <td className="p-3 text-center">
+                    <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openSlip(r)} title="Slip Invoice">
+                      <FileText className="w-3.5 h-3.5" /> Slip
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={columns.length || 1} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
+                <tr><td colSpan={(columns.length || 1) + 1} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
@@ -434,6 +592,7 @@ const AccountSalary: React.FC = () => {
                       {idx === 0 ? 'TOTAL' : (c.total ?? '')}
                     </td>
                   ))}
+                  <td className="p-3"></td>
                 </tr>
               </tfoot>
             )}

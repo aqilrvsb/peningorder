@@ -198,7 +198,7 @@ const App = () => (
                     <Route path="account/report-profit" element={marketerAllowed(<AccountReportProfit />)} />
                     <Route path="account/expenses" element={clientOnly(<AccountExpenses />)} />
                     <Route path="account/pnl-config" element={clientOnly(<AccountPNLConfig />)} />
-                    <Route path="account/salary" element={clientOnly(<AccountSalary />)} />
+                    <Route path="account/salary" element={marketerAllowed(<AccountSalary />)} />
                     <Route path="account/pending-tracking" element={clientOnly(<AccountPendingTracking />)} />
                     <Route path="account/success-collection" element={clientOnly(<AccountSuccessCollection />)} />
                     <Route path="account/order-cash" element={clientOnly(<AccountOrderCash />)} />

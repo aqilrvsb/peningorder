@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 type RoasTier = { start: number; end: number; percent: number };
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string; invoice_full_name: string | null; invoice_address: string | null; invoice_phone: string | null };
 // Logistic tabs the client can hide from the logistic account (path keys).
 const LOGISTIC_TABS: { key: string; label: string }[] = [
   { key: 'inventory-product', label: 'Product' },
@@ -57,6 +58,10 @@ const TeamManagement: React.FC = () => {
   const [tabDialogFor, setTabDialogFor] = useState<Staff | null>(null);
   const [tabDraft, setTabDraft] = useState<string[]>([]); // hidden tab keys
   const [savingTabs, setSavingTabs] = useState(false);
+  // Per-staff salary-slip "bill to" details.
+  const [invDialogFor, setInvDialogFor] = useState<Staff | null>(null);
+  const [invDraft, setInvDraft] = useState({ full_name: '', address: '', phone: '' });
+  const [savingInv, setSavingInv] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
@@ -172,6 +177,25 @@ const TeamManagement: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  const openInvDialog = (s: Staff) => {
+    setInvDraft({ full_name: s.invoice_full_name || '', address: s.invoice_address || '', phone: s.invoice_phone || '' });
+    setInvDialogFor(s);
+  };
+  const saveInvoice = async () => {
+    if (!invDialogFor) return;
+    setSavingInv(true);
+    try {
+      await call('set_invoice', { user_id: invDialogFor.id, invoice_full_name: invDraft.full_name, invoice_address: invDraft.address, invoice_phone: invDraft.phone });
+      toast({ title: 'Maklumat invoice dikemaskini' });
+      setInvDialogFor(null);
+      refresh();
+    } catch (e: any) {
+      toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingInv(false);
+    }
   };
 
   const resetPassword = async (s: Staff) => {
@@ -419,6 +443,9 @@ const TeamManagement: React.FC = () => {
                         <Button size="sm" variant="ghost" disabled={busyId === s.id} title="Reset password" onClick={() => resetPassword(s)}>
                           <KeyRound className="w-4 h-4" />
                         </Button>
+                        <Button size="sm" variant="ghost" title="Maklumat Invoice (slip salary)" onClick={() => openInvDialog(s)}>
+                          <FileText className="w-4 h-4 text-indigo-500" />
+                        </Button>
                         <Button size="sm" variant="ghost" disabled={busyId === s.id} title={s.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(s)}>
                           {s.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}
                         </Button>
@@ -437,6 +464,34 @@ const TeamManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Per-staff invoice / salary-slip details */}
+      <Dialog open={!!invDialogFor} onOpenChange={(o) => { if (!o) setInvDialogFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Maklumat Invoice — {invDialogFor?.idstaff}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Butiran ini dipaparkan pada slip salary staf (bahagian "Bill To").</p>
+            <div className="space-y-1.5">
+              <Label>Full Name Invoice</Label>
+              <Input value={invDraft.full_name} onChange={(e) => setInvDraft((d) => ({ ...d, full_name: e.target.value }))} placeholder={invDialogFor?.full_name || 'Nama penuh'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Address Invoice</Label>
+              <Textarea rows={3} value={invDraft.address} onChange={(e) => setInvDraft((d) => ({ ...d, address: e.target.value }))} placeholder="Alamat penuh" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone Invoice</Label>
+              <Input value={invDraft.phone} onChange={(e) => setInvDraft((d) => ({ ...d, phone: e.target.value }))} placeholder={invDialogFor?.whatsapp || '01X-XXXXXXX'} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvDialogFor(null)}>Batal</Button>
+            <Button onClick={saveInvoice} disabled={savingInv}>{savingInv && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ROAS tier editor */}
       <Dialog open={!!roasStaff} onOpenChange={(o) => { if (!o) setRoasStaff(null); }}>
