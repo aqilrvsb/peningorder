@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, Wallet, Download, Users } from 'lucide-react';
+import { Calendar, Loader2, Filter, Wallet, Download, Users, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected } from '@/lib/utils';
@@ -25,29 +25,34 @@ interface Spend {
   total_spend: number;
 }
 
-interface PnlTier {
-  role: string;
-  min_gross_profit: number;
-  max_gross_profit: number | null;
-  commission_percent: number;
-  bonus_amount: number;
+interface Tier { start: number; end: number | null; value: number; }
+
+interface PnlConfig {
+  revenue_basis: 'nett_sales' | 'collection';
+  commission_mode: 'profit_sharing' | 'percent_direct';
+  deduct_postage: boolean;
+  deduct_product: boolean;
+  deduct_spend: boolean;
+  kpi_type: 'roas' | 'range_sales';
+  tiers: Tier[];
 }
 
 interface SalaryRow {
   idStaff: string;
   name: string;
-  role: string;
+  totalSales: number;
+  returnSales: number;
+  nettSales: number;
   collection: number;
   spend: number;
   costProduct: number;
   postage: number;
-  grossProfit: number;
+  revenue: number;
+  base: number;
   roas: number;
+  kpiValue: number;
   commissionPercent: number;
   commission: number;
-  bonus: number;
-  total: number;
-  tierLabel: string;
 }
 
 const AccountSalary: React.FC = () => {
@@ -88,43 +93,38 @@ const AccountSalary: React.FC = () => {
     },
   });
 
-  const { data: tiers = [], isLoading: tiersLoading } = useQuery<PnlTier[]>({
-    queryKey: ['salary-pnl-tiers'],
+  const { data: config, isLoading: configLoading } = useQuery<PnlConfig | null>({
+    queryKey: ['salary-pnl-config'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('pnl_config')
-        .select('role, min_gross_profit, max_gross_profit, commission_percent, bonus_amount')
-        .order('min_gross_profit', { ascending: true });
+      const { data, error } = await (supabase as any).from('pnl_config').select('*').maybeSingle();
       if (error) throw error;
-      return (data || []) as PnlTier[];
+      if (!data) return null;
+      return { ...data, tiers: Array.isArray(data.tiers) ? data.tiers : [] } as PnlConfig;
     },
   });
 
-  const isLoading = ordersLoading || spendsLoading || tiersLoading;
+  const isLoading = ordersLoading || spendsLoading || configLoading;
 
   const formatNumber = (v: number) =>
     new Intl.NumberFormat('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-  // Match a staff's gross profit to a tier for their role (fall back to marketer
-  // tiers when the role has none of its own).
-  const matchTier = (role: string, gp: number): PnlTier | null => {
-    const forRole = tiers.filter((t) => t.role === role);
-    const pool = forRole.length ? forRole : tiers.filter((t) => t.role === 'marketer');
-    return pool.find((t) => gp >= t.min_gross_profit && (t.max_gross_profit == null || gp <= t.max_gross_profit)) || null;
-  };
+  const isRoas = config?.kpi_type === 'roas';
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
-    // Aggregate per staff from orders + spends.
-    const agg: Record<string, { collection: number; spend: number; costProduct: number; postage: number }> = {};
-    const ensure = (id: string) => (agg[id] ||= { collection: 0, spend: 0, costProduct: 0, postage: 0 });
+    if (!config) return [];
+    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number }> = {};
+    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0 });
 
     allOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
       const a = ensure(id);
-      if (isOrderCollected(o)) a.collection += Number(o.total_sale) || 0;
+      const sale = Number(o.total_sale) || 0;
+      a.totalSales += sale;
+      if (o.delivery_status === 'Return') a.returnSales += sale;
+      if (isOrderCollected(o)) a.collection += sale;
       a.costProduct += Number(o.cost_baseproduct) || 0;
-      a.postage += Number(o.cost_postage) || 0;
+      a.postage += Number(o.cost_postage) || 0; // includes return-order postage
     });
     spends.forEach((s) => {
       const id = s.marketer_id_staff || '';
@@ -132,53 +132,56 @@ const AccountSalary: React.FC = () => {
       ensure(id).spend += Number(s.total_spend) || 0;
     });
 
-    // Salary applies to staff (marketer / admin), not the tenant owner.
-    const staff = members.filter((m) => !m.is_client && (m.role === 'marketer' || m.role === 'admin' || !m.role));
+    const staff = members.filter((m) => !m.is_client);
+
+    const matchTier = (kpi: number): Tier | null =>
+      config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;
 
     const rows = staff.map((m) => {
-      const a = agg[m.idstaff] || { collection: 0, spend: 0, costProduct: 0, postage: 0 };
-      const grossProfit = a.collection - a.spend - a.costProduct - a.postage;
-      const roas = a.spend > 0 ? a.collection / a.spend : 0;
-      const role = m.role || 'marketer';
-      const tier = matchTier(role, grossProfit);
-      const commissionPercent = tier?.commission_percent || 0;
-      const commission = tier ? (grossProfit * commissionPercent) / 100 : 0;
-      const bonus = tier?.bonus_amount || 0;
-      const tierLabel = tier
-        ? `RM ${formatNumber(tier.min_gross_profit)} - ${tier.max_gross_profit == null ? 'Above' : 'RM ' + formatNumber(tier.max_gross_profit)}`
-        : '—';
+      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0 };
+      const nettSales = a.totalSales - a.returnSales;
+      const revenue = config.revenue_basis === 'collection' ? a.collection : nettSales;
+      const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
+      const kpiValue = config.kpi_type === 'roas' ? roas : revenue;
+      const tier = matchTier(kpiValue);
+      const commissionPercent = tier?.value || 0;
+      const base = config.commission_mode === 'percent_direct'
+        ? revenue
+        : revenue
+            - (config.deduct_postage ? a.postage : 0)
+            - (config.deduct_product ? a.costProduct : 0)
+            - (config.deduct_spend ? a.spend : 0);
+      const commission = tier ? (base * commissionPercent) / 100 : 0;
       return {
         idStaff: m.idstaff,
         name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
-        role,
+        totalSales: a.totalSales,
+        returnSales: a.returnSales,
+        nettSales,
         collection: a.collection,
         spend: a.spend,
         costProduct: a.costProduct,
         postage: a.postage,
-        grossProfit,
+        revenue,
+        base,
         roas,
+        kpiValue,
         commissionPercent,
         commission,
-        bonus,
-        total: commission + bonus,
-        tierLabel,
       };
     });
-    return rows.sort((x, y) => y.grossProfit - x.grossProfit);
-  }, [allOrders, spends, members, nameByIdstaff, tiers]);
+    return rows.sort((x, y) => y.commission - x.commission);
+  }, [allOrders, spends, members, nameByIdstaff, config]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
+      nettSales: acc.nettSales + r.nettSales,
       collection: acc.collection + r.collection,
       spend: acc.spend + r.spend,
-      costProduct: acc.costProduct + r.costProduct,
-      postage: acc.postage + r.postage,
-      grossProfit: acc.grossProfit + r.grossProfit,
+      base: acc.base + r.base,
       commission: acc.commission + r.commission,
-      bonus: acc.bonus + r.bonus,
-      total: acc.total + r.total,
     }),
-    { collection: 0, spend: 0, costProduct: 0, postage: 0, grossProfit: 0, commission: 0, bonus: 0, total: 0 },
+    { nettSales: 0, collection: 0, spend: 0, base: 0, commission: 0 },
   ), [salaryRows]);
 
   const exportToXLSX = () => {
@@ -186,16 +189,17 @@ const AccountSalary: React.FC = () => {
       No: i + 1,
       'ID Staff': r.idStaff,
       Nama: r.name,
-      Role: r.role,
+      'Total Sales': r.totalSales.toFixed(2),
+      Return: r.returnSales.toFixed(2),
+      'Nett Sales': r.nettSales.toFixed(2),
       Collection: r.collection.toFixed(2),
       Spend: r.spend.toFixed(2),
       'Cost Product': r.costProduct.toFixed(2),
       Postage: r.postage.toFixed(2),
-      'Gross Profit': r.grossProfit.toFixed(2),
-      'Commission %': r.commissionPercent,
+      [isRoas ? 'ROAS' : 'Range Sales']: isRoas ? r.roas.toFixed(2) : r.kpiValue.toFixed(2),
+      'Comm %': r.commissionPercent,
+      Base: r.base.toFixed(2),
       Commission: r.commission.toFixed(2),
-      Bonus: r.bonus.toFixed(2),
-      'Total Salary': r.total.toFixed(2),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -220,12 +224,31 @@ const AccountSalary: React.FC = () => {
             <Wallet className="w-6 h-6" />
             Salary
           </h1>
-          <p className="text-muted-foreground mt-1">Gaji staf mengikut tier PNL (Gross Profit → Commission + Bonus)</p>
+          <p className="text-muted-foreground mt-1">Komisyen staf mengikut konfigurasi PNL</p>
         </div>
         <Button onClick={exportToXLSX} className="bg-green-600 hover:bg-green-700 text-white w-fit">
           <Download className="w-4 h-4 mr-2" />Export XLSX
         </Button>
       </div>
+
+      {!config && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+          <Info className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>Belum ada konfigurasi PNL. Pergi ke <b>PNL Config</b> untuk tetapkan asas jualan, jenis komisyen, KPI dan tier dahulu.</span>
+        </div>
+      )}
+
+      {config && (
+        <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+          <span>Asas: <b className="text-foreground">{config.revenue_basis === 'nett_sales' ? 'Nett Sales' : 'Collection'}</b></span>
+          <span>Komisyen: <b className="text-foreground">{config.commission_mode === 'profit_sharing' ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
+          {config.commission_mode === 'profit_sharing' && (
+            <span>Tolak: <b className="text-foreground">{[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(', ') || '—'}</b></span>
+          )}
+          <span>KPI: <b className="text-foreground">{isRoas ? 'ROAS' : 'Range Sales'}</b></span>
+          <span>Tiers: <b className="text-foreground">{config.tiers.length}</b></span>
+        </div>
+      )}
 
       {/* Date filter */}
       <div className="bg-card border border-border rounded-lg p-4">
@@ -252,28 +275,28 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="stat-card border-l-4 border-l-blue-500">
+          <div className="text-muted-foreground text-xs uppercase mb-1">Total Nett Sales</div>
+          <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.nettSales)}</div>
+        </div>
         <div className="stat-card border-l-4 border-l-green-500">
           <div className="text-muted-foreground text-xs uppercase mb-1">Total Collection</div>
           <div className="text-lg font-bold text-green-600">RM {formatNumber(totals.collection)}</div>
         </div>
-        <div className="stat-card border-l-4 border-l-blue-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Gross Profit</div>
-          <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.grossProfit)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-primary">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Commission</div>
-          <div className="text-lg font-bold text-primary">RM {formatNumber(totals.commission)}</div>
+        <div className="stat-card border-l-4 border-l-slate-500">
+          <div className="text-muted-foreground text-xs uppercase mb-1">Total Base</div>
+          <div className="text-lg font-bold text-slate-600">RM {formatNumber(totals.base)}</div>
         </div>
         <div className="stat-card border-l-4 border-l-amber-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Salary (Comm + Bonus)</div>
-          <div className="text-lg font-bold text-amber-600">RM {formatNumber(totals.total)}</div>
+          <div className="text-muted-foreground text-xs uppercase mb-1">Total Commission</div>
+          <div className="text-lg font-bold text-amber-600">RM {formatNumber(totals.commission)}</div>
         </div>
       </div>
 
       {/* Salary table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Staff Salary</h2>
+          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Staff Commission</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -281,17 +304,15 @@ const AccountSalary: React.FC = () => {
               <tr>
                 <th className="p-3 text-left">ID Staff</th>
                 <th className="p-3 text-left">Nama</th>
-                <th className="p-3 text-left">Role</th>
+                <th className="p-3 text-right">Nett Sales</th>
                 <th className="p-3 text-right text-green-600 dark:text-green-400">Collection</th>
                 <th className="p-3 text-right text-red-600 dark:text-red-400">Spend</th>
                 <th className="p-3 text-right">Cost Product</th>
                 <th className="p-3 text-right">Postage</th>
-                <th className="p-3 text-right text-blue-600 dark:text-blue-400">Gross Profit</th>
-                <th className="p-3 text-left">Tier</th>
+                <th className="p-3 text-right text-amber-600 dark:text-amber-400">{isRoas ? 'ROAS' : 'Range Sales'}</th>
+                <th className="p-3 text-right">Base</th>
                 <th className="p-3 text-right">Comm %</th>
-                <th className="p-3 text-right text-primary">Commission</th>
-                <th className="p-3 text-right text-green-600 dark:text-green-400">Bonus</th>
-                <th className="p-3 text-right font-semibold">Total Salary</th>
+                <th className="p-3 text-right font-semibold text-primary">Commission</th>
               </tr>
             </thead>
             <tbody>
@@ -299,49 +320,37 @@ const AccountSalary: React.FC = () => {
                 <tr key={r.idStaff} className="border-t border-border hover:bg-muted/30">
                   <td className="p-3 font-mono">{r.idStaff}</td>
                   <td className="p-3">{r.name}</td>
-                  <td className="p-3 capitalize">{r.role}</td>
+                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.nettSales)}</td>
                   <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(r.collection)}</td>
                   <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(r.spend)}</td>
                   <td className="p-3 text-right tabular-nums">RM {formatNumber(r.costProduct)}</td>
                   <td className="p-3 text-right tabular-nums">RM {formatNumber(r.postage)}</td>
-                  <td className={`p-3 text-right tabular-nums font-medium ${r.grossProfit >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600'}`}>RM {formatNumber(r.grossProfit)}</td>
-                  <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{r.tierLabel}</td>
+                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{isRoas ? `${r.roas.toFixed(2)}x` : `RM ${formatNumber(r.kpiValue)}`}</td>
+                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.base)}</td>
                   <td className="p-3 text-right tabular-nums">{r.commissionPercent}%</td>
-                  <td className="p-3 text-right tabular-nums text-primary">RM {formatNumber(r.commission)}</td>
-                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(r.bonus)}</td>
-                  <td className={`p-3 text-right tabular-nums font-bold ${r.total >= 0 ? '' : 'text-red-600'}`}>RM {formatNumber(r.total)}</td>
+                  <td className="p-3 text-right tabular-nums font-bold text-primary">RM {formatNumber(r.commission)}</td>
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira. Tambah staf & tetapkan tier di PNL Config.</td></tr>
+                <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30 font-semibold">
-                  <td className="p-3" colSpan={3}>TOTAL</td>
+                  <td className="p-3" colSpan={2}>TOTAL</td>
+                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.nettSales)}</td>
                   <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(totals.collection)}</td>
                   <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(totals.spend)}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.costProduct)}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.postage)}</td>
-                  <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400">RM {formatNumber(totals.grossProfit)}</td>
+                  <td className="p-3" colSpan={3}></td>
+                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.base)}</td>
                   <td className="p-3"></td>
-                  <td className="p-3"></td>
-                  <td className="p-3 text-right tabular-nums text-primary">RM {formatNumber(totals.commission)}</td>
-                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(totals.bonus)}</td>
-                  <td className="p-3 text-right tabular-nums font-bold">RM {formatNumber(totals.total)}</td>
+                  <td className="p-3 text-right tabular-nums font-bold text-primary">RM {formatNumber(totals.commission)}</td>
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
-      </div>
-
-      {/* How it works */}
-      <div className="bg-card border border-border rounded-lg p-4 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Cara kira: </span>
-        Gross Profit = Collection − Spend − Cost Product − Postage. Commission = % Gross Profit (mengikut tier di PNL Config).
-        Bonus = jumlah tetap per tier. Total Salary = Commission + Bonus.
       </div>
     </div>
   );
