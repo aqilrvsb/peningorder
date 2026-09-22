@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { useTeam } from '@/hooks/useTeam';
 import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutDashboard,
@@ -96,6 +97,7 @@ const financeItems: NavItem[] = [
   { label: 'Invoice Settings', path: '/dashboard/account/invoice-settings', icon: <FileText className="w-5 h-5" /> },
   { label: 'PNL Config', path: '/dashboard/account/pnl-config', icon: <Settings className="w-5 h-5" /> },
   { label: 'Salary', path: '/dashboard/account/salary', icon: <Wallet className="w-5 h-5" /> },
+  { label: 'Top Ranking', path: '/dashboard/account/top-ranking', icon: <Trophy className="w-5 h-5" /> },
 ];
 
 // ============ SUPERADMIN (SaaS owner) ============
@@ -140,6 +142,10 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   const isAdmin = profile?.role === 'superadmin';
   const isMarketer = profile?.role === 'marketer'; // a client's marketer staff
   const isLogistic = profile?.role === 'logistic'; // a client's logistic staff
+  // A marketer sees Top Ranking only when there's an actual team (≥2 marketers).
+  const { members } = useTeam();
+  const marketerCount = members.filter((m) => !m.is_client && (m.role === 'marketer' || !m.role)).length;
+  const hasTeam = marketerCount > 1;
   // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
   // stays reachable — matches the route guard in App.tsx. Staff aren't expiry-frozen.
   const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
@@ -387,6 +393,23 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <Wallet className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Salary</span>}
+          </Link>
+        )}
+
+        {/* Marketers with a team also see the Top Ranking leaderboard. */}
+        {isMarketer && hasTeam && (
+          <Link
+            to="/dashboard/account/top-ranking"
+            title={collapsed ? 'Top Ranking' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/account/top-ranking') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Trophy className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Top Ranking</span>}
           </Link>
         )}
 
