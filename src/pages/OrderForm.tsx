@@ -6,6 +6,7 @@ import { useData } from '@/context/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { useHidePickup } from '@/hooks/useHidePickup';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -1408,6 +1409,12 @@ const OrderForm: React.FC = () => {
   };
 
   const pospadaEnabled = usePospadaEnabled();
+  // Tenant may hide the self-collect "Pickup" option (Courier Settings) so only
+  // CASH / COD show when keying in an order.
+  const hidePickup = useHidePickup();
+  const caraBayaranOptions = hidePickup
+    ? CARA_BAYARAN_OPTIONS.filter((o) => o !== 'Pickup')
+    : CARA_BAYARAN_OPTIONS;
   const isTiktokShopee = formData.jenisPlatform === 'Tiktok';
   const isMarketplaceCourier = formData.deliveryMethod === 'Kurier Tiktok';
   const isPickupUI = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
@@ -1662,7 +1669,7 @@ const OrderForm: React.FC = () => {
                   <SelectValue placeholder="Pilih Cara Bayaran" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CARA_BAYARAN_OPTIONS.map((opt) => (
+                  {caraBayaranOptions.map((opt) => (
                     <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                   ))}
                 </SelectContent>
