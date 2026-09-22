@@ -18,6 +18,7 @@ interface Order {
   kurier: string;
   cost_baseproduct: number;
   cost_postage: number;
+  commission_amount: number;
 }
 
 interface Spend {
@@ -71,7 +72,7 @@ const AccountSalary: React.FC = () => {
       const data = await fetchAllRows(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage')
+          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount')
           .gte('date_order', startDate)
           .lte('date_order', endDate)
       );
@@ -109,11 +110,12 @@ const AccountSalary: React.FC = () => {
     new Intl.NumberFormat('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
   const isRoas = config?.kpi_type === 'roas';
+  const isKomisyenOrder = config?.revenue_basis === 'komisyen_order';
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
-    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number }> = {};
-    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0 });
+    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komisyenOrder: number }> = {};
+    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komisyenOrder: 0 });
 
     allOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
@@ -122,6 +124,7 @@ const AccountSalary: React.FC = () => {
       const sale = Number(o.total_sale) || 0;
       a.totalSales += sale;
       if (o.delivery_status === 'Return') a.returnSales += sale;
+      else a.komisyenOrder += Number(o.commission_amount) || 0; // bundle commission, returns earn none
       if (isOrderCollected(o)) a.collection += sale;
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
@@ -137,11 +140,27 @@ const AccountSalary: React.FC = () => {
     const matchTier = (kpi: number): Tier | null =>
       config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;
 
+    const isKomisyenOrder = config.revenue_basis === 'komisyen_order';
+
     const rows = staff.map((m) => {
-      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0 };
+      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komisyenOrder: 0 };
       const nettSales = a.totalSales - a.returnSales;
-      const revenue = config.revenue_basis === 'collection' ? a.collection : nettSales;
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
+
+      // Komisyen Order: commission is 100% the sum of per-bundle commission
+      // (returns earn none) — the tier / revenue-basis / deductions don't apply.
+      if (isKomisyenOrder) {
+        return {
+          idStaff: m.idstaff,
+          name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
+          totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
+          collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
+          revenue: 0, base: 0, roas, kpiValue: 0, commissionPercent: 0,
+          commission: a.komisyenOrder,
+        };
+      }
+
+      const revenue = config.revenue_basis === 'collection' ? a.collection : nettSales;
       const kpiValue = config.kpi_type === 'roas' ? roas : revenue;
       const tier = matchTier(kpiValue);
       const commissionPercent = tier?.value || 0;
@@ -240,13 +259,19 @@ const AccountSalary: React.FC = () => {
 
       {config && (
         <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-          <span>Asas: <b className="text-foreground">{config.revenue_basis === 'nett_sales' ? 'Nett Sales' : 'Collection'}</b></span>
-          <span>Komisyen: <b className="text-foreground">{config.commission_mode === 'profit_sharing' ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
-          {config.commission_mode === 'profit_sharing' && (
-            <span>Tolak: <b className="text-foreground">{[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(', ') || '—'}</b></span>
+          {isKomisyenOrder ? (
+            <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen 100% ikut komisyen bundle (setup Logistic), tolak order Return.</span>
+          ) : (
+            <>
+              <span>Asas: <b className="text-foreground">{config.revenue_basis === 'nett_sales' ? 'Nett Sales' : 'Collection'}</b></span>
+              <span>Komisyen: <b className="text-foreground">{config.commission_mode === 'profit_sharing' ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
+              {config.commission_mode === 'profit_sharing' && (
+                <span>Tolak: <b className="text-foreground">{[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(', ') || '—'}</b></span>
+              )}
+              <span>KPI: <b className="text-foreground">{isRoas ? 'ROAS' : 'Range Sales'}</b></span>
+              <span>Tiers: <b className="text-foreground">{config.tiers.length}</b></span>
+            </>
           )}
-          <span>KPI: <b className="text-foreground">{isRoas ? 'ROAS' : 'Range Sales'}</b></span>
-          <span>Tiers: <b className="text-foreground">{config.tiers.length}</b></span>
         </div>
       )}
 
@@ -309,7 +334,7 @@ const AccountSalary: React.FC = () => {
                 <th className="p-3 text-right text-red-600 dark:text-red-400">Spend</th>
                 <th className="p-3 text-right">Cost Product</th>
                 <th className="p-3 text-right">Postage</th>
-                <th className="p-3 text-right text-amber-600 dark:text-amber-400">{isRoas ? 'ROAS' : 'Range Sales'}</th>
+                <th className="p-3 text-right text-amber-600 dark:text-amber-400">{isKomisyenOrder ? 'KPI' : isRoas ? 'ROAS' : 'Range Sales'}</th>
                 <th className="p-3 text-right">Base</th>
                 <th className="p-3 text-right">Comm %</th>
                 <th className="p-3 text-right font-semibold text-primary">Commission</th>
@@ -325,9 +350,9 @@ const AccountSalary: React.FC = () => {
                   <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(r.spend)}</td>
                   <td className="p-3 text-right tabular-nums">RM {formatNumber(r.costProduct)}</td>
                   <td className="p-3 text-right tabular-nums">RM {formatNumber(r.postage)}</td>
-                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{isRoas ? `${r.roas.toFixed(2)}x` : `RM ${formatNumber(r.kpiValue)}`}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.base)}</td>
-                  <td className="p-3 text-right tabular-nums">{r.commissionPercent}%</td>
+                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{isKomisyenOrder ? '—' : isRoas ? `${r.roas.toFixed(2)}x` : `RM ${formatNumber(r.kpiValue)}`}</td>
+                  <td className="p-3 text-right tabular-nums">{isKomisyenOrder ? '—' : `RM ${formatNumber(r.base)}`}</td>
+                  <td className="p-3 text-right tabular-nums">{isKomisyenOrder ? '—' : `${r.commissionPercent}%`}</td>
                   <td className="p-3 text-right tabular-nums font-bold text-primary">RM {formatNumber(r.commission)}</td>
                 </tr>
               ))}

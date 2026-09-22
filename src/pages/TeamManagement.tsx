@@ -399,7 +399,6 @@ const TeamManagement: React.FC = () => {
                   <th className="p-3 text-left">ID Staff</th>
                   <th className="p-3 text-left">Nama</th>
                   <th className="p-3 text-left">WhatsApp</th>
-                  <th className="p-3 text-left">Pembayaran</th>
                   <th className="p-3 text-left">Status</th>
                   <th className="p-3 text-left">Tindakan</th>
                 </tr>
@@ -410,53 +409,6 @@ const TeamManagement: React.FC = () => {
                     <td className="p-3 font-mono">{s.idstaff}</td>
                     <td className="p-3">{s.full_name || '-'}</td>
                     <td className="p-3">{s.whatsapp || s.whatsapp_number || '-'}</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="inline-flex rounded-lg border border-border overflow-hidden text-xs">
-                          <button
-                            disabled={busyId === s.id}
-                            onClick={() => setPayMode(s, 'commission_order')}
-                            className={`px-2.5 py-1 transition-colors ${(s.pay_mode || 'commission_order') === 'commission_order' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
-                          >
-                            Komisyen Order
-                          </button>
-                          <button
-                            disabled={busyId === s.id}
-                            onClick={() => (s.pay_mode === 'gross_profit' ? editPercent(s) : setPayMode(s, 'gross_profit', { percent: s.commission_percent ?? 0 }))}
-                            className={`px-2.5 py-1 transition-colors border-l border-border ${s.pay_mode === 'gross_profit' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
-                          >
-                            Gross Profit
-                          </button>
-                          <button
-                            disabled={busyId === s.id}
-                            onClick={() => openRoas(s)}
-                            className={`px-2.5 py-1 transition-colors border-l border-border ${s.pay_mode === 'roas' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted'}`}
-                          >
-                            ROAS
-                          </button>
-                        </div>
-                        {s.pay_mode === 'gross_profit' && (
-                          <button
-                            disabled={busyId === s.id}
-                            onClick={() => editPercent(s)}
-                            title="Set peratus komisyen"
-                            className="inline-flex items-center gap-0.5 rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100"
-                          >
-                            {Number(s.commission_percent ?? 0)}<Percent className="w-3 h-3" />
-                          </button>
-                        )}
-                        {s.pay_mode === 'roas' && (
-                          <button
-                            disabled={busyId === s.id}
-                            onClick={() => openRoas(s)}
-                            title="Set ROAS tiers"
-                            className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100"
-                          >
-                            {(s.roas_tiers?.length ?? 0)} tier{(s.roas_tiers?.length ?? 0) === 1 ? '' : 's'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {s.is_active ? 'Aktif' : 'Nonaktif'}

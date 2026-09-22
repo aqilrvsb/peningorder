@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { Settings, Plus, Trash2, Loader2, Save, DollarSign, Percent, TrendingUp } from 'lucide-react';
 
-type RevenueBasis = 'nett_sales' | 'collection';
+type RevenueBasis = 'nett_sales' | 'collection' | 'komisyen_order';
 type CommissionMode = 'profit_sharing' | 'percent_direct';
 type KpiType = 'roas' | 'range_sales';
 
@@ -135,6 +135,7 @@ const AccountPNLConfig: React.FC = () => {
 
   const isProfitSharing = config.commission_mode === 'profit_sharing';
   const isRoas = config.kpi_type === 'roas';
+  const isKomisyenOrder = config.revenue_basis === 'komisyen_order';
   const unit = isRoas ? 'x' : 'RM';
 
   return (
@@ -161,7 +162,7 @@ const AccountPNLConfig: React.FC = () => {
           <DollarSign className="w-4 h-4 text-blue-500" />
           Asas Jualan (Revenue)
         </div>
-        <RadioGroup value={config.revenue_basis} onValueChange={(v: RevenueBasis) => set({ revenue_basis: v })} className="grid sm:grid-cols-2 gap-3">
+        <RadioGroup value={config.revenue_basis} onValueChange={(v: RevenueBasis) => set({ revenue_basis: v })} className="grid sm:grid-cols-3 gap-3">
           <label htmlFor="rb-nett" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
             <RadioGroupItem value="nett_sales" id="rb-nett" className="mt-0.5" />
             <div>
@@ -176,9 +177,23 @@ const AccountPNLConfig: React.FC = () => {
               <div className="text-xs text-muted-foreground">Duit yang benar-benar dikutip (COD selepas remit)</div>
             </div>
           </label>
+          <label htmlFor="rb-kom" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+            <RadioGroupItem value="komisyen_order" id="rb-kom" className="mt-0.5" />
+            <div>
+              <div className="font-medium">Komisyen Order</div>
+              <div className="text-xs text-muted-foreground">100% ikut komisyen bundle (setup di Logistic)</div>
+            </div>
+          </label>
         </RadioGroup>
       </div>
 
+      {isKomisyenOrder && (
+        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
+          Komisyen dikira <b className="text-foreground">100% dari Komisyen Order bundle</b> yang ditetapkan di Logistic (setiap bundle ada nilai komisyen sendiri). Tak perlu set apa-apa lagi — terus <b className="text-foreground">Simpan</b>.
+        </div>
+      )}
+
+      {!isKomisyenOrder && (<>
       {/* 2. Commission mode */}
       <div className="bg-card border border-border rounded-lg p-5 space-y-3">
         <div className="flex items-center gap-2 font-semibold">
@@ -307,15 +322,22 @@ const AccountPNLConfig: React.FC = () => {
           {' '}Kosongkan End untuk tier terakhir (tiada had atas).
         </p>
       </div>
+      </>)}
 
       {/* How it works — reflects the current config */}
       <div className="bg-card border border-border rounded-lg p-4 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Cara kira: </span>
-        Asas = <b>{config.revenue_basis === 'nett_sales' ? 'Nett Sales (Sales − Return)' : 'Collection'}</b>.{' '}
-        {isProfitSharing
-          ? <>Gross = Asas − {[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(' − ') || '(tiada kos dipilih)'}. Komisyen = Value% × Gross.</>
-          : <>Komisyen = Value% × Asas (terus, tiada tolak kos).</>}
-        {' '}Tier dipilih ikut <b>{isRoas ? 'ROAS (Sales / Spend)' : 'julat jualan'}</b>.
+        {isKomisyenOrder ? (
+          <>Komisyen = jumlah <b>Komisyen Order</b> setiap bundle (ikut setup Logistic), tolak order yang Return.</>
+        ) : (
+          <>
+            Asas = <b>{config.revenue_basis === 'nett_sales' ? 'Nett Sales (Sales − Return)' : 'Collection'}</b>.{' '}
+            {isProfitSharing
+              ? <>Gross = Asas − {[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(' − ') || '(tiada kos dipilih)'}. Komisyen = Value% × Gross.</>
+              : <>Komisyen = Value% × Asas (terus, tiada tolak kos).</>}
+            {' '}Tier dipilih ikut <b>{isRoas ? 'ROAS (Sales / Spend)' : 'julat jualan'}</b>.
+          </>
+        )}
       </div>
     </div>
   );
