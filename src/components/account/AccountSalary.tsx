@@ -55,6 +55,7 @@ interface SalaryRow {
   kpiValue: number;
   commissionPercent: number;
   commission: number;
+  qualifyOrders: number;
 }
 
 const AccountSalary: React.FC = () => {
@@ -109,14 +110,20 @@ const AccountSalary: React.FC = () => {
 
   const formatNumber = (v: number) =>
     new Intl.NumberFormat('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  const fmtRM = (v: number) => `RM ${formatNumber(v)}`;
 
   const isRoas = config?.kpi_type === 'roas';
   const isKomisyenOrder = config?.revenue_basis === 'komisyen_order';
+  const isProfitSharing = config?.commission_mode === 'profit_sharing';
+  // Which revenue figure is the "basis" for this config.
+  const basisIsCollection = isKomisyenOrder
+    ? config?.komisyen_basis === 'collection'
+    : config?.revenue_basis === 'collection';
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
-    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komNett: number; komColl: number }> = {};
-    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0 });
+    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komNett: number; komColl: number; cntNett: number; cntColl: number }> = {};
+    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
     allOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
@@ -126,8 +133,8 @@ const AccountSalary: React.FC = () => {
       const comm = Number(o.commission_amount) || 0;
       a.totalSales += sale;
       if (o.delivery_status === 'Return') a.returnSales += sale;
-      else a.komNett += comm;            // komisyen basis "Total Sales − Return": all except Return
-      if (isOrderCollected(o)) { a.collection += sale; a.komColl += comm; } // basis "Collection": collected only
+      else { a.komNett += comm; a.cntNett += 1; }            // basis "Total Sales − Return": all except Return
+      if (isOrderCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
     });
@@ -142,25 +149,23 @@ const AccountSalary: React.FC = () => {
     const matchTier = (kpi: number): Tier | null =>
       config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;
 
-    const isKomisyenOrder = config.revenue_basis === 'komisyen_order';
+    const komOrder = config.revenue_basis === 'komisyen_order';
+    const collBasis = komOrder ? config.komisyen_basis === 'collection' : config.revenue_basis === 'collection';
 
     const rows = staff.map((m) => {
-      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0 };
+      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 };
       const nettSales = a.totalSales - a.returnSales;
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
+      const qualifyOrders = collBasis ? a.cntColl : a.cntNett;
 
-      // Komisyen Order: commission = sum of per-bundle komisyen. The basis decides
-      // which orders qualify: "Total Sales − Return" (all except Return) or
-      // "Collection" (collected only). Tier / deductions don't apply.
-      if (isKomisyenOrder) {
+      // Komisyen Order: commission = sum of per-bundle komisyen for qualifying orders.
+      if (komOrder) {
         const commission = config.komisyen_basis === 'collection' ? a.komColl : a.komNett;
         return {
-          idStaff: m.idstaff,
-          name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
+          idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
           totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
           collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
-          revenue: 0, base: 0, roas, kpiValue: 0, commissionPercent: 0,
-          commission,
+          revenue: 0, base: 0, roas, kpiValue: 0, commissionPercent: 0, commission, qualifyOrders,
         };
       }
 
@@ -176,21 +181,10 @@ const AccountSalary: React.FC = () => {
             - (config.deduct_spend ? a.spend : 0);
       const commission = tier ? (base * commissionPercent) / 100 : 0;
       return {
-        idStaff: m.idstaff,
-        name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
-        totalSales: a.totalSales,
-        returnSales: a.returnSales,
-        nettSales,
-        collection: a.collection,
-        spend: a.spend,
-        costProduct: a.costProduct,
-        postage: a.postage,
-        revenue,
-        base,
-        roas,
-        kpiValue,
-        commissionPercent,
-        commission,
+        idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
+        totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
+        collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
+        revenue, base, roas, kpiValue, commissionPercent, commission, qualifyOrders,
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
@@ -201,33 +195,92 @@ const AccountSalary: React.FC = () => {
       nettSales: acc.nettSales + r.nettSales,
       collection: acc.collection + r.collection,
       spend: acc.spend + r.spend,
+      costProduct: acc.costProduct + r.costProduct,
+      postage: acc.postage + r.postage,
       base: acc.base + r.base,
       commission: acc.commission + r.commission,
+      qualifyOrders: acc.qualifyOrders + r.qualifyOrders,
     }),
-    { nettSales: 0, collection: 0, spend: 0, base: 0, commission: 0 },
+    { nettSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, qualifyOrders: 0 },
   ), [salaryRows]);
 
+  // Build the columns shown, driven entirely by the PNL config.
+  type Col = { key: string; label: string; align: 'left' | 'right'; headClass?: string; cell: (r: SalaryRow) => React.ReactNode; total?: React.ReactNode };
+  const columns: Col[] = useMemo(() => {
+    if (!config) return [];
+    const cols: Col[] = [
+      { key: 'id', label: 'ID Staff', align: 'left', cell: (r) => <span className="font-mono">{r.idStaff}</span> },
+      { key: 'name', label: 'Nama', align: 'left', cell: (r) => r.name },
+    ];
+    const nettCol: Col = { key: 'nett', label: 'Nett Sales', align: 'right', cell: (r) => fmtRM(r.nettSales), total: fmtRM(totals.nettSales) };
+    const collCol: Col = { key: 'coll', label: 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400', cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.collection)}</span>, total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.collection)}</span> };
+    const spendCol: Col = { key: 'spend', label: 'Spend', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.spend)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.spend)}</span> };
+    const productCol: Col = { key: 'product', label: 'Cost Product', align: 'right', cell: (r) => fmtRM(r.costProduct), total: fmtRM(totals.costProduct) };
+    const postageCol: Col = { key: 'postage', label: 'Postage', align: 'right', cell: (r) => fmtRM(r.postage), total: fmtRM(totals.postage) };
+    const baseCol: Col = { key: 'base', label: 'Base', align: 'right', cell: (r) => fmtRM(r.base), total: fmtRM(totals.base) };
+    const roasCol: Col = { key: 'roas', label: 'ROAS', align: 'right', headClass: 'text-amber-600 dark:text-amber-400', cell: (r) => <span className="text-amber-600 dark:text-amber-400">{r.roas.toFixed(2)}x</span> };
+    const pctCol: Col = { key: 'pct', label: 'Comm %', align: 'right', cell: (r) => `${r.commissionPercent}%` };
+    const ordersCol: Col = { key: 'orders', label: 'Bil. Order', align: 'right', cell: (r) => r.qualifyOrders, total: totals.qualifyOrders };
+    const commissionCol: Col = { key: 'commission', label: 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
+
+    if (isKomisyenOrder) {
+      cols.push(basisIsCollection ? collCol : nettCol);
+      cols.push(ordersCol);
+      cols.push(commissionCol);
+      return cols;
+    }
+    cols.push(basisIsCollection ? collCol : nettCol);
+    if (isProfitSharing) {
+      if (config.deduct_spend) cols.push(spendCol);
+      if (config.deduct_product) cols.push(productCol);
+      if (config.deduct_postage) cols.push(postageCol);
+      cols.push(baseCol);
+    }
+    if (isRoas) cols.push(roasCol);
+    cols.push(pctCol);
+    cols.push(commissionCol);
+    return cols;
+  }, [config, totals, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection]);
+
+  // Summary cards, also config-driven.
+  const cards = useMemo(() => {
+    if (!config) return [];
+    const out: { label: string; value: string; color: string }[] = [];
+    out.push({ label: basisIsCollection ? 'Total Collection' : 'Total Nett Sales', value: fmtRM(basisIsCollection ? totals.collection : totals.nettSales), color: basisIsCollection ? 'green' : 'blue' });
+    if (isKomisyenOrder) out.push({ label: 'Total Bil. Order', value: String(totals.qualifyOrders), color: 'slate' });
+    else if (isProfitSharing) out.push({ label: 'Total Base', value: fmtRM(totals.base), color: 'slate' });
+    out.push({ label: 'Total Commission', value: fmtRM(totals.commission), color: 'amber' });
+    return out;
+  }, [config, totals, isKomisyenOrder, isProfitSharing, basisIsCollection]);
+
   const exportToXLSX = () => {
-    const data = salaryRows.map((r, i) => ({
-      No: i + 1,
-      'ID Staff': r.idStaff,
-      Nama: r.name,
-      'Total Sales': r.totalSales.toFixed(2),
-      Return: r.returnSales.toFixed(2),
-      'Nett Sales': r.nettSales.toFixed(2),
-      Collection: r.collection.toFixed(2),
-      Spend: r.spend.toFixed(2),
-      'Cost Product': r.costProduct.toFixed(2),
-      Postage: r.postage.toFixed(2),
-      [isRoas ? 'ROAS' : 'Range Sales']: isRoas ? r.roas.toFixed(2) : r.kpiValue.toFixed(2),
-      'Comm %': r.commissionPercent,
-      Base: r.base.toFixed(2),
-      Commission: r.commission.toFixed(2),
-    }));
+    const data = salaryRows.map((r, i) => {
+      const row: Record<string, any> = { No: i + 1 };
+      columns.forEach((c) => {
+        if (c.key === 'id') row['ID Staff'] = r.idStaff;
+        else if (c.key === 'name') row['Nama'] = r.name;
+        else if (c.key === 'nett') row['Nett Sales'] = r.nettSales.toFixed(2);
+        else if (c.key === 'coll') row['Collection'] = r.collection.toFixed(2);
+        else if (c.key === 'spend') row['Spend'] = r.spend.toFixed(2);
+        else if (c.key === 'product') row['Cost Product'] = r.costProduct.toFixed(2);
+        else if (c.key === 'postage') row['Postage'] = r.postage.toFixed(2);
+        else if (c.key === 'base') row['Base'] = r.base.toFixed(2);
+        else if (c.key === 'roas') row['ROAS'] = r.roas.toFixed(2);
+        else if (c.key === 'pct') row['Comm %'] = r.commissionPercent;
+        else if (c.key === 'orders') row['Bil. Order'] = r.qualifyOrders;
+        else if (c.key === 'commission') row['Commission'] = r.commission.toFixed(2);
+      });
+      return row;
+    });
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Salary');
     XLSX.writeFile(wb, `salary_${startDate}_to_${endDate}.xlsx`);
+  };
+
+  const cardColor: Record<string, string> = {
+    blue: 'border-l-blue-500 text-blue-600', green: 'border-l-green-500 text-green-600',
+    slate: 'border-l-slate-500 text-slate-600', amber: 'border-l-amber-500 text-amber-600',
   };
 
   if (isLoading) {
@@ -257,19 +310,19 @@ const AccountSalary: React.FC = () => {
       {!config && (
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>Belum ada konfigurasi PNL. Pergi ke <b>PNL Config</b> untuk tetapkan asas jualan, jenis komisyen, KPI dan tier dahulu.</span>
+          <span>Belum ada konfigurasi PNL. Pergi ke <b>PNL Config</b> untuk tetapkan cara kira komisyen dahulu.</span>
         </div>
       )}
 
       {config && (
         <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
           {isKomisyenOrder ? (
-            <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen bundle (setup Logistic), dikira untuk order <b className="text-foreground">{config.komisyen_basis === 'collection' ? 'yang dah Collect' : 'Total Sales − Return'}</b>.</span>
+            <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen bundle (setup Logistic), dikira untuk order <b className="text-foreground">{basisIsCollection ? 'yang dah Collect' : 'Total Sales − Return'}</b>.</span>
           ) : (
             <>
-              <span>Asas: <b className="text-foreground">{config.revenue_basis === 'nett_sales' ? 'Nett Sales' : 'Collection'}</b></span>
-              <span>Komisyen: <b className="text-foreground">{config.commission_mode === 'profit_sharing' ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
-              {config.commission_mode === 'profit_sharing' && (
+              <span>Asas: <b className="text-foreground">{basisIsCollection ? 'Collection' : 'Nett Sales'}</b></span>
+              <span>Komisyen: <b className="text-foreground">{isProfitSharing ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
+              {isProfitSharing && (
                 <span>Tolak: <b className="text-foreground">{[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(', ') || '—'}</b></span>
               )}
               <span>KPI: <b className="text-foreground">{isRoas ? 'ROAS' : 'Range Sales'}</b></span>
@@ -302,27 +355,19 @@ const AccountSalary: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="stat-card border-l-4 border-l-blue-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Nett Sales</div>
-          <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.nettSales)}</div>
+      {/* Summary cards (config-driven) */}
+      {cards.length > 0 && (
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+          {cards.map((c) => (
+            <div key={c.label} className={`stat-card border-l-4 ${cardColor[c.color] || 'border-l-slate-500 text-slate-600'}`}>
+              <div className="text-muted-foreground text-xs uppercase mb-1">{c.label}</div>
+              <div className={`text-lg font-bold ${(cardColor[c.color] || '').split(' ')[1] || ''}`}>{c.value}</div>
+            </div>
+          ))}
         </div>
-        <div className="stat-card border-l-4 border-l-green-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Collection</div>
-          <div className="text-lg font-bold text-green-600">RM {formatNumber(totals.collection)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-slate-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Base</div>
-          <div className="text-lg font-bold text-slate-600">RM {formatNumber(totals.base)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-amber-500">
-          <div className="text-muted-foreground text-xs uppercase mb-1">Total Commission</div>
-          <div className="text-lg font-bold text-amber-600">RM {formatNumber(totals.commission)}</div>
-        </div>
-      </div>
+      )}
 
-      {/* Salary table */}
+      {/* Salary table (config-driven columns) */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Staff Commission</h2>
@@ -331,50 +376,31 @@ const AccountSalary: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="p-3 text-left">ID Staff</th>
-                <th className="p-3 text-left">Nama</th>
-                <th className="p-3 text-right">Nett Sales</th>
-                <th className="p-3 text-right text-green-600 dark:text-green-400">Collection</th>
-                <th className="p-3 text-right text-red-600 dark:text-red-400">Spend</th>
-                <th className="p-3 text-right">Cost Product</th>
-                <th className="p-3 text-right">Postage</th>
-                <th className="p-3 text-right text-amber-600 dark:text-amber-400">{isKomisyenOrder ? 'KPI' : isRoas ? 'ROAS' : 'Range Sales'}</th>
-                <th className="p-3 text-right">Base</th>
-                <th className="p-3 text-right">Comm %</th>
-                <th className="p-3 text-right font-semibold text-primary">Commission</th>
+                {columns.map((c) => (
+                  <th key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.headClass || ''}`}>{c.label}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {salaryRows.map((r) => (
                 <tr key={r.idStaff} className="border-t border-border hover:bg-muted/30">
-                  <td className="p-3 font-mono">{r.idStaff}</td>
-                  <td className="p-3">{r.name}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.nettSales)}</td>
-                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(r.collection)}</td>
-                  <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(r.spend)}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.costProduct)}</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(r.postage)}</td>
-                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{isKomisyenOrder ? '—' : isRoas ? `${r.roas.toFixed(2)}x` : `RM ${formatNumber(r.kpiValue)}`}</td>
-                  <td className="p-3 text-right tabular-nums">{isKomisyenOrder ? '—' : `RM ${formatNumber(r.base)}`}</td>
-                  <td className="p-3 text-right tabular-nums">{isKomisyenOrder ? '—' : `${r.commissionPercent}%`}</td>
-                  <td className="p-3 text-right tabular-nums font-bold text-primary">RM {formatNumber(r.commission)}</td>
+                  {columns.map((c) => (
+                    <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{c.cell(r)}</td>
+                  ))}
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
+                <tr><td colSpan={columns.length || 1} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-border bg-muted/30 font-semibold">
-                  <td className="p-3" colSpan={2}>TOTAL</td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.nettSales)}</td>
-                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(totals.collection)}</td>
-                  <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(totals.spend)}</td>
-                  <td className="p-3" colSpan={3}></td>
-                  <td className="p-3 text-right tabular-nums">RM {formatNumber(totals.base)}</td>
-                  <td className="p-3"></td>
-                  <td className="p-3 text-right tabular-nums font-bold text-primary">RM {formatNumber(totals.commission)}</td>
+                  {columns.map((c, idx) => (
+                    <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                      {idx === 0 ? 'TOTAL' : (c.total ?? '')}
+                    </td>
+                  ))}
                 </tr>
               </tfoot>
             )}
