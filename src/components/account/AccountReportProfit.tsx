@@ -866,12 +866,11 @@ const AccountReportProfit: React.FC = () => {
         </div>
       </div>
 
-      {/* Team breakdown — every staff (or just yourself when there's no team),
-          with Komisyen Sales (per-order bundle commission) and Komisyen Profit
-          (staff's % of their gross profit). */}
+      {/* Per-staff profit breakdown — same metrics as the platform cards, per staff.
+          Profit figures here exclude company Expenses (not attributable per staff). */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Komisyen Team</h2>
+          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Profit Team</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -879,56 +878,38 @@ const AccountReportProfit: React.FC = () => {
               <tr>
                 <th className="p-3 text-left">ID Staff</th>
                 <th className="p-3 text-left">Nama</th>
-                <th className="p-3 text-right">Total Sales</th>
-                <th className="p-3 text-right text-indigo-600 dark:text-indigo-400">Total Spend</th>
+                <th className="p-3 text-right">Sales</th>
+                <th className="p-3 text-right text-green-600 dark:text-green-400">Collection</th>
+                <th className="p-3 text-right text-red-600 dark:text-red-400">Spend</th>
+                <th className="p-3 text-right">Cost Product</th>
+                <th className="p-3 text-right">Postage</th>
                 <th className="p-3 text-right text-amber-600 dark:text-amber-400">ROAS</th>
-                <th className="p-3 text-right">Profit</th>
-                <th className="p-3 text-right text-red-600 dark:text-red-400">Return</th>
-                <th className="p-3 text-right text-blue-600 dark:text-blue-400">Komisyen Sales</th>
-                <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Komisyen Profit</th>
+                <th className="p-3 text-right">Profit By Sales</th>
+                <th className="p-3 text-right">Profit By Collection</th>
               </tr>
             </thead>
             <tbody>
               {filteredStats.map((s) => {
-                const meta = metaByIdstaff.get(s.idStaff);
-                const pct = meta?.percent ?? (staffMeta[s.idStaff]?.percent || 0);
-                const mode = meta?.mode ?? (staffMeta[s.idStaff]?.mode || 'commission_order');
-                // Komisyen Profit:
-                //   roas  → % of (Sales − Return − Postage), % chosen by the tier
-                //           the staff's actual ROAS (Sales/Spend) falls into; no
-                //           matching tier ⇒ 0.
-                //   else  → staff's % of gross profit (commission_order pct = 0).
-                let komProfit = 0;
-                let komLabel = `${pct}%`;
-                if (mode === 'roas') {
-                  const tiers = meta?.tiers ?? [];
-                  const roas = s.roas || 0;
-                  const tier = tiers.find((t) => roas >= t.start && roas <= t.end);
-                  const base = s.totalSales - s.totalReturn - s.totalPostage;
-                  komProfit = tier ? (base * tier.percent) / 100 : 0;
-                  komLabel = tier ? `${tier.percent}% @ ${roas.toFixed(2)}x` : `no tier @ ${roas.toFixed(2)}x`;
-                } else {
-                  komProfit = (s.profit * pct) / 100;
-                }
-                // Komisyen Sales = commission on delivered sales only (returns earn none).
-                const komSalesNet = s.totalCommission - s.totalCommissionReturn;
                 const nama = nameByIdstaff.get(s.idStaff) || (s.name !== s.idStaff ? s.name : (s.idStaff === 'HQ' ? 'HQ' : s.idStaff));
+                const pbs = s.totalSales - s.totalReturn - s.totalCostProduct - s.totalPostage - s.totalSpend;
+                const pbc = s.totalCollection - s.totalCostProduct - s.totalPostage - s.totalSpend;
                 return (
                   <tr key={s.idStaff} className="border-t border-border hover:bg-muted/30">
                     <td className="p-3 font-mono">{s.idStaff}</td>
                     <td className="p-3">{nama}</td>
                     <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalSales)}</td>
-                    <td className="p-3 text-right tabular-nums text-indigo-600 dark:text-indigo-400">RM {formatNumber(s.totalSpend)}</td>
+                    <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(s.totalCollection)}</td>
+                    <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(s.totalSpend)}</td>
+                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalCostProduct)}</td>
+                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalPostage)}</td>
                     <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{(s.roas || 0).toFixed(2)}x</td>
-                    <td className={`p-3 text-right tabular-nums ${s.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(s.profit)}</td>
-                    <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(s.totalReturn)}</td>
-                    <td className="p-3 text-right tabular-nums text-blue-600 dark:text-blue-400" title="Komisyen sales tolak komisyen order return">RM {formatNumber(komSalesNet)}</td>
-                    <td className="p-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">RM {formatNumber(komProfit)} <span className="text-[10px] text-muted-foreground">({komLabel})</span></td>
+                    <td className={`p-3 text-right tabular-nums font-medium ${pbs >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbs)}</td>
+                    <td className={`p-3 text-right tabular-nums font-medium ${pbc >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbc)}</td>
                   </tr>
                 );
               })}
               {filteredStats.length === 0 && (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
               )}
             </tbody>
           </table>

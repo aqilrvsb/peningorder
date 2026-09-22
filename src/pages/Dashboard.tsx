@@ -1022,17 +1022,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* GROSS PROFIT — hidden for commission-order staff */}
-          {!commissionOrderMode && (
-            <div className="stat-card border-l-4 border-l-emerald-500">
-              <div className="flex items-center gap-2 text-emerald-600 mb-2">
-                <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium">GROSS PROFIT</span>
-              </div>
-              <p className={`text-2xl font-bold ${marketerStats.grossProfitSales >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marketerStats.grossProfitSales)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Sales - Spend - Cost - Postage</p>
-            </div>
-          )}
+          {/* GROSS PROFIT card removed on request. */}
 
           {/* COMMISSION — staff only. commission_order = sum of per-order bundle
               commission; gross_profit = % of gross profit. */}
