@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, Wallet, Download, Users, Info } from 'lucide-react';
+import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
@@ -82,6 +83,18 @@ const AccountSalary: React.FC = () => {
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
 
   const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
+
+  // In-app Bundle breakdown modal (Komisyen Order only) — same data as the slip.
+  const [bundleModal, setBundleModal] = useState<{ idStaff: string; name: string } | null>(null);
+  const [bundleGroups, setBundleGroups] = useState<BundleGroup[] | null>(null);
+  const [bundleLoading, setBundleLoading] = useState(false);
+  const [openBundleKey, setOpenBundleKey] = useState<string | null>(null);
+  const openBundles = async (r: SalaryRow) => {
+    setBundleModal({ idStaff: r.idStaff, name: r.name });
+    setBundleGroups(null); setBundleLoading(true); setOpenBundleKey(null);
+    const g = await loadBundleGroups(r.idStaff);
+    setBundleGroups(g); setBundleLoading(false);
+  };
 
   const { data: allOrders = [], isLoading: ordersLoading } = useQuery<Order[]>({
     queryKey: ['salary-orders', startDate, endDate],
@@ -342,6 +355,34 @@ const AccountSalary: React.FC = () => {
   // Salary slip — dynamic line items driven by the PNL config, opened as a
   // print-ready page (issuer = Invoice Settings, bill-to = the staff's invoice
   // details, brand = peningorder). Beautiful red-accent invoice, like a proper slip.
+  // Load a staff's qualifying orders grouped by bundle (name + sku). Shared by the
+  // printable slip and the in-app Bundle modal. Komisyen is numeric here.
+  type BundleGroup = { name: string; sku: string; sum: number; orders: { id: string; date: string; product: string; name: string; phone: string; tracking: string; komisyen: number }[] };
+  const loadBundleGroups = async (idStaff: string): Promise<BundleGroup[]> => {
+    let orderRows: any[] = [];
+    try {
+      orderRows = await fetchAllRows(() => (supabase as any)
+        .from('customer_purchases')
+        .select('id_sale, date_order, name_customer, phone_customer, tracking_number, commission_amount, delivery_status, type_payment, date_payment, kurier, nota_staff, bundle:logistic_bundles(name, sku)')
+        .eq('marketer_id_staff', idStaff)
+        .gte('date_order', startDate)
+        .lte('date_order', endDate));
+    } catch (_e) { orderRows = []; }
+    const qualifies = (o: any) => basisIsCollection ? isOrderCollected(o) : o.delivery_status !== 'Return';
+    const map = new Map<string, BundleGroup>();
+    orderRows.filter(qualifies).forEach((o: any) => {
+      const nm = (o.bundle?.name) || o.nota_staff || 'Lain-lain';
+      const sku = o.bundle?.sku || '';
+      const key = `${nm}|${sku}`;
+      if (!map.has(key)) map.set(key, { name: nm, sku, sum: 0, orders: [] });
+      const g = map.get(key)!;
+      const comm = Number(o.commission_amount) || 0;
+      g.sum += comm;
+      g.orders.push({ id: o.id_sale || '-', date: formatDMY(o.date_order), product: sku ? `${nm} (${sku})` : nm, name: o.name_customer || '-', phone: o.phone_customer || '-', tracking: o.tracking_number || '-', komisyen: comm });
+    });
+    return [...map.values()].sort((a, b) => b.sum - a.sum);
+  };
+
   const openSlip = async (r: SalaryRow) => {
     if (!config) return;
     const esc = (v: any) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
@@ -361,33 +402,14 @@ const AccountSalary: React.FC = () => {
       // Komisyen Order slip → an invoice grouped by BUNDLE. Each bundle row is
       // clickable to open a modal listing that bundle's orders. No Total Sales /
       // Return lines here — commission is purely the sum of per-bundle komisyen.
-      let orderRows: any[] = [];
-      try {
-        orderRows = await fetchAllRows(() => (supabase as any)
-          .from('customer_purchases')
-          .select('id_sale, date_order, name_customer, phone_customer, tracking_number, commission_amount, delivery_status, type_payment, date_payment, kurier, nota_staff, bundle:logistic_bundles(name)')
-          .eq('marketer_id_staff', r.idStaff)
-          .gte('date_order', startDate)
-          .lte('date_order', endDate));
-      } catch (_e) { orderRows = []; }
-      const qualifies = (o: any) => basisIsCollection ? isOrderCollected(o) : o.delivery_status !== 'Return';
-      const map = new Map<string, { name: string; sum: number; orders: any[] }>();
-      orderRows.filter(qualifies).forEach((o: any) => {
-        const nm = (o.bundle?.name) || o.nota_staff || 'Lain-lain';
-        if (!map.has(nm)) map.set(nm, { name: nm, sum: 0, orders: [] });
-        const g = map.get(nm)!;
-        const comm = Number(o.commission_amount) || 0;
-        g.sum += comm;
-        g.orders.push({ id: o.id_sale || '-', date: formatDMY(o.date_order), product: nm, name: o.name_customer || '-', phone: o.phone_customer || '-', tracking: o.tracking_number || '-', komisyen: money(comm) });
-      });
-      const groups = [...map.values()].sort((a, b) => b.sum - a.sum);
+      const groups = await loadBundleGroups(r.idStaff);
       const totalOrders = groups.reduce((s, g) => s + g.orders.length, 0);
       tableHead = `<tr><th class="desc">Bundle</th><th class="amt">Kuantiti</th><th class="amt">Komisyen</th></tr>`;
-      rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc">${esc(g.name)} <span class="hint">(klik untuk lihat order)</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
+      rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc"><b>${esc(g.name)}</b>${g.sku ? ` <span style="color:#6b7280">(${esc(g.sku)})</span>` : ''} <span class="hint">— klik untuk lihat order</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
         || `<tr><td class="desc" colspan="3" style="color:#9ca3af">Tiada order layak untuk tempoh ini.</td></tr>`;
       summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>Bil. Order: <b>${totalOrders}</b></div><div>Jumlah Bundle: <b>${groups.length}</b></div><div>Asas: <b>${basisIsCollection ? 'Collection' : 'Total Sales − Return'}</b></div></div>`;
       modalHtml = `<div id="ov" class="ov" onclick="if(event.target===this)hideG()"><div class="mdl"><div class="mhead"><span id="mt"></span><button onclick="hideG()">&#10005;</button></div><div class="mbody"><table class="mtab"><thead><tr><th>ID Order</th><th>Tarikh</th><th>Produk</th><th>Nama</th><th>Telefon</th><th>Tracking</th><th class="amt">Komisyen</th></tr></thead><tbody id="mb"></tbody></table></div></div></div>`;
-      const data = JSON.stringify(groups.map((g) => ({ name: g.name, orders: g.orders }))).replace(/</g, '\\u003c');
+      const data = JSON.stringify(groups.map((g) => ({ name: g.sku ? `${g.name} (${g.sku})` : g.name, orders: g.orders.map((o) => ({ ...o, komisyen: money(o.komisyen) })) }))).replace(/</g, '\\u003c');
       script = `<script>var G=${data};function e(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}function showG(i){var g=G[i];document.getElementById('mt').textContent=g.name+' — '+g.orders.length+' order';document.getElementById('mb').innerHTML=g.orders.map(function(o){return '<tr><td>'+e(o.id)+'</td><td>'+e(o.date)+'</td><td>'+e(o.product)+'</td><td>'+e(o.name)+'</td><td>'+e(o.phone)+'</td><td>'+e(o.tracking)+'</td><td class="amt">'+e(o.komisyen)+'</td></tr>';}).join('');document.getElementById('ov').style.display='flex';}function hideG(){document.getElementById('ov').style.display='none';}</script>`;
     } else {
       type Line = { label: string; amount: number; strong?: boolean; sub?: boolean; muted?: boolean };
@@ -607,6 +629,7 @@ const AccountSalary: React.FC = () => {
                 {columns.map((c) => (
                   <th key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.headClass || ''}`}>{c.label}</th>
                 ))}
+                {isKomisyenOrder && <th className="p-3 text-center">Bundle</th>}
                 <th className="p-3 text-center">Slip</th>
               </tr>
             </thead>
@@ -616,6 +639,13 @@ const AccountSalary: React.FC = () => {
                   {columns.map((c) => (
                     <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{c.cell(r)}</td>
                   ))}
+                  {isKomisyenOrder && (
+                    <td className="p-3 text-center">
+                      <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openBundles(r)} title="Lihat komisyen ikut bundle">
+                        <Package className="w-3.5 h-3.5" /> Bundle
+                      </Button>
+                    </td>
+                  )}
                   <td className="p-3 text-center">
                     <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openSlip(r)} title="Slip Invoice">
                       <FileText className="w-3.5 h-3.5" /> Slip
@@ -624,7 +654,7 @@ const AccountSalary: React.FC = () => {
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={(columns.length || 1) + 1} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
+                <tr><td colSpan={(columns.length || 1) + 1 + (isKomisyenOrder ? 1 : 0)} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
@@ -635,6 +665,7 @@ const AccountSalary: React.FC = () => {
                       {idx === 0 ? 'TOTAL' : (c.total ?? '')}
                     </td>
                   ))}
+                  {isKomisyenOrder && <td className="p-3"></td>}
                   <td className="p-3"></td>
                 </tr>
               </tfoot>
@@ -642,6 +673,93 @@ const AccountSalary: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Bundle breakdown modal (Komisyen Order) — bundles, click to see orders */}
+      <Dialog open={!!bundleModal} onOpenChange={(o) => { if (!o) setBundleModal(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" /> Komisyen ikut Bundle — {bundleModal?.name} <span className="font-mono text-sm text-muted-foreground">({bundleModal?.idStaff})</span>
+            </DialogTitle>
+          </DialogHeader>
+          {bundleLoading ? (
+            <div className="flex items-center justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
+          ) : (bundleGroups && bundleGroups.length > 0) ? (
+            <div className="overflow-y-auto -mx-6 px-6">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr>
+                    <th className="p-2.5 text-left">Bundle</th>
+                    <th className="p-2.5 text-right">Kuantiti</th>
+                    <th className="p-2.5 text-right">Komisyen</th>
+                    <th className="p-2.5 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bundleGroups.map((g) => {
+                    const key = `${g.name}|${g.sku}`;
+                    const open = openBundleKey === key;
+                    return (
+                      <React.Fragment key={key}>
+                        <tr className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setOpenBundleKey(open ? null : key)}>
+                          <td className="p-2.5"><b>{g.name}</b>{g.sku ? <span className="text-muted-foreground"> ({g.sku})</span> : ''}</td>
+                          <td className="p-2.5 text-right tabular-nums">{g.orders.length}</td>
+                          <td className="p-2.5 text-right tabular-nums font-semibold text-primary">RM {formatNumber(g.sum)}</td>
+                          <td className="p-2.5 text-muted-foreground">{open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</td>
+                        </tr>
+                        {open && (
+                          <tr className="bg-muted/20">
+                            <td colSpan={4} className="p-0">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-muted-foreground">
+                                      <th className="p-2 text-left">ID Order</th>
+                                      <th className="p-2 text-left">Tarikh</th>
+                                      <th className="p-2 text-left">Produk</th>
+                                      <th className="p-2 text-left">Nama</th>
+                                      <th className="p-2 text-left">Telefon</th>
+                                      <th className="p-2 text-left">Tracking</th>
+                                      <th className="p-2 text-right">Komisyen</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {g.orders.map((o, i) => (
+                                      <tr key={i} className="border-t border-border/60">
+                                        <td className="p-2 font-mono">{o.id}</td>
+                                        <td className="p-2 whitespace-nowrap">{o.date}</td>
+                                        <td className="p-2">{o.product}</td>
+                                        <td className="p-2">{o.name}</td>
+                                        <td className="p-2">{o.phone}</td>
+                                        <td className="p-2 font-mono">{o.tracking}</td>
+                                        <td className="p-2 text-right tabular-nums">RM {formatNumber(o.komisyen)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/30 font-semibold">
+                    <td className="p-2.5">TOTAL</td>
+                    <td className="p-2.5 text-right tabular-nums">{bundleGroups.reduce((s, g) => s + g.orders.length, 0)}</td>
+                    <td className="p-2.5 text-right tabular-nums text-primary">RM {formatNumber(bundleGroups.reduce((s, g) => s + g.sum, 0))}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">Tiada order layak untuk tempoh ini.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
