@@ -194,6 +194,7 @@ const AccountSalary: React.FC = () => {
     (acc, r) => ({
       nettSales: acc.nettSales + r.nettSales,
       collection: acc.collection + r.collection,
+      returnSales: acc.returnSales + r.returnSales,
       spend: acc.spend + r.spend,
       costProduct: acc.costProduct + r.costProduct,
       postage: acc.postage + r.postage,
@@ -201,8 +202,13 @@ const AccountSalary: React.FC = () => {
       commission: acc.commission + r.commission,
       qualifyOrders: acc.qualifyOrders + r.qualifyOrders,
     }),
-    { nettSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, qualifyOrders: 0 },
+    { nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, qualifyOrders: 0 },
   ), [salaryRows]);
+
+  // Effective commission rate = payout ÷ the revenue that generated it. The CEO
+  // metric for "how expensive is this staff".
+  const pctOf = (comm: number, basis: number) => (basis > 0 ? `${((comm / basis) * 100).toFixed(1)}%` : '—');
+  const totalBasis = basisIsCollection ? totals.collection : totals.nettSales;
 
   // Build the columns shown, driven entirely by the PNL config.
   type Col = { key: string; label: string; align: 'left' | 'right'; headClass?: string; cell: (r: SalaryRow) => React.ReactNode; total?: React.ReactNode };
@@ -214,19 +220,26 @@ const AccountSalary: React.FC = () => {
     ];
     const nettCol: Col = { key: 'nett', label: 'Nett Sales', align: 'right', cell: (r) => fmtRM(r.nettSales), total: fmtRM(totals.nettSales) };
     const collCol: Col = { key: 'coll', label: 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400', cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.collection)}</span>, total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.collection)}</span> };
+    const returnCol: Col = { key: 'return', label: 'Return', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.returnSales)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.returnSales)}</span> };
     const spendCol: Col = { key: 'spend', label: 'Spend', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.spend)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.spend)}</span> };
     const productCol: Col = { key: 'product', label: 'Cost Product', align: 'right', cell: (r) => fmtRM(r.costProduct), total: fmtRM(totals.costProduct) };
     const postageCol: Col = { key: 'postage', label: 'Postage', align: 'right', cell: (r) => fmtRM(r.postage), total: fmtRM(totals.postage) };
-    const baseCol: Col = { key: 'base', label: 'Base', align: 'right', cell: (r) => fmtRM(r.base), total: fmtRM(totals.base) };
+    const grossCol: Col = { key: 'gross', label: 'Gross Profit', align: 'right', headClass: 'text-blue-600 dark:text-blue-400', cell: (r) => <span className="text-blue-600 dark:text-blue-400">{fmtRM(r.base)}</span>, total: <span className="text-blue-600 dark:text-blue-400">{fmtRM(totals.base)}</span> };
     const roasCol: Col = { key: 'roas', label: 'ROAS', align: 'right', headClass: 'text-amber-600 dark:text-amber-400', cell: (r) => <span className="text-amber-600 dark:text-amber-400">{r.roas.toFixed(2)}x</span> };
     const pctCol: Col = { key: 'pct', label: 'Comm %', align: 'right', cell: (r) => `${r.commissionPercent}%` };
     const ordersCol: Col = { key: 'orders', label: 'Bil. Order', align: 'right', cell: (r) => r.qualifyOrders, total: totals.qualifyOrders };
     const commissionCol: Col = { key: 'commission', label: 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
+    // Effective commission cost (payout ÷ the revenue basis) — the CEO's "how expensive" lens.
+    const komPctCol: Col = { key: 'kompct', label: 'Komisyen %', align: 'right', headClass: 'text-muted-foreground', cell: (r) => pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales), total: pctOf(totals.commission, totalBasis) };
+    // What the company keeps after paying the staff (profit sharing only).
+    const bakiCol: Col = { key: 'baki', label: 'Baki Profit', align: 'right', headClass: 'text-green-700 dark:text-green-400', cell: (r) => <span className="text-green-700 dark:text-green-400">{fmtRM(r.base - r.commission)}</span>, total: <span className="text-green-700 dark:text-green-400">{fmtRM(totals.base - totals.commission)}</span> };
 
     if (isKomisyenOrder) {
       cols.push(basisIsCollection ? collCol : nettCol);
+      cols.push(returnCol);
       cols.push(ordersCol);
       cols.push(commissionCol);
+      cols.push(komPctCol);
       return cols;
     }
     cols.push(basisIsCollection ? collCol : nettCol);
@@ -234,13 +247,15 @@ const AccountSalary: React.FC = () => {
       if (config.deduct_spend) cols.push(spendCol);
       if (config.deduct_product) cols.push(productCol);
       if (config.deduct_postage) cols.push(postageCol);
-      cols.push(baseCol);
+      cols.push(grossCol);
     }
     if (isRoas) cols.push(roasCol);
     cols.push(pctCol);
     cols.push(commissionCol);
+    if (isProfitSharing) cols.push(bakiCol);
+    else cols.push(komPctCol);
     return cols;
-  }, [config, totals, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection]);
 
   // Summary cards, also config-driven.
   const cards = useMemo(() => {
@@ -248,10 +263,13 @@ const AccountSalary: React.FC = () => {
     const out: { label: string; value: string; color: string }[] = [];
     out.push({ label: basisIsCollection ? 'Total Collection' : 'Total Nett Sales', value: fmtRM(basisIsCollection ? totals.collection : totals.nettSales), color: basisIsCollection ? 'green' : 'blue' });
     if (isKomisyenOrder) out.push({ label: 'Total Bil. Order', value: String(totals.qualifyOrders), color: 'slate' });
-    else if (isProfitSharing) out.push({ label: 'Total Base', value: fmtRM(totals.base), color: 'slate' });
+    else if (isProfitSharing) out.push({ label: 'Total Gross Profit', value: fmtRM(totals.base), color: 'blue' });
     out.push({ label: 'Total Commission', value: fmtRM(totals.commission), color: 'amber' });
+    // CEO lens: effective commission cost, and (profit sharing) what the company keeps.
+    if (isProfitSharing) out.push({ label: 'Baki Profit', value: fmtRM(totals.base - totals.commission), color: 'green' });
+    else out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
     return out;
-  }, [config, totals, isKomisyenOrder, isProfitSharing, basisIsCollection]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection]);
 
   const exportToXLSX = () => {
     const data = salaryRows.map((r, i) => {
@@ -261,14 +279,17 @@ const AccountSalary: React.FC = () => {
         else if (c.key === 'name') row['Nama'] = r.name;
         else if (c.key === 'nett') row['Nett Sales'] = r.nettSales.toFixed(2);
         else if (c.key === 'coll') row['Collection'] = r.collection.toFixed(2);
+        else if (c.key === 'return') row['Return'] = r.returnSales.toFixed(2);
         else if (c.key === 'spend') row['Spend'] = r.spend.toFixed(2);
         else if (c.key === 'product') row['Cost Product'] = r.costProduct.toFixed(2);
         else if (c.key === 'postage') row['Postage'] = r.postage.toFixed(2);
-        else if (c.key === 'base') row['Base'] = r.base.toFixed(2);
+        else if (c.key === 'gross') row['Gross Profit'] = r.base.toFixed(2);
         else if (c.key === 'roas') row['ROAS'] = r.roas.toFixed(2);
         else if (c.key === 'pct') row['Comm %'] = r.commissionPercent;
         else if (c.key === 'orders') row['Bil. Order'] = r.qualifyOrders;
         else if (c.key === 'commission') row['Commission'] = r.commission.toFixed(2);
+        else if (c.key === 'kompct') row['Komisyen %'] = pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales);
+        else if (c.key === 'baki') row['Baki Profit'] = (r.base - r.commission).toFixed(2);
       });
       return row;
     });
@@ -357,7 +378,7 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
-        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 4 ? 'md:grid-cols-4' : cards.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           {cards.map((c) => (
             <div key={c.label} className={`stat-card border-l-4 ${cardColor[c.color] || 'border-l-slate-500 text-slate-600'}`}>
               <div className="text-muted-foreground text-xs uppercase mb-1">{c.label}</div>
