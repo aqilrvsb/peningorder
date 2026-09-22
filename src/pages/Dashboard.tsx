@@ -1024,22 +1024,7 @@ const Dashboard: React.FC = () => {
 
           {/* GROSS PROFIT card removed on request. */}
 
-          {/* COMMISSION — staff only. commission_order = sum of per-order bundle
-              commission; gross_profit = % of gross profit. */}
-          {isStaffPayout && (
-            <div className="stat-card border-l-4 border-l-blue-500">
-              <div className="flex items-center gap-2 text-blue-600 mb-2">
-                <Wallet className="w-5 h-5" />
-                <span className="text-sm font-medium">COMMISSION</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(commissionValue)}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {payMode === 'gross_profit'
-                  ? `${profile?.commissionPercent || 0}% of Gross Profit`
-                  : 'Komisyen per order'}
-              </p>
-            </div>
-          )}
+          {/* COMMISSION card removed on request. */}
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}

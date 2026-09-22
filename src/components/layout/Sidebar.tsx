@@ -158,9 +158,8 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
               ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking')),
             ],
           },
-          // Marketers only get their own Salary from Finance (Report Profit hidden).
-          { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />,
-            items: financeItems.filter((i) => i.path.endsWith('/salary')) },
+          // No Finance group for marketers — Salary is a standalone top-level tab
+          // (rendered below), Report Profit is hidden.
         ]
       : isLogistic
         ? baseRoleGroups.filter((g) => g.key === 'logistic').map((g) => ({
@@ -301,6 +300,23 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <LayoutDashboard className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Dashboard</span>}
+          </Link>
+        )}
+
+        {/* Marketers: Salary as a standalone top-level tab (no Finance group). */}
+        {isMarketer && (
+          <Link
+            to="/dashboard/account/salary"
+            title={collapsed ? 'Salary' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/account/salary') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Wallet className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Salary</span>}
           </Link>
         )}
 
