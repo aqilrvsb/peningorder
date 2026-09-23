@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package } from 'lucide-react';
+import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package, Lock, LockOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { useAuth } from '@/context/AuthContext';
+import { toast } from '@/hooks/use-toast';
 import { FileText } from 'lucide-react';
 
 interface InvoiceSettings {
@@ -81,6 +83,9 @@ const AccountSalary: React.FC = () => {
   const [pendingEnd, setPendingEnd] = useState(getMalaysiaEndOfMonth());
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  // Staff-only: Month + Year to view the LOCKED commission (independent of From/To).
+  const [lockMonth, setLockMonth] = useState<string>(getMalaysiaStartOfMonth().slice(5, 7));
+  const [lockYear, setLockYear] = useState<string>(getMalaysiaStartOfMonth().slice(0, 4));
 
   const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
 
@@ -89,11 +94,78 @@ const AccountSalary: React.FC = () => {
   const [bundleGroups, setBundleGroups] = useState<BundleGroup[] | null>(null);
   const [bundleLoading, setBundleLoading] = useState(false);
   const [openBundleKey, setOpenBundleKey] = useState<string | null>(null);
-  const openBundles = async (r: SalaryRow) => {
+  const openBundles = async (r: SalaryRow, frozen?: BundleGroup[]) => {
     setBundleModal({ idStaff: r.idStaff, name: r.name });
-    setBundleGroups(null); setBundleLoading(true); setOpenBundleKey(null);
+    setOpenBundleKey(null);
+    if (frozen) { setBundleGroups(frozen); setBundleLoading(false); return; }
+    setBundleGroups(null); setBundleLoading(true);
     const g = await loadBundleGroups(r.idStaff);
     setBundleGroups(g); setBundleLoading(false);
+  };
+
+  // ── Commission lock (HQ only) ───────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const [lockBusy, setLockBusy] = useState<string | null>(null);
+  // Locks are keyed by MONTH (period 'YYYY-MM'), taken from the selected From date
+  // — salary is paid monthly, so staff just view the month, no exact-date matching.
+  // HQ: month of the selected From date. Staff: the Month+Year they picked.
+  const lockPeriod = isMarketer ? `${lockYear}-${lockMonth}` : startDate.slice(0, 7);
+  const lockMonthLabel = new Date(`${lockPeriod}-01T00:00:00`).toLocaleString('en-MY', { month: 'short', year: 'numeric' });
+  const MONTH_OPTS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    .map((m) => ({ v: m, l: new Date(`2020-${m}-01T00:00:00`).toLocaleString('en-MY', { month: 'short' }) }));
+  const curYear = Number(getMalaysiaStartOfMonth().slice(0, 4));
+  const YEAR_OPTS = [curYear - 2, curYear - 1, curYear, curYear + 1].map(String);
+  interface SalaryLock { idstaff: string; period: string; commission: number; snapshot: any; locked_at: string; }
+  const { data: locks = [] } = useQuery<SalaryLock[]>({
+    queryKey: ['salary-locks', lockPeriod, isMarketer],
+    queryFn: async () => {
+      try {
+        const { data, error } = await (supabase as any).from('salary_lock')
+          .select('idstaff, period, commission, snapshot, locked_at')
+          .eq('period', lockPeriod);
+        if (error) throw error;
+        return (data || []) as SalaryLock[];
+      } catch (_e) { return []; } // table may not exist yet → no locks
+    },
+  });
+  const lockByIdstaff = useMemo(() => new Map(locks.map((l) => [l.idstaff, l] as const)), [locks]);
+  const myLock = ownIdStaff ? lockByIdstaff.get(ownIdStaff) : undefined;
+  // A staff whose own commission HQ has locked for this period: they see the
+  // frozen (Lock) columns instead of the still-drifting live commission.
+  const staffLocked = isMarketer && !!myLock;
+  // Show the Lock columns: to HQ whenever any lock exists, to a staff only when
+  // their own row is locked.
+  const showLockCols = (!isMarketer && locks.length > 0) || staffLocked;
+
+  // Freeze a staff's commission for the current period, snapshotting everything
+  // the frozen Bundle/Slip views need (row, config flags, bundle groups).
+  const lockRow = async (r: SalaryRow) => {
+    if (!config) return;
+    setLockBusy(r.idStaff);
+    try {
+      const groups = isKomisyenOrder ? await loadBundleGroups(r.idStaff) : null;
+      const snapshot = { row: r, groups, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, config };
+      const { error } = await (supabase as any).from('salary_lock').insert({
+        idstaff: r.idStaff, period: lockPeriod, start_date: startDate, end_date: endDate, commission: r.commission, snapshot,
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer] });
+      toast({ title: `Komisyen dikunci (${lockMonthLabel})`, description: `${r.name} — RM ${formatNumber(r.commission)}` });
+    } catch (e: any) {
+      toast({ title: 'Gagal lock', description: (e?.message || 'ralat') + ' (jadual salary_lock belum wujud?)', variant: 'destructive' });
+    } finally { setLockBusy(null); }
+  };
+  const unlockRow = async (r: SalaryRow) => {
+    setLockBusy(r.idStaff);
+    try {
+      const { error } = await (supabase as any).from('salary_lock').delete()
+        .eq('idstaff', r.idStaff).eq('period', lockPeriod);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer] });
+      toast({ title: 'Kunci dibuka', description: `${r.name} — ikut nilai semasa semula` });
+    } catch (e: any) {
+      toast({ title: 'Gagal buka kunci', description: e?.message || 'ralat', variant: 'destructive' });
+    } finally { setLockBusy(null); }
   };
 
   const { data: allOrders = [], isLoading: ordersLoading } = useQuery<Order[]>({
@@ -358,6 +430,8 @@ const AccountSalary: React.FC = () => {
   // Load a staff's qualifying orders grouped by bundle (name + sku). Shared by the
   // printable slip and the in-app Bundle modal. Komisyen is numeric here.
   type BundleGroup = { name: string; sku: string; sum: number; orders: { id: string; date: string; product: string; name: string; phone: string; tracking: string; komisyen: number }[] };
+  // A frozen snapshot stored when HQ locks a staff's commission for a period.
+  type LockSnapshot = { row: SalaryRow; groups: BundleGroup[] | null; isKomisyenOrder: boolean; isProfitSharing: boolean; isRoas: boolean; basisIsCollection: boolean; config: PnlConfig };
   const loadBundleGroups = async (idStaff: string): Promise<BundleGroup[]> => {
     let orderRows: any[] = [];
     try {
@@ -383,8 +457,14 @@ const AccountSalary: React.FC = () => {
     return [...map.values()].sort((a, b) => b.sum - a.sum);
   };
 
-  const openSlip = async (r: SalaryRow) => {
-    if (!config) return;
+  const openSlip = async (rArg: SalaryRow, snap?: LockSnapshot) => {
+    if (!snap && !config) return;
+    // Effective values: from the frozen snapshot when locked, else live.
+    const r = snap ? snap.row : rArg;
+    const km = snap ? snap.isKomisyenOrder : isKomisyenOrder;
+    const ps = snap ? snap.isProfitSharing : isProfitSharing;
+    const bc = snap ? snap.basisIsCollection : basisIsCollection;
+    const cfg = (snap ? snap.config : config) as PnlConfig;
     const esc = (v: any) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (v: number) => `RM ${formatNumber(v)}`;
     const inv = invoiceByIdstaff.get(r.idStaff) || { full_name: null, address: null, phone: null };
@@ -398,11 +478,11 @@ const AccountSalary: React.FC = () => {
     let modalHtml = '';
     let script = '';
 
-    if (isKomisyenOrder) {
+    if (km) {
       // Komisyen Order slip → an invoice grouped by BUNDLE. Each bundle row is
       // clickable to open a modal listing that bundle's orders. No Total Sales /
       // Return lines here — commission is purely the sum of per-bundle komisyen.
-      const groups = await loadBundleGroups(r.idStaff);
+      const groups = snap ? (snap.groups || []) : await loadBundleGroups(r.idStaff);
       const totalOrders = groups.reduce((s, g) => s + g.orders.length, 0);
       tableHead = `<tr><th class="desc">Bundle</th><th class="amt">Kuantiti</th><th class="amt">Komisyen</th></tr>`;
       rowsHtml = groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc"><b>${esc(g.name)}</b>${g.sku ? ` <span style="color:#111827">(${esc(g.sku)})</span>` : ''} <span class="hint">— klik untuk lihat order</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
@@ -414,20 +494,20 @@ const AccountSalary: React.FC = () => {
     } else {
       type Line = { label: string; amount: number; strong?: boolean; sub?: boolean; muted?: boolean };
       const lines: Line[] = [];
-      if (isProfitSharing) {
-        lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
-        if (config.deduct_spend) lines.push({ label: '(−) Kos Spend', amount: -r.spend, muted: true });
-        if (config.deduct_product) lines.push({ label: '(−) Kos Product', amount: -r.costProduct, muted: true });
-        if (config.deduct_postage) lines.push({ label: '(−) Kos Postage', amount: -r.postage, muted: true });
+      if (ps) {
+        lines.push({ label: bc ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+        if (cfg.deduct_spend) lines.push({ label: '(−) Kos Spend', amount: -r.spend, muted: true });
+        if (cfg.deduct_product) lines.push({ label: '(−) Kos Product', amount: -r.costProduct, muted: true });
+        if (cfg.deduct_postage) lines.push({ label: '(−) Kos Postage', amount: -r.postage, muted: true });
         lines.push({ label: 'Gross Profit', amount: r.base, sub: true });
         lines.push({ label: `Komisyen — ${r.commissionPercent}% × Gross Profit`, amount: r.commission, strong: true });
       } else {
-        lines.push({ label: basisIsCollection ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
-        lines.push({ label: `Komisyen — ${r.commissionPercent}% × ${basisIsCollection ? 'Collection' : 'Nett Sales'}`, amount: r.commission, strong: true });
+        lines.push({ label: bc ? 'Collection' : 'Nett Sales (Sales − Return)', amount: r.revenue });
+        lines.push({ label: `Komisyen — ${r.commissionPercent}% × ${bc ? 'Collection' : 'Nett Sales'}`, amount: r.commission, strong: true });
       }
       tableHead = `<tr><th class="desc">Keterangan</th><th class="amt">Jumlah</th></tr>`;
       rowsHtml = lines.map((l) => `<tr class="${l.strong ? 'strong' : ''} ${l.sub ? 'sub' : ''} ${l.muted ? 'muted' : ''}"><td class="desc">${esc(l.label)}</td><td class="amt">${l.amount < 0 ? '−' : ''}RM ${formatNumber(Math.abs(l.amount))}</td></tr>`).join('');
-      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>${basisIsCollection ? 'Collection' : 'Nett Sales'}: <b>${money(r.revenue)}</b></div><div>Komisyen %: <b>${pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales)}</b></div></div>`;
+      summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>${bc ? 'Collection' : 'Nett Sales'}: <b>${money(r.revenue)}</b></div><div>Komisyen %: <b>${pctOf(r.commission, bc ? r.collection : r.nettSales)}</b></div></div>`;
     }
 
     const invNo = `SAL-${esc(r.idStaff)}-${startDate.replace(/-/g, '')}`;
@@ -603,6 +683,40 @@ const AccountSalary: React.FC = () => {
         </div>
       </div>
 
+      {/* Staff: pick a Month/Year to view the LOCKED commission (finalized by HQ). */}
+      {isMarketer && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Lock className="w-5 h-5" /><span className="font-medium text-foreground">Komisyen Lock:</span>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Bulan</Label>
+              <Select value={lockMonth} onValueChange={setLockMonth}>
+                <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>{MONTH_OPTS.map((m) => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Tahun</Label>
+              <Select value={lockYear} onValueChange={setLockYear}>
+                <SelectTrigger className="w-24 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>{YEAR_OPTS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          {staffLocked ? (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+              <Lock className="w-3.5 h-3.5" /> Komisyen {lockMonthLabel} telah dikunci HQ — lihat lajur <b>Commission Lock</b> di bawah.
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+              <Info className="w-3.5 h-3.5" /> HQ belum kunci komisyen untuk <b>{lockMonthLabel}</b>. Komisyen semasa masih boleh berubah (return, dll).
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
         <div className={`grid grid-cols-2 gap-3 ${cards.length >= 4 ? 'md:grid-cols-4' : cards.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
@@ -629,6 +743,10 @@ const AccountSalary: React.FC = () => {
                 ))}
                 {isKomisyenOrder && <th className="p-3 text-center">Bundle</th>}
                 <th className="p-3 text-center">Slip</th>
+                {!isMarketer && <th className="p-3 text-center">Lock</th>}
+                {showLockCols && <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Commission Lock</th>}
+                {showLockCols && isKomisyenOrder && <th className="p-3 text-center">Bundle Lock</th>}
+                {showLockCols && <th className="p-3 text-center">Slip Lock</th>}
               </tr>
             </thead>
             <tbody>
@@ -649,10 +767,50 @@ const AccountSalary: React.FC = () => {
                       <FileText className="w-3.5 h-3.5" /> Slip
                     </Button>
                   </td>
+                  {!isMarketer && (() => {
+                    const lk = lockByIdstaff.get(r.idStaff);
+                    return (
+                      <td className="p-3 text-center">
+                        {lk ? (
+                          <Button size="sm" variant="ghost" className="h-8 gap-1 text-emerald-600" disabled={lockBusy === r.idStaff} onClick={() => unlockRow(r)} title={`Dikunci ${new Date(lk.locked_at).toLocaleString('en-MY')} — klik untuk buka`}>
+                            {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Locked
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-8 gap-1" disabled={lockBusy === r.idStaff} onClick={() => lockRow(r)} title="Kunci komisyen untuk tempoh ini">
+                            {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LockOpen className="w-3.5 h-3.5" />} Lock
+                          </Button>
+                        )}
+                      </td>
+                    );
+                  })()}
+                  {showLockCols && (() => {
+                    const lk = lockByIdstaff.get(r.idStaff);
+                    return (
+                      <>
+                        <td className="p-3 text-right tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{lk ? `RM ${formatNumber(Number(lk.commission) || 0)}` : '—'}</td>
+                        {isKomisyenOrder && (
+                          <td className="p-3 text-center">
+                            {lk?.snapshot?.groups ? (
+                              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openBundles(r, lk.snapshot.groups)} title="Bundle (dikunci)">
+                                <Package className="w-3.5 h-3.5" /> Bundle
+                              </Button>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </td>
+                        )}
+                        <td className="p-3 text-center">
+                          {lk?.snapshot ? (
+                            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => openSlip(r, lk.snapshot)} title="Slip (dikunci)">
+                              <FileText className="w-3.5 h-3.5" /> Slip
+                            </Button>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </>
+                    );
+                  })()}
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={(columns.length || 1) + 1 + (isKomisyenOrder ? 1 : 0)} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
+                <tr><td colSpan={(columns.length || 1) + 1 + (isKomisyenOrder ? 1 : 0) + (isMarketer ? 0 : 1) + (showLockCols ? (isKomisyenOrder ? 3 : 2) : 0)} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
@@ -665,6 +823,10 @@ const AccountSalary: React.FC = () => {
                   ))}
                   {isKomisyenOrder && <td className="p-3"></td>}
                   <td className="p-3"></td>
+                  {!isMarketer && <td className="p-3"></td>}
+                  {showLockCols && <td className="p-3 text-right tabular-nums font-bold text-emerald-600 dark:text-emerald-400">RM {formatNumber(locks.reduce((s, l) => s + (Number(l.commission) || 0), 0))}</td>}
+                  {showLockCols && isKomisyenOrder && <td className="p-3"></td>}
+                  {showLockCols && <td className="p-3"></td>}
                 </tr>
               </tfoot>
             )}
