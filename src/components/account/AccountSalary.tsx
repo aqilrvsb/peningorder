@@ -84,10 +84,14 @@ const AccountSalary: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   // Staff-only: Month + Year to view the LOCKED commission (independent of From/To).
+  // pending = what the dropdowns show; applied (lockMonth/lockYear) = after Filter.
+  const [pendingLockMonth, setPendingLockMonth] = useState<string>(getMalaysiaStartOfMonth().slice(5, 7));
+  const [pendingLockYear, setPendingLockYear] = useState<string>(getMalaysiaStartOfMonth().slice(0, 4));
   const [lockMonth, setLockMonth] = useState<string>(getMalaysiaStartOfMonth().slice(5, 7));
   const [lockYear, setLockYear] = useState<string>(getMalaysiaStartOfMonth().slice(0, 4));
 
   const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
+  const applyLockFilter = () => { setLockMonth(pendingLockMonth); setLockYear(pendingLockYear); };
 
   // In-app Bundle breakdown modal (Komisyen Order only) — same data as the slip.
   const [bundleModal, setBundleModal] = useState<{ idStaff: string; name: string } | null>(null);
@@ -692,18 +696,21 @@ const AccountSalary: React.FC = () => {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Bulan</Label>
-              <Select value={lockMonth} onValueChange={setLockMonth}>
+              <Select value={pendingLockMonth} onValueChange={setPendingLockMonth}>
                 <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{MONTH_OPTS.map((m) => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tahun</Label>
-              <Select value={lockYear} onValueChange={setLockYear}>
+              <Select value={pendingLockYear} onValueChange={setPendingLockYear}>
                 <SelectTrigger className="w-24 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{YEAR_OPTS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <Button onClick={applyLockFilter} size="sm" className="h-9">
+              <Filter className="w-4 h-4 mr-1" />Filter
+            </Button>
           </div>
           {staffLocked ? (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
