@@ -42,6 +42,7 @@ const AdminClientManage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'client' | 'staff'>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all'); // 'all' or a client id
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // create dialog
@@ -226,18 +227,30 @@ const AdminClientManage: React.FC = () => {
   const now = new Date();
   const isStaff = (c: ClientRow) => !!c.parent_user_id;
 
-  // Search first, then tab — so the summary boxes count what the search narrowed to.
+  // Client lookup: id -> client row (to label a staff's parent) + the dropdown list.
+  const clientById = new Map(clients.map((c) => [c.id, c] as const));
+  const clientLabel = (c: ClientRow) => c.business_name || c.full_name || c.email;
+  const clientList = clients
+    .filter((c) => !isStaff(c))
+    .sort((a, b) => clientLabel(a).localeCompare(clientLabel(b)));
+
+  // Search first, then client filter, then tab — so the summary boxes count what
+  // the search + client filter narrowed to.
   const searched = clients.filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return [c.email, c.full_name, c.business_name, c.idstaff].some((v) => (v || '').toLowerCase().includes(q));
   });
+  // A selected client scopes to that client + all of their staff.
+  const clientScoped = searched.filter((c) =>
+    clientFilter === 'all' ? true : (c.id === clientFilter || c.parent_user_id === clientFilter),
+  );
   const counts = {
-    all: searched.length,
-    client: searched.filter((c) => !isStaff(c)).length,
-    staff: searched.filter((c) => isStaff(c)).length,
+    all: clientScoped.length,
+    client: clientScoped.filter((c) => !isStaff(c)).length,
+    staff: clientScoped.filter((c) => isStaff(c)).length,
   };
-  const filtered = searched.filter((c) => tab === 'all' || (tab === 'staff' ? isStaff(c) : !isStaff(c)));
+  const filtered = clientScoped.filter((c) => tab === 'all' || (tab === 'staff' ? isStaff(c) : !isStaff(c)));
 
   return (
     <div className="p-6 space-y-6">
@@ -268,9 +281,23 @@ const AdminClientManage: React.FC = () => {
         ))}
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search email / name / business / PO-id" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search email / name / business / PO-id" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Client:</Label>
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clientList.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{clientLabel(c)}{c.idstaff ? ` (${c.idstaff})` : ''}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -283,6 +310,7 @@ const AdminClientManage: React.FC = () => {
                 <tr>
                   <th className="p-3 text-left">ID</th>
                   <th className="p-3 text-left">Client (click to login as)</th>
+                  <th className="p-3 text-left">Name</th>
                   <th className="p-3 text-left">Plan</th>
                   <th className="p-3 text-left">Expiry</th>
                   <th className="p-3 text-left">Actions</th>
@@ -300,7 +328,13 @@ const AdminClientManage: React.FC = () => {
                           {busyId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
                           {c.email}
                         </button>
-                        <p className="text-xs text-muted-foreground">{c.business_name || c.full_name || '-'}{c.whatsapp ? ` · ${c.whatsapp}` : ''}</p>
+                        <p className="text-xs text-muted-foreground">{[c.business_name, c.whatsapp].filter(Boolean).join(' · ') || '-'}</p>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-medium">{c.full_name || c.business_name || '-'}</div>
+                        {isStaff(c) && c.parent_user_id && clientById.get(c.parent_user_id) && (
+                          <div className="text-xs text-muted-foreground">↳ {clientLabel(clientById.get(c.parent_user_id)!)}</div>
+                        )}
                       </td>
                       <td className="p-3 capitalize">{c.plan || '-'}</td>
                       <td className="p-3"><span className={expired ? 'text-red-500 font-medium' : ''}>{c.plan_expires_at ? new Date(c.plan_expires_at).toLocaleDateString('en-MY') : '-'}</span></td>
@@ -316,7 +350,7 @@ const AdminClientManage: React.FC = () => {
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">No clients found</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No clients found</td></tr>}
               </tbody>
             </table>
           </div>
