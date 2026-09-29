@@ -80,6 +80,10 @@ const LogisticBundleManagement = () => {
   // COD postage and weight
   const [postageCod, setPostageCod] = useState<number>(0);
   const [weight, setWeight] = useState<number>(0.5);
+  // Optional postage overrides ("" = not set -> ParcelDaily price is used)
+  const [customPostage, setCustomPostage] = useState("");
+  const [customCodCharge, setCustomCodCharge] = useState("");
+  const [customPickup, setCustomPickup] = useState("");
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -141,6 +145,9 @@ const LogisticBundleManagement = () => {
     setPriceEc(0);
     setPostageCod(0);
     setWeight(0.5);
+    setCustomPostage("");
+    setCustomCodCharge("");
+    setCustomPickup("");
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -171,6 +178,10 @@ const LogisticBundleManagement = () => {
     // COD postage and weight
     setPostageCod(Number(bundle.postage_cod) || 0);
     setWeight(Number(bundle.weight) || 0.5);
+    const opt = (v: any) => (v === null || v === undefined ? "" : String(v));
+    setCustomPostage(opt(bundle.custom_postage));
+    setCustomCodCharge(opt(bundle.custom_cod_charge));
+    setCustomPickup(opt(bundle.custom_pickup));
     // Parse SKU to reconstruct bundle items for editing
     const skuParts = (bundle.sku || "").split(" + ");
     const reconstructedItems: BundleItem[] = [];
@@ -266,6 +277,21 @@ const LogisticBundleManagement = () => {
       return;
     }
 
+    const num = (v: string) => (v.trim() === "" ? null : Number(v));
+    const postageOverrides = {
+      custom_postage: num(customPostage),
+      custom_cod_charge: num(customPostage) === null ? null : num(customCodCharge),
+      custom_pickup: num(customPickup),
+    };
+    if (Object.values(postageOverrides).some((v) => v !== null && (isNaN(v) || v < 0))) {
+      toast.error("Kos postage / COD / pickup mesti nombor 0 atau lebih");
+      return;
+    }
+    if (postageOverrides.custom_postage !== null && customCodCharge.trim() === "") {
+      toast.error("Cost Postage diisi — sila isi COD Charges juga (isi 0 jika tiada)");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -296,6 +322,7 @@ const LogisticBundleManagement = () => {
             price_shopee_ec: priceEc,
             postage_cod: postageCod,
             weight: weight,
+            ...postageOverrides,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingBundleId);
@@ -328,6 +355,7 @@ const LogisticBundleManagement = () => {
             price_shopee_ec: priceEc,
             postage_cod: postageCod,
             weight: weight,
+            ...postageOverrides,
           });
 
         if (insertError) throw insertError;
@@ -434,6 +462,7 @@ const LogisticBundleManagement = () => {
                   <TableHead>SKU (Products)</TableHead>
                   <TableHead className="text-center">Cost Product</TableHead>
                   <TableHead className="text-center">Komisyen Order</TableHead>
+                  <TableHead className="text-center">Postage</TableHead>
                   <TableHead className="text-center">Weight (KG)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -460,6 +489,23 @@ const LogisticBundleManagement = () => {
                     </TableCell>
                     <TableCell className="text-center font-medium text-blue-600">
                       RM {Number(bundle.commission_rm || 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center text-xs whitespace-nowrap">
+                      {bundle.custom_postage == null && bundle.custom_pickup == null ? (
+                        <span className="text-muted-foreground">Auto (PD)</span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {bundle.custom_postage != null && (
+                            <p className="text-amber-600 font-medium">
+                              RM {Number(bundle.custom_postage).toFixed(2)}
+                              {Number(bundle.custom_cod_charge) > 0 && ` + COD ${Number(bundle.custom_cod_charge).toFixed(2)}`}
+                            </p>
+                          )}
+                          {bundle.custom_pickup != null && (
+                            <p className="text-purple-600 font-medium">Pickup RM {Number(bundle.custom_pickup).toFixed(2)}</p>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-center font-medium text-gray-600">
                       {Number(bundle.weight || 0.5).toFixed(2)}
@@ -674,6 +720,42 @@ const LogisticBundleManagement = () => {
                   />
                   <p className="text-xs text-muted-foreground">Commission paid per order for commission-order staff</p>
                 </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <h4 className="font-medium text-sm">Postage Bundle <span className="text-xs font-normal text-muted-foreground">(optional)</span></h4>
+                  <p className="text-xs text-muted-foreground">
+                    Kosongkan untuk guna harga ParcelDaily (macam sekarang). Jika diisi, kos ini jadi postage utama
+                    dalam profit & salary. Harga ParcelDaily tetap disimpan sebagai rujukan HQ.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customPostage" className="text-amber-600 font-medium">Cost Postage (RM)</Label>
+                    <Input id="customPostage" type="number" min="0" step="0.01" value={customPostage}
+                      onChange={(e) => setCustomPostage(e.target.value)} placeholder="Auto (ParcelDaily)"
+                      className="border-amber-300 focus:border-amber-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customCodCharge" className="text-amber-600 font-medium">
+                      COD Charges (RM){customPostage.trim() !== "" && <span className="text-red-500"> *</span>}
+                    </Label>
+                    <Input id="customCodCharge" type="number" min="0" step="0.01" value={customCodCharge}
+                      onChange={(e) => setCustomCodCharge(e.target.value)} disabled={customPostage.trim() === ""}
+                      placeholder={customPostage.trim() === "" ? "Isi Cost Postage dulu" : "0.00"}
+                      className="border-amber-300 focus:border-amber-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customPickup" className="text-purple-600 font-medium">Cost Pickup (RM)</Label>
+                    <Input id="customPickup" type="number" min="0" step="0.01" value={customPickup}
+                      onChange={(e) => setCustomPickup(e.target.value)} placeholder="Tiada"
+                      className="border-purple-300 focus:border-purple-500" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Order biasa = Cost Postage + COD Charges (jika order COD). Order pickup = Cost Pickup.
+                </p>
               </div>
             </div>
 
