@@ -106,7 +106,7 @@ const AccountReportProfit: React.FC = () => {
   const [staffMeta, setStaffMeta] = useState<Record<string, { percent: number; mode: string }>>({});
   // RLS-safe name + commission lookup via the team_roster RPC (the direct profiles
   // read only returns the caller's own row, so staff names/percent came back blank).
-  const { nameByIdstaff, metaByIdstaff } = useTeam();
+  const { nameByIdstaff, metaByIdstaff, inactiveIdstaff } = useTeam();
   const { profile } = useAuth();
   // A marketer staff sees ONLY their own data (no team filter, own row only).
   const isMarketer = profile?.role === 'marketer';
@@ -370,6 +370,8 @@ const AccountReportProfit: React.FC = () => {
   }, [filteredOrders, filteredSpends, profiles]);
 
   const filteredStats = marketerStats;
+  // Profit Team listing hides deactivated staff; totals above still include them.
+  const listedStats = filteredStats.filter((s) => !inactiveIdstaff.has(s.idStaff));
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -889,7 +891,7 @@ const AccountReportProfit: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredStats.map((s) => {
+              {listedStats.map((s) => {
                 const nama = nameByIdstaff.get(s.idStaff) || (s.name !== s.idStaff ? s.name : (s.idStaff === 'HQ' ? 'HQ' : s.idStaff));
                 const pbs = s.totalSales - s.totalReturn - s.totalCostProduct - s.totalPostage - s.totalSpend;
                 const pbc = s.totalCollection - s.totalCostProduct - s.totalPostage - s.totalSpend;
@@ -908,7 +910,7 @@ const AccountReportProfit: React.FC = () => {
                   </tr>
                 );
               })}
-              {filteredStats.length === 0 && (
+              {listedStats.length === 0 && (
                 <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
               )}
             </tbody>

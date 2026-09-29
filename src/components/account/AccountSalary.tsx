@@ -256,7 +256,7 @@ const AccountSalary: React.FC = () => {
       ensure(id).spend += Number(s.total_spend) || 0;
     });
 
-    const staff = members.filter((m) => !m.is_client && (!isMarketer || m.idstaff === ownIdStaff));
+    const staff = members.filter((m) => !m.is_client && m.is_active !== false && (!isMarketer || m.idstaff === ownIdStaff));
 
     const matchTier = (kpi: number): Tier | null =>
       config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
 export type RoasTier = { start: number; end: number; percent: number };
-export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string; roas_tiers?: RoasTier[] | null; role?: string; invoice_full_name?: string | null; invoice_address?: string | null; invoice_phone?: string | null };
+export type TeamMember = { idstaff: string; name: string; is_self: boolean; is_client: boolean; commission_percent?: number; pay_mode?: string; roas_tiers?: RoasTier[] | null; role?: string; invoice_full_name?: string | null; invoice_address?: string | null; invoice_phone?: string | null; is_active?: boolean };
 
 /**
  * The caller's tenant roster (client + their marketer staff), used for the
@@ -40,6 +40,8 @@ export function useTeam() {
       phone: m.invoice_phone || null,
     }] as const),
   );
+  // Deactivated staff: hidden from per-staff listings (their orders still count in totals).
+  const inactiveIdstaff = new Set(members.filter((m) => m.is_active === false).map((m) => m.idstaff));
   const showFilter = profile?.role === 'client' && members.length > 1;
-  return { members, nameByIdstaff, metaByIdstaff, invoiceByIdstaff, showFilter };
+  return { members, nameByIdstaff, metaByIdstaff, invoiceByIdstaff, inactiveIdstaff, showFilter };
 }

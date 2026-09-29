@@ -144,7 +144,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   const isLogistic = profile?.role === 'logistic'; // a client's logistic staff
   // A marketer sees Top Ranking only when there's an actual team (≥2 marketers).
   const { members } = useTeam();
-  const marketerCount = members.filter((m) => !m.is_client && (m.role === 'marketer' || !m.role)).length;
+  const marketerCount = members.filter((m) => !m.is_client && m.is_active !== false && (m.role === 'marketer' || !m.role)).length;
   const hasTeam = marketerCount > 1;
   // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
   // stays reachable — matches the route guard in App.tsx. Staff aren't expiry-frozen.
