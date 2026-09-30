@@ -9,6 +9,8 @@ import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/
 import { isOrderCollected } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
 import { useTeam } from '@/hooks/useTeam';
+import { useProductFilter } from '@/hooks/useProductFilter';
+import ProductFilter from '@/components/ProductFilter';
 import { useAuth } from '@/context/AuthContext';
 
 interface Order {
@@ -119,6 +121,9 @@ const AccountReportProfit: React.FC = () => {
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
   const [teamFilter, setTeamFilter] = useState('');
+  // Main product ('' = all). Orders match by their bundle's products, spends by product name.
+  const [productFilter, setProductFilter] = useState('');
+  const { products: mainProducts, product: selectedProduct, matchOrder, matchSpend } = useProductFilter(productFilter);
 
   const applyFilter = () => {
     setStartDate(pendingStart);
@@ -174,7 +179,7 @@ const AccountReportProfit: React.FC = () => {
       const data = await fetchAllRows(() =>
         (supabase as any)
           .from('spends')
-          .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend')
+          .select('id, marketer_id_staff, jenis_platform, total_spend, tarikh_spend, product')
           .gte('tarikh_spend', startDate)
           .lte('tarikh_spend', endDate)
           .order('created_at', { ascending: false })
@@ -208,24 +213,25 @@ const AccountReportProfit: React.FC = () => {
     // Map any casing (Facebook / FACEBOOK / facebook) to our 5 platform buckets.
     const canon: Record<string, string> = { facebook: 'Facebook', database: 'Database', threads: 'Threads', tiktok: 'Tiktok', google: 'Google' };
     let total = 0;
-    (expenses || []).forEach((e) => {
+    // Expenses aren't tied to a product, so a product view leaves them out.
+    (selectedProduct ? [] : expenses || []).forEach((e) => {
       const amt = Number(e.total) || 0;
       total += amt;
       const key = canon[(e.platform || '').toLowerCase()];
       if (key) byPlatform[key] += amt;
     });
     return { total, byPlatform };
-  }, [expenses]);
+  }, [expenses, selectedProduct]);
 
   const isLoading = ordersLoading || spendsLoading || expensesLoading;
 
   // Orders already filtered by date at DB level
   // Marketers are locked to their own idstaff; clients use the team filter.
   const effectiveFilter = isMarketer ? ownIdStaff : teamFilter;
-  const filteredOrders = effectiveFilter ? allOrders.filter((o: any) => (o.marketer_id_staff || '') === effectiveFilter) : allOrders;
+  const filteredOrders = allOrders.filter((o: any) => (!effectiveFilter || (o.marketer_id_staff || '') === effectiveFilter) && matchOrder(o));
 
   // Spends already filtered by date at DB level
-  const filteredSpends = effectiveFilter ? spends.filter((s: any) => (s.marketer_id_staff || '') === effectiveFilter) : spends;
+  const filteredSpends = spends.filter((s: any) => (!effectiveFilter || (s.marketer_id_staff || '') === effectiveFilter) && matchSpend(s));
 
   // Calculate stats by marketer
   const marketerStats = useMemo(() => {
@@ -502,10 +508,18 @@ const AccountReportProfit: React.FC = () => {
               Filter
             </Button>
             {!isMarketer && <TeamFilter value={teamFilter} onChange={setTeamFilter} />}
+            <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
 
           </div>
         </div>
       </div>
+
+      {selectedProduct && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          Produk: <b className="text-foreground">{selectedProduct.name}</b> — order ikut bundle yang mengandungi produk ini, spend ikut produk.
+          {!isMarketer && ' Expenses tidak dikira (expenses tidak terikat pada produk).'}
+        </p>
+      )}
 
       {/* Summary Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">

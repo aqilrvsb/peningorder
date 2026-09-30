@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
+import { useProductFilter } from '@/hooks/useProductFilter';
+import ProductFilter from '@/components/ProductFilter';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { FileText } from 'lucide-react';
@@ -91,6 +93,9 @@ const AccountSalary: React.FC = () => {
   const [lockYear, setLockYear] = useState<string>(getMalaysiaStartOfMonth().slice(0, 4));
 
   const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
+  // Main product ('' = all). Orders match by their bundle's products, spends by product name.
+  const [productFilter, setProductFilter] = useState('');
+  const { products: mainProducts, product: selectedProduct, matchOrder, matchSpend } = useProductFilter(productFilter);
   const applyLockFilter = () => { setLockMonth(pendingLockMonth); setLockYear(pendingLockYear); };
 
   // In-app Bundle breakdown modal (Komisyen Order only) — same data as the slip.
@@ -144,6 +149,8 @@ const AccountSalary: React.FC = () => {
   // Freeze a staff's commission for the current period, snapshotting everything
   // the frozen Bundle/Slip views need (row, config flags, bundle groups).
   const lockRow = async (r: SalaryRow) => {
+    // A lock freezes the staff's full commission, so it can't be taken from a single-product view.
+    if (selectedProduct) { toast({ title: 'Pilih "Semua Produk" dulu', description: 'Lock mengunci komisyen penuh, bukan satu produk.', variant: 'destructive' }); return; }
     if (!config) return;
     setLockBusy(r.idStaff);
     try {
@@ -178,7 +185,7 @@ const AccountSalary: React.FC = () => {
       const data = await fetchAllRows(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount')
+          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount, bundle_id')
           .gte('date_order', startDate)
           .lte('date_order', endDate)
       );
@@ -192,7 +199,7 @@ const AccountSalary: React.FC = () => {
       const data = await fetchAllRows(() =>
         (supabase as any)
           .from('spends')
-          .select('marketer_id_staff, total_spend')
+          .select('marketer_id_staff, total_spend, product')
           .gte('tarikh_spend', startDate)
           .lte('tarikh_spend', endDate)
       );
@@ -232,12 +239,15 @@ const AccountSalary: React.FC = () => {
     ? config?.komisyen_basis === 'collection'
     : config?.revenue_basis === 'collection';
 
+  const productOrders = useMemo(() => allOrders.filter((o: any) => matchOrder(o)), [allOrders, productFilter, selectedProduct, matchOrder]);
+  const productSpends = useMemo(() => spends.filter((s: any) => matchSpend(s)), [spends, productFilter, selectedProduct]);
+
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
     const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komNett: number; komColl: number; cntNett: number; cntColl: number }> = {};
     const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
-    allOrders.forEach((o) => {
+    productOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
       const a = ensure(id);
@@ -250,7 +260,7 @@ const AccountSalary: React.FC = () => {
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
     });
-    spends.forEach((s) => {
+    productSpends.forEach((s) => {
       const id = s.marketer_id_staff || '';
       if (!id) return;
       ensure(id).spend += Number(s.total_spend) || 0;
@@ -300,7 +310,7 @@ const AccountSalary: React.FC = () => {
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
-  }, [allOrders, spends, members, nameByIdstaff, config, isMarketer, ownIdStaff]);
+  }, [productOrders, productSpends, members, nameByIdstaff, config, isMarketer, ownIdStaff]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
@@ -448,7 +458,7 @@ const AccountSalary: React.FC = () => {
     } catch (_e) { orderRows = []; }
     const qualifies = (o: any) => basisIsCollection ? isOrderCollected(o) : o.delivery_status !== 'Return';
     const map = new Map<string, BundleGroup>();
-    orderRows.filter(qualifies).forEach((o: any) => {
+    orderRows.filter((o: any) => qualifies(o) && matchOrder(o)).forEach((o: any) => {
       const nm = (o.bundle?.name) || o.nota_staff || 'Lain-lain';
       const sku = o.bundle?.sku || '';
       const key = `${nm}|${sku}`;
@@ -683,8 +693,15 @@ const AccountSalary: React.FC = () => {
             <Button onClick={applyFilter} size="sm" className="h-9">
               <Filter className="w-4 h-4 mr-1" />Filter
             </Button>
+            <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
           </div>
         </div>
+        {selectedProduct && (
+          <p className="text-xs text-muted-foreground mt-3">
+            Produk: <b className="text-foreground">{selectedProduct.name}</b> — komisyen dikira dari order bundle yang mengandungi produk ini & spend produk ini sahaja.
+            {!isMarketer && ' Lock dimatikan — pilih "Semua Produk" untuk lock.'}
+          </p>
+        )}
       </div>
 
       {/* Staff: pick a Month/Year to view the LOCKED commission (finalized by HQ). */}
@@ -783,7 +800,7 @@ const AccountSalary: React.FC = () => {
                             {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Locked
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-8 gap-1" disabled={lockBusy === r.idStaff} onClick={() => lockRow(r)} title="Kunci komisyen untuk tempoh ini">
+                          <Button size="sm" variant="outline" className="h-8 gap-1" disabled={lockBusy === r.idStaff || !!selectedProduct} onClick={() => lockRow(r)} title={selectedProduct ? 'Pilih "Semua Produk" untuk lock' : 'Kunci komisyen untuk tempoh ini'}>
                             {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LockOpen className="w-3.5 h-3.5" />} Lock
                           </Button>
                         )}
