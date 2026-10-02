@@ -92,7 +92,7 @@ interface ParcelDailyConfig {
   allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
   pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
   webhook_confirmed: boolean; // client confirmed they set up the ParcelDaily webhook.
-  whacenter_instance: string; // Whacenter device id (pasted from peningbot.com) for WhatsApp notify.
+  whacenter_instance: string; // PeningBot device Instance (pasted from peningbot.com) for WhatsApp notify.
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
@@ -234,7 +234,7 @@ const CourierSettings: React.FC = () => {
   const [showCod, setShowCod] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showGetKey, setShowGetKey] = useState(false);
-  // Whacenter device status check.
+  // PeningBot device status check.
   const [checkingWa, setCheckingWa] = useState(false);
   const [waStatus, setWaStatus] = useState<{ connected: boolean; status: string } | null>(null);
   // Template test-send.
@@ -371,10 +371,10 @@ const CourierSettings: React.FC = () => {
     }));
 
   // Send a TEST WhatsApp using the current template draft + random sample values,
-  // through the configured Whacenter instance.
+  // through the configured PeningBot instance.
   const handleTestSend = async () => {
     const instance = formData.whacenter_instance.trim();
-    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi Whacenter Instance dahulu.', variant: 'destructive' }); return; }
+    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi PeningBot Instance dahulu.', variant: 'destructive' }); return; }
     if (!testPhone.trim()) { toast({ title: 'Tiada nombor', description: 'Masukkan nombor telefon untuk test.', variant: 'destructive' }); return; }
     const rnd = Math.floor(1000 + Math.random() * 9000);
     const sample: Record<string, string> = {
@@ -411,7 +411,7 @@ const CourierSettings: React.FC = () => {
   // using the configured instance (no template editor needed).
   const handleQuickTest = async () => {
     const instance = formData.whacenter_instance.trim();
-    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi Whacenter Instance dahulu.', variant: 'destructive' }); return; }
+    if (!instance) { toast({ title: 'Tiada instance', description: 'Isi PeningBot Instance dahulu.', variant: 'destructive' }); return; }
     if (!testPhone.trim()) { toast({ title: 'Tiada nombor', description: 'Masukkan nombor telefon untuk test.', variant: 'destructive' }); return; }
     setTestingSend(true);
     try {
@@ -429,7 +429,7 @@ const CourierSettings: React.FC = () => {
     }
   };
 
-  // Check the Whacenter device connection status.
+  // Check the PeningBot device connection status.
   const checkWaStatus = async () => {
     const instance = formData.whacenter_instance.trim();
     if (!instance) return;
@@ -730,23 +730,25 @@ const CourierSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* WhatsApp Notification (Whacenter) — the client pastes the device
-          instance from peningbot.com; customer notifications send through it. */}
+      {/* WhatsApp Notification — the client pastes their PeningBot device
+          Instance; customer notifications send through PeningBot's gateway. */}
       <div className="bg-card rounded-lg border border-border p-5 mt-6">
         <div className="flex items-center gap-2 mb-1">
           <Bell className="w-5 h-5 text-primary" />
           <span className="font-semibold text-lg">WhatsApp Notification</span>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Notifikasi WhatsApp ke pelanggan dihantar melalui device Whacenter anda. Cipta &amp; scan device di
-          {' '}<span className="font-medium">peningbot.com</span>, kemudian salin <span className="font-medium">instance</span> dan tampal di sini.
+          Notifikasi WhatsApp ke pelanggan dihantar melalui device PeningBot anda.
+          {' '}Di <span className="font-medium">peningbot.com</span>: Device Settings → Add Device → scan QR. Kemudian tekan
+          {' '}<span className="font-medium">Edit</span> pada device → medan <span className="font-medium">Instance</span> → butang
+          {' '}<span className="font-medium">Salin</span>, dan tampal di sini. Jangan guna medan &quot;Device ID&quot; (nama seperti IMAN01).
         </p>
-        <FormLabel>Whacenter Instance (Device ID)</FormLabel>
+        <FormLabel>PeningBot Instance</FormLabel>
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             value={formData.whacenter_instance}
             onChange={(e) => { setField('whacenter_instance', e.target.value); setWaStatus(null); }}
-            placeholder="cth: 64f1a2b3c4d5e6f7a8b9c0d1"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             className="flex-1"
           />
           {formData.whacenter_instance.trim() ? (
@@ -901,7 +903,7 @@ const CourierSettings: React.FC = () => {
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setTplDraft(defaultTemplate(s.key))}>Reset ke default</Button>
                         <Button size="sm" variant="ghost" onClick={() => setEditingTpl(null)}>Batal</Button>
-                        {/* Test-send — only when a Whacenter instance is configured. */}
+                        {/* Test-send — only when a PeningBot instance is configured. */}
                         {formData.whacenter_instance.trim() && (
                           <div className="flex items-center gap-2 ml-auto">
                             <Input

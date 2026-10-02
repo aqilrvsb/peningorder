@@ -48,7 +48,7 @@ const Profile: React.FC = () => {
   // Test WhatsApp message state
   const [testPhone, setTestPhone] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
-  // Whacenter instance (marketer's own device from peningbot.com).
+  // PeningBot device Instance (marketer's own device from peningbot.com).
   const [waInstance, setWaInstance] = useState('');
   const [savingInstance, setSavingInstance] = useState(false);
   const [checkingInstance, setCheckingInstance] = useState(false);
@@ -77,7 +77,7 @@ const Profile: React.FC = () => {
     if (profile?.fullName !== undefined) setDisplayName(profile.fullName || '');
   }, [profile?.fullName]);
 
-  // Save the marketer's own Whacenter instance to their profile.
+  // Save the marketer's own PeningBot instance to their profile.
   const handleSaveInstance = async () => {
     if (!profile?.id) return;
     setSavingInstance(true);
@@ -95,7 +95,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Check the marketer's Whacenter device connection status.
+  // Check the marketer's PeningBot device connection status.
   const handleCheckInstance = async () => {
     const instance = waInstance.trim();
     if (!instance) return;
@@ -508,7 +508,7 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* WhatsApp Notification (Whacenter) — marketers set their own device instance
+      {/* WhatsApp Notification — marketers set their own PeningBot device Instance
           (created/paired on peningbot.com). If set, their own orders' customer
           notifications send from their own WhatsApp; else HQ's instance is used. */}
       {isMarketer && (
@@ -518,16 +518,17 @@ const Profile: React.FC = () => {
             <h3 className="text-lg font-semibold text-foreground">WhatsApp Notification</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
-            Cipta &amp; scan device di <span className="font-medium">peningbot.com</span>, kemudian salin
-            {' '}<span className="font-medium">instance</span> dan tampal di sini. Order anda akan hantar notifikasi
-            dari WhatsApp anda sendiri. Jika kosong, device HQ digunakan.
+            Di <span className="font-medium">peningbot.com</span>: Device Settings → Add Device → scan QR. Kemudian tekan
+            {' '}<span className="font-medium">Edit</span> pada device → medan <span className="font-medium">Instance</span> → butang
+            {' '}<span className="font-medium">Salin</span>, dan tampal di sini. Jangan guna medan &quot;Device ID&quot; (nama seperti IMAN01).
+            {' '}Order anda akan hantar notifikasi dari WhatsApp anda sendiri. Jika kosong, device HQ digunakan.
           </p>
-          <label className="block text-sm font-medium mb-1">Whacenter Instance (Device ID)</label>
+          <label className="block text-sm font-medium mb-1">PeningBot Instance</label>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               value={waInstance}
               onChange={(e) => { setWaInstance(e.target.value); setInstanceStatus(null); }}
-              placeholder="cth: 64f1a2b3c4d5e6f7a8b9c0d1"
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               className="flex-1"
             />
             <Button onClick={handleSaveInstance} disabled={savingInstance}>

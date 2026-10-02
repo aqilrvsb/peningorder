@@ -1,6 +1,6 @@
 // order-notify — send the customer a WhatsApp right after an order is keyed in,
 // IF the client has enabled "Order Keyed In" notify in Courier Settings →
-// Tracking Webhook. Sends from the tenant's own Whacenter device.
+// Tracking Webhook. Sends from the tenant's own WhatsApp device (PeningBot gateway).
 //
 // POST { order: { name, phone, address, product, price, courier, order_id, tracking } }
 // (caller's JWT = the marketer/client who created the order)
@@ -62,7 +62,7 @@ serve(async (req) => {
     const phone = waPhone(String(o.phone || ""));
     if (!phone) return json(200, { success: false, skipped: "no_phone" });
 
-    // Send from the creator's own Whacenter device if they set one (marketer with
+    // Send from the creator's own WhatsApp device if they set one (marketer with
     // their own instance in Profile), else the tenant/HQ instance from Courier
     // Settings. Devices are created/paired on peningbot.com.
     const { data: me } = await admin
@@ -91,14 +91,11 @@ serve(async (req) => {
         `Order ID : ${vars.order_id}\nProduk : ${vars.product}\nHarga : RM${vars.price}\n\n` +
         `Terima kasih! Kami akan proses pesanan anda secepat mungkin. 🙏`;
 
-    const form = new URLSearchParams();
-    form.append("device_id", instance);
-    form.append("number", phone);
-    form.append("message", message);
-    const res = await fetch("https://api.whacenter.com/api/send", {
+    // PeningBot Baileys gateway (replaced Whacenter 2026-10-02): JSON body.
+    const res = await fetch("https://dev-muse-automaton-production.up.railway.app/api/send", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: instance, number: phone, message }),
     });
     const txt = await res.text();
     let sent = res.ok;

@@ -1,6 +1,6 @@
 /**
  * admin-payment-action — superadmin approve / reject of a pending subscription
- * payment, with WhatsApp notifications (via Whacenter).
+ * payment, with WhatsApp notifications (via the PeningBot WhatsApp gateway).
  *
  * POST JSON { action: "approve" | "reject", payment_id }
  *
@@ -30,8 +30,9 @@ function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-// ---- WhatsApp (Whacenter) --------------------------------------------------
-const WHACENTER = "https://api.whacenter.com/api/send";
+// ---- WhatsApp (PeningBot gateway) --------------------------------------------------
+// PeningBot Baileys gateway (replaced Whacenter 2026-10-02): JSON body, no api_key.
+const WA_SEND = "https://dev-muse-automaton-production.up.railway.app/api/send";
 
 function toMalayDigits(raw: string): string | null {
   const d = (raw || "").replace(/\D/g, "");
@@ -46,22 +47,17 @@ function toMalayDigits(raw: string): string | null {
 async function sendWhatsApp(admin: any, toPhone: string, message: string): Promise<boolean> {
   const number = toMalayDigits(toPhone);
   if (!number) return false;
-  const { data: device } = await admin.from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
+  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
   if (!device?.instance) return false;
-  const form = new URLSearchParams();
-  // Whacenter only actually delivers (returns a real message id) when the
-  // account api_key is included; without it the send is silently dropped.
-  if (device.api_key) form.append("api_key", device.api_key);
-  form.append("device_id", device.instance);
-  form.append("number", number);
-  form.append("message", message);
   try {
-    const res = await fetch(WHACENTER, {
+    const res = await fetch(WA_SEND, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: device.instance, number, message }),
     });
-    return res.ok;
+    // HTTP is always 200 on the gateway — success is the body's `status`.
+    const j = await res.json().catch(() => null);
+    return res.ok && j?.status !== false;
   } catch (_) {
     return false;
   }

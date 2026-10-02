@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
+// PeningBot Baileys gateway (replaced Whacenter 2026-10-02). JSON body; HTTP is
+// always 200, success is the body's `status`.
+const WA_SEND = 'https://dev-muse-automaton-production.up.railway.app/api/send';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-wc-webhook-signature, x-wc-webhook-source, x-wc-webhook-topic, x-wc-webhook-resource, x-wc-webhook-event, x-wc-webhook-id, x-wc-webhook-delivery-id',
@@ -387,22 +391,23 @@ async function sendWhatsAppMessage(
       return { success: false, error: 'No connected WhatsApp device' };
     }
 
-    // Use instance field for Whacenter API
+    // Instance = the PeningBot device id (Baileys gateway)
     const instanceId = deviceSetting.instance || deviceSetting.device_id;
     if (!instanceId) {
       console.log('No instance ID found in device settings');
       return { success: false, error: 'No WhatsApp instance ID configured' };
     }
 
-    console.log('Sending WhatsApp via Whacenter:', { instance: instanceId, phone: customerPhone });
+    console.log('Sending WhatsApp via PeningBot gateway:', { instance: instanceId, phone: customerPhone });
 
-    // Send message via Whacenter API (GET method with query params)
-    const apiUrl = `https://api.whacenter.com/api/send?device_id=${encodeURIComponent(instanceId)}&number=${encodeURIComponent(customerPhone)}&message=${encodeURIComponent(message)}`;
-
-    const response = await fetch(apiUrl, { method: 'GET' });
+    const response = await fetch(WA_SEND, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: instanceId, number: customerPhone, message }),
+    });
     const data = await response.json();
 
-    console.log('Whacenter response:', data);
+    console.log('WhatsApp gateway response:', data);
 
     // Check if actually successful
     const success = data.status === true || data.success === true;
@@ -420,7 +425,7 @@ async function sendWhatsAppMessage(
   }
 }
 
-// Send WhatsApp image with caption using Whacenter API (FormData POST)
+// Send WhatsApp image with caption via the PeningBot gateway (JSON; file = image URL)
 async function sendWhatsAppImage(
   supabase: any,
   marketerIdStaff: string,
@@ -457,21 +462,16 @@ async function sendWhatsAppImage(
       return { success: false, error: 'No WhatsApp instance ID configured' };
     }
 
-    console.log('Sending WhatsApp image via Whacenter:', { instance: instanceId, phone: customerPhone, imageUrl });
+    console.log('Sending WhatsApp image via PeningBot gateway:', { instance: instanceId, phone: customerPhone, imageUrl });
 
-    const formData = new FormData();
-    formData.append('device_id', instanceId);
-    formData.append('number', customerPhone);
-    formData.append('message', caption);
-    formData.append('file', imageUrl);
-
-    const response = await fetch('https://api.whacenter.com/api/send', {
+    const response = await fetch(WA_SEND, {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: instanceId, number: customerPhone, message: caption, file: imageUrl }),
     });
     const data = await response.json();
 
-    console.log('Whacenter image response:', data);
+    console.log('WhatsApp gateway image response:', data);
 
     const success = data.status === true || data.success === true;
 

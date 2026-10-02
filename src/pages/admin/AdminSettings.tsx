@@ -18,7 +18,7 @@ const AdminSettings: React.FC = () => {
   const [chipBrandId, setChipBrandId] = useState('');
   const [chipKeySaved, setChipKeySaved] = useState(false);
   const [savingChip, setSavingChip] = useState(false);
-  // WhatsApp device (Whacenter)
+  // WhatsApp device (PeningBot gateway)
   const [waInstance, setWaInstance] = useState('');
   const [waInstanceSaved, setWaInstanceSaved] = useState('');
   const [waApiKey, setWaApiKey] = useState('');
@@ -66,7 +66,7 @@ const AdminSettings: React.FC = () => {
 
   const saveWaDevice = async () => {
     const inst = waInstance.trim();
-    if (!inst) { toast({ title: 'Instance required', description: 'Paste your Whacenter device instance ID.', variant: 'destructive' }); return; }
+    if (!inst) { toast({ title: 'Instance required', description: 'Paste the PeningBot device Instance.', variant: 'destructive' }); return; }
     setSavingWa(true);
     try {
       const apiKey = waApiKey.trim();
@@ -123,23 +123,18 @@ const AdminSettings: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* WhatsApp device (Whacenter) */}
+      {/* WhatsApp device (PeningBot Baileys gateway) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="w-5 h-5 text-green-600" /> WhatsApp Notifications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            The connected WhatsApp device (Whacenter) that sends client login credentials and admin alerts.
+            The PeningBot WhatsApp device that sends client login credentials and admin alerts.
             Admin alerts go to the WhatsApp number set in each superadmin's <span className="font-medium">Profile</span>.
           </p>
           <div className="space-y-2">
-            <Label htmlFor="wa_apikey" className="flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5" /> Whacenter API Key</Label>
-            <Input id="wa_apikey" value={waApiKey} onChange={(e) => setWaApiKey(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-            <p className="text-xs text-muted-foreground">Required — messages are silently dropped by Whacenter without it.</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="wa_instance" className="flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" /> Device Instance ID</Label>
+            <Label htmlFor="wa_instance" className="flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5" /> PeningBot Instance</Label>
             <Input id="wa_instance" value={waInstance} onChange={(e) => setWaInstance(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
             <p className="text-xs text-muted-foreground">
               {waInstanceSaved

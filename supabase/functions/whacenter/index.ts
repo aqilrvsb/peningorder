@@ -4,10 +4,14 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+// PeningBot's Baileys gateway (replaced Whacenter). Same params as Whacenter;
+// send as JSON (its multipart parser rejects FormData). HTTP is always 200 —
+// read the body's `status`.
+const WA_GATEWAY = "https://dev-muse-automaton-production.up.railway.app";
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// Malaysia digits for Whacenter — exact copy of HCKCREA's toMalayDigits (proven
+// Malaysia digits for the gateway — exact copy of HCKCREA's toMalayDigits (proven
 // working): 60XXXXXXXXX. Returns null for an invalid number.
 const toMalayDigits = (raw: string): string | null => {
   const digits = (raw || "").replace(/\D/g, "");
@@ -27,7 +31,7 @@ serve(async (req) => {
 
     // Check device connection status.
     if (action === "status") {
-      const res = await fetch(`https://api.whacenter.com/api/statusDevice?device_id=${encodeURIComponent(instance)}`);
+      const res = await fetch(`${WA_GATEWAY}/api/statusDevice?device_id=${encodeURIComponent(instance)}`);
       const txt = await res.text();
       let data: any = {};
       try { data = JSON.parse(txt); } catch { /* keep {} */ }
@@ -49,33 +53,19 @@ serve(async (req) => {
     if (!number) return json(400, { success: false, error: "Nombor telefon Malaysia tidak sah" });
     if (!message && !imageUrl) return json(400, { success: false, error: "message atau imageUrl diperlukan" });
 
-    let res: Response;
-    if (imageUrl) {
-      // Whacenter sends an image when `file` is a public image URL; `message` is
-      // the caption (may be empty). FormData, not urlencoded.
-      const fd = new FormData();
-      fd.append("device_id", instance);
-      fd.append("number", number);
-      fd.append("message", message);
-      fd.append("file", imageUrl);
-      res = await fetch("https://api.whacenter.com/api/send", { method: "POST", body: fd });
-    } else {
-      const form = new URLSearchParams();
-      form.append("device_id", instance);
-      form.append("number", number);
-      form.append("message", message);
-      res = await fetch("https://api.whacenter.com/api/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: form.toString(),
-      });
-    }
-    // Whacenter accepts the message on HTTP 200 — match HCKCREA / Pening Bot,
-    // which trust res.ok and do NOT inspect the JSON body (avoids false errors).
+    // With imageUrl the gateway sends an image (`file` = public URL) and
+    // `message` becomes the caption (may be empty = image-only).
+    const payloadOut: Record<string, string> = { device_id: instance, number, message };
+    if (imageUrl) payloadOut.file = imageUrl;
+    const res = await fetch(`${WA_GATEWAY}/api/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadOut),
+    });
     const txt = await res.text();
     let payload: any = null;
     try { payload = JSON.parse(txt); } catch { /* non-JSON body */ }
-    return json(200, { success: res.ok, response: payload ?? txt });
+    return json(200, { success: res.ok && payload?.status !== false, response: payload ?? txt });
   } catch (err) {
     return json(500, { success: false, error: err instanceof Error ? err.message : "error" });
   }

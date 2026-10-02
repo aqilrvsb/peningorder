@@ -34,7 +34,8 @@ function json(status: number, body: Record<string, unknown>) {
 }
 
 // ---- WhatsApp credential (re)send via the platform ADMIN device ------------
-const WHACENTER = "https://api.whacenter.com/api/send";
+// PeningBot Baileys gateway (replaced Whacenter 2026-10-02): JSON body, no api_key.
+const WA_SEND = "https://dev-muse-automaton-production.up.railway.app/api/send";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://peningorder.com";
 const LOGIN_URL = `${APP_ORIGIN}/auth`;
 
@@ -46,21 +47,21 @@ function toMalayDigits(raw: string): string | null {
   if (/^1\d{8,10}$/.test(d)) return "60" + d;
   return d.length >= 9 ? d : null;
 }
-// Send from the platform admin device (Whacenter). Mirrors billing-webhook's
-// sender — api_key is required or Whacenter silently drops the message.
+// Send from the platform admin device (PeningBot gateway). Mirrors billing-webhook's sender.
 async function sendWhatsAppAdmin(admin: any, toPhone: string, message: string): Promise<boolean> {
   const number = toMalayDigits(toPhone);
   if (!number) return false;
-  const { data: device } = await admin.from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
+  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
   if (!device?.instance) return false;
-  const form = new URLSearchParams();
-  if (device.api_key) form.append("api_key", device.api_key);
-  form.append("device_id", device.instance);
-  form.append("number", number);
-  form.append("message", message);
   try {
-    const res = await fetch(WHACENTER, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString() });
-    return res.ok;
+    const res = await fetch(WA_SEND, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: device.instance, number, message }),
+    });
+    // HTTP is always 200 on the gateway — success is the body's `status`.
+    const j = await res.json().catch(() => null);
+    return res.ok && j?.status !== false;
   } catch (_) {
     return false;
   }

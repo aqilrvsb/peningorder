@@ -15,7 +15,7 @@ const corsHeaders = {
 //   CANCEL_STATUS_UPDATED — cancellation
 //   (Checkout) data payload after successful pay: connoteURL + orderId + tracking (data.consign_no)
 
-// WhatsApp digits for Whacenter: "0139876543" -> "60139876543"
+// WhatsApp digits for the gateway: "0139876543" -> "60139876543"
 const waPhone = (raw: string): string => {
   const digits = (raw || "").replace(/\D/g, "");
   if (!digits) return "";
@@ -24,7 +24,19 @@ const waPhone = (raw: string): string => {
   return "60" + digits;
 };
 
-// Resolve which Whacenter device to send from for a given order: the order's
+// PeningBot's Baileys gateway (replaced Whacenter on 2026-10-02). Same params
+// as Whacenter, sent as JSON (its multipart parser rejects FormData). HTTP is
+// always 200 — callers read the body's `status`.
+const WA_GATEWAY = "https://dev-muse-automaton-production.up.railway.app";
+function waGatewaySend(body: Record<string, string>): Promise<Response> {
+  return fetch(`${WA_GATEWAY}/api/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// Resolve which WhatsApp device (PeningBot instance) to send from for a given order: the order's
 // marketer's own instance (profiles.whacenter_instance) if set, otherwise the
 // tenant/HQ instance (parceldaily_config.whacenter_instance).
 async function resolveInstance(
@@ -46,7 +58,7 @@ async function resolveInstance(
   return (cfg?.whacenter_instance || "").trim();
 }
 
-// Fire-and-forget customer notification via the order's marketer (or HQ) Whacenter
+// Fire-and-forget customer notification via the order's marketer (or HQ) WhatsApp
 // device. Never throws — a WhatsApp failure must not break webhook processing.
 async function sendWhatsApp(
   supabase: any,
@@ -67,29 +79,11 @@ async function sendWhatsApp(
     const number = waPhone(customerPhone);
     if (!number) return "wa_skipped_bad_phone";
 
-    // With an imageUrl, Whacenter sends an image (file = public URL) and `message`
-    // becomes the caption (may be empty = image-only). FormData, not urlencoded.
-    let res: Response;
-    if (imageUrl) {
-      const fd = new FormData();
-      fd.append("device_id", instance);
-      fd.append("number", number);
-      fd.append("message", message || "");
-      fd.append("file", imageUrl);
-      res = await fetch("https://api.whacenter.com/api/send", { method: "POST", body: fd });
-    } else {
-      const form = new URLSearchParams();
-      form.append("device_id", instance);
-      form.append("number", number);
-      form.append("message", message);
-      res = await fetch("https://api.whacenter.com/api/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: form.toString(),
-      });
-    }
+    // With an imageUrl the gateway sends an image (file = public URL) and
+    // `message` becomes the caption (may be empty = image-only).
+    const res = await waGatewaySend({ device_id: instance, number, message: message || "", ...(imageUrl ? { file: imageUrl } : {}) });
     const txt = await res.text();
-    console.log(`[whatsapp] whacenter send status=${res.status} body=${txt.slice(0, 200)}`);
+    console.log(`[whatsapp] gateway send status=${res.status} body=${txt.slice(0, 200)}`);
     try { const j = JSON.parse(txt); return j.status ? "wa_sent" : `wa_failed_${j.message || res.status}`; }
     catch { return res.ok ? "wa_sent" : `wa_failed_${res.status}`; }
   } catch (err) {
@@ -154,7 +148,7 @@ async function clientPhone(supabase: any, ownerUserId: string | null | undefined
 }
 
 // Send a message to the CLIENT (seller) from the platform's ADMIN device
-// (Whacenter admin_device). Used for seller-facing alerts, never the customer.
+// (admin_device on the PeningBot gateway). Used for seller-facing alerts, never the customer.
 async function notifyClient(supabase: any, ownerUserId: string | null | undefined, message: string): Promise<string> {
   try {
     const to = await clientPhone(supabase, ownerUserId);
@@ -163,16 +157,7 @@ async function notifyClient(supabase: any, ownerUserId: string | null | undefine
     const { data: device } = await supabase
       .from("admin_device").select("instance, api_key").eq("active", true).limit(1).maybeSingle();
     if (!device?.instance) return "wa_skipped_no_admin_device";
-    const form = new URLSearchParams();
-    if (device.api_key) form.append("api_key", device.api_key);
-    form.append("device_id", device.instance);
-    form.append("number", number);
-    form.append("message", message);
-    const res = await fetch("https://api.whacenter.com/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: form.toString(),
-    });
+    const res = await waGatewaySend({ device_id: device.instance, number, message });
     const txt = await res.text();
     try { const j = JSON.parse(txt); return j.status ? "client_notified" : `client_notify_failed_${j.message || res.status}`; }
     catch { return res.ok ? "client_notified" : `client_notify_failed_${res.status}`; }
