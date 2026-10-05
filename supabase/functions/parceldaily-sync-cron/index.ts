@@ -8,7 +8,7 @@
 // (POST /v1/partner/checkout-status, accepts { orderIds }). Covers clients AND
 // their staff (orders are owned by the client tenant).
 //
-// Auth: caller must present header `x-cron-secret` matching app_settings.cron_secret.
+// Auth: caller must present header `x-cron-secret` matching platform_secrets.cron_secret.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -23,9 +23,10 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
-  // Auth: shared secret stored in app_settings (so no env-var provisioning needed).
+  // Auth: shared secret in platform_secrets (superadmin-only RLS; app_settings
+  // is world-readable, so a secret there would be public).
   const provided = req.headers.get("x-cron-secret") || "";
-  const { data: secretRow } = await service.from("app_settings").select("value").eq("key", "cron_secret").maybeSingle();
+  const { data: secretRow } = await service.from("platform_secrets").select("value").eq("key", "cron_secret").maybeSingle();
   const expected = (secretRow?.value as any)?.secret || "";
   if (!expected || provided !== expected) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: jsonHeaders });
