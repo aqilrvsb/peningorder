@@ -265,15 +265,16 @@ const NotificationReport: React.FC = () => {
                 <th className="p-3 whitespace-nowrap">Nama Customer</th>
                 <th className="p-3 whitespace-nowrap">Phone Customer</th>
                 <th className="p-3 whitespace-nowrap">No Tracking</th>
+                <th className="p-3 whitespace-nowrap">Delivery Status</th>
                 <th className="p-3 whitespace-nowrap">Status Tracking</th>
                 {enabled.map((s) => <th key={s.key} className="p-3 text-center whitespace-nowrap">{s.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7 + enabled.length} className="p-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Memuatkan…</td></tr>
+                <tr><td colSpan={8 + enabled.length} className="p-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Memuatkan…</td></tr>
               ) : pageRows.length === 0 ? (
-                <tr><td colSpan={7 + enabled.length} className="p-8 text-center text-muted-foreground">Tiada order.</td></tr>
+                <tr><td colSpan={8 + enabled.length} className="p-8 text-center text-muted-foreground">Tiada order.</td></tr>
               ) : pageRows.map((o, i) => {
                 const staff = staffLabel(o.marketer_id_staff);
                 return (
@@ -289,7 +290,9 @@ const NotificationReport: React.FC = () => {
                     <td className="p-3 whitespace-nowrap font-mono text-xs">{o.tracking_number || '-'}</td>
                     <td className="p-3">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${deliveryTone(o.delivery_status)}`}>{o.delivery_status || '-'}</span>
-                      {o.seos && o.seos !== o.delivery_status && <div className="text-[11px] text-muted-foreground mt-0.5 max-w-[180px] truncate" title={o.seos}>{o.seos}</div>}
+                    </td>
+                    <td className="p-3 text-xs">
+                      <div className="max-w-[200px] truncate" title={o.seos || ''}>{o.seos || '-'}</div>
                     </td>
                     {enabled.map((s) => {
                       const k = `${o.id}|${s.key}`;
