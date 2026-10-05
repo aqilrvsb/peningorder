@@ -28,6 +28,17 @@ const waPhone = (raw: string): string => {
   return "60" + d;
 };
 
+// Record a notify attempt for the Notification tab (best-effort, never throws).
+async function logNotify(admin: any, owner: string, orderId: string | null, success: boolean, messageId: string | null, error: string | null) {
+  try {
+    if (!orderId) return;
+    await admin.from("wa_notify_log").insert({
+      owner_user_id: owner, order_id: orderId, status_key: KEYIN_KEY,
+      success, message_id: messageId, error, source: "auto",
+    });
+  } catch (_e) { /* ignore */ }
+}
+
 const renderTemplate = (tpl: string, vars: Record<string, string>): string =>
   tpl.replace(/\{(\w+)\}/g, (_m, k) => (k in vars ? vars[k] : `{${k}}`));
 
@@ -53,14 +64,24 @@ serve(async (req) => {
     // Only send if the client turned ON notify for "Order Keyed In".
     const { data: pref } = await admin
       .from("tracking_status_setting")
-      .select("notify, message_template")
+      .select("notify, message_template, message_image_url")
       .eq("owner_user_id", ownerUuid)
       .eq("status_key", KEYIN_KEY)
       .maybeSingle();
     if (!pref?.notify) return json(200, { success: true, skipped: "keyin_notify_off" });
 
+    // The order row (inserted just before this call) — for the notify log.
+    const { data: ord } = await admin
+      .from("customer_purchases").select("id")
+      .eq("owner_user_id", ownerUuid).eq("id_sale", String(o.order_id || ""))
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const orderUuid: string | null = ord?.id || null;
+
     const phone = waPhone(String(o.phone || ""));
-    if (!phone) return json(200, { success: false, skipped: "no_phone" });
+    if (!phone) {
+      await logNotify(admin, ownerUuid, orderUuid, false, null, "Tiada nombor telefon");
+      return json(200, { success: false, skipped: "no_phone" });
+    }
 
     // Send from the creator's own WhatsApp device if they set one (marketer with
     // their own instance in Profile), else the tenant/HQ instance from Courier
@@ -73,7 +94,10 @@ serve(async (req) => {
         .from("parceldaily_config").select("whacenter_instance").eq("owner_user_id", ownerUuid).maybeSingle();
       instance = (cfg?.whacenter_instance || "").trim();
     }
-    if (!instance) return json(200, { success: false, skipped: "no_device" });
+    if (!instance) {
+      await logNotify(admin, ownerUuid, orderUuid, false, null, "Tiada device WhatsApp (instance kosong)");
+      return json(200, { success: false, skipped: "no_device" });
+    }
 
     const vars: Record<string, string> = {
       name: o.name || "",
@@ -85,9 +109,11 @@ serve(async (req) => {
       order_id: o.order_id || "",
       tracking: o.tracking || "",
     };
+    // With an image set, an empty template means image-only (same as the webhook).
+    const image = (pref.message_image_url || "").trim();
     const message = pref.message_template
       ? renderTemplate(pref.message_template, vars)
-      : `Salam ${vars.name}! 😊\n\nKami telah menerima tempahan anda.\n\n` +
+      : image ? "" : `Salam ${vars.name}! 😊\n\nKami telah menerima tempahan anda.\n\n` +
         `Order ID : ${vars.order_id}\nProduk : ${vars.product}\nHarga : RM${vars.price}\n\n` +
         `Terima kasih! Kami akan proses pesanan anda secepat mungkin. 🙏`;
 
@@ -95,11 +121,19 @@ serve(async (req) => {
     const res = await fetch("https://dev-muse-automaton-production.up.railway.app/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: instance, number: phone, message }),
+      body: JSON.stringify({ device_id: instance, number: phone, message, ...(image ? { file: image } : {}) }),
     });
     const txt = await res.text();
     let sent = res.ok;
-    try { const j = JSON.parse(txt); sent = !!j.status; } catch { /* keep res.ok */ }
+    let messageId: string | null = null;
+    let error: string | null = res.ok ? null : `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(txt);
+      sent = !!j.status;
+      messageId = j.data?.id ? String(j.data.id) : null;
+      error = sent ? null : String(j.message || "Gagal hantar");
+    } catch { /* keep res.ok */ }
+    await logNotify(admin, ownerUuid, orderUuid, sent, messageId, error);
     return json(200, { success: true, sent });
   } catch (e) {
     return json(200, { success: false, error: String((e as Error).message || e) });

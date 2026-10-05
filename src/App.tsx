@@ -26,6 +26,7 @@ const OrderForm = lazy(() => import("./pages/OrderForm"));
 const Prospects = lazy(() => import("./pages/Prospects"));
 const Spend = lazy(() => import("./pages/Spend"));
 const ReportingSpend = lazy(() => import("./pages/ReportingSpend"));
+const NotificationReport = lazy(() => import("./pages/NotificationReport"));
 const CourierSettings = lazy(() => import("./pages/CourierSettings"));
 const Billing = lazy(() => import("./pages/Billing"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -177,6 +178,7 @@ const App = () => (
                     <Route path="prospects" element={marketerAllowed(<Prospects />)} />
                     <Route path="spend" element={marketerAllowed(<Spend />)} />
                     <Route path="reporting-spend" element={marketerAllowed(<ReportingSpend />)} />
+                    <Route path="notification" element={marketerAllowed(<NotificationReport />)} />
                     <Route path="team" element={clientOnly(<TeamManagement />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={marketerAllowed(<Integration />)} />

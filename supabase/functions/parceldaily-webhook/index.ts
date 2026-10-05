@@ -58,38 +58,75 @@ async function resolveInstance(
   return (cfg?.whacenter_instance || "").trim();
 }
 
-// Fire-and-forget customer notification via the order's marketer (or HQ) WhatsApp
-// device. Never throws — a WhatsApp failure must not break webhook processing.
-async function sendWhatsApp(
+// One notify attempt's outcome. code is the short action tag kept in webhook_logs.
+type WaResult = { code: string; success: boolean; messageId?: string; error?: string };
+
+// Record a customer notify attempt for the Notification tab. Best-effort: a log
+// failure must never break webhook processing.
+async function logNotify(
+  supabase: any, ownerUserId: string | null | undefined, orderId: string, statusKey: string, r: WaResult,
+): Promise<void> {
+  try {
+    if (!ownerUserId || !orderId || !statusKey) return;
+    await supabase.from("wa_notify_log").insert({
+      owner_user_id: ownerUserId, order_id: orderId, status_key: statusKey,
+      success: r.success, message_id: r.messageId || null, error: r.error || null, source: "auto",
+    });
+  } catch (_e) { /* ignore */ }
+}
+
+async function attemptWhatsApp(
   supabase: any,
   ownerUserId: string | null | undefined,
   customerPhone: string | null | undefined,
   message: string,
   marketerIdStaff?: string | null,
   imageUrl?: string | null,
-): Promise<string> {
+): Promise<WaResult> {
   try {
-    if (!ownerUserId || !customerPhone) return "wa_skipped_no_target";
+    if (!ownerUserId || !customerPhone) return { code: "wa_skipped_no_target", success: false, error: "Tiada nombor telefon" };
     // Send from the order's own marketer instance when set, else the HQ instance.
     // Devices are created/paired on peningbot.com; the instance is pasted into
     // Courier Settings (HQ) or the marketer's Profile.
     const instance = await resolveInstance(supabase, ownerUserId, marketerIdStaff);
-    if (!instance) return "wa_skipped_no_device";
+    if (!instance) return { code: "wa_skipped_no_device", success: false, error: "Tiada device WhatsApp (instance kosong)" };
 
     const number = waPhone(customerPhone);
-    if (!number) return "wa_skipped_bad_phone";
+    if (!number) return { code: "wa_skipped_bad_phone", success: false, error: "Nombor telefon tidak sah" };
 
     // With an imageUrl the gateway sends an image (file = public URL) and
     // `message` becomes the caption (may be empty = image-only).
     const res = await waGatewaySend({ device_id: instance, number, message: message || "", ...(imageUrl ? { file: imageUrl } : {}) });
     const txt = await res.text();
     console.log(`[whatsapp] gateway send status=${res.status} body=${txt.slice(0, 200)}`);
-    try { const j = JSON.parse(txt); return j.status ? "wa_sent" : `wa_failed_${j.message || res.status}`; }
-    catch { return res.ok ? "wa_sent" : `wa_failed_${res.status}`; }
+    try {
+      const j = JSON.parse(txt);
+      return j.status
+        ? { code: "wa_sent", success: true, messageId: j.data?.id ? String(j.data.id) : undefined }
+        : { code: `wa_failed_${j.message || res.status}`, success: false, error: String(j.message || res.status) };
+    } catch {
+      return res.ok ? { code: "wa_sent", success: true } : { code: `wa_failed_${res.status}`, success: false, error: `HTTP ${res.status}` };
+    }
   } catch (err) {
     console.error("[whatsapp] send error:", err);
-    return "wa_error";
+    return { code: "wa_error", success: false, error: "Ralat sistem" };
   }
+}
+
+// Fire-and-forget customer notification via the order's marketer (or HQ) WhatsApp
+// device, logged per order + status. Never throws.
+async function sendWhatsApp(
+  supabase: any,
+  ownerUserId: string | null | undefined,
+  customerPhone: string | null | undefined,
+  message: string,
+  marketerIdStaff: string | null | undefined,
+  imageUrl: string | null | undefined,
+  log: { orderId: string; statusKey: string },
+): Promise<string> {
+  const r = await attemptWhatsApp(supabase, ownerUserId, customerPhone, message, marketerIdStaff, imageUrl);
+  await logNotify(supabase, ownerUserId, log.orderId, log.statusKey, r);
+  return r.code;
 }
 
 // Per-status Track/Notify, configured by the client in Courier Settings →
@@ -286,7 +323,7 @@ serve(async (req) => {
             ? renderTemplate(pref.template, vars)
             : (pref.image ? "" : `Salam ${vars.name}! 📦\n\nPesanan anda telah dihantar ke ${courierName}.\n\nNo Tracking: ${trackingNumber}\n\nTerima kasih kerana membeli dengan kami! 🙏`);
           if (waMsg || pref.image) {
-            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image);
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image, { orderId: matched.id, statusKey: "Shipment Data Received" });
             action = `${action}+${waResult}`;
           }
         }
@@ -372,7 +409,7 @@ serve(async (req) => {
               : (pref.image ? "" : `Salam ${vars.name}! 📦\n\nStatus penghantaran pesanan anda (Tracking: ${vars.tracking}):\n*${vars.status}*\n\nTerima kasih!`);
           }
           if (waMsg !== null && (waMsg || pref.image)) {
-            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg || "", matched.marketer_id_staff, pref.image);
+            const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg || "", matched.marketer_id_staff, pref.image, { orderId: matched.id, statusKey: statusGroup });
             action = `${action}+${waResult}`;
           }
         }
@@ -442,7 +479,7 @@ serve(async (req) => {
               ? renderTemplate(pref.template, vars)
               : (pref.image ? "" : `Salam ${vars.name}!\n\nPesanan anda (Tracking: ${vars.tracking}) telah DIBATALKAN.\n\nHubungi kami jika ada sebarang pertanyaan.`);
             if (waMsg || pref.image) {
-              const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image);
+              const waResult = await sendWhatsApp(supabase, matched.owner_user_id, matched.phone_customer, waMsg, matched.marketer_id_staff, pref.image, { orderId: matched.id, statusKey: "Cancelled" });
               action = `${action}+${waResult}`;
             }
           }
