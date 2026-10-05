@@ -69,7 +69,6 @@ const marketerItems: NavItem[] = [
   { label: 'Leads', path: '/dashboard/prospects', icon: <Users className="w-5 h-5" /> },
   { label: 'Spend', path: '/dashboard/spend', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Reporting Spend', path: '/dashboard/reporting-spend', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Notification', path: '/dashboard/notification', icon: <Bell className="w-5 h-5" /> },
   { label: 'Team', path: '/dashboard/team', icon: <UserPlus className="w-5 h-5" /> },
   // Webhook Settings hidden — replaced by the Integration hub.
 ];
@@ -412,6 +411,24 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <Trophy className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Top Ranking</span>}
+          </Link>
+        )}
+
+        {/* Notification — standalone, for HQ and marketer staff (staff see only
+            their own orders via RLS). */}
+        {!isAdmin && !isLogistic && (
+          <Link
+            to="/dashboard/notification"
+            title={collapsed ? 'Notification' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/notification') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Bell className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Notification</span>}
           </Link>
         )}
 
