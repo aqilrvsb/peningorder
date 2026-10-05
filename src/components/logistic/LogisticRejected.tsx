@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Ban, Loader2, Search, Calendar, Receipt, ExternalLink, RotateCcw } from "lucide-react";
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, formatRM, formatDMY } from "@/lib/utils";
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, formatRM, formatDMY, fetchAllRows } from "@/lib/utils";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
 import { TablePagination } from "@/components/TablePagination";
@@ -31,16 +31,19 @@ const LogisticRejected = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-rejected", startDate, endDate],
     queryFn: async () => {
-      let q = supabase
-        .from("customer_purchases")
-        .select("*, bundle:logistic_bundles(name)")
-        .eq("delivery_status", "Rejected")
-        .order("date_processed", { ascending: false });
-      if (startDate) q = q.gte("date_order", startDate);
-      if (endDate) q = q.lte("date_order", endDate);
-      const { data, error } = await q.range(0, 49999);
-      if (error) throw error;
-      return data || [];
+      // Paginated: PostgREST caps a single response at max_rows (1000) no matter
+      // the requested range, so page through every row.
+      const build = () => {
+        let q = supabase
+          .from("customer_purchases")
+          .select("*, bundle:logistic_bundles(name)")
+          .eq("delivery_status", "Rejected")
+          .order("date_processed", { ascending: false });
+        if (startDate) q = q.gte("date_order", startDate);
+        if (endDate) q = q.lte("date_order", endDate);
+        return q;
+      };
+      return await fetchAllRows(build);
     },
   });
 

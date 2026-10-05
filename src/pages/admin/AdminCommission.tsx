@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatRM, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { formatRM, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { Coins, Package, Users, Loader2, Download, Calendar } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 // RM earned by the platform per ParcelDaily tracking the courier collected.
 const RATE = 0.40;
 
@@ -30,8 +31,10 @@ const AdminCommission: React.FC = () => {
     setLoading(true);
     try {
       const [sum, det] = await Promise.all([
-        (supabase as any).rpc('admin_pd_commission', { p_start: startDate, p_end: endDate }),
-        (supabase as any).rpc('admin_pd_commission_detail', { p_start: startDate, p_end: endDate }),
+        // Paged: an RPC is capped at 1000 rows like any PostgREST read; the detail
+        // list is one row per tracking across every client, so it outgrows that.
+        fetchAllRows(() => (supabase as any).rpc('admin_pd_commission', { p_start: startDate, p_end: endDate }).order('owner_user_id'), false).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows(() => (supabase as any).rpc('admin_pd_commission_detail', { p_start: startDate, p_end: endDate }).order('owner_user_id').order('tracking_number').order('id_sale'), false).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
       if (sum.error) throw sum.error;
       if (det.error) throw det.error;
@@ -121,6 +124,7 @@ const AdminCommission: React.FC = () => {
             <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
           </div>
           <Button onClick={apply}>Apply</Button>
+          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={exportCSV} disabled={shownDetails.length === 0}>
               <Download className="w-4 h-4 mr-2" /> Export CSV

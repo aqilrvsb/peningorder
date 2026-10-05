@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -40,7 +41,7 @@ const IntegrationUnmatched: React.FC = () => {
     setLoading(true);
     try {
       const [u, b] = await Promise.all([
-        supabase.from('integration_unmatched').select('*').order('created_at', { ascending: false }),
+        fetchAllRows(() => supabase.from('integration_unmatched').select('*').order('created_at', { ascending: false }), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
         supabase.from('logistic_bundles').select('id, name, sku').eq('is_active', true).order('name'),
       ]);
       setRows((u.data as any) || []);

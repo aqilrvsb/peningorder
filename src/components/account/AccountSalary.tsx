@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { FileText } from 'lucide-react';
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 interface InvoiceSettings {
   company_name?: string | null;
   registration_no?: string | null;
@@ -693,6 +694,7 @@ const AccountSalary: React.FC = () => {
             <Button onClick={applyFilter} size="sm" className="h-9">
               <Filter className="w-4 h-4 mr-1" />Filter
             </Button>
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
             <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
           </div>
         </div>

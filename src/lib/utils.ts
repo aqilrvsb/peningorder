@@ -49,8 +49,14 @@ export function formatDMY(value: string | number | Date | null | undefined): str
  * @returns All rows concatenated
  */
 export async function fetchAllRows<T = any>(
-  buildQuery: () => any
+  buildQuery: () => any,
+  // Final sort key so OFFSET paging is deterministic. Without it, rows that tie
+  // on the query's own order (a date column, or created_at from a bulk import)
+  // can land on two pages or on none. Pass false for a table without `id`.
+  tiebreak: string | false = 'id',
 ): Promise<T[]> {
+  // PostgREST caps every response at max_rows (1000) whatever range is asked,
+  // so always page until a short page comes back.
   const PAGE_SIZE = 1000;
   let allData: T[] = [];
   let page = 0;
@@ -58,7 +64,9 @@ export async function fetchAllRows<T = any>(
   while (true) {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    const { data, error } = await buildQuery().range(from, to);
+    let q = buildQuery();
+    if (tiebreak) q = q.order(tiebreak, { ascending: true });
+    const { data, error } = await q.range(from, to);
     if (error) throw error;
     const rows = (data || []) as T[];
     allData = allData.concat(rows);

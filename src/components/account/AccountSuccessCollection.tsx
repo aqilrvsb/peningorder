@@ -15,6 +15,7 @@ import { Wallet, Loader2, Search, Filter, RefreshCw, Download } from "lucide-rea
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Normalise a stored kurier to its base courier for grouping + filtering.
@@ -211,6 +212,7 @@ const AccountSuccessCollection = () => {
               <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
               <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
               <Button size="sm" onClick={applyDateFilter}><Filter className="w-4 h-4 mr-1" /> Apply</Button>
+              <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
             </div>
             <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
               <SelectTrigger className="w-36"><SelectValue placeholder="Platform" /></SelectTrigger>

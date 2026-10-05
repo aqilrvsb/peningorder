@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,10 +31,10 @@ const AdminClients: React.FC = () => {
     enabled: isSuperadmin,
     queryFn: async () => {
       const [profilesRes, statsRes, paymentsRes, ticketsRes, pdRes] = await Promise.all([
-        supabase.from('profiles').select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp, created_at').order('created_at', { ascending: false }),
-        supabase.rpc('admin_client_stats'),
-        supabase.from('payments').select('amount, status, paid_at').eq('status', 'paid'),
-        supabase.from('tickets').select('id, status'),
+        fetchAllRows(() => supabase.from('profiles').select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp, created_at').order('created_at', { ascending: false }), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows(() => (supabase as any).rpc('admin_client_stats').order('user_id'), false).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows(() => supabase.from('payments').select('amount, status, paid_at').eq('status', 'paid'), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows(() => supabase.from('tickets').select('id, status'), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
         supabase.rpc('admin_pd_configured_count'),
       ]);
       if (profilesRes.error) throw profilesRes.error;

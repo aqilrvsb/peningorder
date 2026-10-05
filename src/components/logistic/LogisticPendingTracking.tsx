@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Problematic = Shipped order whose live parcel status hints a delivery problem.
@@ -470,6 +471,7 @@ const LogisticPendingTracking = () => {
                   <Filter className="w-4 h-4 mr-2" />
                   Apply
                 </Button>
+                <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">

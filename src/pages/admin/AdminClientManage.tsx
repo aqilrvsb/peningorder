@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,10 +79,10 @@ const AdminClientManage: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllRows(() => supabase
       .from('profiles')
       .select('id, email, full_name, business_name, idstaff, plan, plan_expires_at, is_active, whatsapp, parent_user_id')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error }));
     if (error) toast({ title: 'Load failed', description: error.message, variant: 'destructive' });
     setClients(((data || []) as ClientRow[]).filter((c) => c.plan !== 'superadmin'));
     setLoading(false);

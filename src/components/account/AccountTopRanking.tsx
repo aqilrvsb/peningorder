@@ -7,6 +7,7 @@ import { Calendar, Loader2, Filter, Trophy, Medal, Award, Search } from 'lucide-
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 interface RankRow {
   idstaff: string;
   name: string;
@@ -103,6 +104,7 @@ const AccountTopRanking: React.FC = () => {
               <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
             </div>
             <Button onClick={applyFilter} size="sm" className="h-9"><Filter className="w-4 h-4 mr-1" />Filter</Button>
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           </div>
         </div>
       </div>

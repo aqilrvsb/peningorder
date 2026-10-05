@@ -9,6 +9,7 @@ import {
   Banknote, CreditCard, AlertTriangle, PackageCheck, Ban,
 } from "lucide-react";
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 // Logistic Summary — top-of-page overview of all orders in a date range.
 const LogisticSummary = () => {
   const [pendingStart, setPendingStart] = useState(getMalaysiaStartOfMonth());
@@ -140,6 +141,7 @@ const LogisticSummary = () => {
             <input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-sm" />
           </div>
           <button onClick={() => { setStartDate(pendingStart); setEndDate(pendingEnd); }} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Apply</button>
+          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           <div className="ml-auto"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
         </div>
       </div>

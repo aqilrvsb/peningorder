@@ -25,7 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { getMalaysiaDate, formatDMY } from "@/lib/utils";
+import { getMalaysiaDate, formatDMY, fetchAllRows } from "@/lib/utils";
 import {
   Clock,
   Loader2,
@@ -156,26 +156,27 @@ const LogisticProcessed = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-processed", startDate, endDate],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select(`
-          *,
-          bundle:logistic_bundles(name, sku)
-        `)
-        .neq("delivery_status", "Pending")
-        .order("date_processed", { ascending: false });
+      // Paginated: PostgREST caps a single response at max_rows (1000) no matter
+      // the requested range, so page through every row.
+      const build = () => {
+        let query = supabase
+          .from("customer_purchases")
+          .select(`
+            *,
+            bundle:logistic_bundles(name, sku)
+          `)
+          .neq("delivery_status", "Pending")
+          .order("date_processed", { ascending: false });
 
-      if (startDate) {
-        query = query.gte("date_processed", startDate);
-      }
-      if (endDate) {
-        query = query.lte("date_processed", endDate);
-      }
-
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
-
-      return data || [];
+        if (startDate) {
+          query = query.gte("date_processed", startDate);
+        }
+        if (endDate) {
+          query = query.lte("date_processed", endDate);
+        }
+        return query;
+      };
+      return await fetchAllRows(build);
     },
   });
 

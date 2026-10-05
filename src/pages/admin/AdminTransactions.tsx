@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,8 +32,8 @@ const AdminTransactions: React.FC = () => {
     enabled: isSuperadmin,
     queryFn: async () => {
       const [paymentsRes, profilesRes] = await Promise.all([
-        supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.from('profiles').select('id, email, idstaff'),
+        fetchAllRows(() => supabase.from('payments').select('*').order('created_at', { ascending: false }), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows(() => supabase.from('profiles').select('id, email, idstaff'), 'id').then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
       if (paymentsRes.error) throw paymentsRes.error;
       const emailMap: Record<string, any> = {};

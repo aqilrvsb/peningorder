@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getMalaysiaDate, getMalaysiaStartOfMonth, formatDMY } from "@/lib/utils";
+import { getMalaysiaDate, getMalaysiaStartOfMonth, formatDMY, fetchAllRows } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
 import {
   Clock,
@@ -119,26 +119,27 @@ const LogisticReturn = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["logistic-return", startDate, endDate],
     queryFn: async () => {
-      let query = supabase
-        .from("customer_purchases")
-        .select(`
-          *,
-          bundle:logistic_bundles(name, sku)
-        `)
-        .eq("delivery_status", "Return")
-        .order("date_return", { ascending: false });
+      // Paginated: PostgREST caps a single response at max_rows (1000) no matter
+      // the requested range, so page through every row.
+      const build = () => {
+        let query = supabase
+          .from("customer_purchases")
+          .select(`
+            *,
+            bundle:logistic_bundles(name, sku)
+          `)
+          .eq("delivery_status", "Return")
+          .order("date_return", { ascending: false });
 
-      if (startDate) {
-        query = query.gte("date_return", startDate);
-      }
-      if (endDate) {
-        query = query.lte("date_return", endDate);
-      }
-
-      const { data, error } = await query.range(0, 49999);
-      if (error) throw error;
-
-      return data || [];
+        if (startDate) {
+          query = query.gte("date_return", startDate);
+        }
+        if (endDate) {
+          query = query.lte("date_return", endDate);
+        }
+        return query;
+      };
+      return await fetchAllRows(build);
     },
   });
 

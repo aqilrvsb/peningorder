@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatRM, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
+import { formatRM, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import {
   LayoutDashboard, Users, ShoppingBag, DollarSign, PackageCheck, RotateCcw,
   Wallet, Clock, Loader2, Download, Calendar,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 interface Row {
   owner_user_id: string; client: string;
   orders: number; sales: number;
@@ -33,7 +34,7 @@ const AdminDashboard: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any).rpc('admin_dashboard_summary', { p_start: startDate, p_end: endDate });
+      const { data, error } = await fetchAllRows(() => (supabase as any).rpc('admin_dashboard_summary', { p_start: startDate, p_end: endDate }).order('owner_user_id'), false).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error }));
       if (error) throw error;
       setRows(((data || []) as any[]).map((r) => ({
         ...r,
@@ -117,6 +118,7 @@ const AdminDashboard: React.FC = () => {
           <div><label className="block text-xs text-muted-foreground mb-1">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" /></div>
           <div><label className="block text-xs text-muted-foreground mb-1">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" /></div>
           <Button onClick={apply}>Apply</Button>
+          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={exportCSV} disabled={rows.length === 0}><Download className="w-4 h-4 mr-2" /> CSV</Button>
             <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0}><Download className="w-4 h-4 mr-2" /> Excel</Button>

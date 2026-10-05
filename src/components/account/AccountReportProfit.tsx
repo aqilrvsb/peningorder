@@ -13,6 +13,7 @@ import { useProductFilter } from '@/hooks/useProductFilter';
 import ProductFilter from '@/components/ProductFilter';
 import { useAuth } from '@/context/AuthContext';
 
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 interface Order {
   id: string;
   marketer_id_staff: string;
@@ -507,6 +508,7 @@ const AccountReportProfit: React.FC = () => {
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
               Filter
             </Button>
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
             {!isMarketer && <TeamFilter value={teamFilter} onChange={setTeamFilter} />}
             <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
 
