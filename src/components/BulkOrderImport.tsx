@@ -130,6 +130,8 @@ const BulkOrderImport: React.FC<{ onImported?: () => void }> = ({ onImported }) 
           type_payment: isCOD ? 'COD' : 'CASH',
           bundle_id: bundle?.id || null,
           seos: 'Pending',
+          // No "Order Keyed In" WhatsApp for a pasted batch (avoids a mass blast).
+          skip_keyin_notify: true,
           // owner_user_id defaults to auth.uid() (tenant isolation)
         };
       });

@@ -1272,30 +1272,8 @@ const OrderForm: React.FC = () => {
           });
         }
 
-        // "Notify after Key-in" — only sends if the client enabled it in
-        // Courier Settings → Tracking Webhook (server-side check). Skip Pospada
-        // bookings — there is no tracking yet, so a shipping notice is premature.
-        if (!isMarketplaceCourier && !isPospada) try {
-          const fullAddress = [
-            formData.alamat, formData.daerah, formData.poskod, formData.negeri,
-          ].filter(Boolean).join(', ');
-          await supabase.functions.invoke('order-notify', {
-            body: {
-              order: {
-                order_id: idSale,
-                name: formData.namaPelanggan,
-                phone: formData.noPhone,
-                address: fullAddress,
-                product: selectedBundle?.name || formData.produk,
-                price: Number(formData.hargaJualan || 0).toFixed(2),
-                courier: kurier,
-                tracking: trackingNumber,
-              },
-            },
-          });
-        } catch (notifyErr) {
-          console.error('Failed to send key-in notification:', notifyErr);
-        }
+        // "Order Keyed In" WhatsApp is sent by the database trigger on insert
+        // (queue_keyin_notify → order-notify) for every order source.
 
         // Handle lead update/creation and count_order increment - skip if no phone (Tiktok/Shopee)
         if (formData.noPhone) try {
