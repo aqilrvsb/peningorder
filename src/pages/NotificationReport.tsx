@@ -19,7 +19,7 @@ import { fetchAllRows, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth
 import { TRACKING_STATUSES, KEYIN_STATUS } from '@/lib/trackingStatuses';
 
 type Order = {
-  id: string; date_order: string; created_at: string; marketer_id_staff: string | null; name_customer: string | null;
+  id: string; date_order: string; marketer_id_staff: string | null; name_customer: string | null;
   phone_customer: string | null; tracking_number: string | null; delivery_status: string | null; seos: string | null;
 };
 type Log = { order_id: string; status_key: string; success: boolean; error: string | null; source: string; created_at: string };
@@ -27,9 +27,6 @@ type Cell = { last: Log; attempts: number };
 type StatusFilter = { key: string; mode: 'any' | 'success' | 'failed' } | null;
 
 const PAGE_SIZE = 50;
-// "Order Keyed In" sends were not recorded before order-notify started logging
-// (2026-10-05 20:39 MYT); courier-status history was backfilled, key-in can't be.
-const KEYIN_LOG_START = new Date('2026-10-05T12:39:48Z').getTime();
 const ALL_STATUSES = [KEYIN_STATUS, ...TRACKING_STATUSES];
 
 // Courier-status badge colour from our own delivery_status.
@@ -80,7 +77,7 @@ const NotificationReport: React.FC = () => {
     queryFn: () => fetchAllRows<Order>(() =>
       (supabase as any)
         .from('customer_purchases')
-        .select('id, date_order, created_at, marketer_id_staff, name_customer, phone_customer, tracking_number, delivery_status, seos')
+        .select('id, date_order, marketer_id_staff, name_customer, phone_customer, tracking_number, delivery_status, seos')
         // Only orders with a tracking number — notifications follow the shipment.
         .not('tracking_number', 'is', null)
         .neq('tracking_number', '')
@@ -323,20 +320,6 @@ const NotificationReport: React.FC = () => {
                               <Button size="sm" variant="ghost" className="h-7 px-1.5" title="Hantar semula"
                                 onClick={() => setConfirm({ order: o, statusKey: s.key, resend: true })}>
                                 <RotateCw className="w-3.5 h-3.5" />
-                              </Button>
-                            </span>
-                          </td>
-                        );
-                      }
-                      if (s.key === KEYIN_STATUS.key && new Date(o.created_at).getTime() < KEYIN_LOG_START) {
-                        return (
-                          <td key={s.key} className="p-3 text-center whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1">
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground"
-                                title="Tiada rekod — notifikasi key-in sebelum 5 Okt 2026 (8:39 malam) tidak direkod. Mungkin sudah dihantar jika device connected ketika itu.">?</span>
-                              <Button size="sm" variant="ghost" className="h-7 px-1.5" title="Hantar"
-                                onClick={() => setConfirm({ order: o, statusKey: s.key, resend: false })}>
-                                <Send className="w-3.5 h-3.5" />
                               </Button>
                             </span>
                           </td>
