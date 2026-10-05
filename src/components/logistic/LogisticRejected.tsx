@@ -14,6 +14,8 @@ import { TablePagination } from "@/components/TablePagination";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 const LogisticRejected = () => {
   const queryClient = useQueryClient();
@@ -22,6 +24,10 @@ const LogisticRejected = () => {
   const [teamFilter, setTeamFilter] = useState("");
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [viewingPayment, setViewingPayment] = useState<any>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isReverting, setIsReverting] = useState(false);
@@ -116,8 +122,9 @@ const LogisticRejected = () => {
       <Card><CardContent className="p-4">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><span className="text-sm font-medium text-foreground">Tarikh Order:</span></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Dari</label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" /></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Hingga</label><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" /></div>
+          <div><label className="block text-xs text-muted-foreground mb-1">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" /></div>
+        <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama / phone / id sale" className="pl-9 w-56" /></div>
           <div className="flex items-end pb-0.5"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
           <div className="flex-1" />

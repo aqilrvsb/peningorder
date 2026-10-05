@@ -32,6 +32,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBundles } from '@/context/BundleContext';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 interface StockMovement {
   id: string;
@@ -52,6 +54,10 @@ const StockOutTab: React.FC = () => {
   const [editingMovement, setEditingMovement] = useState<StockMovement | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
 
   const [formData, setFormData] = useState({
     productId: '',
@@ -365,19 +371,20 @@ const StockOutTab: React.FC = () => {
               <Label>Start Date</Label>
               <Input
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={pendingStart}
+                onChange={(e) => setPendingStart(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label>End Date</Label>
               <Input
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={pendingEnd}
+                onChange={(e) => setPendingEnd(e.target.value)}
               />
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2 -mt-3 mb-6"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
 
           <div className="overflow-x-auto">
             <Table>

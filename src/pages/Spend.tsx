@@ -48,6 +48,8 @@ import {
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday, fetchAllRows, formatDMY } from '@/lib/utils';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 
@@ -73,6 +75,10 @@ const Spend: React.FC = () => {
   const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(getMalaysiaYesterday());
   const [endDate, setEndDate] = useState(getMalaysiaYesterday());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingSpend, setEditingSpend] = useState<Spend | null>(null);
@@ -193,8 +199,8 @@ const Spend: React.FC = () => {
   const roas = stats.totalSpend > 0 ? totalSales / stats.totalSpend : 0;
 
   const resetFilters = () => {
-    setStartDate('');
-    setEndDate('');
+    setStartDate(''); setPendingStart('');
+    setEndDate(''); setPendingEnd('');
   };
 
   const handleChange = (field: string, value: string) => {
@@ -485,8 +491,8 @@ const Spend: React.FC = () => {
             <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
             <Input
               type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={pendingStart}
+              onChange={(e) => setPendingStart(e.target.value)}
               className="bg-background"
             />
           </div>
@@ -494,11 +500,12 @@ const Spend: React.FC = () => {
             <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
             <Input
               type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={pendingEnd}
+              onChange={(e) => setPendingEnd(e.target.value)}
               className="bg-background"
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
           <div className="flex items-end"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
           <Button variant="outline" onClick={resetFilters}>
             <RotateCcw className="w-4 h-4 mr-2" />

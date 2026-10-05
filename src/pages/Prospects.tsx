@@ -46,6 +46,8 @@ import { getMalaysiaDate, formatDMY } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { parse, format } from 'date-fns';
 import Swal from 'sweetalert2';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -58,6 +60,10 @@ const Prospects: React.FC = () => {
   const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(getMalaysiaDate());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProspect, setEditingProspect] = useState<any>(null);
@@ -140,8 +146,8 @@ const Prospects: React.FC = () => {
 
   const resetFilters = () => {
     setSearch('');
-    setStartDate('');
-    setEndDate('');
+    setStartDate(''); setPendingStart('');
+    setEndDate(''); setPendingEnd('');
   };
 
   const handleViewOrders = async (prospect: any) => {
@@ -723,8 +729,8 @@ const Prospects: React.FC = () => {
           <span className="text-sm text-muted-foreground">Start Date</span>
           <Input
             type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            value={pendingStart}
+            onChange={(e) => setPendingStart(e.target.value)}
             className="w-40"
           />
         </div>
@@ -734,11 +740,12 @@ const Prospects: React.FC = () => {
           <span className="text-sm text-muted-foreground">End Date</span>
           <Input
             type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
+            value={pendingEnd}
+            onChange={(e) => setPendingEnd(e.target.value)}
             className="w-40"
           />
         </div>
+        <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
 
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

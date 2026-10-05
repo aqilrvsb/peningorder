@@ -45,6 +45,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 interface OrderForTracking {
   id: string;
@@ -125,6 +127,10 @@ const Orders: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); setCurrentPage(1); };
   const [pageSize, setPageSize] = useState<number | "All">(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState("All");
@@ -325,8 +331,8 @@ const Orders: React.FC = () => {
 
   const resetFilters = () => {
     setSearch('');
-    setStartDate('');
-    setEndDate('');
+    setStartDate(''); setPendingStart('');
+    setEndDate(''); setPendingEnd('');
     setDeliveryStatusFilter("All");
     setCollectionFilter("All");
     setCurrentPage(1);
@@ -1065,7 +1071,7 @@ ${trackingUrl}`;
                 />
               </div>
               <Button
-                onClick={() => { setStartDate(""); setEndDate(""); }}
+                onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
                 className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 <Search className="w-4 h-4 mr-2" />
@@ -1075,22 +1081,17 @@ ${trackingUrl}`;
             <div className="flex gap-2">
               <Input
                 type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setCurrentPage(1);
-                }}
+                value={pendingStart}
+                onChange={(e) => setPendingStart(e.target.value)}
                 className="w-40"
               />
               <Input
                 type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setCurrentPage(1);
-                }}
+                value={pendingEnd}
+                onChange={(e) => setPendingEnd(e.target.value)}
                 className="w-40"
               />
+              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             </div>
           </div>
 

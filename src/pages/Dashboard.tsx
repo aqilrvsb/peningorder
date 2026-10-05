@@ -53,6 +53,8 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 // Register Chart.js components
 ChartJS.register(
@@ -86,6 +88,10 @@ const Dashboard: React.FC = () => {
   // Date filter state - default to start of month to current day (Malaysia timezone)
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaDate());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [teamFilter, setTeamFilter] = useState(''); // '' = all team (client with staff)
 
   // Check user role — individual mode: every tenant ('client') gets the marketer dashboard
@@ -885,8 +891,8 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="startDate"
                   type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="w-40"
                 />
               </div>
@@ -895,11 +901,12 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="endDate"
                   type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="w-40"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
               <div className="flex items-end pb-0.5">
                 <TeamFilter value={teamFilter} onChange={setTeamFilter} />
               </div>
@@ -1293,8 +1300,8 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="startDate"
                   type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="w-40"
                 />
               </div>
@@ -1303,11 +1310,12 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="endDate"
                   type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="w-40"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             </div>
           </div>
         </div>
@@ -1479,8 +1487,8 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="startDate"
                   type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="w-40"
                 />
               </div>
@@ -1489,11 +1497,12 @@ const Dashboard: React.FC = () => {
                 <Input
                   id="endDate"
                   type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="w-40"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             </div>
           </div>
         </div>

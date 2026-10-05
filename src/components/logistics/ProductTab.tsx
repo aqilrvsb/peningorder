@@ -22,6 +22,8 @@ import {
 import { Plus, Package, TrendingUp, CheckCircle, XCircle, Edit, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 interface FilteredStock {
   productId: string;
@@ -42,6 +44,10 @@ const ProductTab: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<typeof products[0] | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [filteredStocks, setFilteredStocks] = useState<FilteredStock[]>([]);
   const [orderStocks, setOrderStocks] = useState<OrderStock[]>([]);
   const [allTimeOrderStocks, setAllTimeOrderStocks] = useState<OrderStock[]>([]); // For Quantity calculation (no date filter)
@@ -468,8 +474,8 @@ const ProductTab: React.FC = () => {
               <div className="relative">
                 <Input
                   type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="pr-10"
                 />
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -480,20 +486,21 @@ const ProductTab: React.FC = () => {
               <div className="relative">
                 <Input
                   type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="pr-10"
                 />
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2 mt-3"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
           {hasDateFilter && (
             <Button 
               variant="outline" 
               size="sm" 
               className="mt-3"
-              onClick={() => { setStartDate(''); setEndDate(''); }}
+              onClick={() => { setStartDate(''); setPendingStart(''); setEndDate(''); setPendingEnd(''); }}
             >
               Clear Filter
             </Button>

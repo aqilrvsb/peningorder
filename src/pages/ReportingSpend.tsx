@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday, fetchAllRows } from '@/lib/utils';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 interface Spend {
   id: string;
@@ -72,6 +74,10 @@ const ReportingSpend: React.FC = () => {
   // Widen the server-side orders window when filtering earlier than loaded
   React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
   const [endDate, setEndDate] = useState(getMalaysiaYesterday());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
 
   // Check if current user is marketer (should only see their own data)
   const isMarketer = profile?.role === 'marketer';
@@ -292,8 +298,8 @@ const ReportingSpend: React.FC = () => {
   }, [filteredSpends, filteredProspects]);
 
   const resetFilters = () => {
-    setStartDate('');
-    setEndDate('');
+    setStartDate(''); setPendingStart('');
+    setEndDate(''); setPendingEnd('');
     setTeamFilter('');
   };
 
@@ -385,8 +391,8 @@ const ReportingSpend: React.FC = () => {
             <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
             <Input
               type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={pendingStart}
+              onChange={(e) => setPendingStart(e.target.value)}
               className="bg-background"
             />
           </div>
@@ -394,11 +400,12 @@ const ReportingSpend: React.FC = () => {
             <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
             <Input
               type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={pendingEnd}
+              onChange={(e) => setPendingEnd(e.target.value)}
               className="bg-background"
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
           <div className="flex items-end pb-0.5">
             <TeamFilter value={teamFilter} onChange={setTeamFilter} />
           </div>

@@ -11,6 +11,8 @@ import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
 import { TablePagination } from '@/components/TablePagination';
 import { ReceiptViewer } from '@/components/ReceiptViewer';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 type CashOrder = {
   id: string;
@@ -54,6 +56,10 @@ const AccountOrderCash: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(getMalaysiaEndOfMonth());
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
   const [teamFilter, setTeamFilter] = useState('');
   // Independent filters so a courier box and a proof sub-line can compose.
   const [payFilter, setPayFilter] = useState<'All' | 'CASH' | 'Pickup'>('All');
@@ -167,12 +173,13 @@ const AccountOrderCash: React.FC = () => {
           </div>
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Dari</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
+            <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
           </div>
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Hingga</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
+            <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
           </div>
+          <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
           <div className="flex items-end pb-0.5">
             <TeamFilter value={teamFilter} onChange={setTeamFilter} />
           </div>

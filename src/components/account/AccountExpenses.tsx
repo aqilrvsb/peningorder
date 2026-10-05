@@ -29,6 +29,8 @@ import { put } from '@vercel/blob';
 import { toast } from '@/hooks/use-toast';
 import { AUDIT_MODE } from '@/lib/audit';
 import { getMalaysiaDate, getMalaysiaStartOfMonth, fetchAllRows, formatDMY } from '@/lib/utils';
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, 'All'] as const;
 // Summary-card categories. "Cost Product" is auto-derived from orders, so the
@@ -65,6 +67,10 @@ const AccountExpenses: React.FC = () => {
   // Filters
   const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
   const [endDate, setEndDate] = useState(today);
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); setCurrentPage(1); };
   const [filterCategory, setFilterCategory] = useState<'all' | CategoryType>('all');
   const [filterPlatform, setFilterPlatform] = useState<'all' | string>('all');
   const [pageSize, setPageSize] = useState<number | 'All'>(10);
@@ -589,12 +595,13 @@ const AccountExpenses: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex gap-2 items-center">
               <span className="text-sm text-muted-foreground whitespace-nowrap">Start:</span>
-              <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }} className="w-40" />
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
             </div>
             <div className="flex gap-2 items-center">
               <span className="text-sm text-muted-foreground whitespace-nowrap">End:</span>
-              <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }} className="w-40" />
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
             </div>
+            <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             <div className="flex gap-2 items-center">
               <span className="text-sm text-muted-foreground whitespace-nowrap">Category:</span>
               <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v as any); setCurrentPage(1); }}>

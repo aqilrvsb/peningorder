@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
+import DateApplyButton from '@/components/DateApplyButton';
+import UnappliedDateNote from '@/components/UnappliedDateNote';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -82,6 +84,10 @@ const LogisticReturn = () => {
   const { nameByIdstaff } = useTeam();
   const [startDate, setStartDate] = useState(firstDayOfMonth);
   const [endDate, setEndDate] = useState(today);
+  // Picked dates; the data follows startDate/endDate, which only change on Filter.
+  const [pendingStart, setPendingStart] = useState(startDate);
+  const [pendingEnd, setPendingEnd] = useState(endDate);
+  const applyDates = () => { setStartDate(pendingStart); setEndDate(pendingEnd); handleFilterChange(); };
   const [paymentFilter, setPaymentFilter] = useState("All");
   const [platformFilter, setPlatformFilter] = useState("All");
   const [courierFilter, setCourierFilter] = useState("All");
@@ -459,7 +465,7 @@ const LogisticReturn = () => {
                 </div>
                 <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
                 <Button
-                  onClick={() => { setStartDate(""); setEndDate(""); }}
+                  onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
                   className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
                 >
                   <Search className="w-4 h-4 mr-2" />
@@ -469,16 +475,17 @@ const LogisticReturn = () => {
               <div className="flex gap-2">
                 <Input
                   type="date"
-                  value={startDate}
-                  onChange={(e) => { setStartDate(e.target.value); handleFilterChange(); }}
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
                   className="w-40"
                 />
                 <Input
                   type="date"
-                  value={endDate}
-                  onChange={(e) => { setEndDate(e.target.value); handleFilterChange(); }}
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
                   className="w-40"
                 />
+                <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
               </div>
             </div>
 
