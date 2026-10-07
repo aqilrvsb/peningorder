@@ -54,3 +54,6 @@ select cron.schedule(
   );
   $cmd$
 );
+
+-- Paused-ad rows belong to one autopilot profile (one ad account / token).
+alter table public.ads_autopilot_paused add column if not exists profile text not null default 'meta_ads_autopilot';

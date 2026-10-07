@@ -7,9 +7,10 @@
 //   • WhatsApp report (table + totals) to notify_phone, except quiet hours (12am–4am)
 // At 00:00 MYT: every campaign back to base_budget, ads it paused turned back on.
 //
-// Config + token: platform_secrets.meta_ads_autopilot (see migration 20261008_ads_autopilot).
-// Auth: header x-cron-secret = platform_secrets.cron_secret.
-// Body (optional): { "mode": "auto" | "scale" | "reset" | "dry" | "report" }
+// Config + token: one platform_secrets row per product/ad account, key
+// "meta_ads_autopilot" or "meta_ads_autopilot_<name>" (see migration 20261008_ads_autopilot);
+// every enabled profile runs each hour. Auth: header x-cron-secret = platform_secrets.cron_secret.
+// Body (optional): { "mode": "auto" | "scale" | "reset" | "dry" | "report", "profile": "<key>" }
 //   dry    = compute everything, change nothing, return the report (no WhatsApp)
 //   report = change nothing, send the report now
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -24,7 +25,7 @@ const json = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 type Cfg = {
-  enabled: boolean; access_token: string | null; ad_account_id: string; campaign_ids: string[];
+  label?: string; enabled: boolean; access_token: string | null; ad_account_id: string; campaign_ids: string[];
   base_budget: number; step: number; max_budget: number; pause_spend: number;
   notify_phone: string; quiet_start: number; quiet_end: number;
 };
@@ -52,19 +53,29 @@ serve(async (req) => {
   const expected = (sec?.value as Any)?.secret || "";
   if (!expected || req.headers.get("x-cron-secret") !== expected) return json(401, { error: "unauthorized" });
 
-  const { data: cfgRow } = await admin.from("platform_secrets").select("value").eq("key", "meta_ads_autopilot").maybeSingle();
-  const cfg = (cfgRow?.value || {}) as Cfg;
-  if (!cfg.enabled || !cfg.access_token) return json(200, { skipped: "not_enabled" });
-
   const body = await req.json().catch(() => ({}));
+  let q = admin.from("platform_secrets").select("key, value").like("key", "meta_ads_autopilot%");
+  if (body?.profile) q = q.eq("key", String(body.profile));
+  const { data: profiles } = await q;
+  const results: Record<string, unknown> = {};
+  for (const p of profiles || []) {
+    const cfg = (p.value || {}) as Cfg;
+    if (!cfg.enabled || !cfg.access_token) { results[p.key] = { skipped: "not_enabled" }; continue; }
+    results[p.key] = await runProfile(admin, p.key, cfg, String(body?.mode || "auto"));
+  }
+  return json(200, { results });
+});
+
+async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Promise<Record<string, unknown>> {
   const myt = new Date(Date.now() + 8 * 3600_000);
   const hour = myt.getUTCHours();
   const hhmm = myt.toISOString().slice(11, 16);
-  let mode = String(body?.mode || "auto");
+  let mode = modeIn;
   if (mode === "auto") mode = hour === 0 ? "reset" : "scale";
   const apply = mode === "scale" || mode === "reset";
+  const label = cfg.label || "Ads";
 
-  const token = cfg.access_token;
+  const token = cfg.access_token as string;
   const g = async (path: string, params: Record<string, string> = {}) => {
     const u = new URL(GRAPH + path);
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
@@ -101,7 +112,7 @@ serve(async (req) => {
           actions.push(`↩️ ${c.name}: budget ${rm(Number(c.daily_budget))} → ${rm(cfg.base_budget)}`);
         }
       }
-      const { data: paused } = await admin.from("ads_autopilot_paused").select("ad_id, ad_name");
+      const { data: paused } = await admin.from("ads_autopilot_paused").select("ad_id, ad_name").eq("profile", key);
       for (const p of paused || []) {
         try {
           await post(p.ad_id, { status: "ACTIVE" });
@@ -109,11 +120,11 @@ serve(async (req) => {
         } catch (e) { actions.push(`⚠️ ${p.ad_name}: ${(e as Error).message}`); }
         await admin.from("ads_autopilot_paused").delete().eq("ad_id", p.ad_id);
       }
-      const msg = `🌙 *Ads Autopilot — reset 12am*\n` +
+      const msg = `🌙 *${label} — reset 12am*\n` +
         (actions.length ? actions.join("\n") : "Tiada perubahan (semua dah RM" + cfg.base_budget / 100 + ").");
-      await admin.from("ads_autopilot_log").insert({ mode, summary: { actions } });
+      await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, actions } });
       const sent = await sendWa(admin, cfg.notify_phone, msg);
-      return json(200, { mode, actions, sent });
+      return { mode, actions, sent };
     }
 
     // ── Hourly scale + auto-off + report ─────────────────────────────────────
@@ -153,7 +164,7 @@ serve(async (req) => {
         if (st[r.ad_id]?.effective_status !== "ACTIVE") continue;
         if (apply) {
           await post(r.ad_id, { status: "PAUSED" });
-          await admin.from("ads_autopilot_paused").upsert({ ad_id: r.ad_id, campaign_id: r.campaign_id, ad_name: r.ad_name, spend: Number(r.spend) });
+          await admin.from("ads_autopilot_paused").upsert({ ad_id: r.ad_id, profile: key, campaign_id: r.campaign_id, ad_name: r.ad_name, spend: Number(r.spend) });
         }
         actions.push(`⛔ Auto-off: ${r.ad_name} (spend ${money(Number(r.spend))}, 0 purchase)${apply ? "" : " [dry]"}`);
       }
@@ -169,7 +180,7 @@ serve(async (req) => {
       `• *${short(r.name)}*${r.status === "ACTIVE" ? "" : " (paused)"}\n  Budget ${rm(r.budget)} | Spend ${money(r.spend)} | Purchase ${r.purchases} | ROAS ${roas(r.value, r.spend)}`,
     ).join("\n");
     const msg =
-      `📊 *PeningOrder Ads — ${hhmm}*\n\n` +
+      `📊 *${label} — ${hhmm}*\n\n` +
       (table || "Tiada kempen aktif.") +
       `\n\n*Total Spend:* ${money(tSpend)}\n*Total Purchase:* ${tPurch}\n*Total ROAS:* ${roas(tValue, tSpend)}` +
       (actions.length ? `\n\n*Tindakan:*\n${actions.join("\n")}` : "\n\n✅ Tiada perubahan jam ni.");
@@ -177,16 +188,16 @@ serve(async (req) => {
     const quiet = hour >= cfg.quiet_start && hour < cfg.quiet_end;
     let sent: unknown = "skipped";
     if (mode === "report" || (mode === "scale" && !quiet)) sent = await sendWa(admin, cfg.notify_phone, msg);
-    await admin.from("ads_autopilot_log").insert({ mode, summary: { hhmm, rows, actions, totals: { tSpend, tPurch, tValue }, sent } });
-    return json(200, { mode, hhmm, rows, actions, sent, message: msg });
+    await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, hhmm, rows, actions, totals: { tSpend, tPurch, tValue }, sent } });
+    return { mode, hhmm, rows, actions, sent, message: msg };
   } catch (e) {
     const err = String((e as Error).message || e);
-    await admin.from("ads_autopilot_log").insert({ mode, summary: { error: err, actions } });
-    // Tell the owner once per failure so a broken token doesn't fail silently.
-    if (mode !== "dry") await sendWa(admin, cfg.notify_phone, `⚠️ *Ads Autopilot error* (${hhmm})\n${err}`);
-    return json(500, { error: err, actions });
+    await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, error: err, actions } });
+    // Tell the owner so a broken token doesn't fail silently.
+    if (mode !== "dry") await sendWa(admin, cfg.notify_phone, `⚠️ *${label} — autopilot error* (${hhmm})\n${err}`);
+    return { error: err, actions };
   }
-});
+}
 
 // PeningBot gateway, admin device (HTTP is always 200; success is body.status).
 async function sendWa(admin: Any, phone: string, message: string): Promise<boolean> {
