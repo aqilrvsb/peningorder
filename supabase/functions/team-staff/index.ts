@@ -6,6 +6,7 @@
  *   list                                    -> the client's staff
  *   reset_password { user_id, password }
  *   set_active { user_id, active }
+ *   set_peningbot_email { user_id, peningbot_email }  ("" clears)
  *   delete   { user_id }
  *
  * Staff log in with their ID staff (mapped to a synthetic email) + password.
@@ -61,7 +62,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data } = await admin
         .from("profiles")
-        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, roas_tiers, product_scope, hidden_tabs, invoice_full_name, invoice_address, invoice_phone, created_at")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active, pay_mode, commission_percent, roas_tiers, product_scope, hidden_tabs, invoice_full_name, invoice_address, invoice_phone, peningbot_email, created_at")
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       const staff = data || [];
@@ -217,6 +218,24 @@ serve(async (req) => {
       };
       await admin.from("profiles").update(patch).eq("id", targetId);
       return json(200, { success: true, ...patch });
+    }
+
+    if (action === "set_peningbot_email") {
+      // Email the staff uses in PeningBot; lead-intake files their leads by it.
+      const email = String(body?.peningbot_email ?? "").trim().toLowerCase();
+      if (!email) {
+        await admin.from("profiles").update({ peningbot_email: null }).eq("id", targetId);
+        return json(200, { success: true, peningbot_email: null });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.endsWith("@staff.peningorder.local")) return json(400, { error: "invalid_email" });
+      // One account per email, and never another tenant's own login email.
+      const { data: taken } = await admin.from("profiles").select("id").eq("peningbot_email", email).neq("id", targetId).limit(1).maybeSingle();
+      if (taken) return json(409, { error: "email_in_use" });
+      const { data: login } = await admin.from("profiles").select("id, parent_user_id").eq("email", email).limit(1).maybeSingle();
+      if (login && login.id !== clientId && login.parent_user_id !== clientId) return json(409, { error: "email_in_use" });
+      const { error } = await admin.from("profiles").update({ peningbot_email: email }).eq("id", targetId);
+      if (error) return json(error.code === "23505" ? 409 : 500, { error: error.code === "23505" ? "email_in_use" : error.message });
+      return json(200, { success: true, peningbot_email: email });
     }
 
     if (action === "delete") {
