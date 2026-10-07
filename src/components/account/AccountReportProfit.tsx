@@ -103,13 +103,36 @@ interface MarketerProfitStats {
   profitGoogle: number;
 }
 
+// A zero row — every staff starts here before their orders/spend are added.
+const emptyStats = (idStaff: string, name: string): MarketerProfitStats => ({
+  idStaff,
+  name,
+  totalSales: 0,
+  totalCollection: 0,
+  totalReturn: 0,
+  returnFB: 0, returnDatabase: 0, returnThreads: 0, returnTiktok: 0, returnGoogle: 0,
+  totalSpend: 0,
+  totalCostProduct: 0,
+  totalPostage: 0,
+  totalUnitBundle: 0,
+  roas: 0,
+  profit: 0,
+  totalCommission: 0,
+  totalCommissionReturn: 0,
+  salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
+  salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
+  salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0, profitThreads: 0,
+  salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0, profitTiktok: 0,
+  salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0, profitGoogle: 0,
+});
+
 const AccountReportProfit: React.FC = () => {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   // Per-staff commission config (idstaff -> { percent, mode }) for the team table.
   const [staffMeta, setStaffMeta] = useState<Record<string, { percent: number; mode: string }>>({});
   // RLS-safe name + commission lookup via the team_roster RPC (the direct profiles
   // read only returns the caller's own row, so staff names/percent came back blank).
-  const { nameByIdstaff, metaByIdstaff, inactiveIdstaff } = useTeam();
+  const { members, nameByIdstaff, metaByIdstaff, inactiveIdstaff } = useTeam();
   const { profile } = useAuth();
   // A marketer staff sees ONLY their own data (no team filter, own row only).
   const isMarketer = profile?.role === 'marketer';
@@ -239,29 +262,7 @@ const AccountReportProfit: React.FC = () => {
     const stats: Record<string, MarketerProfitStats> = {};
 
     const initStats = (idStaff: string, name: string) => {
-      if (!stats[idStaff]) {
-        stats[idStaff] = {
-          idStaff,
-          name,
-          totalSales: 0,
-          totalCollection: 0,
-          totalReturn: 0,
-          returnFB: 0, returnDatabase: 0, returnThreads: 0, returnTiktok: 0, returnGoogle: 0,
-          totalSpend: 0,
-          totalCostProduct: 0,
-          totalPostage: 0,
-          totalUnitBundle: 0,
-          roas: 0,
-          profit: 0,
-          totalCommission: 0,
-          totalCommissionReturn: 0,
-          salesFB: 0, collectionFB: 0, spendFB: 0, costProductFB: 0, postageFB: 0, unitBundleFB: 0, profitFB: 0,
-          salesDatabase: 0, collectionDatabase: 0, spendDatabase: 0, costProductDatabase: 0, postageDatabase: 0, unitBundleDatabase: 0, profitDatabase: 0,
-          salesThreads: 0, collectionThreads: 0, spendThreads: 0, costProductThreads: 0, postageThreads: 0, unitBundleThreads: 0, profitThreads: 0,
-          salesTiktok: 0, collectionTiktok: 0, spendTiktok: 0, costProductTiktok: 0, postageTiktok: 0, unitBundleTiktok: 0, profitTiktok: 0,
-          salesGoogle: 0, collectionGoogle: 0, spendGoogle: 0, costProductGoogle: 0, postageGoogle: 0, unitBundleGoogle: 0, profitGoogle: 0,
-        };
-      }
+      if (!stats[idStaff]) stats[idStaff] = emptyStats(idStaff, name);
     };
 
     // Process orders including Return (for sales, cost product)
@@ -377,8 +378,19 @@ const AccountReportProfit: React.FC = () => {
   }, [filteredOrders, filteredSpends, profiles]);
 
   const filteredStats = marketerStats;
-  // Profit Team listing hides deactivated staff; totals above still include them.
-  const listedStats = filteredStats.filter((s) => !inactiveIdstaff.has(s.idStaff));
+  // Profit Team lists every active marketer — staff with no sales/spend in the
+  // range show as RM 0 rows after the rest. Deactivated staff are hidden here;
+  // the totals above still include them.
+  const listedStats = useMemo(() => {
+    const withData = filteredStats.filter((s) => !inactiveIdstaff.has(s.idStaff));
+    const seen = new Set(withData.map((s) => s.idStaff));
+    const idle = members
+      .filter((m) => !m.is_client && m.role !== 'logistic' && m.is_active !== false && !seen.has(m.idstaff))
+      .filter((m) => !effectiveFilter || m.idstaff === effectiveFilter)
+      .map((m) => emptyStats(m.idstaff, m.name))
+      .sort((a, b) => a.idStaff.localeCompare(b.idStaff, undefined, { numeric: true }));
+    return [...withData, ...idle];
+  }, [filteredStats, inactiveIdstaff, members, effectiveFilter]);
 
   // Calculate totals
   const totals = useMemo(() => {
