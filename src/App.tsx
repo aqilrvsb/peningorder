@@ -3,7 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { isFunnelPath, pixelTrack } from "@/lib/metaPixel";
+import { Suspense, lazy, useEffect } from "react";
 import type { ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -136,6 +137,15 @@ const RoleGate = ({ need, allowExpired, marketerOk, logisticOk, children }: { ne
 
 // /dashboard home: admins land on cross-client Reporting, clients on their own
 // order dashboard.
+// Meta Pixel PageView on the public sales pages only (landing, checkout, login).
+const PixelPageViews = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (isFunnelPath(pathname)) pixelTrack('PageView');
+  }, [pathname]);
+  return null;
+};
+
 const DashboardHome = () => {
   const { profile, isLoading } = useAuth();
   if (isLoading) return <RouteFallback />;
@@ -163,6 +173,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <PixelPageViews />
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   {/* Public marketing routes — no forced login */}

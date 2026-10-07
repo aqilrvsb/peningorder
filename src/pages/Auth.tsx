@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { pixelPurchaseIfPending } from '@/lib/metaPixel';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,10 @@ const Auth: React.FC = () => {
   }, [searchParams]);
 
   const paymentState = searchParams.get('payment'); // 'success' | 'pending' after checkout
+
+  useEffect(() => {
+    if (paymentState === 'success') pixelPurchaseIfPending();
+  }, [paymentState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

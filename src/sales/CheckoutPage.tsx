@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pixelRegistered, pixelTrack } from '@/lib/metaPixel';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, Loader2, ShieldCheck, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,8 +57,10 @@ export default function CheckoutPage() {
         .eq('key', `plan_${plan}`)
         .maybeSingle();
       if (cancelled) return;
-      setCfg((data?.value as PlanCfg) ?? null);
+      const loaded = (data?.value as PlanCfg) ?? null;
+      setCfg(loaded);
       setLoadingCfg(false);
+      if (loaded) pixelTrack('InitiateCheckout', { content_name: plan, value: Number(loaded.price) || 0, currency: 'MYR' });
     })();
     return () => { cancelled = true; };
   }, [plan]);
@@ -103,6 +106,7 @@ export default function CheckoutPage() {
         return;
       }
 
+      pixelRegistered(plan, Number(cfg?.price) || 0);
       if (data.chip_url) {
         window.location.href = data.chip_url; // pay via CHIP
         return;
