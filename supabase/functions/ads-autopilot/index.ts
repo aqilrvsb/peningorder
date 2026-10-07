@@ -1,15 +1,16 @@
-// ads-autopilot — hourly Meta ads rules for PeningOrder (pg_cron "ads-autopilot-hourly").
+// ads-autopilot — Meta ads rules for PeningOrder (pg_cron "ads-autopilot", every 30 min).
 //
-// Every hour (MYT, the ad account's timezone):
+// Every 30 minutes (MYT, the ad account's timezone):
 //   • budget  = min(max_budget, base_budget + step × purchases today) per CBO campaign
 //     (absolute, so reruns never stack)
 //   • auto-off: pause any ad that spent ≥ pause_spend today with 0 purchases
-//   • WhatsApp report (table + totals) to notify_phone, except quiet hours (12am–4am)
+// At :00 — WhatsApp report (table + totals) to notify_phone, except quiet hours (12am–4am).
+// At :30 — WhatsApp only if something changed (budget up / ad paused), same quiet hours.
 // At 00:00 MYT: every campaign back to base_budget, ads it paused turned back on.
 //
 // Config + token: one platform_secrets row per product/ad account, key
 // "meta_ads_autopilot" or "meta_ads_autopilot_<name>" (see migration 20261008_ads_autopilot);
-// every enabled profile runs each hour. Auth: header x-cron-secret = platform_secrets.cron_secret.
+// every enabled profile runs on each tick. Auth: header x-cron-secret = platform_secrets.cron_secret.
 // Body (optional): { "mode": "auto" | "scale" | "reset" | "dry" | "report", "profile": "<key>" }
 //   dry    = compute everything, change nothing, return the report (no WhatsApp)
 //   report = change nothing, send the report now
@@ -69,9 +70,10 @@ serve(async (req) => {
 async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Promise<Record<string, unknown>> {
   const myt = new Date(Date.now() + 8 * 3600_000);
   const hour = myt.getUTCHours();
+  const topOfHour = myt.getUTCMinutes() < 30; // the :00 tick (cron fires at :00 and :30)
   const hhmm = myt.toISOString().slice(11, 16);
   let mode = modeIn;
-  if (mode === "auto") mode = hour === 0 ? "reset" : "scale";
+  if (mode === "auto") mode = hour === 0 && topOfHour ? "reset" : "scale";
   const apply = mode === "scale" || mode === "reset";
   const label = cfg.label || "Ads";
 
@@ -127,7 +129,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       return { mode, actions, sent };
     }
 
-    // ── Hourly scale + auto-off + report ─────────────────────────────────────
+    // ── Scale + auto-off (every tick), report (hourly) ───────────────────────
     const ins = (await g(`${act}/insights`, {
       level: "campaign", date_preset: "today",
       fields: "campaign_id,campaign_name,spend,actions,action_values", limit: "100",
@@ -187,14 +189,17 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
 
     const quiet = hour >= cfg.quiet_start && hour < cfg.quiet_end;
     let sent: unknown = "skipped";
-    if (mode === "report" || (mode === "scale" && !quiet)) sent = await sendWa(admin, cfg.notify_phone, msg);
+    if (mode === "report" || (mode === "scale" && !quiet && topOfHour)) sent = await sendWa(admin, cfg.notify_phone, msg);
+    else if (mode === "scale" && !quiet && actions.length) {
+      sent = await sendWa(admin, cfg.notify_phone, `⚡ *${label} — ${hhmm}*\n${actions.join("\n")}`);
+    }
     await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, hhmm, rows, actions, totals: { tSpend, tPurch, tValue }, sent } });
     return { mode, hhmm, rows, actions, sent, message: msg };
   } catch (e) {
     const err = String((e as Error).message || e);
     await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, error: err, actions } });
-    // Tell the owner so a broken token doesn't fail silently.
-    if (mode !== "dry") await sendWa(admin, cfg.notify_phone, `⚠️ *${label} — autopilot error* (${hhmm})\n${err}`);
+    // Tell the owner so a broken token doesn't fail silently (once an hour, not every tick).
+    if (mode !== "dry" && (topOfHour || modeIn !== "auto")) await sendWa(admin, cfg.notify_phone, `⚠️ *${label} — autopilot error* (${hhmm})\n${err}`);
     return { error: err, actions };
   }
 }
