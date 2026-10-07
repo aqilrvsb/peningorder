@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText, Mail } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 type RoasTier = { start: number; end: number; percent: number };
-type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string; invoice_full_name: string | null; invoice_address: string | null; invoice_phone: string | null; peningbot_email: string | null };
+type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string; invoice_full_name: string | null; invoice_address: string | null; invoice_phone: string | null };
 // Logistic tabs the client can hide from the logistic account (path keys).
 const LOGISTIC_TABS: { key: string; label: string }[] = [
   { key: 'inventory-product', label: 'Product' },
@@ -62,10 +62,6 @@ const TeamManagement: React.FC = () => {
   const [invDialogFor, setInvDialogFor] = useState<Staff | null>(null);
   const [invDraft, setInvDraft] = useState({ full_name: '', address: '', phone: '' });
   const [savingInv, setSavingInv] = useState(false);
-  // Email the staff uses in PeningBot — their PeningBot leads land in Prospects.
-  const [pbDialogFor, setPbDialogFor] = useState<Staff | null>(null);
-  const [pbDraft, setPbDraft] = useState('');
-  const [savingPb, setSavingPb] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
@@ -199,30 +195,6 @@ const TeamManagement: React.FC = () => {
       toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
     } finally {
       setSavingInv(false);
-    }
-  };
-
-  const openPbDialog = (s: Staff) => {
-    setPbDraft(s.peningbot_email || '');
-    setPbDialogFor(s);
-  };
-  const savePeningbotEmail = async () => {
-    if (!pbDialogFor) return;
-    setSavingPb(true);
-    try {
-      await call('set_peningbot_email', { user_id: pbDialogFor.id, peningbot_email: pbDraft.trim() });
-      toast({ title: pbDraft.trim() ? 'Email PeningBot disimpan' : 'Email PeningBot dibuang' });
-      setPbDialogFor(null);
-      refresh();
-    } catch (e: any) {
-      const msg = String(e.message || '');
-      toast({
-        title: 'Gagal',
-        description: msg.includes('email_in_use') ? 'Email ini sudah digunakan akaun lain.' : msg.includes('invalid_email') ? 'Format email tidak sah.' : msg,
-        variant: 'destructive',
-      });
-    } finally {
-      setSavingPb(false);
     }
   };
 
@@ -451,7 +423,6 @@ const TeamManagement: React.FC = () => {
                   <th className="p-3 text-left">ID Staff</th>
                   <th className="p-3 text-left">Nama</th>
                   <th className="p-3 text-left">WhatsApp</th>
-                  <th className="p-3 text-left">Email PeningBot</th>
                   <th className="p-3 text-left">Status</th>
                   <th className="p-3 text-left">Tindakan</th>
                 </tr>
@@ -462,7 +433,6 @@ const TeamManagement: React.FC = () => {
                     <td className="p-3 font-mono">{s.idstaff}</td>
                     <td className="p-3">{s.full_name || '-'}</td>
                     <td className="p-3">{s.whatsapp || s.whatsapp_number || '-'}</td>
-                    <td className="p-3 text-xs">{s.peningbot_email || <span className="text-muted-foreground">-</span>}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {s.is_active ? 'Aktif' : 'Nonaktif'}
@@ -475,9 +445,6 @@ const TeamManagement: React.FC = () => {
                         </Button>
                         <Button size="sm" variant="ghost" title="Maklumat Invoice (slip salary)" onClick={() => openInvDialog(s)}>
                           <FileText className="w-4 h-4 text-indigo-500" />
-                        </Button>
-                        <Button size="sm" variant="ghost" title="Email PeningBot (lead masuk auto)" onClick={() => openPbDialog(s)}>
-                          <Mail className="w-4 h-4 text-emerald-600" />
                         </Button>
                         <Button size="sm" variant="ghost" disabled={busyId === s.id} title={s.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(s)}>
                           {s.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}
@@ -522,26 +489,6 @@ const TeamManagement: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setInvDialogFor(null)}>Batal</Button>
             <Button onClick={saveInvoice} disabled={savingInv}>{savingInv && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Simpan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Email PeningBot — leads from the staff's PeningBot land in their Prospects */}
-      <Dialog open={!!pbDialogFor} onOpenChange={(o) => { if (!o) setPbDialogFor(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Mail className="w-5 h-5 text-primary" /> Email PeningBot — {pbDialogFor?.idstaff}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Masukkan email yang staff ini guna untuk login <b>PeningBot</b>. Lead WhatsApp dari PeningBot akan masuk terus ke <b>Prospects</b> staff ini. Biar kosong untuk berhenti.</p>
-            <div className="space-y-1.5">
-              <Label>Email PeningBot</Label>
-              <Input type="email" value={pbDraft} onChange={(e) => setPbDraft(e.target.value)} placeholder="staff@gmail.com" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPbDialogFor(null)}>Batal</Button>
-            <Button onClick={savePeningbotEmail} disabled={savingPb}>{savingPb && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

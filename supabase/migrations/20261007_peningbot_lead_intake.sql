@@ -1,9 +1,8 @@
 -- PeningBot -> peningorder lead intake (edge function lead-intake).
--- PeningBot posts a lead with the marketer's email; we match it to a staff's
--- PeningBot email (set on the Team page) or a client's own login email.
+-- PeningBot posts a lead with the marketer's ID staff.
 
--- Staff log in with a synthetic @staff.peningorder.local email, so the email
--- they use in PeningBot is stored separately. One account per email.
+-- peningbot_email was the first design (match by email). It is unused now that
+-- PeningBot sends the ID staff; kept only because the column already exists.
 alter table public.profiles
   add column if not exists peningbot_email text;
 
