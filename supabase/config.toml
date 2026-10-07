@@ -49,3 +49,6 @@ verify_jwt = false
 
 [functions.ad-media-upload]
 verify_jwt = false
+
+[functions.ads-autopilot]
+verify_jwt = false
