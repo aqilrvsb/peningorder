@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { fetchAllRows, getMalaysiaStartOfMonth } from '@/lib/utils';
+import { pickFu, type LeadFu } from '@/lib/leadFollowup';
 
 // Roles that can see all data (not filtered by their own idstaff)
 const ADMIN_ROLES = ['client', 'admin', 'bod', 'logistic', 'account', 'superadmin'];
@@ -26,6 +27,8 @@ interface Prospect {
   id: string; namaProspek: string; noTelefon: string; niche: string; jenisProspek: string;
   tarikhPhoneNumber: string; adminIdStaff: string; marketerIdStaff: string; createdAt: string;
   statusClosed: string; priceClosed: number; countOrder: number; profile: string;
+  /** Follow-up sheet status (STATUS BOT / CALL / BOOKING) — see lib/leadFollowup. */
+  fu: LeadFu;
 }
 
 interface DataContextType {
@@ -33,7 +36,7 @@ interface DataContextType {
   addOrder: (order: Omit<CustomerOrder, 'id' | 'createdAt'>) => Promise<void>;
   updateOrder: (id: string, order: Partial<CustomerOrder>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
-  addProspect: (prospect: Omit<Prospect, 'id' | 'createdAt'>) => Promise<void>;
+  addProspect: (prospect: Omit<Prospect, 'id' | 'createdAt' | 'fu'>) => Promise<void>;
   updateProspect: (id: string, prospect: Partial<Prospect>) => Promise<void>;
   deleteProspect: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -121,6 +124,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     marketerIdStaff: d.marketer_id_staff || '',
     createdAt: d.created_at, statusClosed: d.status_closed || '', priceClosed: parseFloat(d.price_closed) || 0,
     countOrder: d.count_order || 0, profile: d.profile || '', createdBy: d.created_by || '',
+    fu: pickFu(d),
   });
 
   // PERF: orders are fetched server-side from this date onward (default: start of
@@ -244,7 +248,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await refreshData();
   };
 
-  const addProspect = async (prospect: Omit<Prospect, 'id' | 'createdAt'>) => {
+  const addProspect = async (prospect: Omit<Prospect, 'id' | 'createdAt' | 'fu'>) => {
     // Stamp the creator's idstaff for display; RLS owns tenant isolation
     const marketerIdStaff = prospect.marketerIdStaff || userIdStaff || null;
 

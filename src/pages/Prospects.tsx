@@ -48,6 +48,9 @@ import { parse, format } from 'date-fns';
 import Swal from 'sweetalert2';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { useQuery } from '@tanstack/react-query';
+import { LeadSheet, LeadStuckCards, useLeadFu, type OrderInfo } from '@/components/LeadSheet';
+import { normPhone, fmtTs } from '@/lib/leadFollowup';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -80,7 +83,7 @@ const Prospects: React.FC = () => {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 50;
 
   const [formData, setFormData] = useState({
     namaProspek: '',
@@ -116,6 +119,28 @@ const Prospects: React.FC = () => {
 
   // Slice the filtered list down to the current page
   const pagedProspects = filteredProspects.slice((page - 1) * pageSize, page * pageSize);
+
+  // Follow-up ticks edited on this page (layered over DataContext rows).
+  const { fuOf, save: saveFu } = useLeadFu();
+  // HQ sees every staff's leads; marketer staff only their own.
+  const showStaff = profile?.role !== 'marketer';
+
+  // Alamat + tracking from the latest order of each closed lead on this page.
+  const closedPhones = useMemo(
+    () => [...new Set(pagedProspects.filter((p) => p.statusClosed === 'closed').map((p) => normPhone(p.noTelefon)).filter(Boolean))].sort(),
+    [pagedProspects],
+  );
+  const { data: orderInfo = new Map<string, OrderInfo>() } = useQuery({
+    queryKey: ['lead-order-info', closedPhones],
+    enabled: closedPhones.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('lead_order_info', { p_phones: closedPhones });
+      if (error) throw error;
+      const m = new Map<string, OrderInfo>();
+      for (const r of data || []) m.set(r.ph, { alamat: r.alamat || '', tracking: r.tracking || '', delivery_status: r.delivery_status || '' });
+      return m;
+    },
+  });
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -561,17 +586,38 @@ const Prospects: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const headers = ['No', 'Tarikh', 'Nama', 'Phone', 'Niche', 'Jenis Prospek'];
-    const rows = filteredProspects.map((prospect, idx) => [
-      idx + 1,
-      prospect.tarikhPhoneNumber || '-',
-      prospect.namaProspek,
-      prospect.noTelefon,
-      prospect.niche,
-      prospect.jenisProspek || '-', // Determined by OrderForm
-    ]);
+    const headers = ['No', 'Tarikh', 'ID Staff', 'Nama', 'Phone', 'Niche', 'Jenis Prospek',
+      'BOT INTRO', 'Masa Bot Intro', 'BOT F.F', 'BOT Masalah (F.F)', 'Masa Bot F.F',
+      'BOT PRESENT', 'BOT Sebab Reject (Present)', 'Masa Bot Present', 'BOT OFFER', 'BOT Sebab (Offer)', 'Masa Bot Offer',
+      'CALL TIDAK ANGKAT', 'Masa Tidak Angkat', 'BLOCKED', 'Masa Blocked',
+      'CALL INTRO', 'Masa Call Intro', 'CALL F.F', 'CALL Masalah (F.F)', 'Masa Call F.F',
+      'CALL PRESENT', 'CALL Sebab Reject (Present)', 'Masa Call Present', 'CALL OFFER', 'CALL Sebab (Offer)', 'Masa Call Offer',
+      'Booking', 'Masa Booking', 'CLOSE (RM)', 'Bil Order'];
+    const tick = (v: boolean) => (v ? '/' : '');
+    const rows = filteredProspects.map((prospect, idx) => {
+      const f = fuOf(prospect);
+      return [
+        idx + 1,
+        prospect.tarikhPhoneNumber || '-',
+        prospect.marketerIdStaff || '',
+        prospect.namaProspek,
+        prospect.noTelefon,
+        prospect.niche,
+        prospect.jenisProspek || '-', // Determined by OrderForm
+        tick(f.wa_intro), fmtTs(f.ts_wa_intro), tick(f.wa_ff), f.wa_ff_note || '', fmtTs(f.ts_wa_ff),
+        tick(f.wa_present), f.wa_present_note || '', fmtTs(f.ts_wa_present), tick(f.wa_offer), f.wa_offer_note || '', fmtTs(f.ts_wa_offer),
+        f.call_tidak_angkat || 0, fmtTs(f.ts_tidak_angkat), tick(f.blocked), fmtTs(f.ts_blocked),
+        tick(f.call_intro), fmtTs(f.ts_call_intro), tick(f.call_ff), f.call_ff_note || '', fmtTs(f.ts_call_ff),
+        tick(f.call_present), f.call_present_note || '', fmtTs(f.ts_call_present), tick(f.call_offer), f.call_offer_note || '', fmtTs(f.ts_call_offer),
+        f.booking_date || '', fmtTs(f.ts_booking),
+        prospect.statusClosed === 'closed' ? (prospect.priceClosed || 0).toFixed(2) : '',
+        prospect.countOrder || 0,
+      ];
+    });
 
-    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    // Quote every cell so names / reasons with commas stay in one column.
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csvContent = [headers, ...rows].map(row => row.map(cell).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -722,6 +768,8 @@ const Prospects: React.FC = () => {
         </div>
       </div>
 
+      <LeadStuckCards items={filteredProspects.map((p) => ({ fu: fuOf(p), closed: p.statusClosed === 'closed' }))} />
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
         <div className="flex items-center gap-2">
@@ -771,97 +819,25 @@ const Prospects: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table — follow-up sheet (STATUS BOT / CALL / BOOKING / CLOSE) */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-center">
-                  <Checkbox
-                    checked={selectedProspectIds.length === filteredProspects.length && filteredProspects.length > 0}
-                    onCheckedChange={handleToggleSelectAll}
-                  />
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">ID Staff</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Nama Staff</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Niche</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">RM Close</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredProspects.length > 0 ? (
-                pagedProspects.map((prospect, index) => (
-                  <tr key={prospect.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-center">
-                      <Checkbox
-                        checked={selectedProspectIds.includes(prospect.id)}
-                        onCheckedChange={() => handleToggleSelect(prospect.id)}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">{(page - 1) * pageSize + index + 1}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{(prospect as any).marketerIdStaff || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get((prospect as any).marketerIdStaff || '') || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(prospect.tarikhPhoneNumber)}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-foreground">{prospect.namaProspek}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">{prospect.noTelefon}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{prospect.niche}</td>
-                    <td className="px-4 py-3">
-                      {prospect.statusClosed === 'closed' ? (
-                        <button
-                          onClick={() => handleViewOrders(prospect)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:ring-1 hover:ring-green-400"
-                          title="Lihat order"
-                        >
-                          Close{prospect.countOrder ? ` (${prospect.countOrder})` : ''}
-                        </button>
-                      ) : (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground">
-                          Not Close
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {prospect.statusClosed === 'closed' ? `RM ${(prospect.priceClosed || 0).toFixed(2)}` : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditClick(prospect)}
-                          className="p-1.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        {!AUDIT_MODE && (
-                          <button
-                            onClick={() => handleDeleteClick(prospect.id)}
-                            className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
-                    Tiada prospect dijumpai.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <LeadSheet
+          rows={pagedProspects}
+          startIndex={(page - 1) * pageSize}
+          fuOf={fuOf}
+          save={saveFu}
+          showStaff={showStaff}
+          nameByIdstaff={nameByIdstaff}
+          orderInfo={orderInfo}
+          totalClose={stats.totalSales}
+          selectedIds={selectedProspectIds}
+          onToggleSelect={handleToggleSelect}
+          onToggleAll={handleToggleSelectAll}
+          allSelected={selectedProspectIds.length === filteredProspects.length && filteredProspects.length > 0}
+          onEdit={handleEditClick}
+          onDelete={handleDeleteClick}
+          onViewOrders={handleViewOrders}
+        />
         <TablePagination
           page={page}
           pageSize={pageSize}
