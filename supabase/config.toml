@@ -46,3 +46,6 @@ verify_jwt = false
 
 [functions.lead-intake]
 verify_jwt = false
+
+[functions.ad-media-upload]
+verify_jwt = false
