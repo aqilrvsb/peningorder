@@ -117,7 +117,13 @@ const adminItems: NavItem[] = [
   { label: 'Settings', path: '/dashboard/admin/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
-type GroupKey = 'marketer' | 'logistic' | 'finance';
+// ============ HR (HQ) ============
+const hrItems: NavItem[] = [
+  { label: 'User', path: '/dashboard/hr/users', icon: <Users className="w-5 h-5" /> },
+  { label: 'Attendance', path: '/dashboard/hr/attendance', icon: <ClipboardCheck className="w-5 h-5" /> },
+];
+
+type GroupKey = 'marketer' | 'logistic' | 'finance' | 'hr';
 
 interface RoleGroup {
   key: GroupKey;
@@ -130,6 +136,7 @@ const baseRoleGroups: RoleGroup[] = [
   { key: 'marketer', label: 'Marketer Role', icon: <Megaphone className="w-5 h-5" />, items: marketerItems },
   { key: 'logistic', label: 'Logistic', icon: <Truck className="w-5 h-5" />, items: logisticItems },
   { key: 'finance', label: 'Finance', icon: <DollarSign className="w-5 h-5" />, items: financeItems },
+  { key: 'hr', label: 'HR', icon: <ClipboardCheck className="w-5 h-5" />, items: hrItems },
 ];
 
 const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mobileOpen = false, onClose }) => {
@@ -412,23 +419,6 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <Trophy className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Top Ranking</span>}
-          </Link>
-        )}
-
-        {/* HR — HQ only: staff list (Team marketers + extra staff) and attendance. */}
-        {!isAdmin && !isMarketer && !isLogistic && (
-          <Link
-            to="/dashboard/hr"
-            title={collapsed ? 'HR' : undefined}
-            onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/hr') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
-          >
-            <ClipboardCheck className="w-5 h-5" />
-            {!collapsed && <span className="text-sm">HR</span>}
           </Link>
         )}
 

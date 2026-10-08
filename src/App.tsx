@@ -192,8 +192,10 @@ const App = () => (
                     <Route path="reporting-spend" element={marketerAllowed(<ReportingSpend />)} />
                     <Route path="notification" element={marketerAllowed(<NotificationReport />)} />
                     <Route path="team" element={clientOnly(<TeamManagement />)} />
-                    {/* HR — HQ only: staff list + attendance */}
-                    <Route path="hr" element={clientOnly(<HR />)} />
+                    {/* HR — HQ only: User + Attendance sub-menus */}
+                    <Route path="hr" element={<Navigate to="/dashboard/hr/users" replace />} />
+                    <Route path="hr/users" element={clientOnly(<HR view="users" />)} />
+                    <Route path="hr/attendance" element={clientOnly(<HR view="attendance" />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={marketerAllowed(<Integration />)} />
                     {/* Logistic Role - Inventory (client + logistic staff) */}
