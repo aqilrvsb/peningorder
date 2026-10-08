@@ -35,6 +35,7 @@ const Invoice = lazy(() => import("./pages/Invoice"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const Integration = lazy(() => import("./pages/Integration"));
 const TeamManagement = lazy(() => import("./pages/TeamManagement"));
+const HR = lazy(() => import("./pages/HR"));
 // Superadmin (SaaS owner) pages
 const AdminClients = lazy(() => import("./pages/admin/AdminClients"));
 const AdminTransactions = lazy(() => import("./pages/admin/AdminTransactions"));
@@ -191,6 +192,8 @@ const App = () => (
                     <Route path="reporting-spend" element={marketerAllowed(<ReportingSpend />)} />
                     <Route path="notification" element={marketerAllowed(<NotificationReport />)} />
                     <Route path="team" element={clientOnly(<TeamManagement />)} />
+                    {/* HR — HQ only: staff list + attendance */}
+                    <Route path="hr" element={clientOnly(<HR />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={marketerAllowed(<Integration />)} />
                     {/* Logistic Role - Inventory (client + logistic staff) */}

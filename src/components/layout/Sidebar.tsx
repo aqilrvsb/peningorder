@@ -53,6 +53,7 @@ import {
   X,
   UserPlus,
   Coins,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -411,6 +412,23 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <Trophy className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Top Ranking</span>}
+          </Link>
+        )}
+
+        {/* HR — HQ only: staff list (Team marketers + extra staff) and attendance. */}
+        {!isAdmin && !isMarketer && !isLogistic && (
+          <Link
+            to="/dashboard/hr"
+            title={collapsed ? 'HR' : undefined}
+            onClick={handleNavClick}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
+              isItemActive('/dashboard/hr') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <ClipboardCheck className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">HR</span>}
           </Link>
         )}
 
