@@ -165,8 +165,8 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
     // R2 no sale: spend in the last verdict_days ≥ kill_spend, 0 purchase → off for good
     // R3 ROAS:    spend in the last verdict_days ≥ roas_min_spend, ROAS < min_roas → off for good
     // An ad the owner switches back on after being paused is left alone (override).
-    const killSpend = cfg.kill_spend ?? 10000, roasSpend = cfg.roas_min_spend ?? 15000;
-    const minRoas = cfg.min_roas ?? 1, days = cfg.verdict_days ?? 7;
+    const killSpend = cfg.kill_spend ?? 6000, roasSpend = cfg.roas_min_spend ?? 10000;
+    const minRoas = cfg.min_roas ?? 1, days = cfg.verdict_days ?? 3;
     const inCbo = (cid: string) => cbo.some((c) => c.id === cid);
     const today = myt.toISOString().slice(0, 10);
     const since = new Date(myt.getTime() - (days - 1) * 86400_000).toISOString().slice(0, 10);
@@ -198,6 +198,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       const st = await g("", { ids: ids.join(","), fields: "effective_status" });
       const { data: prev } = await admin.from("ads_autopilot_paused").select("ad_id").in("ad_id", ids);
       const overridden = new Set((prev || []).map((x: Any) => x.ad_id)); // paused before, ACTIVE now = owner's call
+      const touched = new Set<string>();
       for (const h of hits.values()) {
         if (st[h.ad_id]?.effective_status !== "ACTIVE" || overridden.has(h.ad_id)) continue;
         if (apply) {
@@ -206,8 +207,22 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
             ad_id: h.ad_id, profile: key, campaign_id: h.campaign_id, ad_name: h.ad_name, spend: h.spend,
             kind: h.kind, reason: h.why, paused_at: new Date().toISOString(),
           });
+          touched.add(h.campaign_id);
         }
         actions.push(`${h.kind === "verdict" ? "🛑 OFF terus" : "⛔ Off hari ni"}: ${h.ad_name} (${h.why})${apply ? "" : " [dry]"}`);
+      }
+      // A campaign left with no running ad spends nothing — tell the owner it needs new creative.
+      if (touched.size) {
+        const live = (await g(`${act}/ads`, {
+          fields: "campaign_id",
+          filtering: JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE"] }]),
+          limit: "500",
+        })).data as Any[];
+        for (const cid of touched) {
+          if (!live.some((a) => a.campaign_id === cid)) {
+            actions.push(`⚠️ Semua ads dalam ${cbo.find((c) => c.id === cid)?.name || cid} dah OFF — perlu video/copy baru.`);
+          }
+        }
       }
     }
 
