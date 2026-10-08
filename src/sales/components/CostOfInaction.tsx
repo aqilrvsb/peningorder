@@ -37,7 +37,7 @@ export default function CostOfInaction() {
               <img src={img.url} alt="Report profit ikut platform dan tally COD dalam PeningOrder" className="h-full w-full object-cover" loading="lazy" width={1200} height={1200} />
             </div>
             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-2xl bg-po-coral px-6 py-3 text-center shadow-2xl">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-white/90">Rugi sebulan</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-white/90">Rugi sebulan</div>
               <div className="text-3xl font-extrabold text-white">RM {monthlyLoss.toLocaleString('en-MY')}</div>
             </div>
           </div>
@@ -91,7 +91,7 @@ function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="mt-3 w-full cursor-pointer accent-po-blue"
       />
-      <div className="mt-1 flex justify-between text-[10px] text-white/40">
+      <div className="mt-1 flex justify-between text-[11px] text-white/40">
         {marks.map((m) => <span key={m}>{m}</span>)}
       </div>
     </div>

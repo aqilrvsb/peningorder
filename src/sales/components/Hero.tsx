@@ -59,17 +59,17 @@ export default function Hero() {
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-po-blue-dark">Semua order</dt>
               <dd className="mt-1 text-2xl font-extrabold text-po-ink">1 tempat</dd>
-              <dd className="text-[10px] text-po-ink-muted">tak payah cari-cari</dd>
+              <dd className="text-[11px] text-po-ink-muted">tak payah cari-cari</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-po-success">Untung rugi</dt>
               <dd className="mt-1 text-2xl font-extrabold text-po-ink">auto</dd>
-              <dd className="text-[10px] text-po-ink-muted">report real-time</dd>
+              <dd className="text-[11px] text-po-ink-muted">report real-time</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-po-coral">Mula dari</dt>
               <dd className="mt-1 text-2xl font-extrabold text-po-ink">{priceLabel(cheapest)}</dd>
-              <dd className="text-[10px] text-po-ink-muted">
+              <dd className="text-[11px] text-po-ink-muted">
                 {cheapest?.original_price && cheapest.original_price > cheapest.price ? (
                   <>sebulan · <span className="line-through">RM{cheapest.original_price}</span></>
                 ) : 'sebulan'}
@@ -81,7 +81,7 @@ export default function Hero() {
         <div className="relative flex min-w-0 items-center justify-center">
           <div className="relative w-full max-w-[330px] overflow-hidden rounded-3xl border-2 border-po-ink/10 bg-po-ink shadow-2xl sm:max-w-[340px]">
             <HeroVideo srcs={[clip.url]} posters={[clip.poster ?? '']} aspectClass="aspect-[9/16]" />
-            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-po-coral px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg sm:left-4 sm:top-4">
+            <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-po-coral px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg sm:left-4 sm:top-4">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
@@ -94,7 +94,7 @@ export default function Hero() {
                 <BarChart3 className="h-4 w-4 text-white" />
               </span>
               <div className="min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Report untung</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Report untung</div>
                 <div className="text-sm font-bold leading-snug">Update setiap order — kurier, COD, gaji team</div>
               </div>
             </div>
