@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AUDIT_MODE } from '@/lib/audit';
@@ -11,11 +11,14 @@ import { format, getDaysInMonth, getDay } from 'date-fns';
 import AddAttendanceStaffModal from './AddAttendanceStaffModal';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
 import DeleteAttendanceStaffDialog from './DeleteAttendanceStaffDialog';
+import AttendanceReasonModal from './AttendanceReasonModal';
 import { useHrPeople, useHrRoles, roleBadge, toModalStaff, type HrPerson } from './useHrPeople';
 
 // HR → ATTENDANCE (DFR grid). Rows = the HQ's active Team marketers + the extra staff added
 // in HR. Each click on a day moves to the next status:
 //   Not Marked → Present → Half Day → Absent → Not Marked
+// A reason (optional) for Half Day / Absent: "Tambah sebab" on the toast after the click, or
+// right-click / long-press the cell. Cells with a reason show a small dot.
 type AttendanceStatus = 'present' | 'half_day' | 'absent' | null;
 type AttendanceRecord = { id: string; user_id: string; date: string; status: AttendanceStatus; reason?: string | null };
 
@@ -37,6 +40,8 @@ export default function HRAttendance() {
   const [deleting, setDeleting] = useState<HrPerson | null>(null);
   // Cells with a save in flight — locked until it lands so fast clicks can't arrive out of order.
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [reasonFor, setReasonFor] = useState<{ userId: string; name: string; date: string } | null>(null);
+  const longPress = useRef<{ timer?: number; fired: boolean }>({ fired: false });
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
   const daysInMonth = getDaysInMonth(new Date(year, month));
@@ -78,6 +83,7 @@ export default function HRAttendance() {
     setSaving((prev) => { const next = new Set(prev); if (on) next.add(cell); else next.delete(cell); return next; });
 
   // The grid updates instantly; the saved row replaces the placeholder when the write lands.
+  // Half Day → Absent keeps the reason already typed; Present has none.
   const mark = useMutation({
     mutationFn: async ({ userId, date, status }: { userId: string; date: string; status: AttendanceStatus; key: unknown[] }) => {
       if (status === null) {
@@ -87,7 +93,10 @@ export default function HRAttendance() {
       }
       const { data, error } = await (supabase as any)
         .from('attendance')
-        .upsert({ user_id: userId, date, status, reason: null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+        .upsert(
+          { user_id: userId, date, status, ...(status === 'present' ? { reason: null } : {}), updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,date' },
+        )
         .select('id, user_id, date, status, reason')
         .single();
       if (error) throw error;
@@ -97,8 +106,10 @@ export default function HRAttendance() {
       setCellSaving(`${userId}-${date}`, true);
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<AttendanceRecord[]>(key, (old = []) => {
-        const rest = old.filter((r) => !(r.user_id === userId && r.date === date));
-        return status ? [...rest, { id: `pending-${userId}-${date}`, user_id: userId, date, status, reason: null }] : rest;
+        const prev = old.find((r) => r.user_id === userId && r.date === date);
+        const rest = old.filter((r) => r !== prev);
+        const reason = status === 'present' ? null : prev?.reason ?? null;
+        return status ? [...rest, { id: `pending-${userId}-${date}`, user_id: userId, date, status, reason }] : rest;
       });
     },
     onSuccess: (row, { userId, date, key }) => {
@@ -111,9 +122,62 @@ export default function HRAttendance() {
     onSettled: (_d, _e, { userId, date }) => setCellSaving(`${userId}-${date}`, false),
   });
 
-  const onCell = (p: HrPerson, day: number) => {
-    mark.mutate({ userId: p.id, date: ymd(day), status: NEXT_STATUS[statusOf(p.id, day) ?? 'none'], key: recordsKey });
+  const saveReason = useMutation({
+    mutationFn: async ({ userId, date, status, reason }: { userId: string; date: string; status: AttendanceStatus; reason: string; key: unknown[] }) => {
+      const { data, error } = await (supabase as any)
+        .from('attendance')
+        .upsert({ user_id: userId, date, status, reason: reason.trim() || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
+        .select('id, user_id, date, status, reason')
+        .single();
+      if (error) throw error;
+      return data as AttendanceRecord;
+    },
+    onSuccess: (row, { userId, date, key }) => {
+      queryClient.setQueryData<AttendanceRecord[]>(key, (old = []) => old.map((r) => (r.user_id === userId && r.date === date ? row : r)));
+      toast.success(row.reason ? 'Sebab disimpan' : 'Sebab dibuang');
+      setReasonFor(null);
+    },
+    onError: (e: any) => toast.error(e.message || 'Gagal simpan sebab'),
+  });
+
+  const openReason = (p: HrPerson, day: number) => {
+    const status = statusOf(p.id, day);
+    if (status !== 'half_day' && status !== 'absent') {
+      toast.info('Sebab hanya untuk Half Day / Absent — klik sel dulu untuk tukar status.');
+      return;
+    }
+    setReasonFor({ userId: p.id, name: p.name, date: ymd(day) });
   };
+
+  const onCell = (p: HrPerson, day: number) => {
+    // A long-press on a phone opens the reason instead of moving the status.
+    if (longPress.current.fired) { longPress.current.fired = false; return; }
+    const status = NEXT_STATUS[statusOf(p.id, day) ?? 'none'];
+    const date = ymd(day);
+    mark.mutate({ userId: p.id, date, status, key: recordsKey });
+    if (status === 'half_day' || status === 'absent') {
+      // One toast at a time (same id), so clicking along a row doesn't stack them.
+      toast(`${p.name} · ${format(new Date(year, month, day), 'd MMM')} — ${STATUS_LABEL[status]}`, {
+        id: 'hr-att-reason',
+        duration: 4000,
+        action: { label: 'Tambah sebab', onClick: () => setReasonFor({ userId: p.id, name: p.name, date }) },
+      });
+    } else {
+      toast.dismiss('hr-att-reason');
+    }
+  };
+
+  const pressStart = (e: React.PointerEvent, p: HrPerson, day: number) => {
+    if (e.pointerType !== 'touch') return;
+    longPress.current.fired = false;
+    window.clearTimeout(longPress.current.timer);
+    longPress.current.timer = window.setTimeout(() => { longPress.current.fired = true; openReason(p, day); }, 500);
+  };
+  const pressEnd = () => window.clearTimeout(longPress.current.timer);
+
+  // The open reason reads the live cell (status/reason may have just been saved).
+  const reasonRecord = reasonFor ? byKey.get(`${reasonFor.userId}-${reasonFor.date}`) : undefined;
+  const reasonStatus = reasonRecord?.status === 'half_day' || reasonRecord?.status === 'absent' ? reasonRecord.status : null;
 
   const count = (userId: string) => {
     let present = 0; let half = 0; let absent = 0;
@@ -166,6 +230,10 @@ export default function HRAttendance() {
               <span className="flex items-center gap-1"><span className="h-6 w-6 rounded bg-gray-100" /><span className="text-muted-foreground">Not Marked</span></span>
             </div>
           </div>
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-500" />
+            Klik sel untuk tukar status. Sebab Half Day / Absent: tekan “Tambah sebab” selepas klik, atau klik kanan (telefon: tekan lama) pada sel. Titik = ada sebab.
+          </p>
         </CardContent>
       </Card>
 
@@ -215,10 +283,15 @@ export default function HRAttendance() {
                               <button
                                 type="button"
                                 onClick={() => onCell(p, d)}
+                                onContextMenu={(e) => { e.preventDefault(); pressEnd(); openReason(p, d); }}
+                                onPointerDown={(e) => pressStart(e, p, d)}
+                                onPointerUp={pressEnd}
+                                onPointerLeave={pressEnd}
+                                onPointerCancel={pressEnd}
                                 disabled={saving.has(`${p.id}-${ymd(d)}`)}
                                 title={reason ? `${label} — ${reason}` : label}
-                                aria-label={`${p.name} ${ymd(d)} ${label}`}
-                                className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+                                aria-label={`${p.name} ${ymd(d)} ${label}${reason ? ` — ${reason}` : ''}`}
+                                className={`relative flex h-7 w-7 select-none items-center justify-center rounded transition-colors [-webkit-touch-callout:none] ${
                                   status === 'present' ? 'bg-green-100 hover:bg-green-200'
                                   : status === 'half_day' ? 'bg-yellow-100 hover:bg-yellow-200'
                                   : status === 'absent' ? 'bg-red-100 hover:bg-red-200'
@@ -227,6 +300,7 @@ export default function HRAttendance() {
                                 {status === 'present' && <Check className="h-4 w-4 text-green-600" />}
                                 {status === 'half_day' && <TriangleAlert className="h-4 w-4 text-yellow-600" />}
                                 {status === 'absent' && <X className="h-4 w-4 text-red-600" />}
+                                {reason && status !== 'present' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-slate-500" />}
                               </button>
                             </td>
                           );
@@ -261,6 +335,20 @@ export default function HRAttendance() {
       <AddAttendanceStaffModal open={showAdd} onOpenChange={setShowAdd} />
       <EditAttendanceStaffModal open={!!editing} onOpenChange={(o) => !o && setEditing(null)} staff={editing ? toModalStaff(editing) : null} />
       <DeleteAttendanceStaffDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)} staff={deleting ? toModalStaff(deleting) : null} />
+
+      <AttendanceReasonModal
+        open={!!reasonFor && !!reasonStatus}
+        onOpenChange={(o) => !o && setReasonFor(null)}
+        employeeName={reasonFor?.name || ''}
+        date={reasonFor?.date || ''}
+        statusLabel={reasonStatus ? STATUS_LABEL[reasonStatus] : ''}
+        existingReason={reasonRecord?.reason}
+        isLoading={saveReason.isPending || (!!reasonFor && saving.has(`${reasonFor.userId}-${reasonFor.date}`))}
+        onSave={async (reason) => {
+          if (!reasonFor || !reasonStatus) return;
+          await saveReason.mutateAsync({ userId: reasonFor.userId, date: reasonFor.date, status: reasonStatus, reason, key: recordsKey }).catch(() => {});
+        }}
+      />
     </div>
   );
 }
