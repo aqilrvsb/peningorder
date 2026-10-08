@@ -29,6 +29,7 @@ type Cfg = {
   label?: string; enabled: boolean; access_token: string | null; ad_account_id: string; campaign_ids: string[];
   base_budget: number; step: number; max_budget: number; pause_spend: number;
   notify_phone: string; quiet_start: number; quiet_end: number;
+  wa_device_id?: string; wa_send_url?: string; // optional: own PeningBot device / gateway (default: admin_device)
 };
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -125,7 +126,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       const msg = `🌙 *${label} — reset 12am*\n` +
         (actions.length ? actions.join("\n") : "Tiada perubahan (semua dah RM" + cfg.base_budget / 100 + ").");
       await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, actions } });
-      const sent = await sendWa(admin, cfg.notify_phone, msg);
+      const sent = await sendWa(admin, cfg, msg);
       return { mode, actions, sent };
     }
 
@@ -189,9 +190,9 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
 
     const quiet = hour >= cfg.quiet_start && hour < cfg.quiet_end;
     let sent: unknown = "skipped";
-    if (mode === "report" || (mode === "scale" && !quiet && topOfHour)) sent = await sendWa(admin, cfg.notify_phone, msg);
+    if (mode === "report" || (mode === "scale" && !quiet && topOfHour)) sent = await sendWa(admin, cfg, msg);
     else if (mode === "scale" && !quiet && actions.length) {
-      sent = await sendWa(admin, cfg.notify_phone, `⚡ *${label} — ${hhmm}*\n${actions.join("\n")}`);
+      sent = await sendWa(admin, cfg, `⚡ *${label} — ${hhmm}*\n${actions.join("\n")}`);
     }
     await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, hhmm, rows, actions, totals: { tSpend, tPurch, tValue }, sent } });
     return { mode, hhmm, rows, actions, sent, message: msg };
@@ -199,19 +200,24 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
     const err = String((e as Error).message || e);
     await admin.from("ads_autopilot_log").insert({ mode, summary: { profile: key, error: err, actions } });
     // Tell the owner so a broken token doesn't fail silently (once an hour, not every tick).
-    if (mode !== "dry" && (topOfHour || modeIn !== "auto")) await sendWa(admin, cfg.notify_phone, `⚠️ *${label} — autopilot error* (${hhmm})\n${err}`);
+    if (mode !== "dry" && (topOfHour || modeIn !== "auto")) await sendWa(admin, cfg, `⚠️ *${label} — autopilot error* (${hhmm})\n${err}`);
     return { error: err, actions };
   }
 }
 
-// PeningBot gateway, admin device (HTTP is always 200; success is body.status).
-async function sendWa(admin: Any, phone: string, message: string): Promise<boolean> {
-  const { data: device } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
-  if (!device?.instance || !phone) return false;
+// PeningBot gateway (HTTP is always 200; success is body.status). Device = the profile's
+// wa_device_id, else PeningOrder's active admin_device.
+async function sendWa(admin: Any, cfg: Cfg, message: string): Promise<boolean> {
+  let device = cfg.wa_device_id || "";
+  if (!device) {
+    const { data } = await admin.from("admin_device").select("instance").eq("active", true).limit(1).maybeSingle();
+    device = data?.instance || "";
+  }
+  if (!device || !cfg.notify_phone) return false;
   try {
-    const r = await fetch(WA_SEND, {
+    const r = await fetch(cfg.wa_send_url || WA_SEND, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: device.instance, number: phone, message }),
+      body: JSON.stringify({ device_id: device, number: cfg.notify_phone, message }),
     });
     const j = await r.json().catch(() => ({}));
     return r.ok && j?.status !== false;
