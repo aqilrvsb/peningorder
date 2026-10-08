@@ -116,9 +116,10 @@ export default function Pricing() {
           </div>
         )}
 
-        <p className="mt-10 flex items-center justify-center gap-2 text-center text-sm text-po-ink-muted">
-          <ShieldCheck className="h-4 w-4 text-po-success" />
-          Semua harga MYR · Tiada setup fee · Cancel bila-bila · Bayaran diproses oleh <span className="font-semibold text-po-ink">CHIP</span>
+        <p className="mx-auto mt-10 max-w-xl text-center text-sm leading-relaxed text-po-ink-muted">
+          <ShieldCheck className="mr-1.5 inline-block h-4 w-4 -translate-y-px align-middle text-po-success" />
+          Semua harga MYR · Tiada setup fee · Cancel bila-bila · Bayaran diproses oleh{' '}
+          <span className="font-semibold text-po-ink">CHIP</span>
         </p>
       </div>
     </section>
