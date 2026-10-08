@@ -52,7 +52,7 @@ export default function Pricing() {
           </div>
           <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-po-ink sm:text-4xl">Harga jujur, tiada kontrak</h2>
           <p className="mt-4 text-po-ink-soft">
-            Bayar bulanan, cancel bila-bila. Bayar selamat via CHIP (FPX, e-wallet, kad kredit).
+            Bayar bulanan, cancel bila-bila. Bayar selamat via CHIP — FPX online banking atau DuitNow QR (e-wallet).
           </p>
         </div>
 

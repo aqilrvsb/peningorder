@@ -3,7 +3,7 @@ const FAQS = [
   { q: 'Data order lama saya macam mana?', a: 'Boleh import. Kalau anda guna WooCommerce atau Shopee, kami boleh tarik order automatik. Order dalam Excel pun boleh dimasukkan. Anda tak akan hilang sejarah jualan.' },
   { q: 'Kurier apa yang disokong?', a: 'Poslaju, NinjaVan, J&T dan DHL — semua melalui integrasi Parcel Daily. Anda book tracking & print waybill terus dari dashboard, tak payah login website kurier satu-satu.' },
   { q: 'Boleh guna dengan staff ramai?', a: 'Boleh. Plan Growth ke atas menyokong multi-staff dengan peranan berasingan (marketer, logistik, akaun). Semua nampak data sama, real-time — tiada lagi order pos dua kali.' },
-  { q: 'Macam mana bayaran diproses?', a: 'Melalui CHIP — gateway pembayaran Malaysia. Anda boleh bayar guna FPX (online banking), e-wallet (Touch ‘n Go, Boost, GrabPay) atau kad kredit/debit. Selamat & instant.' },
+  { q: 'Macam mana bayaran diproses?', a: 'Melalui CHIP — gateway pembayaran Malaysia. Anda boleh bayar guna FPX (online banking semua bank utama) atau DuitNow QR — scan guna Touch ‘n Go, Boost, GrabPay atau app bank. Selamat & instant.' },
   { q: 'Kalau saya nak berhenti macam mana?', a: 'Cancel bila-bila dari dashboard, tiada kontrak dan tiada penalti. Akaun anda kekal aktif sampai tarikh tamat plan yang dah dibayar.' },
   { q: 'Beza PeningOrder dengan platform lain apa?', a: 'Platform lain kebanyakannya cuma tempat key-in order. PeningOrder ialah Mini ERP — dari order masuk, booking kurier, tracking, COD, sampai report untung rugi, semua dalam satu tempat. Lagi lengkap, lagi murah.' },
   { q: 'Macam mana nak dapat bantuan?', a: 'Ada tiket support dalam dashboard, dan tutorial lengkap untuk setiap fungsi. Team kami bantu anda setup dari awal.' },
