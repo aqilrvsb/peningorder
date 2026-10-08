@@ -2,8 +2,10 @@
  * team-staff — a CLIENT manages their marketer staff (team).
  *
  * POST JSON { action, ... } (caller's JWT = the client):
- *   create   { name, whatsapp, password }  -> new staff (id = <clientId>-N, role marketer)
- *   list                                    -> the client's staff
+ *   create   { name, whatsapp, password, staff_role? }  -> new staff: marketer (<clientId>-N),
+ *            logistic (<clientId>-LOG, one per client) or hr (<clientId>-HR, one per client)
+ *   list                                    -> the client's staff (the client's HR account may
+ *                                              also list them, read-only, for the HR pages)
  *   reset_password { user_id, password }
  *   set_active { user_id, active }
  *   delete   { user_id }
@@ -46,17 +48,35 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
 
     // The caller must be a CLIENT (owns a tenant) — not a staff, not superadmin.
+    // One exception: the client's HR account may LIST the staff (read-only) for HR.
     const { data: me } = await admin.from("profiles").select("id, idstaff, parent_user_id, plan, plan_expires_at").eq("id", user.id).maybeSingle();
     if (!me) return json(404, { error: "profile_not_found" });
-    if (me.parent_user_id) return json(403, { error: "staff_cannot_manage_team" });
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).limit(1).maybeSingle();
     if (roleRow?.role === "superadmin") return json(403, { error: "admin_not_a_tenant" });
 
-    const clientId = me.id;
-    const clientIdstaff = me.idstaff as string;
-
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
+
+    if (me.parent_user_id) {
+      if (roleRow?.role !== "hr" || action !== "list") return json(403, { error: "staff_cannot_manage_team" });
+      // HR sees who works here — no pay, commission or invoice fields.
+      const { data } = await admin
+        .from("profiles")
+        .select("id, idstaff, full_name, whatsapp, whatsapp_number, is_active")
+        .eq("parent_user_id", me.parent_user_id)
+        .order("idstaff", { ascending: true });
+      const staff = data || [];
+      const ids = staff.map((s: any) => s.id);
+      const roleBy = new Map<string, string>();
+      if (ids.length) {
+        const { data: roles } = await admin.from("user_roles").select("user_id, role").in("user_id", ids);
+        for (const r of roles || []) roleBy.set(r.user_id, r.role);
+      }
+      return json(200, { success: true, staff: staff.map((s: any) => ({ ...s, role: roleBy.get(s.id) || "marketer" })) });
+    }
+
+    const clientId = me.id;
+    const clientIdstaff = me.idstaff as string;
 
     if (action === "list") {
       const { data } = await admin
@@ -65,7 +85,7 @@ serve(async (req) => {
         .eq("parent_user_id", clientId)
         .order("idstaff", { ascending: true });
       const staff = data || [];
-      // Attach each staff's role (marketer | logistic) from user_roles.
+      // Attach each staff's role (marketer | logistic | hr) from user_roles.
       const ids = staff.map((s: any) => s.id);
       const roleBy = new Map<string, string>();
       if (ids.length) {
@@ -79,7 +99,7 @@ serve(async (req) => {
       const name = String(body?.name || "").trim();
       const whatsapp = String(body?.whatsapp || "").replace(/\D/g, "");
       const password = String(body?.password || "");
-      const staffRole = body?.staff_role === "logistic" ? "logistic" : "marketer";
+      const staffRole = body?.staff_role === "logistic" ? "logistic" : body?.staff_role === "hr" ? "hr" : "marketer";
       if (name.length < 2) return json(400, { error: "invalid_name" });
       // Password is optional: blank → default to the generated ID staff (below).
       // Only reject an explicitly-typed password that is too short.
@@ -88,14 +108,14 @@ serve(async (req) => {
       const { data: existing } = await admin.from("profiles").select("id, idstaff").eq("parent_user_id", clientId);
 
       let newIdstaff: string;
-      if (staffRole === "logistic") {
-        // Only ONE logistic account per client.
+      if (staffRole === "logistic" || staffRole === "hr") {
+        // Only ONE logistic account and ONE HR account per client.
         const staffIds = (existing || []).map((s: any) => s.id);
         if (staffIds.length) {
-          const { data: logRoles } = await admin.from("user_roles").select("user_id").eq("role", "logistic").in("user_id", staffIds);
-          if ((logRoles || []).length >= 1) return json(400, { error: "logistic_exists" });
+          const { data: sameRole } = await admin.from("user_roles").select("user_id").eq("role", staffRole).in("user_id", staffIds);
+          if ((sameRole || []).length >= 1) return json(400, { error: `${staffRole}_exists` });
         }
-        newIdstaff = `${clientIdstaff}-LOG`;
+        newIdstaff = `${clientIdstaff}-${staffRole === "hr" ? "HR" : "LOG"}`;
       } else {
         // Next sequential numeric suffix: max existing N + 1 (robust to deletions).
         let maxN = 0;

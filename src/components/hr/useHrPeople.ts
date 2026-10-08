@@ -46,7 +46,7 @@ export function useHrPeople() {
   });
 
   const teamPeople: HrPerson[] = (team.data || [])
-    .filter((s) => s.role !== 'logistic') // the Team tab's marketer section
+    .filter((s) => !s.role || s.role === 'marketer') // the Team tab's marketer section (not the Logistic/HR logins)
     .map((s) => ({
       id: s.id,
       name: s.full_name || s.idstaff,

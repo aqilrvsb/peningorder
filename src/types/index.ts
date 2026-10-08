@@ -1,7 +1,7 @@
 // 'client' = an individual seller (tenant, owns only their own account).
 // 'superadmin' = platform owner who controls the whole SaaS (all tenants, billing).
 // 'admin' is the legacy tenant role, kept for backward compatibility.
-export type UserRole = 'client' | 'superadmin' | 'marketer' | 'admin' | 'bod' | 'logistic' | 'account';
+export type UserRole = 'client' | 'superadmin' | 'marketer' | 'admin' | 'bod' | 'logistic' | 'account' | 'hr';
 
 export interface User {
   id: string;

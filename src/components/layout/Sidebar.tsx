@@ -151,6 +151,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   const isAdmin = profile?.role === 'superadmin';
   const isMarketer = profile?.role === 'marketer'; // a client's marketer staff
   const isLogistic = profile?.role === 'logistic'; // a client's logistic staff
+  const isHr = profile?.role === 'hr'; // a client's HR account — HR section only
   // A marketer sees Top Ranking only when there's an actual team (≥2 marketers).
   const { members } = useTeam();
   const marketerCount = members.filter((m) => !m.is_client && m.is_active !== false && (m.role === 'marketer' || !m.role)).length;
@@ -158,11 +159,13 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
   // Expired / deactivated clients: every tab is locked, only Billing (+ Profile)
   // stays reachable — matches the route guard in App.tsx. Staff aren't expiry-frozen.
   const planExp = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
-  const frozen = !isAdmin && !isMarketer && !isLogistic && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
+  const frozen = !isAdmin && !isMarketer && !isLogistic && !isHr && (profile?.isActive === false || (planExp !== null && planExp.getTime() < Date.now()));
   // Admin: no role groups. Marketer staff: only the Marketer group minus Team.
   // Logistic staff: only the Logistic group. Client: all groups.
   const roleGroupsRaw: RoleGroup[] = isAdmin
     ? []
+    : isHr
+      ? baseRoleGroups.filter((g) => g.key === 'hr')
     : isMarketer
       ? [
           {
@@ -204,7 +207,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     }
   };
   useEffect(() => {
-    if (!isAdmin && profile?.id) fetchPdCredit();
+    if (!isAdmin && !isHr && profile?.id) fetchPdCredit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, isAdmin]);
 
@@ -215,7 +218,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     for (const g of roleGroups) {
       if (g.items.some((i) => location.pathname.startsWith(i.path))) set.add(g.key);
     }
-    if (set.size === 0) set.add('marketer');
+    if (set.size === 0) set.add(isHr ? 'hr' : 'marketer');
     return set;
   })();
   const [expandedGroups, setExpandedGroups] = useState<Set<GroupKey>>(initialExpanded);
@@ -302,7 +305,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         <div className={cn('space-y-1', frozen && 'pointer-events-none select-none opacity-40')}>
         {/* Client home (Dashboard). Hidden for admin — the platform owner has
             no personal order dashboard, only cross-client reporting. */}
-        {!isAdmin && (
+        {!isAdmin && !isHr && (
           <Link
             to="/dashboard"
             title={collapsed ? 'Dashboard' : undefined}
@@ -424,7 +427,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
 
         {/* Notification — standalone, for HQ and marketer staff (staff see only
             their own orders via RLS). */}
-        {!isAdmin && !isLogistic && (
+        {!isAdmin && !isLogistic && !isHr && (
           <Link
             to="/dashboard/notification"
             title={collapsed ? 'Notification' : undefined}
@@ -441,7 +444,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         )}
 
         {/* Courier Settings — standalone (cross-cutting), sits above Integration. */}
-        {!isAdmin && !isMarketer && !isLogistic && (
+        {!isAdmin && !isMarketer && !isLogistic && !isHr && (
           <Link
             to="/dashboard/logistics/courier-settings"
             title={collapsed ? 'Courier Settings' : undefined}
@@ -460,7 +463,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
         {/* Integration — order channels (WooCommerce, Shoppego, OnPay, Convertly).
             Open to HQ (client) AND marketer staff so each can integrate their own
             store (webhook URL is scoped to the logged-in user's idstaff). */}
-        {!isAdmin && !isLogistic && (
+        {!isAdmin && !isLogistic && !isHr && (
           <Link
             to="/dashboard/integration"
             title={collapsed ? 'Integration' : undefined}
@@ -478,7 +481,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
 
         {/* Open Ticket — client support submission. Admin handles tickets via
             the admin Tickets page instead. */}
-        {!isAdmin && !isMarketer && !isLogistic && (
+        {!isAdmin && !isMarketer && !isLogistic && !isHr && (
           <Link
             to="/dashboard/tickets"
             title={collapsed ? 'Open Ticket' : undefined}
@@ -527,7 +530,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           )}
         </div>
         {/* Billing is a client concern (their subscription). Admin/staff don't subscribe. */}
-        {!isAdmin && !isMarketer && !isLogistic && (
+        {!isAdmin && !isMarketer && !isLogistic && !isHr && (
           <Link
             to="/dashboard/billing"
             title={collapsed ? 'Billing' : undefined}

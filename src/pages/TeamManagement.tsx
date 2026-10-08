@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText, ClipboardCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 type RoasTier = { start: number; end: number; percent: number };
@@ -50,6 +50,11 @@ const TeamManagement: React.FC = () => {
   const [logWhatsapp, setLogWhatsapp] = useState('60');
   const [logPassword, setLogPassword] = useState('');
   const [creatingLog, setCreatingLog] = useState(false);
+  // HR account (max ONE per client) — sees only the HR section.
+  const [hrName, setHrName] = useState('');
+  const [hrWhatsapp, setHrWhatsapp] = useState('60');
+  const [hrPassword, setHrPassword] = useState('');
+  const [creatingHr, setCreatingHr] = useState(false);
   // Product scope for the logistic account (bundle ids). Empty = sees ALL orders.
   const [logScope, setLogScope] = useState<string[]>([]);
   const [scopeDialogFor, setScopeDialogFor] = useState<Staff | null>(null);
@@ -115,6 +120,24 @@ const TeamManagement: React.FC = () => {
       toast({ title: 'Gagal cipta akaun logistic', description: e.message === 'logistic_exists' ? 'Anda sudah ada satu akaun logistic.' : e.message, variant: 'destructive' });
     } finally {
       setCreatingLog(false);
+    }
+  };
+
+  const createHr = async () => {
+    if (hrName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
+    if (!/^60\d{8,11}$/.test(hrWhatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
+    if (hrPassword && hrPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
+    setCreatingHr(true);
+    try {
+      const res = await call('create', { name: hrName.trim(), whatsapp: hrWhatsapp.replace(/\D/g, ''), password: hrPassword, staff_role: 'hr' });
+      setLastCreated({ idstaff: res.idstaff, password: res.password || hrPassword });
+      toast({ title: 'Akaun HR dicipta', description: `ID: ${res.idstaff}` });
+      setHrName(''); setHrWhatsapp('60'); setHrPassword('');
+      refresh();
+    } catch (e: any) {
+      toast({ title: 'Gagal cipta akaun HR', description: e.message === 'hr_exists' ? 'Anda sudah ada satu akaun HR.' : e.message, variant: 'destructive' });
+    } finally {
+      setCreatingHr(false);
     }
   };
 
@@ -287,8 +310,9 @@ const TeamManagement: React.FC = () => {
   };
 
   const allStaff = data || [];
-  const staff = allStaff.filter((s) => s.role !== 'logistic'); // marketer staff table
+  const staff = allStaff.filter((s) => s.role !== 'logistic' && s.role !== 'hr'); // marketer staff table
   const logisticAccount = allStaff.find((s) => s.role === 'logistic') || null;
+  const hrAccount = allStaff.find((s) => s.role === 'hr') || null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -363,6 +387,36 @@ const TeamManagement: React.FC = () => {
             </div>
             <Button onClick={createLogistic} disabled={creatingLog} className="mt-4">
               {creatingLog ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Truck className="w-4 h-4 mr-2" />} Tambah Akaun Logistic
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* HR account — max ONE per client. Logs in to see the HR section only (User + Attendance). */}
+      <div className="bg-card border border-border rounded-lg p-5">
+        <h2 className="font-semibold flex items-center gap-2 mb-1"><ClipboardCheck className="w-4 h-4 text-primary" /> Akaun HR</h2>
+        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia hanya nampak seksyen <b>HR</b> — senarai staff dan <b>attendance</b>. Tiada akses order, sales atau profit.</p>
+        {hrAccount ? (
+          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+            <div>
+              <p className="font-mono font-medium">{hrAccount.idstaff}</p>
+              <p className="text-xs text-muted-foreground">{hrAccount.full_name || '-'} · {hrAccount.whatsapp || hrAccount.whatsapp_number || '-'} · <span className={hrAccount.is_active ? 'text-green-600' : 'text-red-500'}>{hrAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
+            </div>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Reset password" onClick={() => resetPassword(hrAccount)}><KeyRound className="w-4 h-4" /></Button>
+              <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title={hrAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(hrAccount)}>{hrAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
+              <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Padam" onClick={() => removeStaff(hrAccount)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><Label>Nama</Label><Input value={hrName} onChange={(e) => setHrName(e.target.value)} placeholder="cth: HR" className="mt-1" /></div>
+              <div><Label>No. WhatsApp</Label><Input value={hrWhatsapp} onChange={(e) => setHrWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
+              <div><Label>Password</Label><Input type="text" value={hrPassword} onChange={(e) => setHrPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
+            </div>
+            <Button onClick={createHr} disabled={creatingHr} className="mt-4">
+              {creatingHr ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ClipboardCheck className="w-4 h-4 mr-2" />} Tambah Akaun HR
             </Button>
           </>
         )}
