@@ -8,13 +8,14 @@ import { AUDIT_MODE } from '@/lib/audit';
 import AddAttendanceStaffModal from './AddAttendanceStaffModal';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
 import DeleteAttendanceStaffDialog from './DeleteAttendanceStaffDialog';
-import { useHrPeople, roleBadge, toModalStaff, STAFF_ROLES, type HrPerson } from './useHrPeople';
+import { useHrPeople, useHrRoles, roleBadge, toModalStaff, type HrPerson } from './useHrPeople';
 
 // HR → USER. Default rows are the marketer staff from the Team tab (read-only here —
 // add/edit/deactivate them in Team). HQ can add extra non-login staff (admin, logistic,
 // multimedia…) and manage those exactly like DFR's attendance staff.
 export default function HRUsers() {
   const { teamPeople, extraPeople, isLoading, error } = useHrPeople();
+  const { data: roles = [] } = useHrRoles();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
@@ -24,7 +25,7 @@ export default function HRUsers() {
   const q = search.trim().toLowerCase();
   const rows = [...teamPeople, ...extraPeople].filter((p) =>
     (roleFilter === 'all' || p.role === roleFilter) &&
-    (!q || [p.name, p.idstaff, p.phone].some((v) => (v || '').toLowerCase().includes(q))),
+    (!q || [p.name, p.phone].some((v) => (v || '').toLowerCase().includes(q))),
   );
 
   const stats = [
@@ -66,14 +67,14 @@ export default function HRUsers() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, ID staff, telefon…" className="pl-9" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, telefon…" className="pl-9" />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="sm:w-52"><SelectValue placeholder="All Roles" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="marketer">Marketer</SelectItem>
-                {STAFF_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {roles.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -84,34 +85,26 @@ export default function HRUsers() {
             <p className="py-8 text-center text-sm text-red-600">Gagal muat staff: {error.message}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="p-2 font-medium">No</th>
                     <th className="p-2 font-medium">Nama</th>
-                    <th className="p-2 font-medium">ID Staff</th>
                     <th className="p-2 font-medium">Telefon</th>
                     <th className="p-2 font-medium">Role</th>
-                    <th className="p-2 font-medium">Sumber</th>
                     <th className="p-2 font-medium">Status</th>
                     <th className="p-2 text-center font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
-                    <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">Tiada staff. Tambah marketer di tab Team, atau tekan “Tambah Staff”.</td></tr>
+                    <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">Tiada staff. Tambah marketer di tab Team, atau tekan “Tambah Staff”.</td></tr>
                   ) : rows.map((p, i) => (
                     <tr key={`${p.source}-${p.id}`} className="border-b last:border-0 hover:bg-muted/30">
                       <td className="p-2 text-muted-foreground">{i + 1}</td>
                       <td className="p-2 font-medium">{p.name}</td>
-                      <td className="p-2 font-mono text-xs">{p.idstaff || '-'}</td>
                       <td className="p-2">{p.phone || '-'}</td>
                       <td className="p-2"><span className={`rounded px-1.5 py-0.5 text-xs font-medium ${roleBadge(p.role)}`}>{p.role}</span></td>
-                      <td className="p-2">
-                        {p.source === 'team'
-                          ? <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">Team</span>
-                          : <span className="rounded bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-700">Tambahan</span>}
-                      </td>
                       <td className="p-2">
                         <span className={`text-xs font-medium ${p.isActive ? 'text-green-600' : 'text-red-500'}`}>{p.isActive ? 'Aktif' : 'Nonaktif'}</span>
                       </td>

@@ -79,17 +79,34 @@ export function useHrPeople() {
   };
 }
 
-// Badge colours per role (DFR palette).
-export const roleBadge = (role: string) =>
-  role === 'marketer' ? 'bg-blue-100 text-blue-800' :
-  role === 'Managing Director' ? 'bg-amber-100 text-amber-800' :
-  role === 'Business Support Exec' ? 'bg-green-100 text-green-800' :
-  role === 'Customer Support' ? 'bg-pink-100 text-pink-800' :
-  role === 'Logistic' ? 'bg-orange-100 text-orange-800' :
-  role === 'Multimedia' ? 'bg-cyan-100 text-cyan-800' :
-  'bg-gray-100 text-gray-800';
+// Roles this HQ defined in HR → Role (the Role dropdown in Add/Edit Staff). "marketer" is
+// fixed (Team tab) and never stored here.
+export type HrRole = { id: string; name: string };
 
-export const STAFF_ROLES = ['Managing Director', 'Business Support Exec', 'Customer Support', 'Logistic', 'Multimedia'];
+export function useHrRoles() {
+  return useQuery({
+    queryKey: ['hr-roles'],
+    queryFn: async () => {
+      // hr_roles isn't in the generated types yet; RLS scopes rows to this HQ.
+      const { data, error } = await (supabase as any).from('hr_roles').select('id, name').order('name');
+      if (error) throw error;
+      return (data || []) as HrRole[];
+    },
+  });
+}
+
+// Badge colour per role: marketer is always blue, other roles get a stable colour from their name.
+const BADGE_TONES = [
+  'bg-amber-100 text-amber-800', 'bg-green-100 text-green-800', 'bg-pink-100 text-pink-800',
+  'bg-orange-100 text-orange-800', 'bg-cyan-100 text-cyan-800', 'bg-violet-100 text-violet-800',
+  'bg-teal-100 text-teal-800', 'bg-rose-100 text-rose-800',
+];
+export const roleBadge = (role: string) => {
+  if (role === 'marketer') return 'bg-blue-100 text-blue-800';
+  let h = 0;
+  for (const c of role.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return BADGE_TONES[h % BADGE_TONES.length];
+};
 
 /** The modals' staff shape. */
 export const toModalStaff = (p: HrPerson) => ({

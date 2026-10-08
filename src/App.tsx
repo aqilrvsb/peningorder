@@ -202,6 +202,7 @@ const App = () => (
                     <Route path="hr" element={<Navigate to="/dashboard/hr/users" replace />} />
                     <Route path="hr/users" element={hrAllowed(<HR view="users" />)} />
                     <Route path="hr/attendance" element={hrAllowed(<HR view="attendance" />)} />
+                    <Route path="hr/roles" element={hrAllowed(<HR view="roles" />)} />
                     <Route path="webhook-settings" element={clientOnly(<MarketerWebhookSettings />)} />
                     <Route path="integration" element={marketerAllowed(<Integration />)} />
                     {/* Logistic Role - Inventory (client + logistic staff) */}

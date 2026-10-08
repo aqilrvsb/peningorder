@@ -10,31 +10,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import StaffRoleSelect from "./StaffRoleSelect";
 
 interface AddAttendanceStaffModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const STAFF_ROLES = [
-  "Managing Director",
-  "Business Support Exec",
-  "Customer Support",
-  "Logistic",
-  "Multimedia",
-];
-
 const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModalProps) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
-    ic_number: "",
     phone: "",
-    address: "",
     role: "",
   });
 
@@ -44,9 +33,7 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
         .from("attendance_staff")
         .insert({
           name: data.name,
-          ic_number: data.ic_number || null,
           phone: data.phone || null,
-          address: data.address || null,
           role: data.role,
         })
         .select()
@@ -70,9 +57,7 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
   const resetForm = () => {
     setFormData({
       name: "",
-      ic_number: "",
       phone: "",
-      address: "",
       role: "",
     });
   };
@@ -110,16 +95,6 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ic_number">ID Staff</Label>
-            <Input
-              id="ic_number"
-              placeholder="e.g. ST-001"
-              value={formData.ic_number}
-              onChange={(e) => setFormData({ ...formData, ic_number: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
             <Input
               id="phone"
@@ -130,30 +105,12 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Textarea
-              id="address"
-              placeholder="Full address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>
-            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                {STAFF_ROLES.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <StaffRoleSelect
+              value={formData.role}
+              onChange={(value) => setFormData({ ...formData, role: value })}
+              onGoToRoles={() => onOpenChange(false)}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

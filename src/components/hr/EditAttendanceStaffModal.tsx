@@ -10,10 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import StaffRoleSelect from "./StaffRoleSelect";
 
 interface AttendanceStaff {
   id: string;
@@ -30,21 +29,11 @@ interface EditAttendanceStaffModalProps {
   staff: AttendanceStaff | null;
 }
 
-const STAFF_ROLES = [
-  "Managing Director",
-  "Business Support Exec",
-  "Customer Support",
-  "Logistic",
-  "Multimedia",
-];
-
 const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceStaffModalProps) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
-    ic_number: "",
     phone: "",
-    address: "",
     role: "",
   });
 
@@ -53,9 +42,7 @@ const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceS
     if (staff) {
       setFormData({
         name: staff.name || "",
-        ic_number: staff.ic_number || "",
         phone: staff.phone || "",
-        address: staff.address || "",
         role: staff.role || "",
       });
     }
@@ -69,9 +56,7 @@ const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceS
         .from("attendance_staff")
         .update({
           name: data.name,
-          ic_number: data.ic_number || null,
           phone: data.phone || null,
-          address: data.address || null,
           role: data.role,
           updated_at: new Date().toISOString(),
         })
@@ -126,16 +111,6 @@ const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceS
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-ic_number">ID Staff</Label>
-            <Input
-              id="edit-ic_number"
-              placeholder="e.g. ST-001"
-              value={formData.ic_number}
-              onChange={(e) => setFormData({ ...formData, ic_number: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="edit-phone">Phone Number</Label>
             <Input
               id="edit-phone"
@@ -146,30 +121,12 @@ const EditAttendanceStaffModal = ({ open, onOpenChange, staff }: EditAttendanceS
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-address">Address</Label>
-            <Textarea
-              id="edit-address"
-              placeholder="Full address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="edit-role">Role *</Label>
-            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                {STAFF_ROLES.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <StaffRoleSelect
+              value={formData.role}
+              onChange={(value) => setFormData({ ...formData, role: value })}
+              onGoToRoles={() => onOpenChange(false)}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
