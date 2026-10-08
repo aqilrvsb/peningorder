@@ -28,8 +28,12 @@ export default function Problem() {
 
         <div className="mt-14 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="relative order-2 lg:order-1">
-            <div className="overflow-hidden rounded-3xl border border-po-border shadow-xl">
-              <img src={img.url} alt="Meja usahawan bersepah dengan order dan parcel" className="h-auto w-full" loading="lazy" />
+            <div className="aspect-square overflow-hidden rounded-3xl border border-po-border bg-po-surface shadow-xl">
+              <img src={img.url} alt="Meja usahawan bersepah dengan buku order, WhatsApp dan parcel" className="h-full w-full object-cover" loading="lazy" width={1200} height={1200} />
+            </div>
+            <div className="absolute -bottom-5 left-1/2 w-max -translate-x-1/2 rounded-2xl border border-po-coral/20 bg-white px-5 py-3 text-center shadow-xl">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-po-coral">Pukul 1 pagi, masih kira order</div>
+              <div className="text-sm font-extrabold text-po-ink">Buku · Excel · WhatsApp · Kalkulator</div>
             </div>
           </div>
           <div className="order-1 grid gap-4 sm:grid-cols-2 lg:order-2">

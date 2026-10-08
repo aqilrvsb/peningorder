@@ -1,115 +1,14 @@
 {
-  "generated_at": "2026-07-20",
-  "note": "AI-generated marketing assets for the PeningOrder sales landing. Images via nano-banana-pro, hero video via gemini. Hosted on peninglab CDN (Backblaze B2) so they survive Vercel deploys.",
+  "generated_at": "2026-10-09",
+  "note": "Marketing assets for the PeningOrder sales landing, served from this repo's public/sales (Vercel CDN) so nothing outside our control can delete them. Hero videos = our Remotion promo videos (peningorder-promo, 720p web encodes). Photos = peninglab gpt-image-2. UI shots = peningorder-promo LandingStills (real PeningOrder screens). The old peninglab B2 links were removed by that bucket's lifecycle rules — never hot-link third-party/user-content storage here.",
   "assets": {
-    "hero_video": {
-      "type": "video",
-      "aspect": "16:9",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/d84ca5b6-e541-4231-8475-a929c9958459.mp4",
-      "task_id": "d84ca5b6-e541-4231-8475-a929c9958459",
-      "cost_rm": 1.5,
-      "provider": "gemini",
-      "slot": "p6-b"
-    },
-    "hero_video_2": {
-      "type": "video",
-      "aspect": "16:9",
-      "url": "https://s.apipod.ai/videos/2026/07/20/4fd82ef1-4d7a-49d5-9897-86c4f9c53d59.mp4",
-      "task_id": "fa7e99b2-a261-4eac-b43c-58c20252307b",
-      "cost_rm": 1.5,
-      "provider": "gemini",
-      "slot": "p6-b"
-    },
-    "hero_video_3": {
-      "type": "video",
-      "aspect": "16:9",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/cb2da52e-f899-414e-86a8-b4dd238c1820.mp4",
-      "task_id": "cb2da52e-f899-414e-86a8-b4dd238c1820",
-      "cost_rm": 1.5,
-      "provider": "gemini",
-      "slot": "p6-a"
-    },
-    "hero_video_4": {
-      "type": "video",
-      "aspect": "16:9",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/ugc/75a90c81-b5a5-491f-adea-2ffee858fdfe.mp4",
-      "task_id": "75a90c81-b5a5-491f-adea-2ffee858fdfe",
-      "cost_rm": 1.5,
-      "provider": "gemini",
-      "slot": "p6-a"
-    },
-    "pain_messy_desk": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/7970d61b-86bb-4203-8681-242568fa73fb.png",
-      "task_id": "7970d61b-86bb-4203-8681-242568fa73fb",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "transformation_before_after": {
-      "type": "image",
-      "aspect": "16:9",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/a4eb3350-c14a-4140-ada6-cf6866eae69f.png",
-      "task_id": "a4eb3350-c14a-4140-ada6-cf6866eae69f",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "dashboard_orders": {
-      "type": "image",
-      "aspect": "16:9",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/9a352d15-cadf-42b0-957b-2c83c74204b7.png",
-      "task_id": "9a352d15-cadf-42b0-957b-2c83c74204b7",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "report_analytics": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/fca1167c-6a69-466b-ae88-5daeb293ff59.png",
-      "task_id": "fca1167c-6a69-466b-ae88-5daeb293ff59",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "parcels_waybill": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/1c8b8ef1-5949-4939-ac53-f1878fb61f52.png",
-      "task_id": "1c8b8ef1-5949-4939-ac53-f1878fb61f52",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "avatar_1": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/d60a38b8-757c-4ec4-ba98-534d0b76a2d9.png",
-      "task_id": "d60a38b8-757c-4ec4-ba98-534d0b76a2d9",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "avatar_2": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/4ef4d716-570d-4cef-b0ac-1f54126bce19.png",
-      "task_id": "4ef4d716-570d-4cef-b0ac-1f54126bce19",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    },
-    "avatar_3": {
-      "type": "image",
-      "aspect": "1:1",
-      "url": "https://peninglab-content.s3.us-east-005.backblazeb2.com/users/f0fd6781-ed5f-4aa8-a5b9-eec943229092/image/1e768ace-5bcb-4237-8cca-76acfe416d25.png",
-      "task_id": "1e768ace-5bcb-4237-8cca-76acfe416d25",
-      "cost_rm": 0.15,
-      "provider": "nano-banana-pro",
-      "slot": "p4"
-    }
-  },
-  "total_cost_rm": 7.35
+    "hero_video": { "type": "video", "aspect": "16:9", "url": "/sales/hero-1.mp4", "poster": "/sales/hero-1-poster.jpg", "source": "peningorder-promo/out/peningorder-promo-60s-social.mp4 (61s, Malay)" },
+    "hero_video_2": { "type": "video", "aspect": "16:9", "url": "/sales/hero-2.mp4", "poster": "/sales/hero-2-poster.jpg", "source": "peningorder-promo/out/peningorder-promo-v3-social.mp4 (87s, Malay 2am story)" },
+    "hero_video_3": { "type": "video", "aspect": "16:9", "url": "/sales/hero-3.mp4", "poster": "/sales/hero-3-poster.jpg", "source": "peningorder-promo/out/peningorder-promo.mp4 (30s, English)" },
+    "pain_messy_desk": { "type": "image", "aspect": "1:1", "url": "/sales/pain-desk.webp", "source": "peninglab gpt-image-2" },
+    "transformation_before_after": { "type": "image", "aspect": "16:9", "url": "/sales/before-after.webp", "source": "peninglab gpt-image-2" },
+    "dashboard_orders": { "type": "image", "aspect": "16:10", "url": "/sales/dashboard.webp", "source": "peningorder-promo LandingDashboard still" },
+    "report_analytics": { "type": "image", "aspect": "1:1", "url": "/sales/report.webp", "source": "peningorder-promo LandingReport still" },
+    "parcels_waybill": { "type": "image", "aspect": "3:2", "url": "/sales/parcels.webp", "source": "peninglab gpt-image-2" }
+  }
 }

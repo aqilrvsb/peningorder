@@ -40,13 +40,24 @@ export default function Features() {
           ))}
         </div>
 
+        {/* Same height on both tiles so the row lines up at every width. */}
         <div className="mt-14 grid gap-6 md:grid-cols-5">
-          <div className="overflow-hidden rounded-3xl border border-po-border shadow-lg md:col-span-3">
-            <img src={dash.url} alt="Dashboard pengurusan order PeningOrder" className="h-full w-full object-cover" loading="lazy" />
-          </div>
-          <div className="overflow-hidden rounded-3xl border border-po-border shadow-lg md:col-span-2">
-            <img src={parcels.url} alt="Parcel dengan waybill siap print" className="h-full w-full object-cover" loading="lazy" />
-          </div>
+          <figure className="overflow-hidden rounded-3xl border border-po-border bg-po-surface shadow-lg md:col-span-3">
+            <div className="aspect-[16/10] md:aspect-auto md:h-[380px]">
+              <img src={dash.url} alt="Dashboard dan order masuk PeningOrder" className="h-full w-full object-cover" loading="lazy" width={1600} height={1000} />
+            </div>
+            <figcaption className="border-t border-po-border bg-white px-5 py-3 text-sm font-semibold text-po-ink">
+              Dashboard & order masuk — tracking kurier update sendiri
+            </figcaption>
+          </figure>
+          <figure className="overflow-hidden rounded-3xl border border-po-border bg-po-surface shadow-lg md:col-span-2">
+            <div className="aspect-[3/2] md:aspect-auto md:h-[380px]">
+              <img src={parcels.url} alt="Parcel dengan waybill siap print" className="h-full w-full object-cover" loading="lazy" width={1200} height={800} />
+            </div>
+            <figcaption className="border-t border-po-border bg-white px-5 py-3 text-sm font-semibold text-po-ink">
+              Waybill print pukal — parcel siap pos
+            </figcaption>
+          </figure>
         </div>
       </div>
     </section>

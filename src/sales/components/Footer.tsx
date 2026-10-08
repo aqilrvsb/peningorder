@@ -26,7 +26,7 @@ export default function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-wide text-po-ink">Akaun</h3>
           <ul className="mt-3 space-y-2 text-sm text-po-ink-soft">
             <li><Link to="/auth" className="hover:text-po-ink">Log Masuk</Link></li>
-            <li><Link to="/checkout?plan=starter" className="hover:text-po-ink">Daftar</Link></li>
+            <li><Link to="/checkout" className="hover:text-po-ink">Daftar</Link></li>
             <li><Link to="/dashboard" className="hover:text-po-ink">Dashboard</Link></li>
           </ul>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import UrgencyBar from './components/UrgencyBar';
 import Nav from './components/Nav';
@@ -25,6 +25,15 @@ import Footer from './components/Footer';
 export default function SalesLanding() {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { hash } = useLocation();
+
+  // Links like /#pricing from other pages (checkout "Pilih plan") land on the section,
+  // not the top — the SPA router doesn't scroll to anchors by itself.
+  useEffect(() => {
+    if (!hash) return;
+    const t = setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth' }), 150);
+    return () => clearTimeout(t);
+  }, [hash]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) navigate('/dashboard', { replace: true });
@@ -38,7 +47,7 @@ export default function SalesLanding() {
       meta.name = 'description';
       document.head.appendChild(meta);
     }
-    meta.content = 'Berhenti urus order dalam buku, Excel & WhatsApp. PeningOrder track semua order, kurier, tracking & untung dalam satu dashboard. Mula dari RM39/bulan.';
+    meta.content = 'Berhenti urus order dalam buku, Excel & WhatsApp. PeningOrder track semua order, kurier, tracking & untung dalam satu dashboard. Bayar bulanan, tiada kontrak.';
   }, []);
 
   return (

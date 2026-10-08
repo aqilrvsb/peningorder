@@ -144,6 +144,17 @@ serve(async (req) => {
     if (!v.ok) return json(400, { error: "validation", detail: v.detail });
     const intent = v.data;
 
+    // Only plans on sale can be bought — checked before any account is created.
+    const { data: planRow } = await admin
+      .from("app_settings")
+      .select("value")
+      .eq("key", `plan_${intent.plan}`)
+      .maybeSingle();
+    if (!planRow) return json(500, { error: "plan_config_missing", detail: `plan_${intent.plan}` });
+    if ((planRow.value as { active?: boolean }).active === false) {
+      return json(400, { error: "plan_inactive", message: "Plan ni tidak dijual sekarang. Sila pilih plan lain." });
+    }
+
     // Bail early if the email already has an account.
     const { data: existing } = await admin
       .from("profiles")
@@ -181,14 +192,7 @@ serve(async (req) => {
     // freeze-gate keeps them on Billing only until the plan is activated.
     await admin.from("profiles").update({ plan_expires_at: new Date().toISOString() }).eq("id", userId);
 
-    // Load plan config.
-    const { data: settingRow } = await admin
-      .from("app_settings")
-      .select("value")
-      .eq("key", `plan_${intent.plan}`)
-      .maybeSingle();
-    if (!settingRow) return json(500, { error: "plan_config_missing", detail: `plan_${intent.plan}` });
-    const cfg = settingRow.value as { price: number; days: number; label: string };
+    const cfg = planRow.value as { price: number; days: number; label: string };
 
     // Pending payment row for this subscription.
     const { data: payment, error: payErr } = await admin

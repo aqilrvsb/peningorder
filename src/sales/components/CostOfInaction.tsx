@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Calculator, TrendingDown } from 'lucide-react';
 import { media } from '../media';
+import { usePlans, priceLabel } from '../usePlans';
 
 // Interactive loss calculator. Visitor inputs their own numbers and sees the
 // monthly cost of orders lost to messy manual tracking. Self-quantified pain.
 export default function CostOfInaction() {
   const img = media('report_analytics');
+  const { cheapest } = usePlans();
   const [ordersPerDay, setOrdersPerDay] = useState(20);
   const [lostPct, setLostPct] = useState(8);
   const [avgProfit, setAvgProfit] = useState(25);
@@ -31,8 +33,8 @@ export default function CostOfInaction() {
 
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="relative">
-            <div className="overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
-              <img src={img.url} alt="Dashboard laporan untung" className="h-auto w-full" loading="lazy" />
+            <div className="aspect-square overflow-hidden rounded-3xl border border-white/10 bg-[#0b1220] shadow-2xl">
+              <img src={img.url} alt="Report profit ikut platform dan tally COD dalam PeningOrder" className="h-full w-full object-cover" loading="lazy" width={1200} height={1200} />
             </div>
             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 rounded-2xl bg-po-coral px-6 py-3 text-center shadow-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-white/90">Rugi sebulan</div>
@@ -57,7 +59,7 @@ export default function CostOfInaction() {
                 className="group flex items-center justify-center gap-2 rounded-full bg-po-blue px-6 py-4 text-base font-extrabold text-white shadow-xl shadow-po-blue/40 transition-all hover:bg-po-blue-hover"
               >
                 <TrendingDown className="h-5 w-5" />
-                Berhenti rugi — Mula RM 39/bulan
+                Berhenti rugi — {priceLabel(cheapest)}/bulan je
               </a>
             </div>
           </div>

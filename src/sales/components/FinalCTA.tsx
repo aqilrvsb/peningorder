@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, PackageCheck } from 'lucide-react';
+import { usePlans, priceLabel } from '../usePlans';
 
 export default function FinalCTA() {
+  const { cheapest } = usePlans();
   return (
     <section className="relative overflow-hidden bg-po-ink py-20 text-white sm:py-24">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(16,89,198,0.35),transparent_55%)]" />
@@ -21,7 +23,7 @@ export default function FinalCTA() {
         </h2>
 
         <p className="mt-6 text-lg text-white/75">
-          Daftar 2 minit. Langgan dari RM39/bulan. Track semua order, kurier & untung dari satu dashboard. Cancel bila-bila.
+          Daftar 2 minit. Langgan {priceLabel(cheapest)}/bulan. Track semua order, kurier & untung dari satu dashboard. Cancel bila-bila.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

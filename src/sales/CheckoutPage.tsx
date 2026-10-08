@@ -3,6 +3,7 @@ import { pixelRegistered, pixelTrack } from '@/lib/metaPixel';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, Loader2, ShieldCheck, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { usePlans } from './usePlans';
 
 // Public checkout. Collects the visitor's details + chosen plan, then calls the
 // sales-checkout edge function which:
@@ -12,11 +13,12 @@ import { supabase } from '@/integrations/supabase/client';
 // they abandon payment) and forward to CHIP. On CHIP success they land back on
 // /dashboard/billing with their plan upgraded by the billing-webhook.
 type PlanKey = 'starter' | 'growth' | 'scale';
-type PlanCfg = { price: number; original_price?: number; days: number; label: string; max_orders_per_month: number };
+type PlanCfg = { price: number; original_price?: number; days: number; label: string; max_orders_per_month: number; active?: boolean };
 const VALID: PlanKey[] = ['starter', 'growth', 'scale'];
 
 function friendlyError(err: string): string {
   if (err === 'email_exists') return 'Email ni dah ada akaun. Sila log masuk.';
+  if (err === 'plan_inactive') return 'Plan ni tidak dijual sekarang. Sila pilih plan lain.';
   if (err.includes('invalid email')) return 'Email tak sah.';
   if (err.includes('invalid phone')) return 'Nombor WhatsApp tak sah. Format: 60xxxxxxxxx (mula 60, tiada +).';
   if (err.includes('password')) return 'Password terlalu pendek (minimum 6 aksara).';
@@ -26,12 +28,24 @@ function friendlyError(err: string): string {
 }
 
 export default function CheckoutPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const planParam = (searchParams.get('plan') || 'starter').toLowerCase();
   const plan: PlanKey = (VALID.includes(planParam as PlanKey) ? planParam : 'starter') as PlanKey;
   const status = searchParams.get('status');
+
+  // A missing, misspelt or switched-off plan (old links, footer, ads) goes to the cheapest
+  // plan on sale instead of a dead "plan not found" page. Other params (UTM) are kept.
+  const { active, loading: plansLoading } = usePlans();
+  const planOnSale = active.some(([k]) => k === searchParams.get('plan')?.toLowerCase());
+  useEffect(() => {
+    if (plansLoading || !active.length || planOnSale) return;
+    const best = active.reduce((a, b) => (b[1].price < a[1].price ? b : a))[0];
+    const next = new URLSearchParams(searchParams);
+    next.set('plan', best);
+    setSearchParams(next, { replace: true });
+  }, [plansLoading, active, planOnSale, searchParams, setSearchParams]);
 
   const [cfg, setCfg] = useState<PlanCfg | null>(null);
   const [loadingCfg, setLoadingCfg] = useState(true);
@@ -60,14 +74,14 @@ export default function CheckoutPage() {
       const loaded = (data?.value as PlanCfg) ?? null;
       setCfg(loaded);
       setLoadingCfg(false);
-      if (loaded) pixelTrack('InitiateCheckout', { content_name: plan, value: Number(loaded.price) || 0, currency: 'MYR' });
+      if (loaded && loaded.active !== false) pixelTrack('InitiateCheckout', { content_name: plan, value: Number(loaded.price) || 0, currency: 'MYR' });
     })();
     return () => { cancelled = true; };
   }, [plan]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || !planOnSale) return;
     setError('');
     setBusy(true);
     try {

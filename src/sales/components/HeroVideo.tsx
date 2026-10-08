@@ -3,9 +3,10 @@ import { Volume2, VolumeX } from 'lucide-react';
 
 // Hero video player. Lazy-loads via IntersectionObserver and cycles through a
 // playlist of clips (advances on `ended`) so the hero shows variety instead of
-// looping the same clip. Exposes an unmute control (browsers block
-// autoplay-with-sound until the visitor interacts).
-export default function HeroVideo({ srcs, className = '' }: { srcs: string[]; className?: string }) {
+// looping the same clip. Each clip has a poster so the frame is never an empty
+// box, and a clip that fails to load is skipped. Exposes an unmute control
+// (browsers block autoplay-with-sound until the visitor interacts).
+export default function HeroVideo({ srcs, posters = [], className = '' }: { srcs: string[]; posters?: string[]; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -40,6 +41,13 @@ export default function HeroVideo({ srcs, className = '' }: { srcs: string[]; cl
     if (multiple) setIndex((i) => (i + 1) % list.length);
   }
 
+  // A broken clip shouldn't leave a dead player — move on to the next one (poster stays up).
+  const failed = useRef(new Set<number>());
+  function onError() {
+    failed.current.add(index);
+    if (multiple && failed.current.size < list.length) setIndex((i) => (i + 1) % list.length);
+  }
+
   // Keep playing across source swaps; preserve mute state.
   useEffect(() => {
     const vid = videoRef.current;
@@ -61,18 +69,20 @@ export default function HeroVideo({ srcs, className = '' }: { srcs: string[]; cl
         ref={videoRef}
         key={index}
         src={shouldLoad ? list[index] : undefined}
+        poster={posters[index] || undefined}
         autoPlay
         muted={muted}
         loop={!multiple}
         playsInline
         onEnded={onEnded}
+        onError={onError}
         preload={shouldLoad ? 'auto' : 'none'}
-        className="aspect-video w-full object-cover"
+        className="aspect-video w-full bg-po-ink object-cover"
       />
 
-      {/* Playlist dots */}
+      {/* Playlist dots — top centre, clear of the clips' own subtitles at the bottom */}
       {multiple && (
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+        <div className="absolute left-1/2 top-5 flex -translate-x-1/2 gap-1.5 sm:top-6">
           {list.map((_, i) => (
             <button
               key={i}

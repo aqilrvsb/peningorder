@@ -26,8 +26,14 @@ export default function Transformation() {
           </h2>
         </div>
 
-        <div className="mt-12 overflow-hidden rounded-3xl border border-po-border shadow-xl">
-          <img src={img.url} alt="Perbandingan meja sebelum dan selepas guna PeningOrder" className="h-auto w-full" loading="lazy" />
+        <div className="relative mt-12 aspect-video overflow-hidden rounded-3xl border border-po-border bg-po-ink shadow-xl">
+          <img src={img.url} alt="Meja usahawan sebelum dan selepas guna PeningOrder" className="h-full w-full object-cover" loading="lazy" width={1600} height={900} />
+          <span className="absolute left-3 top-3 rounded-full bg-po-coral px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-lg sm:left-5 sm:top-5 sm:text-sm">
+            Sebelum
+          </span>
+          <span className="absolute right-3 top-3 rounded-full bg-po-success px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-lg sm:right-5 sm:top-5 sm:text-sm">
+            Selepas
+          </span>
         </div>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">

@@ -1,14 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Zap, Rocket, Crown, Sparkles, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { usePlans, type PlanKey } from '../usePlans';
 
 // Pricing pulls live plan config from app_settings (plan_starter/growth/scale)
 // so whatever the superadmin sets in /dashboard/admin/pricing shows here on the
 // next visitor refresh. Each plan value = { price, days, label, max_orders_per_month }.
-type PlanKey = 'starter' | 'growth' | 'scale';
-type PlanCfg = { price: number; days: number; label: string; max_orders_per_month: number };
-
 const ORDER: PlanKey[] = ['starter', 'growth', 'scale'];
 const ICONS: Record<PlanKey, React.ReactNode> = {
   starter: <Zap className="h-5 w-5" />,
@@ -22,31 +18,29 @@ const BLURB: Record<PlanKey, string> = {
 };
 const EXTRAS: Record<PlanKey, string[]> = {
   starter: ['Semua kurier (Poslaju, NinjaVan, J&T, DHL)', 'Print waybill pukal', 'Report untung asas'],
-  growth: ['Semua dalam Starter', 'Import WooCommerce & Shopee', 'Multi-staff (marketer/logistik/akaun)', 'Report untung lanjutan'],
+  growth: [
+    'Semua dalam Starter', 'Import WooCommerce & Shopee', 'Tambah team percuma (marketer/logistik/akaun)',
+    'Report Profit & PNL ikut platform', 'Gaji & komisyen auto + slip gaji', 'Tally COD & SOA kurier', 'Top Ranking team',
+  ],
   scale: ['Semua dalam Growth', 'Order tanpa had', 'Priority support', 'Webhook & API access'],
 };
 
-export default function Pricing() {
-  const [plans, setPlans] = useState<Record<string, PlanCfg>>({});
-  const [loading, setLoading] = useState(true);
+// A plan's ticks; "Semua dalam X" only when X is actually on sale, else X's ticks are listed.
+function extrasFor(key: PlanKey, isActive: (k: PlanKey) => boolean): string[] {
+  const own = EXTRAS[key].filter((f) => !f.startsWith('Semua dalam'));
+  if (key === 'growth') {
+    return isActive('starter') ? EXTRAS.growth : [...EXTRAS.starter.filter((f) => f !== 'Report untung asas'), ...own];
+  }
+  if (key === 'scale') return isActive('growth') ? EXTRAS.scale : [...extrasFor('growth', isActive), ...own];
+  return EXTRAS[key];
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .in('key', ['plan_starter', 'plan_growth', 'plan_scale']);
-      if (cancelled) return;
-      const map: Record<string, PlanCfg> = {};
-      (data ?? []).forEach((r: { key: string; value: unknown }) => {
-        map[r.key.replace('plan_', '')] = r.value as PlanCfg;
-      });
-      setPlans(map);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+export default function Pricing() {
+  const { plans, loading, active } = usePlans();
+  const isActive = (k: PlanKey) => active.some(([key]) => key === k);
+  const visible = ORDER.filter(isActive);
+  // One or two plans on sale → centre them instead of leaving empty columns.
+  const grid = visible.length >= 3 ? 'md:grid-cols-3' : visible.length === 2 ? 'mx-auto max-w-3xl md:grid-cols-2' : 'mx-auto max-w-md';
 
   return (
     <section id="pricing" className="bg-po-surface py-20 sm:py-24">
@@ -65,33 +59,33 @@ export default function Pricing() {
         {loading ? (
           <div className="mt-14 rounded-2xl border border-po-border bg-white p-8 text-center text-sm text-po-ink-muted">Loading harga…</div>
         ) : (
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {ORDER.map((key, idx) => {
+          <div className={`mt-14 grid gap-6 ${grid}`}>
+            {visible.map((key) => {
               const p = plans[key];
-              if (!p || (p as any).active === false) return null;
-              const isPopular = key === 'growth';
+              const isPopular = key === 'growth' && visible.length > 1;
+              const featured = key === 'growth';
               const noCap = p.max_orders_per_month >= 999999;
               return (
                 <div
                   key={key}
-                  className={`relative flex flex-col rounded-2xl border p-6 ${isPopular ? 'border-po-blue bg-white shadow-2xl md:-translate-y-2' : 'border-po-border bg-white shadow-sm'}`}
+                  className={`relative flex flex-col rounded-2xl border p-6 ${featured ? 'border-po-blue bg-white shadow-2xl' : 'border-po-border bg-white shadow-sm'} ${isPopular ? 'md:-translate-y-2' : ''}`}
                 >
-                  {isPopular && (
+                  {featured && (
                     <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-po-blue px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-md">
                       <Sparkles className="h-3 w-3" />
-                      Paling Popular
+                      {isPopular ? 'Paling Popular' : 'Semua Feature'}
                     </span>
                   )}
                   <div className="flex items-center gap-2.5">
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${isPopular ? 'bg-po-blue text-white' : 'bg-po-blue-tint text-po-blue'}`}>
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${featured ? 'bg-po-blue text-white' : 'bg-po-blue-tint text-po-blue'}`}>
                       {ICONS[key]}
                     </span>
                     <h3 className="text-lg font-bold text-po-ink">{p.label}</h3>
                   </div>
                   <p className="mt-3 min-h-[2.5rem] text-sm text-po-ink-soft">{BLURB[key]}</p>
                   <div className="mt-4 flex items-baseline gap-1.5">
-                    {Number((p as any).original_price) > p.price && (
-                      <span className="text-lg font-semibold text-po-ink-muted line-through decoration-po-danger/70">RM{(p as any).original_price}</span>
+                    {Number(p.original_price) > p.price && (
+                      <span className="text-lg font-semibold text-po-ink-muted line-through decoration-po-danger/70">RM{p.original_price}</span>
                     )}
                     <span className="text-4xl font-extrabold text-po-ink">RM{p.price}</span>
                     <span className="text-sm font-medium text-po-ink-muted">/ {p.days} hari</span>
@@ -102,7 +96,7 @@ export default function Pricing() {
                       <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-po-success" />
                       <span><span className="font-semibold">{noCap ? 'Order tanpa had' : `${p.max_orders_per_month.toLocaleString('en-MY')} order`}</span>{noCap ? '' : ' / bulan'}</span>
                     </li>
-                    {EXTRAS[key].map((f) => (
+                    {extrasFor(key, isActive).map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm text-po-ink">
                         <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-po-success" />
                         <span>{f}</span>
@@ -112,7 +106,7 @@ export default function Pricing() {
 
                   <Link
                     to={`/checkout?plan=${key}`}
-                    className={`mt-6 block rounded-full px-5 py-3 text-center text-sm font-bold transition-colors ${isPopular ? 'bg-po-blue text-white hover:bg-po-blue-hover' : 'border border-po-border-strong bg-white text-po-ink hover:bg-po-surface'}`}
+                    className={`mt-6 block rounded-full px-5 py-3 text-center text-sm font-bold transition-colors ${featured ? 'bg-po-blue text-white hover:bg-po-blue-hover' : 'border border-po-border-strong bg-white text-po-ink hover:bg-po-surface'}`}
                   >
                     Mula dengan {p.label}
                   </Link>

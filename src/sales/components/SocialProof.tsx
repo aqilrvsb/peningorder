@@ -1,11 +1,11 @@
 import { Star, Quote } from 'lucide-react';
-import { media } from '../media';
 
 const TESTIMONIALS = [
-  { key: 'avatar_2' as const, name: 'Nurul Aina', biz: 'Skincare online, Shah Alam', quote: 'Dulu order dalam WhatsApp bercampur chat. Sekarang semua kemas, tracking auto-update. Customer tak tanya "parcel saya mana" dah.' },
-  { key: 'avatar_1' as const, name: 'Firdaus Rahman', biz: 'Dropship gadget, JB', quote: 'Report untung real-time tu game changer. Dulu guna Excel, hujung bulan baru tahu untung. Sekarang tengok terus tiap hari.' },
-  { key: 'avatar_3' as const, name: 'Michelle Tan', biz: 'Baju butik, Penang', quote: 'Staff saya 3 orang, semua guna satu akaun. Tak ada dah masalah order sama pos dua kali. Jimat masa gila.' },
+  { color: 'bg-po-coral', name: 'Nurul Aina', biz: 'Skincare online, Shah Alam', quote: 'Dulu order dalam WhatsApp bercampur chat. Sekarang semua kemas, tracking auto-update. Customer tak tanya "parcel saya mana" dah.' },
+  { color: 'bg-po-blue', name: 'Firdaus Rahman', biz: 'Dropship gadget, JB', quote: 'Report untung real-time tu game changer. Dulu guna Excel, hujung bulan baru tahu untung. Sekarang tengok terus tiap hari.' },
+  { color: 'bg-po-success', name: 'Michelle Tan', biz: 'Baju butik, Penang', quote: 'Staff saya 3 orang, semua guna satu akaun. Tak ada dah masalah order sama pos dua kali. Jimat masa gila.' },
 ];
+const initials = (name: string) => name.split(' ').map((w) => w[0]).slice(0, 2).join('');
 
 export default function SocialProof() {
   return (
@@ -23,22 +23,21 @@ export default function SocialProof() {
         </div>
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {TESTIMONIALS.map((t) => {
-            const avatar = media(t.key);
-            return (
-              <figure key={t.name} className="flex flex-col rounded-2xl border border-po-border bg-po-surface p-6">
-                <Quote className="h-7 w-7 text-po-blue/30" />
-                <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-po-ink-soft">"{t.quote}"</blockquote>
-                <figcaption className="mt-5 flex items-center gap-3 border-t border-po-border pt-4">
-                  <img src={avatar.url} alt={t.name} className="h-11 w-11 rounded-full object-cover" loading="lazy" />
-                  <div>
-                    <div className="text-sm font-bold text-po-ink">{t.name}</div>
-                    <div className="text-xs text-po-ink-muted">{t.biz}</div>
-                  </div>
-                </figcaption>
-              </figure>
-            );
-          })}
+          {TESTIMONIALS.map((t) => (
+            <figure key={t.name} className="flex flex-col rounded-2xl border border-po-border bg-po-surface p-6">
+              <Quote className="h-7 w-7 text-po-blue/30" />
+              <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-po-ink-soft">"{t.quote}"</blockquote>
+              <figcaption className="mt-5 flex items-center gap-3 border-t border-po-border pt-4">
+                <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-white ${t.color}`}>
+                  {initials(t.name)}
+                </span>
+                <div>
+                  <div className="text-sm font-bold text-po-ink">{t.name}</div>
+                  <div className="text-xs text-po-ink-muted">{t.biz}</div>
+                </div>
+              </figcaption>
+            </figure>
+          ))}
         </div>
       </div>
     </section>
