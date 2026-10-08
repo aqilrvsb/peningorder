@@ -3,10 +3,12 @@
 // Every 30 minutes (MYT, the ad account's timezone):
 //   • budget  = min(max_budget, base_budget + step × purchases today) per CBO campaign
 //     (absolute, so reruns never stack)
-//   • auto-off: pause any ad that spent ≥ pause_spend today with 0 purchases
+//   • auto-off: pause any ad that spent ≥ pause_spend today with 0 purchases (back on at 12am),
+//     or over the last verdict_days spent ≥ kill_spend with 0 purchases / ≥ roas_min_spend with
+//     ROAS < min_roas (stays off — jaga spend + ROAS)
 // At :00 — WhatsApp report (table + totals) to notify_phone, except quiet hours (12am–4am).
 // At :30 — WhatsApp only if something changed (budget up / ad paused), same quiet hours.
-// At 00:00 MYT: every campaign back to base_budget, ads it paused turned back on.
+// At 00:00 MYT: every campaign back to base_budget, ads it paused "for today" turned back on.
 //
 // Config + token: one platform_secrets row per product/ad account, key
 // "meta_ads_autopilot" or "meta_ads_autopilot_<name>" (see migration 20261008_ads_autopilot);
@@ -30,6 +32,7 @@ type Cfg = {
   base_budget: number; step: number; max_budget: number; pause_spend: number;
   notify_phone: string; quiet_start: number; quiet_end: number;
   wa_device_id?: string; wa_send_url?: string; // optional: own PeningBot device / gateway (default: admin_device)
+  kill_spend?: number; roas_min_spend?: number; min_roas?: number; verdict_days?: number; // auto-off verdicts
 };
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -115,7 +118,9 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
           actions.push(`↩️ ${c.name}: budget ${rm(Number(c.daily_budget))} → ${rm(cfg.base_budget)}`);
         }
       }
-      const { data: paused } = await admin.from("ads_autopilot_paused").select("ad_id, ad_name").eq("profile", key);
+      // Only the "today" pauses come back; ROAS / no-sale verdicts stay off until the owner decides.
+      const { data: paused } = await admin.from("ads_autopilot_paused").select("ad_id, ad_name")
+        .eq("profile", key).or("kind.is.null,kind.eq.daily");
       for (const p of paused || []) {
         try {
           await post(p.ad_id, { status: "ACTIVE" });
@@ -155,21 +160,54 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       rows.push({ name: c.name, budget, spend, purchases, value, status: c.effective_status });
     }
 
-    // Auto-off: ads with spend ≥ pause_spend today and no purchase.
-    const adIns = (await g(`${act}/insights`, {
-      level: "ad", date_preset: "today", fields: "ad_id,ad_name,campaign_id,spend,actions", limit: "500",
-    })).data as Any[];
-    const losers = adIns.filter((r) => Math.round((Number(r.spend) || 0) * 100) >= cfg.pause_spend && pick(r.actions) === 0
-      && cbo.some((c) => c.id === r.campaign_id));
-    if (losers.length) {
-      const st = await g("", { ids: losers.map((r) => r.ad_id).join(","), fields: "effective_status" });
-      for (const r of losers) {
-        if (st[r.ad_id]?.effective_status !== "ACTIVE") continue;
+    // ── Auto-off (jaga spend + ROAS) ─────────────────────────────────────────
+    // R1 today:   spend today ≥ pause_spend, 0 purchase              → off until the 12am reset
+    // R2 no sale: spend in the last verdict_days ≥ kill_spend, 0 purchase → off for good
+    // R3 ROAS:    spend in the last verdict_days ≥ roas_min_spend, ROAS < min_roas → off for good
+    // An ad the owner switches back on after being paused is left alone (override).
+    const killSpend = cfg.kill_spend ?? 10000, roasSpend = cfg.roas_min_spend ?? 15000;
+    const minRoas = cfg.min_roas ?? 1, days = cfg.verdict_days ?? 7;
+    const inCbo = (cid: string) => cbo.some((c) => c.id === cid);
+    const today = myt.toISOString().slice(0, 10);
+    const since = new Date(myt.getTime() - (days - 1) * 86400_000).toISOString().slice(0, 10);
+    const [adToday, adWindow] = await Promise.all([
+      g(`${act}/insights`, { level: "ad", date_preset: "today", fields: "ad_id,ad_name,campaign_id,spend,actions", limit: "500" }),
+      g(`${act}/insights`, {
+        level: "ad", time_range: JSON.stringify({ since, until: today }),
+        fields: "ad_id,ad_name,campaign_id,spend,actions,action_values", limit: "500",
+      }),
+    ]);
+    type Hit = { ad_id: string; ad_name: string; campaign_id: string; spend: number; kind: "daily" | "verdict"; why: string };
+    const hits = new Map<string, Hit>();
+    for (const r of adToday.data as Any[]) {
+      const spend = Number(r.spend) || 0;
+      if (inCbo(r.campaign_id) && Math.round(spend * 100) >= cfg.pause_spend && pick(r.actions) === 0) {
+        hits.set(r.ad_id, { ad_id: r.ad_id, ad_name: r.ad_name, campaign_id: r.campaign_id, spend, kind: "daily", why: `hari ni spend ${money(spend)}, 0 purchase` });
+      }
+    }
+    for (const r of adWindow.data as Any[]) {
+      if (!inCbo(r.campaign_id)) continue;
+      const spend = Number(r.spend) || 0, sen = Math.round(spend * 100), p = pick(r.actions), v = pick(r.action_values);
+      let why = "";
+      if (sen >= killSpend && p === 0) why = `${days} hari spend ${money(spend)}, 0 purchase`;
+      else if (sen >= roasSpend && v / spend < minRoas) why = `${days} hari ROAS ${(v / spend).toFixed(2)}x < ${minRoas}x, spend ${money(spend)}`;
+      if (why) hits.set(r.ad_id, { ad_id: r.ad_id, ad_name: r.ad_name, campaign_id: r.campaign_id, spend, kind: "verdict", why });
+    }
+    if (hits.size) {
+      const ids = [...hits.keys()];
+      const st = await g("", { ids: ids.join(","), fields: "effective_status" });
+      const { data: prev } = await admin.from("ads_autopilot_paused").select("ad_id").in("ad_id", ids);
+      const overridden = new Set((prev || []).map((x: Any) => x.ad_id)); // paused before, ACTIVE now = owner's call
+      for (const h of hits.values()) {
+        if (st[h.ad_id]?.effective_status !== "ACTIVE" || overridden.has(h.ad_id)) continue;
         if (apply) {
-          await post(r.ad_id, { status: "PAUSED" });
-          await admin.from("ads_autopilot_paused").upsert({ ad_id: r.ad_id, profile: key, campaign_id: r.campaign_id, ad_name: r.ad_name, spend: Number(r.spend) });
+          await post(h.ad_id, { status: "PAUSED" });
+          await admin.from("ads_autopilot_paused").upsert({
+            ad_id: h.ad_id, profile: key, campaign_id: h.campaign_id, ad_name: h.ad_name, spend: h.spend,
+            kind: h.kind, reason: h.why, paused_at: new Date().toISOString(),
+          });
         }
-        actions.push(`⛔ Auto-off: ${r.ad_name} (spend ${money(Number(r.spend))}, 0 purchase)${apply ? "" : " [dry]"}`);
+        actions.push(`${h.kind === "verdict" ? "🛑 OFF terus" : "⛔ Off hari ni"}: ${h.ad_name} (${h.why})${apply ? "" : " [dry]"}`);
       }
     }
 
