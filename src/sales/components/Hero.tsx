@@ -7,7 +7,8 @@ import { usePlans, priceLabel } from '../usePlans';
 // orders across notebooks / Excel / WhatsApp. PeningOrder = a Mini ERP that
 // tracks every order, courier and ringgit of profit in one place.
 export default function Hero() {
-  const clips = [media('hero_video'), media('hero_video_2'), media('hero_video_3')];
+  // Mira — the same 9:16 video as the Meta ad, so visitors from the ad see the presenter they clicked.
+  const clip = media('hero_video');
   const { cheapest } = usePlans();
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-white via-po-surface to-white">
@@ -78,8 +79,8 @@ export default function Hero() {
         </div>
 
         <div className="relative flex min-w-0 items-center justify-center">
-          <div className="relative w-full overflow-hidden rounded-3xl border-2 border-po-ink/10 bg-po-ink shadow-2xl">
-            <HeroVideo srcs={clips.map((c) => c.url)} posters={clips.map((c) => c.poster ?? '')} />
+          <div className="relative w-full max-w-[330px] overflow-hidden rounded-3xl border-2 border-po-ink/10 bg-po-ink shadow-2xl sm:max-w-[340px]">
+            <HeroVideo srcs={[clip.url]} posters={[clip.poster ?? '']} aspectClass="aspect-[9/16]" />
             <div className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-po-coral px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg sm:left-4 sm:top-4">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />

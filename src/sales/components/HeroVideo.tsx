@@ -6,7 +6,9 @@ import { Volume2, VolumeX } from 'lucide-react';
 // looping the same clip. Each clip has a poster so the frame is never an empty
 // box, and a clip that fails to load is skipped. Exposes an unmute control
 // (browsers block autoplay-with-sound until the visitor interacts).
-export default function HeroVideo({ srcs, posters = [], className = '' }: { srcs: string[]; posters?: string[]; className?: string }) {
+export default function HeroVideo({
+  srcs, posters = [], aspectClass = 'aspect-video', className = '',
+}: { srcs: string[]; posters?: string[]; aspectClass?: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -77,7 +79,7 @@ export default function HeroVideo({ srcs, posters = [], className = '' }: { srcs
         onEnded={onEnded}
         onError={onError}
         preload={shouldLoad ? 'auto' : 'none'}
-        className="aspect-video w-full bg-po-ink object-cover"
+        className={`${aspectClass} w-full bg-po-ink object-cover`}
       />
 
       {/* Playlist dots — top centre, clear of the clips' own subtitles at the bottom */}

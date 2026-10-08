@@ -6,8 +6,6 @@ import manifest from './manifest.json';
 // the keys below must stay in sync.
 export type MediaKey =
   | 'hero_video'
-  | 'hero_video_2'
-  | 'hero_video_3'
   | 'pain_messy_desk'
   | 'transformation_before_after'
   | 'dashboard_orders'

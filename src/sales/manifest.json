@@ -2,9 +2,7 @@
   "generated_at": "2026-10-09",
   "note": "Marketing assets for the PeningOrder sales landing, served from this repo's public/sales (Vercel CDN) so nothing outside our control can delete them. Hero videos = our Remotion promo videos (peningorder-promo, 720p web encodes). Photos = peninglab gpt-image-2. UI shots = peningorder-promo LandingStills (real PeningOrder screens). The old peninglab B2 links were removed by that bucket's lifecycle rules — never hot-link third-party/user-content storage here.",
   "assets": {
-    "hero_video": { "type": "video", "aspect": "16:9", "url": "/sales/hero-1.mp4", "poster": "/sales/hero-1-poster.jpg", "source": "peningorder-promo/out/peningorder-promo-60s-social.mp4 (61s, Malay)" },
-    "hero_video_2": { "type": "video", "aspect": "16:9", "url": "/sales/hero-2.mp4", "poster": "/sales/hero-2-poster.jpg", "source": "peningorder-promo/out/peningorder-promo-v3-social.mp4 (87s, Malay 2am story)" },
-    "hero_video_3": { "type": "video", "aspect": "16:9", "url": "/sales/hero-3.mp4", "poster": "/sales/hero-3-poster.jpg", "source": "peningorder-promo/out/peningorder-promo.mp4 (30s, English)" },
+    "hero_video": { "type": "video", "aspect": "9:16", "url": "/sales/hero-mira.mp4", "poster": "/sales/hero-mira-poster.jpg", "source": "peningorder-promo/out/ad1/peningorder-ad1-v2-mira.mp4 (64s, Mira — same video as Meta Ad1), 720x1280 web encode" },
     "pain_messy_desk": { "type": "image", "aspect": "1:1", "url": "/sales/pain-desk.webp", "source": "peninglab gpt-image-2" },
     "transformation_before_after": { "type": "image", "aspect": "16:9", "url": "/sales/before-after.webp", "source": "peninglab gpt-image-2" },
     "dashboard_orders": { "type": "image", "aspect": "16:10", "url": "/sales/dashboard.webp", "source": "peningorder-promo LandingDashboard still" },
