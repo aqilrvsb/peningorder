@@ -1,14 +1,15 @@
 // ads-autopilot — Meta ads rules for PeningOrder (pg_cron "ads-autopilot", every 30 min).
 //
 // Every 30 minutes (MYT, the ad account's timezone):
-//   • budget  = min(max_budget, base_budget + step × purchases today) per CBO campaign
-//     (absolute, so reruns never stack)
+//   • budget  = min(base_budget + (max_budget − base_floor), base_budget + step × purchases today)
+//     per CBO campaign (absolute, so reruns never stack)
 //   • auto-off: pause any ad that spent ≥ pause_spend today with 0 purchases (back on at 12am),
 //     or over the last verdict_days spent ≥ kill_spend with 0 purchases / ≥ roas_min_spend with
 //     ROAS < min_roas (stays off — jaga spend + ROAS)
 // At :00 — WhatsApp report (table + totals) to notify_phone, except quiet hours (12am–4am).
 // At :30 — WhatsApp only if something changed (budget up / ad paused), same quiet hours.
-// At 00:00 MYT: every campaign back to base_budget, ads it paused "for today" turned back on.
+// At 00:00 MYT: base_budget may move ±scale_pct% on the last 3 days' ROAS (see decideBase), then every
+// campaign goes back to base_budget and ads it paused "for today" are turned back on.
 //
 // Config + token: one platform_secrets row per product/ad account, key
 // "meta_ads_autopilot" or "meta_ads_autopilot_<name>" (see migration 20261008_ads_autopilot);
@@ -33,6 +34,10 @@ type Cfg = {
   notify_phone: string; quiet_start: number; quiet_end: number;
   wa_device_id?: string; wa_send_url?: string; // optional: own PeningBot device / gateway (default: admin_device)
   kill_spend?: number; roas_min_spend?: number; min_roas?: number; verdict_days?: number; // auto-off verdicts
+  // Base scaling at 12am (last 3 full days): up scale_pct% when ROAS ≥ scale_roas with ≥ scale_min_purchases
+  // (at most every scale_every_days), down when spend ≥ down_min_spend with ROAS < down_roas.
+  base_floor?: number; base_cap?: number; scale_roas?: number; scale_min_purchases?: number; scale_pct?: number;
+  scale_every_days?: number; down_roas?: number; down_min_spend?: number; base_changed_on?: string;
 };
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -76,6 +81,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
   const hour = myt.getUTCHours();
   const topOfHour = myt.getUTCMinutes() < 30; // the :00 tick (cron fires at :00 and :30)
   const hhmm = myt.toISOString().slice(11, 16);
+  const today = myt.toISOString().slice(0, 10);
   let mode = modeIn;
   if (mode === "auto") mode = hour === 0 && topOfHour ? "reset" : "scale";
   const apply = mode === "scale" || mode === "reset";
@@ -109,9 +115,43 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
     })).data as Any[];
     const only = Array.isArray(cfg.campaign_ids) && cfg.campaign_ids.length ? new Set(cfg.campaign_ids) : null;
     const cbo = camps.filter((c) => c.daily_budget && (!only || only.has(c.id)));
+    const inCbo = (cid: string) => cbo.some((c) => c.id === cid);
+
+    // Daily cap keeps the same headroom above the base as max_budget has above the floor
+    // (RM30 base / RM100 max → +RM70 room for purchases, whatever the base grows to).
+    const floor = cfg.base_floor ?? cfg.base_budget;
+    const maxFor = (base: number) => base + Math.max(0, cfg.max_budget - floor);
+
+    // ── Base scaling (decided at 12am from the last 3 full days) ─────────────
+    const decideBase = async () => {
+      const l3 = ((await g(`${act}/insights`, {
+        level: "campaign", date_preset: "last_3d", fields: "campaign_id,spend,actions,action_values", limit: "100",
+      })).data as Any[]).filter((r) => inCbo(r.campaign_id));
+      const spend = l3.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+      const purchases = l3.reduce((s, r) => s + pick(r.actions), 0);
+      const roas3 = spend > 0 ? l3.reduce((s, r) => s + pick(r.action_values), 0) / spend : 0;
+      const base = cfg.base_budget, cap = cfg.base_cap ?? 15000, pct = (cfg.scale_pct ?? 20) / 100;
+      const sinceChange = cfg.base_changed_on ? (Date.parse(today) - Date.parse(cfg.base_changed_on)) / 86400_000 : 99;
+      const stats = `3 hari: ${purchases} purchase, ROAS ${roas3.toFixed(2)}x, spend ${money(spend)}`;
+      if (purchases >= (cfg.scale_min_purchases ?? 3) && roas3 >= (cfg.scale_roas ?? 2) && base < cap
+        && sinceChange >= (cfg.scale_every_days ?? 2)) {
+        return { base: Math.min(cap, Math.round((base * (1 + pct)) / 100) * 100), note: `🚀 Naik base ${rm(base)} → `, stats };
+      }
+      if (Math.round(spend * 100) >= (cfg.down_min_spend ?? 10000) && roas3 < (cfg.down_roas ?? 1) && base > floor) {
+        return { base: Math.max(floor, Math.round((base * (1 - pct)) / 100) * 100), note: `🔻 Turun base ${rm(base)} → `, stats };
+      }
+      return { base, note: "", stats };
+    };
 
     // ── 12am reset ───────────────────────────────────────────────────────────
     if (mode === "reset") {
+      const d = await decideBase();
+      if (d.base !== cfg.base_budget) {
+        cfg.base_budget = d.base;
+        cfg.base_changed_on = today;
+        await admin.from("platform_secrets").update({ value: cfg, updated_at: new Date().toISOString() }).eq("key", key);
+        actions.push(`${d.note}${rm(d.base)} (${d.stats}) — max sehari ${rm(maxFor(d.base))}`);
+      }
       for (const c of cbo) {
         if (Number(c.daily_budget) !== cfg.base_budget) {
           await post(c.id, { daily_budget: String(cfg.base_budget) });
@@ -150,7 +190,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       const value = pick(r.action_values);
       let budget = Number(c.daily_budget);
       if (c.effective_status === "ACTIVE") {
-        const target = Math.min(cfg.max_budget, cfg.base_budget + cfg.step * purchases);
+        const target = Math.min(maxFor(cfg.base_budget), cfg.base_budget + cfg.step * purchases);
         if (target !== budget) {
           if (apply) await post(c.id, { daily_budget: String(target) });
           actions.push(`📈 ${c.name}: budget ${rm(budget)} → ${rm(target)} (${purchases} purchase)${apply ? "" : " [dry]"}`);
@@ -158,6 +198,10 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
         }
       }
       rows.push({ name: c.name, budget, spend, purchases, value, status: c.effective_status });
+    }
+    if (mode === "dry") { // preview tonight's base decision
+      const d = await decideBase();
+      actions.push(d.base !== cfg.base_budget ? `${d.note}${rm(d.base)} (${d.stats}) [dry, 12am]` : `Base kekal ${rm(cfg.base_budget)} (${d.stats}) [dry]`);
     }
 
     // ── Auto-off (jaga spend + ROAS) ─────────────────────────────────────────
@@ -167,8 +211,6 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
     // An ad the owner switches back on after being paused is left alone (override).
     const killSpend = cfg.kill_spend ?? 6000, roasSpend = cfg.roas_min_spend ?? 10000;
     const minRoas = cfg.min_roas ?? 1, days = cfg.verdict_days ?? 3;
-    const inCbo = (cid: string) => cbo.some((c) => c.id === cid);
-    const today = myt.toISOString().slice(0, 10);
     const since = new Date(myt.getTime() - (days - 1) * 86400_000).toISOString().slice(0, 10);
     const [adToday, adWindow] = await Promise.all([
       g(`${act}/insights`, { level: "ad", date_preset: "today", fields: "ad_id,ad_name,campaign_id,spend,actions", limit: "500" }),
@@ -236,7 +278,7 @@ async function runProfile(admin: Any, key: string, cfg: Cfg, modeIn: string): Pr
       `• *${short(r.name)}*${r.status === "ACTIVE" ? "" : " (paused)"}\n  Budget ${rm(r.budget)} | Spend ${money(r.spend)} | Purchase ${r.purchases} | ROAS ${roas(r.value, r.spend)}`,
     ).join("\n");
     const msg =
-      `📊 *${label} — ${hhmm}*\n\n` +
+      `📊 *${label} — ${hhmm}*\nBase ${rm(cfg.base_budget)} · max sehari ${rm(maxFor(cfg.base_budget))}\n\n` +
       (table || "Tiada kempen aktif.") +
       `\n\n*Total Spend:* ${money(tSpend)}\n*Total Purchase:* ${tPurch}\n*Total ROAS:* ${roas(tValue, tSpend)}` +
       (actions.length ? `\n\n*Tindakan:*\n${actions.join("\n")}` : "\n\n✅ Tiada perubahan jam ni.");
