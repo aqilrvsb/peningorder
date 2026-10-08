@@ -5,10 +5,9 @@ import { AUDIT_MODE } from '@/lib/audit';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, X, Loader2, ChevronLeft, ChevronRight, UserPlus, Pencil, Trash2, TriangleAlert } from 'lucide-react';
+import { Check, X, Loader2, ChevronLeft, ChevronRight, Pencil, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, getDaysInMonth, getDay } from 'date-fns';
-import AddAttendanceStaffModal from './AddAttendanceStaffModal';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
 import DeleteAttendanceStaffDialog from './DeleteAttendanceStaffDialog';
 import AttendanceReasonModal, { type ReasonSave } from './AttendanceReasonModal';
@@ -45,7 +44,6 @@ export default function HRAttendance() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [roleFilter, setRoleFilter] = useState('all');
-  const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<HrPerson | null>(null);
   const [deleting, setDeleting] = useState<HrPerson | null>(null);
   // Cells with a save in flight — locked until it lands so fast clicks can't arrive out of order.
@@ -262,8 +260,6 @@ export default function HRAttendance() {
               </SelectContent>
             </Select>
 
-            <Button onClick={() => setShowAdd(true)}><UserPlus className="mr-2 h-4 w-4" /> Add Staff</Button>
-
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm lg:ml-auto">
               <span className="flex items-center gap-1"><span className="flex h-6 w-6 items-center justify-center rounded bg-green-100"><Check className="h-4 w-4 text-green-600" /></span><span className="text-muted-foreground">Present</span></span>
               <span className="flex items-center gap-1"><span className="flex h-6 w-6 items-center justify-center rounded bg-yellow-100"><TriangleAlert className="h-4 w-4 text-yellow-600" /></span><span className="text-muted-foreground">Half Day</span></span>
@@ -374,7 +370,6 @@ export default function HRAttendance() {
         </CardContent>
       </Card>
 
-      <AddAttendanceStaffModal open={showAdd} onOpenChange={setShowAdd} />
       <EditAttendanceStaffModal open={!!editing} onOpenChange={(o) => !o && setEditing(null)} staff={editing ? toModalStaff(editing) : null} />
       <DeleteAttendanceStaffDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)} staff={deleting ? toModalStaff(deleting) : null} />
 
