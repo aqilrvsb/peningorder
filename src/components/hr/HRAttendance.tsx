@@ -11,16 +11,26 @@ import { format, getDaysInMonth, getDay } from 'date-fns';
 import AddAttendanceStaffModal from './AddAttendanceStaffModal';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
 import DeleteAttendanceStaffDialog from './DeleteAttendanceStaffDialog';
-import AttendanceReasonModal from './AttendanceReasonModal';
+import AttendanceReasonModal, { type ReasonSave } from './AttendanceReasonModal';
+import { uploadAttendanceFile, removeAttendanceFile } from './attendanceFiles';
+import { useAuth } from '@/context/AuthContext';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useHrPeople, useHrRoles, roleBadge, toModalStaff, type HrPerson } from './useHrPeople';
 
 // HR → ATTENDANCE (DFR grid). Rows = the HQ's active Team marketers + the extra staff added
 // in HR. Each click on a day moves to the next status:
 //   Not Marked → Present → Half Day → Absent → Not Marked
-// A reason (optional) for Half Day / Absent: "Tambah sebab" on the toast after the click, or
-// right-click / long-press the cell. Cells with a reason show a small dot.
+// A reason + attachment (optional, image/PDF e.g. MC slip) for Half Day / Absent: "Sebab / lampiran"
+// on the toast after the click, or right-click / long-press the cell. A dot = has reason/attachment.
 type AttendanceStatus = 'present' | 'half_day' | 'absent' | null;
-type AttendanceRecord = { id: string; user_id: string; date: string; status: AttendanceStatus; reason?: string | null };
+type AttendanceRecord = {
+  id: string; user_id: string; date: string; status: AttendanceStatus;
+  reason?: string | null; attachment_path?: string | null; attachment_name?: string | null;
+};
+const RECORD_COLS = 'id, user_id, date, status, reason, attachment_path, attachment_name';
 
 const NEXT_STATUS: Record<'none' | 'present' | 'half_day' | 'absent', AttendanceStatus> = {
   none: 'present', present: 'half_day', half_day: 'absent', absent: null,
@@ -42,6 +52,10 @@ export default function HRAttendance() {
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [reasonFor, setReasonFor] = useState<{ userId: string; name: string; date: string } | null>(null);
   const longPress = useRef<{ timer?: number; fired: boolean }>({ fired: false });
+  // Absent → Not Marked on a day with an attachment asks first (it deletes the file).
+  const [clearing, setClearing] = useState<{ p: HrPerson; day: number; path: string } | null>(null);
+  const { profile } = useAuth();
+  const tenantId = profile?.parentUserId ?? profile?.id ?? null; // the HQ — storage folder for attachments
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
   const daysInMonth = getDaysInMonth(new Date(year, month));
@@ -63,7 +77,7 @@ export default function HRAttendance() {
       // attendance isn't in the generated types yet; RLS scopes rows to this HQ.
       const { data, error } = await (supabase as any)
         .from('attendance')
-        .select('id, user_id, date, status, reason')
+        .select(RECORD_COLS)
         .gte('date', ymd(1))
         .lte('date', ymd(daysInMonth));
       if (error) throw error;
@@ -83,12 +97,13 @@ export default function HRAttendance() {
     setSaving((prev) => { const next = new Set(prev); if (on) next.add(cell); else next.delete(cell); return next; });
 
   // The grid updates instantly; the saved row replaces the placeholder when the write lands.
-  // Half Day → Absent keeps the reason already typed; Present has none.
+  // Half Day → Absent keeps the reason/attachment already added; Present has none.
   const mark = useMutation({
-    mutationFn: async ({ userId, date, status }: { userId: string; date: string; status: AttendanceStatus; key: unknown[] }) => {
+    mutationFn: async ({ userId, date, status, removePath }: { userId: string; date: string; status: AttendanceStatus; key: unknown[]; removePath?: string | null }) => {
       if (status === null) {
         const { error } = await (supabase as any).from('attendance').delete().eq('user_id', userId).eq('date', date);
         if (error) throw error;
+        await removeAttendanceFile(removePath);
         return null;
       }
       const { data, error } = await (supabase as any)
@@ -97,7 +112,7 @@ export default function HRAttendance() {
           { user_id: userId, date, status, ...(status === 'present' ? { reason: null } : {}), updated_at: new Date().toISOString() },
           { onConflict: 'user_id,date' },
         )
-        .select('id, user_id, date, status, reason')
+        .select(RECORD_COLS)
         .single();
       if (error) throw error;
       return data as AttendanceRecord;
@@ -108,8 +123,15 @@ export default function HRAttendance() {
       queryClient.setQueryData<AttendanceRecord[]>(key, (old = []) => {
         const prev = old.find((r) => r.user_id === userId && r.date === date);
         const rest = old.filter((r) => r !== prev);
-        const reason = status === 'present' ? null : prev?.reason ?? null;
-        return status ? [...rest, { id: `pending-${userId}-${date}`, user_id: userId, date, status, reason }] : rest;
+        const keep = status !== 'present' && prev;
+        return status
+          ? [...rest, {
+              id: `pending-${userId}-${date}`, user_id: userId, date, status,
+              reason: keep ? prev.reason ?? null : null,
+              attachment_path: keep ? prev.attachment_path ?? null : null,
+              attachment_name: keep ? prev.attachment_name ?? null : null,
+            }]
+          : rest;
       });
     },
     onSuccess: (row, { userId, date, key }) => {
@@ -122,28 +144,45 @@ export default function HRAttendance() {
     onSettled: (_d, _e, { userId, date }) => setCellSaving(`${userId}-${date}`, false),
   });
 
+  // Upload first, then save the row; the replaced/removed file is deleted only after the row saved.
   const saveReason = useMutation({
-    mutationFn: async ({ userId, date, status, reason }: { userId: string; date: string; status: AttendanceStatus; reason: string; key: unknown[] }) => {
-      const { data, error } = await (supabase as any)
+    mutationFn: async ({ userId, date, status, data, prevPath }: { userId: string; date: string; status: AttendanceStatus; data: ReasonSave; prevPath: string | null; key: unknown[] }) => {
+      let attachment: { path: string; name: string } | null | undefined; // undefined = unchanged
+      if (data.file) {
+        if (!tenantId) throw new Error('Sesi tamat — sila login semula');
+        attachment = await uploadAttendanceFile(tenantId, userId, date, data.file);
+      } else if (data.removeAttachment) {
+        attachment = null;
+      }
+      const { data: row, error } = await (supabase as any)
         .from('attendance')
-        .upsert({ user_id: userId, date, status, reason: reason.trim() || null, updated_at: new Date().toISOString() }, { onConflict: 'user_id,date' })
-        .select('id, user_id, date, status, reason')
+        .upsert({
+          user_id: userId, date, status,
+          reason: data.reason.trim() || null,
+          ...(attachment !== undefined ? { attachment_path: attachment?.path ?? null, attachment_name: attachment?.name ?? null } : {}),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,date' })
+        .select(RECORD_COLS)
         .single();
-      if (error) throw error;
-      return data as AttendanceRecord;
+      if (error) {
+        if (attachment) await removeAttendanceFile(attachment.path);
+        throw error;
+      }
+      if (attachment !== undefined && prevPath && prevPath !== attachment?.path) await removeAttendanceFile(prevPath);
+      return row as AttendanceRecord;
     },
     onSuccess: (row, { userId, date, key }) => {
       queryClient.setQueryData<AttendanceRecord[]>(key, (old = []) => old.map((r) => (r.user_id === userId && r.date === date ? row : r)));
-      toast.success(row.reason ? 'Sebab disimpan' : 'Sebab dibuang');
+      toast.success('Disimpan');
       setReasonFor(null);
     },
-    onError: (e: any) => toast.error(e.message || 'Gagal simpan sebab'),
+    onError: (e: any) => toast.error(e.message || 'Gagal simpan sebab / lampiran'),
   });
 
   const openReason = (p: HrPerson, day: number) => {
     const status = statusOf(p.id, day);
     if (status !== 'half_day' && status !== 'absent') {
-      toast.info('Sebab hanya untuk Half Day / Absent — klik sel dulu untuk tukar status.');
+      toast.info('Sebab / lampiran hanya untuk Half Day / Absent — klik sel dulu untuk tukar status.');
       return;
     }
     setReasonFor({ userId: p.id, name: p.name, date: ymd(day) });
@@ -154,13 +193,15 @@ export default function HRAttendance() {
     if (longPress.current.fired) { longPress.current.fired = false; return; }
     const status = NEXT_STATUS[statusOf(p.id, day) ?? 'none'];
     const date = ymd(day);
+    const path = byKey.get(`${p.id}-${date}`)?.attachment_path;
+    if (status === null && path) { setClearing({ p, day, path }); return; }
     mark.mutate({ userId: p.id, date, status, key: recordsKey });
     if (status === 'half_day' || status === 'absent') {
       // One toast at a time (same id), so clicking along a row doesn't stack them.
       toast(`${p.name} · ${format(new Date(year, month, day), 'd MMM')} — ${STATUS_LABEL[status]}`, {
         id: 'hr-att-reason',
         duration: 4000,
-        action: { label: 'Tambah sebab', onClick: () => setReasonFor({ userId: p.id, name: p.name, date }) },
+        action: { label: 'Sebab / lampiran', onClick: () => setReasonFor({ userId: p.id, name: p.name, date }) },
       });
     } else {
       toast.dismiss('hr-att-reason');
@@ -232,7 +273,7 @@ export default function HRAttendance() {
           </div>
           <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-500" />
-            Klik sel untuk tukar status. Sebab Half Day / Absent: tekan “Tambah sebab” selepas klik, atau klik kanan (telefon: tekan lama) pada sel. Titik = ada sebab.
+            Klik sel untuk tukar status. Sebab / lampiran (MC, surat — gambar atau PDF) untuk Half Day / Absent: tekan “Sebab / lampiran” selepas klik, atau klik kanan (telefon: tekan lama) pada sel. Titik = ada sebab / lampiran.
           </p>
         </CardContent>
       </Card>
@@ -277,6 +318,7 @@ export default function HRAttendance() {
                         {days.map((d) => {
                           const status = statusOf(p.id, d);
                           const reason = reasonOf(p.id, d);
+                          const hasFile = !!byKey.get(`${p.id}-${ymd(d)}`)?.attachment_path;
                           const label = status ? STATUS_LABEL[status] : 'Not Marked';
                           return (
                             <td key={d} className={`p-1 text-center ${isWeekend(d) ? 'bg-gray-50' : ''}`}>
@@ -289,7 +331,7 @@ export default function HRAttendance() {
                                 onPointerLeave={pressEnd}
                                 onPointerCancel={pressEnd}
                                 disabled={saving.has(`${p.id}-${ymd(d)}`)}
-                                title={reason ? `${label} — ${reason}` : label}
+                                title={`${label}${reason ? ` — ${reason}` : ''}${hasFile ? ' · ada lampiran' : ''}`}
                                 aria-label={`${p.name} ${ymd(d)} ${label}${reason ? ` — ${reason}` : ''}`}
                                 className={`relative flex h-7 w-7 select-none items-center justify-center rounded transition-colors [-webkit-touch-callout:none] ${
                                   status === 'present' ? 'bg-green-100 hover:bg-green-200'
@@ -300,7 +342,7 @@ export default function HRAttendance() {
                                 {status === 'present' && <Check className="h-4 w-4 text-green-600" />}
                                 {status === 'half_day' && <TriangleAlert className="h-4 w-4 text-yellow-600" />}
                                 {status === 'absent' && <X className="h-4 w-4 text-red-600" />}
-                                {reason && status !== 'present' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-slate-500" />}
+                                {(reason || hasFile) && status !== 'present' && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-slate-500" />}
                               </button>
                             </td>
                           );
@@ -343,12 +385,41 @@ export default function HRAttendance() {
         date={reasonFor?.date || ''}
         statusLabel={reasonStatus ? STATUS_LABEL[reasonStatus] : ''}
         existingReason={reasonRecord?.reason}
+        existingAttachment={reasonRecord?.attachment_path ? { path: reasonRecord.attachment_path, name: reasonRecord.attachment_name ?? null } : null}
         isLoading={saveReason.isPending || (!!reasonFor && saving.has(`${reasonFor.userId}-${reasonFor.date}`))}
-        onSave={async (reason) => {
+        onSave={async (data) => {
           if (!reasonFor || !reasonStatus) return;
-          await saveReason.mutateAsync({ userId: reasonFor.userId, date: reasonFor.date, status: reasonStatus, reason, key: recordsKey }).catch(() => {});
+          await saveReason.mutateAsync({
+            userId: reasonFor.userId, date: reasonFor.date, status: reasonStatus, data,
+            prevPath: reasonRecord?.attachment_path ?? null, key: recordsKey,
+          }).catch(() => {});
         }}
       />
+
+      <AlertDialog open={!!clearing} onOpenChange={(o) => !o && setClearing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kosongkan hari ni?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clearing?.p.name} ada lampiran pada {clearing ? format(new Date(year, month, clearing.day), 'd MMM yyyy') : ''}. Jadikan Not Marked akan buang sebab dan lampiran tu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (!clearing) return;
+                mark.mutate({ userId: clearing.p.id, date: ymd(clearing.day), status: null, key: recordsKey, removePath: clearing.path });
+                toast.dismiss('hr-att-reason');
+                setClearing(null);
+              }}
+            >
+              Kosongkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
