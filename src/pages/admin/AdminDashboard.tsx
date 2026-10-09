@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { formatRM, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import {
   LayoutDashboard, Users, ShoppingBag, DollarSign, PackageCheck, RotateCcw,
-  Wallet, Clock, Loader2, Download, Calendar,
+  Wallet, Clock, Download, Calendar, BarChart3,
 } from 'lucide-react';
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import * as XLSX from 'xlsx';
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
@@ -96,30 +97,28 @@ const AdminDashboard: React.FC = () => {
 
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
 
-  const Box = ({ icon, label, value, sub, color }: any) => (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className={`flex items-center gap-2 mb-1 ${color}`}>{icon}<span className="text-xs uppercase font-semibold tracking-wide">{label}</span></div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-    </div>
-  );
-
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><LayoutDashboard className="w-7 h-7 text-primary" /> Dashboard (All Clients)</h1>
-        <p className="text-muted-foreground mt-1">Ringkasan semua client — jumlah keseluruhan &amp; setiap client. Ikut tarikh order.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard (All Clients)"
+        description={<>Ringkasan semua client — jumlah keseluruhan &amp; setiap client. Ikut tarikh order.</>}
+        icon={LayoutDashboard}
+        tone="brand"
+      />
 
       {/* Date range */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium">Tarikh:</span></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" /></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" /></div>
-          <Button onClick={apply}>Apply</Button>
-          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
-          <div className="ml-auto flex gap-2">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+          <div className="flex items-center gap-2 sm:self-center"><Calendar className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium">Tarikh:</span></div>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
+            <div className="min-w-0"><label className="section-label block mb-1">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" /></div>
+            <div className="min-w-0"><label className="section-label block mb-1">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" /></div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={apply}>Apply</Button>
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
+          </div>
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="outline" onClick={exportCSV} disabled={rows.length === 0}><Download className="w-4 h-4 mr-2" /> CSV</Button>
             <Button variant="outline" onClick={exportExcel} disabled={rows.length === 0}><Download className="w-4 h-4 mr-2" /> Excel</Button>
           </div>
@@ -127,26 +126,26 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Platform totals */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <Box icon={<Users className="w-4 h-4" />} label="Clients" value={t.clients} color="text-primary" />
-        <Box icon={<ShoppingBag className="w-4 h-4" />} label="Total Orders" value={t.orders} color="text-blue-600" />
-        <Box icon={<DollarSign className="w-4 h-4" />} label="Total Sales" value={`RM ${formatRM(t.sales)}`} color="text-amber-600" />
-        <Box icon={<PackageCheck className="w-4 h-4" />} label="Delivered" value={t.delivered} color="text-green-600" />
-        <Box icon={<RotateCcw className="w-4 h-4" />} label="Return" value={t.returned} color="text-red-600" />
-        <Box icon={<Wallet className="w-4 h-4" />} label="Collection" value={`RM ${formatRM(t.collection)}`} sub={`${t.cod} COD · ${t.cash} Cash`} color="text-emerald-600" />
-        <Box icon={<Clock className="w-4 h-4" />} label="Remaining Coll" value={`RM ${formatRM(t.remaining)}`} color="text-purple-600" />
-        <Box icon={<Clock className="w-4 h-4" />} label="Pending / Shipped" value={`${t.pending} / ${t.shipped}`} color="text-orange-600" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard icon={Users} tone="indigo" label="Clients" value={t.clients} />
+        <StatCard icon={ShoppingBag} tone="blue" label="Total Orders" value={t.orders} />
+        <StatCard icon={DollarSign} tone="amber" label="Total Sales" value={`RM ${formatRM(t.sales)}`} />
+        <StatCard icon={PackageCheck} tone="green" label="Delivered" value={t.delivered} />
+        <StatCard icon={RotateCcw} tone="red" label="Return" value={t.returned} />
+        <StatCard icon={Wallet} tone="green" label="Collection" value={`RM ${formatRM(t.collection)}`} hint={`${t.cod} COD · ${t.cash} Cash`} />
+        <StatCard icon={Clock} tone="purple" label="Remaining Coll" value={`RM ${formatRM(t.remaining)}`} />
+        <StatCard icon={Clock} tone="orange" label="Pending / Shipped" value={`${t.pending} / ${t.shipped}`} />
       </div>
 
       {/* Per-client table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b border-border font-semibold">Ringkasan Setiap Client</div>
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border font-semibold"><IconTile icon={BarChart3} tone="blue" size="sm" />Ringkasan Setiap Client</div>
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={6} cols={8} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">Client</th>
                   <th className="p-3 text-right">Orders</th>
@@ -163,36 +162,36 @@ const AdminDashboard: React.FC = () => {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.owner_user_id} className="border-t border-border hover:bg-muted/30">
+                  <tr key={r.owner_user_id} className="border-t border-border hover:bg-muted/40">
                     <td className="p-3 font-medium whitespace-nowrap">{r.client}</td>
                     <td className="p-3 text-right tabular-nums">{r.orders}</td>
-                    <td className="p-3 text-right tabular-nums">RM {formatRM(r.sales)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {formatRM(r.sales)}</td>
                     <td className="p-3 text-right tabular-nums text-green-600">{r.delivered}</td>
                     <td className="p-3 text-right tabular-nums text-red-600">{r.returned}</td>
                     <td className="p-3 text-right tabular-nums">{r.pending}</td>
                     <td className="p-3 text-right tabular-nums">{r.shipped}</td>
-                    <td className="p-3 text-right tabular-nums text-emerald-600">RM {formatRM(r.collection_sales)}</td>
-                    <td className="p-3 text-right tabular-nums text-purple-600">RM {formatRM(r.remaining_sales)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-emerald-600">RM {formatRM(r.collection_sales)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-purple-600">RM {formatRM(r.remaining_sales)}</td>
                     <td className="p-3 text-right tabular-nums">{r.cod_count}</td>
                     <td className="p-3 text-right tabular-nums">{r.cash_count}</td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Tiada data dalam tempoh ini.</td></tr>
+                  <tr><td colSpan={11} className="text-muted-foreground"><EmptyState icon={BarChart3} title="Tiada data dalam tempoh ini." /></td></tr>
                 )}
               </tbody>
               {rows.length > 0 && (
                 <tfoot>
                   <tr className="border-t border-border bg-muted/30 font-semibold">
-                    <td className="p-3">JUMLAH ({t.clients} client)</td>
+                    <td className="p-3 whitespace-nowrap">JUMLAH ({t.clients} client)</td>
                     <td className="p-3 text-right tabular-nums">{t.orders}</td>
-                    <td className="p-3 text-right tabular-nums">RM {formatRM(t.sales)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {formatRM(t.sales)}</td>
                     <td className="p-3 text-right tabular-nums text-green-600">{t.delivered}</td>
                     <td className="p-3 text-right tabular-nums text-red-600">{t.returned}</td>
                     <td className="p-3 text-right tabular-nums">{t.pending}</td>
                     <td className="p-3 text-right tabular-nums">{t.shipped}</td>
-                    <td className="p-3 text-right tabular-nums text-emerald-600">RM {formatRM(t.collection)}</td>
-                    <td className="p-3 text-right tabular-nums text-purple-600">RM {formatRM(t.remaining)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-emerald-600">RM {formatRM(t.collection)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-purple-600">RM {formatRM(t.remaining)}</td>
                     <td className="p-3 text-right tabular-nums">{t.cod}</td>
                     <td className="p-3 text-right tabular-nums">{t.cash}</td>
                   </tr>

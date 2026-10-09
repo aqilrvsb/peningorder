@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio, ImagePlus, X } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio, ImagePlus, X, Settings, MapPin, SlidersHorizontal, CalendarClock } from 'lucide-react';
 import { put } from '@vercel/blob';
 import { Switch } from '@/components/ui/switch';
+import { Card } from '@/components/ui/card';
+import { PageHeader, IconTile, TableSkeleton, MissingHint } from '@/components/common/SoftUI';
 import { NEGERI_OPTIONS } from '@/types';
 import {
   Select,
@@ -97,11 +99,35 @@ const emptyConfig: ParcelDailyConfig = {
   whacenter_instance: '',
 };
 
+// Same fields + labels the Save validation checks (used only for the "Masih diperlukan" hint).
+const HINT_FIELDS: Array<[keyof ParcelDailyConfig, string]> = [
+  ['merchant_id', 'Merchant ID'],
+  ['token', 'API Token'],
+  ['sender_name', 'Sender Name'],
+  ['sender_phone', 'Sender Phone'],
+  ['sender_email', 'Sender Email'],
+  ['sender_line1', 'Address Line 1'],
+  ['sender_city', 'City'],
+  ['sender_postcode', 'Postcode'],
+  ['sender_state', 'State'],
+];
+
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
-  <label className="block text-sm font-medium text-foreground mb-1.5">
+  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
     {children}
     {required && <span className="text-red-500 ml-0.5">*</span>}
   </label>
+);
+
+// Section title inside a settings card: icon tile + title (+ optional hint).
+const SectionHeader: React.FC<{ icon: React.ElementType; tone: React.ComponentProps<typeof IconTile>['tone']; title: React.ReactNode; hint?: React.ReactNode }> = ({ icon, tone, title, hint }) => (
+  <div className="mb-4 flex items-start gap-3">
+    <IconTile icon={icon} tone={tone} size="sm" />
+    <div className="min-w-0">
+      <h2 className="text-base font-semibold leading-8">{title}</h2>
+      {hint && <p className="-mt-1 text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  </div>
 );
 
 const CourierSettings: React.FC = () => {
@@ -427,36 +453,37 @@ const CourierSettings: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="mx-auto max-w-4xl space-y-4 sm:p-6">
+        <TableSkeleton rows={6} cols={2} />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <Truck className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Courier Settings</h1>
-          <p className="text-sm text-muted-foreground">Your courier API credentials & pickup address</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-6 sm:p-6">
+      <PageHeader
+        title="Courier Settings"
+        description="Your courier API credentials & pickup address"
+        icon={Settings}
+        tone="brand"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)} title="Back">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        }
+      />
 
-      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6 flex items-start gap-3">
-        <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
+        <IconTile icon={Info} tone="blue" size="sm" />
         <div className="text-sm text-blue-900 dark:text-blue-100">
           <p className="font-medium">Every order ships via Ninjavan, Poslaju, JNT, or DHL.</p>
-          <p className="mt-1">Enter your courier API credentials and pickup address below.</p>
+          <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">Enter your courier API credentials and pickup address below.</p>
         </div>
       </div>
 
-      <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+      <Card className="space-y-6 p-4 sm:p-6">
         <div>
-          <h2 className="font-semibold text-lg mb-4">API Credentials</h2>
+          <SectionHeader icon={KeyRound} tone="blue" title="API Credentials" />
 
           {/* Big sign-up CTA — only until they've got a Merchant ID. */}
           {!hasMerchantId && (
@@ -464,13 +491,13 @@ const CourierSettings: React.FC = () => {
               href={PARCELDAILY_SIGNUP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-4 text-base font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
+              className="bg-brand mb-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-4 text-center text-sm font-bold text-primary-foreground shadow-md transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-lg sm:px-6 sm:text-base"
             >
-              <ExternalLink className="w-5 h-5" /> Belum ada akaun? Daftar ParcelDaily Sekarang
+              <ExternalLink className="w-5 h-5 shrink-0" /> Belum ada akaun? Daftar ParcelDaily Sekarang
             </a>
           )}
 
-          <div className="mb-4 flex flex-wrap gap-3">
+          <div className="mb-4 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setShowRates(true)}>
               <Calculator className="w-4 h-4 mr-2" /> Rate Kurier
             </Button>
@@ -507,10 +534,10 @@ const CourierSettings: React.FC = () => {
 
           {/* WAJIB: webhook setup — surfaced here (not buried in the SOP modal) so
               clients actually do it. Save is blocked until the box is ticked. */}
-          <div className="mt-4 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4">
-            <div className="flex items-start gap-2">
-              <Webhook className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div className="flex-1">
+          <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
+            <div className="flex items-start gap-3">
+              <IconTile icon={Webhook} tone="amber" size="sm" />
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">WAJIB: Setup Webhook ParcelDaily</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Di portal ParcelDaily (<span className="font-medium">Integrations → Webhook</span>), tampal URL di bawah untuk kedua-dua
@@ -518,8 +545,9 @@ const CourierSettings: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-background p-2">
-              <code className="flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
+            <p className="section-label mt-3 mb-1.5">Webhook URL</p>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-2">
+              <code className="min-w-0 flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
               <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={copyWebhook}>
                 {copiedWebhook ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin</>}
               </Button>
@@ -536,8 +564,8 @@ const CourierSettings: React.FC = () => {
           </div>
         </div>
 
-        <div>
-          <h2 className="font-semibold text-lg mb-4">Pickup / Sender Address</h2>
+        <div className="border-t border-border pt-6">
+          <SectionHeader icon={MapPin} tone="purple" title="Pickup / Sender Address" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FormLabel required>Sender / Business Name</FormLabel>
@@ -615,8 +643,8 @@ const CourierSettings: React.FC = () => {
           </div>
         </div>
 
-        <div>
-          <h2 className="font-semibold text-lg mb-4">Preferences</h2>
+        <div className="border-t border-border pt-6">
+          <SectionHeader icon={SlidersHorizontal} tone="slate" title="Preferences" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FormLabel>COD Payout Schedule</FormLabel>
@@ -650,13 +678,16 @@ const CourierSettings: React.FC = () => {
           </div>
 
           <div className="pt-6 mt-6 border-t border-border">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
-              <div>
-                <FormLabel>Pospada (Booking)</FormLabel>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Aktifkan ciri Pospada — order boleh dijadikan booking dengan tarikh hantar. Bila off, semua
-                  paparan Pospada tersembunyi (column, card, tab logistik).
-                </p>
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/20 p-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <IconTile icon={CalendarClock} tone="indigo" size="sm" className="hidden sm:inline-flex" />
+                <div className="min-w-0">
+                  <FormLabel>Pospada (Booking)</FormLabel>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Aktifkan ciri Pospada — order boleh dijadikan booking dengan tarikh hantar. Bila off, semua
+                    paparan Pospada tersembunyi (column, card, tab logistik).
+                  </p>
+                </div>
               </div>
               <Switch
                 checked={formData.pospada_enabled}
@@ -680,7 +711,7 @@ const CourierSettings: React.FC = () => {
                     onClick={() => toggleCourier(c)}
                     className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
                       active
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'border-primary/50 bg-primary/10 text-primary shadow-xs'
                         : 'border-border bg-background text-muted-foreground hover:bg-muted'
                     }`}
                   >
@@ -695,8 +726,15 @@ const CourierSettings: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-border">
-          <Button onClick={handleSave} disabled={isSaving} size="lg">
+        <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-end">
+          <MissingHint
+            className="sm:mr-auto sm:max-w-md"
+            items={[
+              ...HINT_FIELDS.map(([key, label]) => ({ label, done: !!String(formData[key] || '').trim() })),
+              { label: 'Webhook disahkan', done: formData.webhook_confirmed },
+            ]}
+          />
+          <Button onClick={handleSave} disabled={isSaving} size="lg" className="w-full sm:w-auto">
             {isSaving ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
             ) : (
@@ -704,28 +742,28 @@ const CourierSettings: React.FC = () => {
             )}
           </Button>
         </div>
-      </div>
+      </Card>
 
       {/* WhatsApp Notification — the client pastes their PeningBot device
           Instance; customer notifications send through PeningBot's gateway. */}
-      <div className="bg-card rounded-lg border border-border p-5 mt-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Bell className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-lg">WhatsApp Notification</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
+      <Card className="p-4 sm:p-6">
+        <SectionHeader icon={Bell} tone="green" title="WhatsApp Notification" />
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>
           Notifikasi WhatsApp ke pelanggan dihantar melalui device PeningBot anda.
           {' '}Di <span className="font-medium">peningbot.com</span>: Device Settings → Add Device → scan QR. Kemudian tekan
           {' '}<span className="font-medium">Edit</span> pada device → medan <span className="font-medium">Instance</span> → butang
           {' '}<span className="font-medium">Salin</span>, dan tampal di sini. Jangan guna medan &quot;Device ID&quot; (nama seperti IMAN01).
-        </p>
+          </p>
+        </div>
         <FormLabel>PeningBot Instance</FormLabel>
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             value={formData.whacenter_instance}
             onChange={(e) => { setField('whacenter_instance', e.target.value); setWaStatus(null); }}
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            className="flex-1"
+            className="flex-1 font-mono"
           />
           {formData.whacenter_instance.trim() ? (
             <Button type="button" variant="outline" onClick={checkWaStatus} disabled={checkingWa}>
@@ -772,42 +810,47 @@ const CourierSettings: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-1">Hantar mesej test ke mana-mana nombor Malaysia untuk sahkan device berfungsi.</p>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Tracking Webhook — per-status Track / Notify. Saved to
           tracking_status_setting and read by parceldaily-webhook getTrackPref
           (owner + statusGroup); default: Track all ON, Notify on Delivered. */}
       {(
-      <div className="bg-card rounded-lg border border-border mt-6">
+      <Card className="overflow-hidden">
         <button
           type="button"
           onClick={() => setShowTracking((v) => !v)}
-          className="w-full flex items-center justify-between p-4 hover:bg-muted/40 transition-colors"
+          className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-muted/40 transition-colors sm:px-6"
         >
-          <div className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-lg">Tracking Webhook</span>
-            <span className="hidden sm:inline text-xs text-muted-foreground">Ninjavan · DHL · PosLaju · J&amp;T</span>
+          <div className="flex min-w-0 items-center gap-3">
+            <IconTile icon={Truck} tone="blue" size="sm" />
+            <div className="min-w-0">
+              <span className="block text-base font-semibold">Tracking Webhook</span>
+              <span className="block text-xs text-muted-foreground">Ninjavan · DHL · PosLaju · J&amp;T</span>
+            </div>
           </div>
-          {showTracking ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+          {showTracking ? <ChevronUp className="w-5 h-5 shrink-0 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 shrink-0 text-muted-foreground" />}
         </button>
 
         {showTracking && (
-          <div className="px-4 pb-5">
-            <p className="text-sm text-muted-foreground mb-4">
+          <div className="border-t border-border px-4 pb-5 pt-4 sm:px-6">
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <p>
               <b>Notify</b> = hantar WhatsApp ke pelanggan bila status berubah; <b>Mesej</b> = ubah ayat template. Semua status di-track automatik.
-            </p>
+              </p>
+            </div>
             <div className="hidden sm:grid grid-cols-[1fr_4rem_4rem] gap-x-4 items-center pb-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground text-center">Mesej</div>
+              <div className="section-label">Status</div>
+              <div className="section-label flex items-center gap-1 justify-center"><Bell className="w-3.5 h-3.5" /> Notify</div>
+              <div className="section-label text-center">Mesej</div>
             </div>
             {[{ key: 'Order Keyed In', label: 'Selepas Key-in Order', keyin: true }, ...TRACKING_STATUSES.map((s) => ({ ...s, keyin: false }))].map((s) => {
               const p = prefFor(s.key);
               const editing = editingTpl === s.key;
               return (
                 <div key={s.key} className="border-t border-border/60">
-                  <div className="grid grid-cols-[1fr_4rem_4rem] gap-x-4 items-center py-2.5">
+                  <div className="grid grid-cols-[1fr_4rem_4rem] gap-x-2 items-center py-2.5 sm:gap-x-4">
                     <div className="text-sm">
                       {s.label}
                       {s.keyin && <span className="ml-2 text-[10px] uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">baru</span>}
@@ -881,12 +924,12 @@ const CourierSettings: React.FC = () => {
                         <Button size="sm" variant="ghost" onClick={() => setEditingTpl(null)}>Batal</Button>
                         {/* Test-send — only when a PeningBot instance is configured. */}
                         {formData.whacenter_instance.trim() && (
-                          <div className="flex items-center gap-2 ml-auto">
+                          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                             <Input
                               value={testPhone}
                               onChange={(e) => setTestPhone(e.target.value)}
                               placeholder="No. telefon test"
-                              className="h-9 w-40"
+                              className="h-9 flex-1 sm:w-40 sm:flex-none"
                             />
                             <Button size="sm" variant="secondary" onClick={handleTestSend} disabled={testingSend}>
                               {testingSend ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Bell className="w-4 h-4 mr-1" />} Test
@@ -902,14 +945,14 @@ const CourierSettings: React.FC = () => {
             <p className="text-xs text-muted-foreground mt-3">Template kosong = guna ayat default.</p>
           </div>
         )}
-      </div>
+      </Card>
       )}
 
       {/* Rate Kurier modal — shows the full courier rate card image */}
       <Dialog open={showRates} onOpenChange={setShowRates}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Calculator className="w-5 h-5 text-primary" /> Rate Kurier</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Calculator} tone="blue" size="sm" /> Rate Kurier</DialogTitle>
             <DialogDescription>Harga penghantaran ParcelDaily mengikut kurier &amp; berat.</DialogDescription>
           </DialogHeader>
           <img src="/courier-rates.png" alt="Rate Kurier ParcelDaily" className="w-full rounded-lg border border-border" />
@@ -920,7 +963,7 @@ const CourierSettings: React.FC = () => {
       <Dialog open={showCod} onOpenChange={setShowCod}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Banknote className="w-5 h-5 text-primary" /> Rate COD — Exclusive</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Banknote} tone="green" size="sm" /> Rate COD — Exclusive</DialogTitle>
             <DialogDescription>Kadar COD eksklusif merentas semua kurier ParcelDaily.</DialogDescription>
           </DialogHeader>
           <img src="/cod-charges.png" alt="COD Charges — Exclusive (Sales team)" className="w-full rounded-lg border border-border" />
@@ -931,19 +974,19 @@ const CourierSettings: React.FC = () => {
       <Dialog open={showReturn} onOpenChange={setShowReturn}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><RotateCcw className="w-5 h-5 text-primary" /> Rate Return</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={RotateCcw} tone="amber" size="sm" /> Rate Return</DialogTitle>
             <DialogDescription>Caj kos penghantaran untuk parcel yang di-return.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
-            <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-950/30 px-4 py-3">
+            <div className="rounded-xl border border-green-300 bg-green-50 dark:border-green-500/30 dark:bg-green-950/30 px-4 py-3">
               <p className="font-semibold text-green-700 dark:text-green-400">Return Semenanjung (West Malaysia)</p>
               <p className="text-muted-foreground">TIADA caj return — semua kurier (PERCUMA).</p>
             </div>
-            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/30 px-4 py-3">
               <p className="font-semibold text-amber-700 dark:text-amber-400">Return Sabah / Sarawak (East Malaysia)</p>
               <p className="text-muted-foreground">Dicaj untuk <b>semua kurier</b> — <b>kecuali Poslaju</b>.</p>
             </div>
-            <div className="rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-4 py-3">
+            <div className="rounded-xl border border-blue-300 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-950/30 px-4 py-3">
               <p className="font-semibold text-blue-700 dark:text-blue-400">Poslaju</p>
               <p className="text-muted-foreground">TIADA caj return dari East &amp; West Malaysia (PERCUMA sepenuhnya).</p>
             </div>
@@ -959,14 +1002,14 @@ const CourierSettings: React.FC = () => {
       <Dialog open={showGetKey} onOpenChange={setShowGetKey}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-primary" /> Setup ParcelDaily (Key + Webhook)</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={KeyRound} tone="blue" size="sm" /> Setup ParcelDaily (Key + Webhook)</DialogTitle>
             <DialogDescription>Ikut 3 langkah ini untuk sambung akaun ParcelDaily anda.</DialogDescription>
           </DialogHeader>
           <div className="space-y-5">
             {GET_KEY_STEPS.map((s, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex items-start gap-2">
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{i + 1}</span>
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-primary-foreground">{i + 1}</span>
                   <p className="text-sm">{s.text}</p>
                 </div>
                 <img
@@ -981,15 +1024,16 @@ const CourierSettings: React.FC = () => {
             {/* Step 3 — register the webhook so status/waybill/COD flow back automatically */}
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-primary-foreground">3</span>
                 <p className="text-sm">
                   Di portal ParcelDaily (<span className="font-medium">Integrations → Webhook</span>), tampal URL di bawah untuk kedua-dua
                   <span className="font-medium"> Tracking</span> &amp; <span className="font-medium">Checkout</span> webhook. Ini yang buatkan status penghantaran, no. tracking, waybill, berat &amp; COD masuk automatik ke PeningOrder.
                 </p>
               </div>
+              <p className="section-label ml-8">Webhook URL</p>
               <div className="ml-8 flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
                 <Webhook className="w-4 h-4 flex-shrink-0 text-primary" />
-                <code className="flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
+                <code className="min-w-0 flex-1 text-xs break-all">{PARCELDAILY_WEBHOOK_URL}</code>
                 <Button type="button" size="sm" variant="outline" className="h-8 flex-shrink-0" onClick={copyWebhook}>
                   {copiedWebhook ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin</>}
                 </Button>

@@ -14,8 +14,10 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban, History
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { PageHeader, StatCard, EmptyState, MissingHint } from '@/components/common/SoftUI';
 import { put } from '@vercel/blob';
 import {
   Select,
@@ -64,6 +66,13 @@ interface OrderForTracking {
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
+
+// Summary-box StatCard: tile above the value on phones (2-column grid), side by side
+// from sm up; value capped at text-xl so "RM 12,345.00" fits without truncating.
+const BOX = 'flex-col items-stretch gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl';
+const BOX_GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4';
+// Extra lines under a box's label (they wrap instead of truncating).
+const boxLine = 'block whitespace-normal leading-snug';
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success"];
 const COLLECTION_STATUS_OPTIONS = ["All", "Collection", "Remaining"];
 
@@ -887,178 +896,208 @@ ${trackingUrl}`;
     setCurrentPage(1);
   };
   const allCleared = paymentFilter === "All" && deliveryStatusFilter === "All" && collectionFilter === "All";
-  const boxCls = (active: boolean) =>
-    `cursor-pointer transition-all ${active ? "ring-2 ring-primary" : "hover:border-primary/60 hover:shadow-sm"}`;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-primary">Order History</h1>
-        <p className="text-muted-foreground">
-          Monitor and manage your order history
-        </p>
-      </div>
+      <PageHeader
+        title="Order History"
+        description="Monitor and manage your order history"
+        icon={History}
+        tone="brand"
+      />
 
       {/* Stats — Row 1: money & collection (clickable). Boxes computed from
           baseOrders so totals stay stable while a click narrows the table. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <div onClick={() => boxFilter({})} className={`bg-card border border-border rounded-lg p-4 ${boxCls(allCleared)}`}>
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Users className="w-4 h-4 text-blue-500" />
-            <span className="text-xs uppercase font-medium">Total Customer</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{stats.totalCustomer}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.customer.cash} · COD {stats.split.customer.cod}</p>
-        </div>
+      <div className={BOX_GRID}>
+        <StatCard
+          className={BOX}
+          icon={Users}
+          tone="purple"
+          label="Total Customer"
+          value={stats.totalCustomer}
+          hint={`CASH ${stats.split.customer.cash} · COD ${stats.split.customer.cod}`}
+          onClick={() => boxFilter({})}
+          active={allCleared}
+        />
 
-        <div onClick={() => boxFilter({})} className={`bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 ${boxCls(false)}`}>
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Sales</span>
-          </div>
-          <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">RM {formatRM(stats.totalSales)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={DollarSign}
+          tone="amber"
+          label="Total Sales"
+          value={`RM ${formatRM(stats.totalSales)}`}
+          onClick={() => boxFilter({})}
+        />
 
-        <div onClick={() => boxFilter({ pay: "Cash" })} className={`bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 ${boxCls(paymentFilter === "Cash")}`}>
-          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Cash</span>
-          </div>
-          <p className="text-2xl font-bold text-green-700 dark:text-green-300">RM {formatRM(stats.totalCash)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={DollarSign}
+          tone="green"
+          label="Total Cash"
+          value={`RM ${formatRM(stats.totalCash)}`}
+          onClick={() => boxFilter({ pay: "Cash" })}
+          active={paymentFilter === "Cash"}
+        />
 
-        <div onClick={() => boxFilter({ pay: "COD" })} className={`bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 ${boxCls(paymentFilter === "COD")}`}>
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total COD</span>
-          </div>
-          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">RM {formatRM(stats.totalCOD)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={DollarSign}
+          tone="blue"
+          label="Total COD"
+          value={`RM ${formatRM(stats.totalCOD)}`}
+          onClick={() => boxFilter({ pay: "COD" })}
+          active={paymentFilter === "COD"}
+        />
 
-        <div onClick={() => boxFilter({ pay: "Pickup" })} className={`bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-lg p-4 ${boxCls(paymentFilter === "Pickup")}`}>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 mb-1">
-            <Package className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Pickup</span>
-          </div>
-          <p className="text-2xl font-bold text-sky-700 dark:text-sky-300">RM {formatRM(stats.totalPickup)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Package}
+          tone="cyan"
+          label="Total Pickup"
+          value={`RM ${formatRM(stats.totalPickup)}`}
+          onClick={() => boxFilter({ pay: "Pickup" })}
+          active={paymentFilter === "Pickup"}
+        />
 
-        <div onClick={() => boxFilter({ coll: "Collection" })} className={`bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 ${boxCls(collectionFilter === "Collection")}`}>
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Collection</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalCollection}</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesCollection)}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.collection.cash)} · COD RM {formatRM(stats.split.collection.cod)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={DollarSign}
+          tone="green"
+          label="Collection"
+          value={stats.totalCollection}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-emerald-600 dark:text-emerald-400`}>RM {formatRM(stats.totalSalesCollection)}</span>
+            <span className={boxLine}>CASH RM {formatRM(stats.split.collection.cash)} · COD RM {formatRM(stats.split.collection.cod)}</span>
+          </>}
+          onClick={() => boxFilter({ coll: "Collection" })}
+          active={collectionFilter === "Collection"}
+        />
 
-        <div onClick={() => boxFilter({ coll: "Remaining" })} className={`bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4 ${boxCls(collectionFilter === "Remaining")}`}>
-          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
-            <Clock className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Remain Coll</span>
-          </div>
-          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{stats.totalRemaining}</p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">RM {formatRM(stats.totalSalesRemaining)}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.remaining.cash)} · COD RM {formatRM(stats.split.remaining.cod)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Clock}
+          tone="indigo"
+          label="Remain Coll"
+          value={stats.totalRemaining}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-indigo-600 dark:text-indigo-400`}>RM {formatRM(stats.totalSalesRemaining)}</span>
+            <span className={boxLine}>CASH RM {formatRM(stats.split.remaining.cash)} · COD RM {formatRM(stats.split.remaining.cod)}</span>
+          </>}
+          onClick={() => boxFilter({ coll: "Remaining" })}
+          active={collectionFilter === "Remaining"}
+        />
 
         {pospadaEnabled && (
-          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
-              <Calendar className="w-4 h-4" />
-              <span className="text-xs uppercase font-medium">Sales Pospada</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">RM {formatRM(stats.totalSalesPospada)}</p>
-          </div>
+          <StatCard
+            className={BOX}
+            icon={Calendar}
+            tone="purple"
+            label="Sales Pospada"
+            value={`RM ${formatRM(stats.totalSalesPospada)}`}
+          />
         )}
       </div>
 
       {/* Stats — Row 2: lifecycle (clickable) + costs.
           Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <div onClick={() => boxFilter({ del: "Pending" })} className={`bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Pending")}`}>
-          <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
-            <Clock className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Pending</span>
-          </div>
-          <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stats.totalPending}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH {stats.split.pending.cash} · COD {stats.split.pending.cod}</p>
-        </div>
+      <div className={BOX_GRID}>
+        <StatCard
+          className={BOX}
+          icon={Clock}
+          tone="orange"
+          label="Pending"
+          value={stats.totalPending}
+          hint={`CASH ${stats.split.pending.cash} · COD ${stats.split.pending.cod}`}
+          onClick={() => boxFilter({ del: "Pending" })}
+          active={deliveryStatusFilter === "Pending"}
+        />
 
-        <div onClick={() => boxFilter({ del: "Rejected" })} className={`bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Rejected")}`}>
-          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-1">
-            <Ban className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Rejected</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{stats.totalRejected}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Ban}
+          tone="slate"
+          label="Rejected"
+          value={stats.totalRejected}
+          onClick={() => boxFilter({ del: "Rejected" })}
+          active={deliveryStatusFilter === "Rejected"}
+        />
 
-        <div onClick={() => boxFilter({ del: "Shipped" })} className={`bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Shipped")}`}>
-          <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
-            <Truck className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Shipped</span>
-          </div>
-          <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.totalShipped}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">ever shipped</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Truck}
+          tone="cyan"
+          label="Shipped"
+          value={stats.totalShipped}
+          hint="ever shipped"
+          onClick={() => boxFilter({ del: "Shipped" })}
+          active={deliveryStatusFilter === "Shipped"}
+        />
 
-        <div onClick={() => boxFilter({ del: "RemainingShip" })} className={`bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "RemainingShip")}`}>
-          <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 mb-1">
-            <Truck className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Remaining Ship</span>
-          </div>
-          <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-300">{stats.totalRemainingShip}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">in transit</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Truck}
+          tone="blue"
+          label="Remaining Ship"
+          value={stats.totalRemainingShip}
+          hint="in transit"
+          onClick={() => boxFilter({ del: "RemainingShip" })}
+          active={deliveryStatusFilter === "RemainingShip"}
+        />
 
-        <div onClick={() => boxFilter({ del: "Success" })} className={`bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Success")}`}>
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-            <Package className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Success</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{stats.totalSuccess}</p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">RM {formatRM(stats.totalSalesSuccess)}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.success.cash)} · COD RM {formatRM(stats.split.success.cod)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Package}
+          tone="green"
+          label="Success"
+          value={stats.totalSuccess}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-emerald-600 dark:text-emerald-400`}>RM {formatRM(stats.totalSalesSuccess)}</span>
+            <span className={boxLine}>CASH RM {formatRM(stats.split.success.cash)} · COD RM {formatRM(stats.split.success.cod)}</span>
+          </>}
+          onClick={() => boxFilter({ del: "Success" })}
+          active={deliveryStatusFilter === "Success"}
+        />
 
-        <div onClick={() => boxFilter({ del: "Return" })} className={`bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 ${boxCls(deliveryStatusFilter === "Return")}`}>
-          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
-            <RotateCw className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Return</span>
-          </div>
-          <p className="text-2xl font-bold text-red-700 dark:text-red-300">{stats.totalReturn}</p>
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">RM {formatRM(stats.totalSalesReturn)}</p>
-          <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={RotateCw}
+          tone="red"
+          label="Return"
+          value={stats.totalReturn}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>RM {formatRM(stats.totalSalesReturn)}</span>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</span>
+          </>}
+          onClick={() => boxFilter({ del: "Return" })}
+          active={deliveryStatusFilter === "Return"}
+        />
 
-        <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-pink-600 dark:text-pink-400 mb-1">
-            <Package className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Cost Product</span>
-          </div>
-          <p className="text-2xl font-bold text-pink-700 dark:text-pink-300">RM {formatRM(stats.totalCostProduct)}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Package}
+          tone="pink"
+          label="Cost Product"
+          value={`RM ${formatRM(stats.totalCostProduct)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</span>}
+        />
 
-        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-1">
-            <Truck className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Cost Postage</span>
-          </div>
-          <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">RM {formatRM(stats.totalCostPostage)}</p>
-          <p className="text-[10px] font-medium text-muted-foreground mt-1 leading-tight">CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</p>
-        </div>
+        <StatCard
+          className={BOX}
+          icon={Truck}
+          tone="indigo"
+          label="Cost Postage"
+          value={`RM ${formatRM(stats.totalCostPostage)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</span>}
+        />
       </div>
 
       {/* Filters - like logistic Order layout */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-col gap-4">
-          {/* Row 1: Search + Blue Search Button + Dates */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1 flex gap-2">
-              <div className="relative flex-1">
+      <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Search + Search Button + Dates */}
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+            <div className="flex min-w-0 flex-1 gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Name, phone, tracking..."
@@ -1072,118 +1111,124 @@ ${trackingUrl}`;
               </div>
               <Button
                 onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
-                className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
+                className="shrink-0"
               >
-                <Search className="w-4 h-4 mr-2" />
+                <Search className="w-4 h-4" />
                 Search
               </Button>
             </div>
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={pendingStart}
-                onChange={(e) => setPendingStart(e.target.value)}
-                className="w-40"
-              />
-              <Input
-                type="date"
-                value={pendingEnd}
-                onChange={(e) => setPendingEnd(e.target.value)}
-                className="w-40"
-              />
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <Input
+                  type="date"
+                  value={pendingStart}
+                  onChange={(e) => setPendingStart(e.target.value)}
+                  className="w-full sm:w-40"
+                />
+                <Input
+                  type="date"
+                  value={pendingEnd}
+                  onChange={(e) => setPendingEnd(e.target.value)}
+                  className="w-full sm:w-40"
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             </div>
           </div>
 
           {/* Row 2: Dropdowns and buttons */}
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             {/* Team filter (client with staff only) */}
             <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); setCurrentPage(1); }} />
 
-            {/* Delivery status dropdown */}
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-muted-foreground" />
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
+              {/* Delivery status dropdown */}
+              <div className="flex min-w-0 items-center gap-2">
+                <Truck className="w-4 h-4 shrink-0 text-muted-foreground" />
+                <Select
+                  value={deliveryStatusFilter}
+                  onValueChange={(v) => {
+                    setDeliveryStatusFilter(v);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DELIVERY_STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Collection status dropdown */}
+              <div className="flex min-w-0 items-center gap-2">
+                <DollarSign className="w-4 h-4 shrink-0 text-emerald-500" />
+                <Select
+                  value={collectionFilter}
+                  onValueChange={(v) => {
+                    setCollectionFilter(v);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-36">
+                    <SelectValue placeholder="Collection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLLECTION_STATUS_OPTIONS.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status === 'null' ? '-' : status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Page size */}
               <Select
-                value={deliveryStatusFilter}
+                value={pageSize.toString()}
                 onValueChange={(v) => {
-                  setDeliveryStatusFilter(v);
+                  setPageSize(v === "All" ? "All" : Number(v));
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-24">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DELIVERY_STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size.toString()} value={size.toString()}>
+                      {size}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Collection status dropdown */}
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-emerald-500" />
-              <Select
-                value={collectionFilter}
-                onValueChange={(v) => {
-                  setCollectionFilter(v);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Collection" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COLLECTION_STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status === 'null' ? '-' : status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Page size */}
-            <Select
-              value={pageSize.toString()}
-              onValueChange={(v) => {
-                setPageSize(v === "All" ? "All" : Number(v));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <SelectItem key={size.toString()} value={size.toString()}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
             {/* Reset Filters & Export CSV */}
-            <Button variant="outline" onClick={resetFilters}>
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset Filters
-            </Button>
-            <Button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white">
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:ml-auto">
+              <Button variant="outline" onClick={resetFilters}>
+                <RotateCcw className="w-4 h-4" />
+                Reset Filters
+              </Button>
+              <Button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white">
+                <Download className="w-4 h-4" />
+                Export CSV
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr>
                 <th className="px-4 py-3 text-left">
                   <input
@@ -1194,39 +1239,39 @@ ${trackingUrl}`;
                     onChange={() => toggleSelectAll(paginatedOrders)}
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">No</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Id Sales</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">ID Staff</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Nama</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Process</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nama Pelanggan</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Produk</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Cara Bayaran</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Kurier</th>
-                {pospadaEnabled && <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase">Pospada</th>}
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tracking No</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Total Sales</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase">Cost Product</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">Cost Postage</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Delivery Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Platform</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Closing</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Jenis Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Negeri</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Alamat</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Parcel Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Collection</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">WhatsApp</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Nota Staff</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Action</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">No</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Id Sales</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap text-blue-600 dark:text-blue-400">ID Staff</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap text-blue-600 dark:text-blue-400">Nama</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Tarikh Order</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Tarikh Process</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Nama Pelanggan</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Phone</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Produk</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Cara Bayaran</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Kurier</th>
+                {pospadaEnabled && <th className="px-4 py-3 text-left whitespace-nowrap text-purple-600 dark:text-purple-400">Pospada</th>}
+                <th className="px-4 py-3 text-left whitespace-nowrap">Tracking No</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Total Sales</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap text-pink-600 dark:text-pink-400">Cost Product</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap text-indigo-600 dark:text-indigo-400">Cost Postage</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Delivery Status</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Jenis Platform</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Jenis Closing</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Jenis Customer</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Negeri</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Alamat</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Parcel Status</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap text-emerald-600 dark:text-emerald-400">Collection</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">WhatsApp</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Nota Staff</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {paginatedOrders.length > 0 ? (
                 paginatedOrders.map((order, idx) => (
-                  <tr key={order.id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={order.id} className="hover:bg-muted/40 transition-colors">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -1237,13 +1282,13 @@ ${trackingUrl}`;
                       />
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{pageSize === "All" ? idx + 1 : (currentPage - 1) * pageSize + idx + 1}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">{order.idSale || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">{order.marketerIdStaff || '-'}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-foreground whitespace-nowrap">{order.idSale || '-'}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{order.marketerIdStaff || '-'}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{nameByIdstaff.get(order.marketerIdStaff || '') || order.marketerName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(order.dateOrder || order.tarikhTempahan)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{formatDMY(order.dateProcessed)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">{formatDMY(order.dateOrder || order.tarikhTempahan)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">{formatDMY(order.dateProcessed)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{order.marketerName}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">
+                    <td className="px-4 py-3 text-sm font-mono text-foreground whitespace-nowrap">
                       {order.noPhone && waLink(order.noPhone) ? (
                         <a
                           href={waLink(order.noPhone)!}
@@ -1309,7 +1354,7 @@ ${trackingUrl}`;
                         )}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">
+                    <td className="px-4 py-3 text-sm font-mono text-foreground whitespace-nowrap">
                       {order.noTracking ? (
                         <a
                           href={courierTrackUrl(order.kurier || '', order.noTracking)}
@@ -1332,9 +1377,9 @@ ${trackingUrl}`;
                         '-'
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-foreground">RM {order.hargaJualanSebenar.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400">RM {(order.kosProduk || 0).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400">RM {(order.kosPos || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground whitespace-nowrap">RM {order.hargaJualanSebenar.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-pink-600 dark:text-pink-400 whitespace-nowrap">RM {(order.kosProduk || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400 whitespace-nowrap">RM {(order.kosPos || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         order.deliveryStatus === 'Success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
@@ -1449,8 +1494,8 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={(isMarketer ? 25 : 26) - (pospadaEnabled ? 0 : 1)} className="px-4 py-12 text-center text-muted-foreground">
-                    No orders found.
+                  <td colSpan={(isMarketer ? 25 : 26) - (pospadaEnabled ? 0 : 1)} className="p-0">
+                    <EmptyState icon={History} title="No orders found." />
                   </td>
                 </tr>
               )}
@@ -1503,11 +1548,11 @@ ${trackingUrl}`;
               Pilih kurier dan masukkan poskod untuk menjana tracking number.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground">Kurier</label>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Kurier</Label>
               <Select value={regenerateCourier} onValueChange={(v) => setRegenerateCourier(v as any)}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger>
                   <SelectValue placeholder="Pilih kurier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1517,18 +1562,17 @@ ${trackingUrl}`;
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Poskod</label>
+            <div className="space-y-1.5">
+              <Label>Poskod</Label>
               <Input
                 type="text"
                 value={regeneratePoskod}
                 onChange={(e) => { setRegeneratePoskod(e.target.value); setRegenerateError(''); }}
                 placeholder="Masukkan poskod"
-                className="mt-1"
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Harga Jualan (RM)</label>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Harga Jualan (RM)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1536,15 +1580,21 @@ ${trackingUrl}`;
                 value={regeneratePrice}
                 onChange={(e) => { setRegeneratePrice(e.target.value); setRegenerateError(''); }}
                 placeholder="cth: 84.00"
-                className="mt-1"
               />
-              <p className="text-xs text-muted-foreground mt-1">Kurier perlukan harga (jumlah COD / nilai parcel) untuk jana tracking. Harga akan disimpan ke order.</p>
+              <p className="text-xs text-muted-foreground">Kurier perlukan harga (jumlah COD / nilai parcel) untuk jana tracking. Harga akan disimpan ke order.</p>
             </div>
             {regenerateError && (
-              <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-400">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-400 sm:col-span-2">
                 <span className="font-semibold">Tak boleh jana tracking:</span> {regenerateError}
               </div>
             )}
+            <MissingHint
+              className="sm:col-span-2"
+              items={[
+                { label: 'Poskod', done: !!regeneratePoskod.trim() },
+                { label: 'Harga Jualan (RM)', done: Number(regeneratePrice) > 0 },
+              ]}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)} disabled={isRegenerating}>
@@ -1570,29 +1620,29 @@ ${trackingUrl}`;
             <DialogTitle>Butiran Bayaran</DialogTitle>
           </DialogHeader>
           {selectedOrderPayment && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tarikh Bayaran</p>
-                  <p className="text-sm font-medium text-foreground">{formatDMY(selectedOrderPayment.tarikhBayaran)}</p>
+                  <p className="section-label">Tarikh Bayaran</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{formatDMY(selectedOrderPayment.tarikhBayaran)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Jenis Bayaran</p>
-                  <p className="text-sm font-medium text-foreground">{selectedOrderPayment.jenisBayaran || '-'}</p>
+                  <p className="section-label">Jenis Bayaran</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{selectedOrderPayment.jenisBayaran || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Bank</p>
-                  <p className="text-sm font-medium text-foreground">{selectedOrderPayment.bank || '-'}</p>
+                  <p className="section-label">Bank</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{selectedOrderPayment.bank || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Harga Jualan</p>
-                  <p className="text-sm font-medium text-foreground">RM {selectedOrderPayment.hargaJualanSebenar?.toFixed(2)}</p>
+                  <p className="section-label">Harga Jualan</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">RM {selectedOrderPayment.hargaJualanSebenar?.toFixed(2)}</p>
                 </div>
               </div>
 
               {/* Receipt Image */}
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Resit Bayaran</p>
+                <p className="section-label mb-2">Resit Bayaran</p>
                 {selectedOrderPayment.receiptImageUrl ? (
                   <ReceiptViewer url={selectedOrderPayment.receiptImageUrl} type={(selectedOrderPayment as any).receiptType} />
                 ) : (
@@ -1600,7 +1650,7 @@ ${trackingUrl}`;
                     <p className="text-sm text-red-500 italic">Tiada resit dimuat naik</p>
 
                     {/* Upload receipt form */}
-                    <div className="border border-dashed border-red-300 dark:border-red-700 rounded-lg p-4 bg-red-50/50 dark:bg-red-950/20">
+                    <div className="rounded-xl border border-dashed border-red-200 bg-red-50/50 p-4 dark:border-red-500/30 dark:bg-red-950/20">
                       <p className="text-sm font-medium text-foreground mb-2">Muat Naik Resit</p>
                       <div className="relative">
                         <input
@@ -1649,12 +1699,12 @@ ${trackingUrl}`;
               >
                 {isUploadingReceipt ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Memuat naik...
                   </>
                 ) : (
                   <>
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="w-4 h-4" />
                     Simpan Resit
                   </>
                 )}

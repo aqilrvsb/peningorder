@@ -82,11 +82,11 @@ const AttendanceReasonModal = ({
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Employee</p>
+                <p className="section-label">Employee</p>
                 <p className="font-medium">{employeeName}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Date</p>
+                <p className="section-label">Date</p>
                 <p className="font-medium">{formatDate(date)}</p>
               </div>
             </div>
@@ -119,7 +119,7 @@ const AttendanceReasonModal = ({
                   {hasExisting && " — akan menggantikan lampiran sedia ada."}
                 </p>
               ) : hasExisting ? (
-                <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-2 py-1.5">
                   <span className="truncate text-xs text-muted-foreground">Lampiran sedia ada: {existingAttachment!.name || "fail"}</span>
                   <div className="flex flex-shrink-0 gap-1">
                     <Button type="button" size="sm" variant="outline" className="h-7 px-2" onClick={() => setViewing(true)}>
@@ -159,7 +159,7 @@ const AttendanceReasonModal = ({
             <DialogTitle>Lampiran — {employeeName}</DialogTitle>
           </DialogHeader>
           {urlLoading || !viewUrl
-            ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ? <div className="shimmer h-64 w-full rounded-xl" aria-busy="true" />
             : <ReceiptViewer url={viewUrl} />}
         </DialogContent>
       </Dialog>

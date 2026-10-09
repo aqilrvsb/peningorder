@@ -3,7 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Lock, Pencil, Search, Trash2, UserPlus, Users, UserCheck, Briefcase } from 'lucide-react';
+import { Lock, Pencil, Search, Trash2, UserPlus, Users, UserCheck, Briefcase } from 'lucide-react';
+import { StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import { AUDIT_MODE } from '@/lib/audit';
 import AddAttendanceStaffModal from './AddAttendanceStaffModal';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
@@ -29,10 +30,10 @@ export default function HRUsers() {
   );
 
   const stats = [
-    { label: 'Marketer (Team)', value: teamPeople.length, icon: Users, tone: 'text-blue-600 bg-blue-50' },
-    { label: 'Marketer Aktif', value: teamPeople.filter((p) => p.isActive).length, icon: UserCheck, tone: 'text-green-600 bg-green-50' },
-    { label: 'Staff Tambahan', value: extraPeople.length, icon: Briefcase, tone: 'text-purple-600 bg-purple-50' },
-    { label: 'Jumlah Staff', value: teamPeople.filter((p) => p.isActive).length + extraPeople.length, icon: Users, tone: 'text-amber-600 bg-amber-50' },
+    { label: 'Marketer (Team)', value: teamPeople.length, icon: Users, tone: 'blue' as const },
+    { label: 'Marketer Aktif', value: teamPeople.filter((p) => p.isActive).length, icon: UserCheck, tone: 'green' as const },
+    { label: 'Staff Tambahan', value: extraPeople.length, icon: Briefcase, tone: 'purple' as const },
+    { label: 'Jumlah Staff', value: teamPeople.filter((p) => p.isActive).length + extraPeople.length, icon: Users, tone: 'amber' as const },
   ];
 
   return (
@@ -48,17 +49,7 @@ export default function HRUsers() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="mt-1 text-2xl font-bold">{s.value}</p>
-              </div>
-              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${s.tone}`}>
-                <s.icon className="h-5 w-5" />
-              </span>
-            </CardContent>
-          </Card>
+          <StatCard key={s.label} icon={s.icon} tone={s.tone} label={s.label} value={s.value} />
         ))}
       </div>
 
@@ -70,7 +61,7 @@ export default function HRUsers() {
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, telefon…" className="pl-9" />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="sm:w-52"><SelectValue placeholder="All Roles" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="All Roles" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="marketer">Marketer</SelectItem>
@@ -80,14 +71,14 @@ export default function HRUsers() {
           </div>
 
           {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <TableSkeleton rows={6} cols={6} />
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-600">Gagal muat staff: {error.message}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
-                  <tr className="border-b text-left text-muted-foreground">
+                  <tr className="border-b bg-muted/40 text-left text-muted-foreground">
                     <th className="p-2 font-medium">No</th>
                     <th className="p-2 font-medium">Nama</th>
                     <th className="p-2 font-medium">Telefon</th>
@@ -98,12 +89,12 @@ export default function HRUsers() {
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
-                    <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">Tiada staff. Tambah marketer di tab Team, atau tekan “Tambah Staff”.</td></tr>
+                    <tr><td colSpan={6} className="text-muted-foreground"><EmptyState icon={Users} title="Tiada staff. Tambah marketer di tab Team, atau tekan “Tambah Staff”." /></td></tr>
                   ) : rows.map((p, i) => (
-                    <tr key={`${p.source}-${p.id}`} className="border-b last:border-0 hover:bg-muted/30">
+                    <tr key={`${p.source}-${p.id}`} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                       <td className="p-2 text-muted-foreground">{i + 1}</td>
                       <td className="p-2 font-medium">{p.name}</td>
-                      <td className="p-2">{p.phone || '-'}</td>
+                      <td className="whitespace-nowrap p-2">{p.phone || '-'}</td>
                       <td className="p-2"><span className={`rounded px-1.5 py-0.5 text-xs font-medium ${roleBadge(p.role)}`}>{p.role}</span></td>
                       <td className="p-2">
                         <span className={`text-xs font-medium ${p.isActive ? 'text-green-600' : 'text-red-500'}`}>{p.isActive ? 'Aktif' : 'Nonaktif'}</span>

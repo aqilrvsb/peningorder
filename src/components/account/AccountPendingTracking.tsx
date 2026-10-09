@@ -37,12 +37,17 @@ import {
   Filter,
   RefreshCw,
   AlertTriangle,
+  DollarSign,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
+// Stat cards: stack the icon above the value on phones so labels / RM hints aren't cut off.
+const STACK_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
 
 // Normalise a stored kurier to its base courier for grouping + filtering.
 const baseCourier = (kurier?: string | null): string => {
@@ -466,75 +471,67 @@ const AccountPendingTracking = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Pending COD Collection</h1>
-          <p className="text-muted-foreground mt-2">
-            COD orders delivered but not yet collected
-          </p>
-        </div>
-        <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-          Sync
-        </Button>
-      </div>
+      <PageHeader
+        title="Pending COD Collection"
+        description="COD orders delivered but not yet collected"
+        icon={DollarSign}
+        tone="brand"
+        actions={
+          <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+            Sync
+          </Button>
+        }
+      />
 
       {/* Stats Cards (clickable filters) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <StatCard
+          icon={Clock}
+          tone="amber"
+          label="Total Pending Collection (COD)"
+          value={counts.total}
+          hint={<span className="whitespace-normal">RM {counts.totalSales.toFixed(2)} belum kutip</span>}
           onClick={() => { setCourierFilter("all"); setOverdueOnly(false); handleFilterChange(); }}
-          className={`cursor-pointer transition-all ${courierFilter === "all" && !overdueOnly ? "ring-2 ring-primary" : "hover:border-primary/60 hover:shadow-sm"}`}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-purple-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">Total Pending Collection (COD)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">RM {counts.totalSales.toFixed(2)} belum kutip</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          active={courierFilter === "all" && !overdueOnly}
+          className={STACK_CARD}
+        />
         {/* Remittance overdue — delivered COD uncollected > 7 days (possible
             missed COD_REMITTED webhook). Highlighted red in the table below. */}
-        <Card
+        <StatCard
+          icon={AlertTriangle}
+          tone={counts.overdue > 0 ? "red" : "slate"}
+          label="Remittance Overdue"
+          value={<span className={counts.overdue > 0 ? "text-red-600 dark:text-red-400" : ""}>{counts.overdue}</span>}
+          hint={<span className="whitespace-normal">COD &gt; {OVERDUE_DAYS} hari belum settle</span>}
           onClick={() => { setOverdueOnly((v) => !v); setCourierFilter("all"); handleFilterChange(); }}
-          className={`cursor-pointer transition-all ${overdueOnly ? "ring-2 ring-red-500" : "hover:shadow-sm"} ${counts.overdue > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : ""}`}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className={`w-8 h-8 ${counts.overdue > 0 ? "text-red-500" : "text-muted-foreground"}`} />
-              <div>
-                <p className={`text-2xl font-bold ${counts.overdue > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{counts.overdue}</p>
-                <p className="text-sm text-muted-foreground">Remittance Overdue</p>
-                <p className="text-xs text-muted-foreground mt-0.5">COD &gt; {OVERDUE_DAYS} hari belum settle</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          active={overdueOnly}
+          className={`${STACK_CARD} ${counts.overdue > 0 ? "border-red-300 bg-red-50/60 dark:border-red-500/30 dark:bg-red-950/20" : ""} ${overdueOnly ? "ring-red-500/25 border-red-400" : ""}`}
+        />
       </div>
 
       {/* Breakdown by Kurier (clickable filter) */}
       {courierStats.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {courierStats.map((cs) => (
-            <Card
+            <StatCard
               key={cs.name}
-              onClick={() => { setCourierFilter(courierFilter === cs.name ? "all" : cs.name); setOverdueOnly(false); handleFilterChange(); }}
-              className={`cursor-pointer transition-all ${courierFilter === cs.name ? "ring-2 ring-primary" : "hover:shadow-sm"} ${cs.total > 0 ? "border-l-4 border-l-purple-500" : ""}`}
-            >
-              <CardContent className="p-4">
-                <div>
-                  <p className="text-sm font-semibold">{cs.name}</p>
-                  <p className="text-xl font-bold">{cs.total}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">RM {cs.sales.toFixed(2)}</p>
+              icon={Truck}
+              tone="amber"
+              label={cs.name}
+              value={cs.total}
+              hint={
+                <>
+                  <span className="block truncate">RM {cs.sales.toFixed(2)}</span>
                   {cs.overdue > 0 && (
-                    <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{cs.overdue} overdue</p>
+                    <span className="block truncate text-red-600 dark:text-red-400">{cs.overdue} overdue</span>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </>
+              }
+              onClick={() => { setCourierFilter(courierFilter === cs.name ? "all" : cs.name); setOverdueOnly(false); handleFilterChange(); }}
+              active={courierFilter === cs.name}
+              className={STACK_CARD}
+            />
           ))}
         </div>
       )}
@@ -543,8 +540,8 @@ const AccountPendingTracking = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search tracking number..."
@@ -597,27 +594,27 @@ const AccountPendingTracking = () => {
                   Reset
                 </Button>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="date"
                   value={pendingStart}
                   onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
+                  className="min-w-[130px] flex-1 sm:w-40 sm:flex-none"
                 />
                 <Input
                   type="date"
                   value={pendingEnd}
                   onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
+                  className="min-w-[130px] flex-1 sm:w-40 sm:flex-none"
                 />
-                <Button size="sm" onClick={applyDateFilter}>
+                <Button onClick={applyDateFilter} className="h-10">
                   <Filter className="w-4 h-4 mr-1" />
                   Apply Filter
                 </Button>
                 <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
               </div>
               <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                <SelectTrigger className="w-36">
+                <SelectTrigger className="w-full sm:w-36">
                   <SelectValue placeholder="Platform" />
                 </SelectTrigger>
                 <SelectContent>
@@ -632,7 +629,7 @@ const AccountPendingTracking = () => {
               <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Show:</span>
                 <Select value={pageSize === 0 ? "all" : pageSize.toString()} onValueChange={(v) => { setPageSize(v === "all" ? 0 : Number(v)); setCurrentPage(1); }}>
@@ -649,9 +646,9 @@ const AccountPendingTracking = () => {
                 <span className="text-sm text-muted-foreground">entries</span>
               </div>
 
-              <div className="flex-1" />
+              <div className="hidden flex-1 sm:block" />
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   onClick={handleExportExcel}
@@ -677,14 +674,12 @@ const AccountPendingTracking = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <TableSkeleton rows={8} cols={7} className="p-4" />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="p-3 text-left w-10">
                         <Checkbox
@@ -721,7 +716,7 @@ const AccountPendingTracking = () => {
                       paginatedOrders.map((order: any, index: number) => (
                         <tr
                           key={order.id}
-                          className={`border-b hover:bg-muted/30 ${
+                          className={`border-b hover:bg-muted/40 transition-colors ${
                             isOverdue(order) ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500" : ""
                           }`}
                         >
@@ -749,12 +744,12 @@ const AccountPendingTracking = () => {
                           </td>
                           <td className="p-3 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${order.type_payment === "COD" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"}`}>
                               {order.type_payment || "-"}
                             </span>
                           </td>
                           <td className="p-3">
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                               {order.delivery_status || "-"}
                             </span>
                           </td>
@@ -800,7 +795,7 @@ const AccountPendingTracking = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-green-600"
+                                className="text-green-600 whitespace-nowrap"
                                 onClick={() => handleCollected(order.id)}
                               >
                                 <Wallet className="w-4 h-4 mr-1" />
@@ -812,8 +807,8 @@ const AccountPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={23} className="text-center py-12 text-muted-foreground">
-                          No pending tracking orders found.
+                        <td colSpan={23} className="p-0">
+                          <EmptyState icon={Clock} title="No pending tracking orders found." />
                         </td>
                       </tr>
                     )}
@@ -849,6 +844,7 @@ const AccountPendingTracking = () => {
                 rows={3}
               />
             </div>
+            <MissingHint items={[{ label: "Reason for Return", done: !!returnReason.trim() }]} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>

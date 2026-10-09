@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import StaffRoleSelect from "./StaffRoleSelect";
+import { MissingHint } from "@/components/common/SoftUI";
 
 interface AddAttendanceStaffModalProps {
   open: boolean;
@@ -84,24 +85,26 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
           <DialogTitle>Add New Staff</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name *</Label>
-            <Input
-              id="name"
-              placeholder="Full name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input
+                id="name"
+                placeholder="Full name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              placeholder="e.g. 60123456789"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                placeholder="e.g. 60123456789"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -113,7 +116,9 @@ const AddAttendanceStaffModal = ({ open, onOpenChange }: AddAttendanceStaffModal
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <MissingHint items={[{ label: "Name", done: !!formData.name.trim() }, { label: "Role", done: !!formData.role }]} />
+
+          <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

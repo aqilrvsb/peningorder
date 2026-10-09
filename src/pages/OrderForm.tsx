@@ -26,10 +26,12 @@ import { toast } from '@/hooks/use-toast';
 import Swal from 'sweetalert2';
 import BulkOrderImport from '@/components/BulkOrderImport';
 import { NEGERI_OPTIONS } from '@/types';
-import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search, ClipboardList, User, MapPin, Package, Truck, Wallet, StickyNote } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, getMalaysiaDate, getMalaysiaYesterday, postcodeToNegeri } from '@/lib/utils';
 import { put } from '@vercel/blob';
+import { Card } from '@/components/ui/card';
+import { PageHeader, IconTile, MissingHint, type Tone } from '@/components/common/SoftUI';
 
 const PLATFORM_OPTIONS = ['Facebook', 'Threads', 'Tiktok', 'Database', 'Google'];
 const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
@@ -56,10 +58,27 @@ const BANK_OPTIONS = [
 ];
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
-  <label className="block text-sm font-medium text-foreground mb-1.5">
+  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
     {children}
     {required && <span className="text-red-500 ml-0.5">*</span>}
   </label>
+);
+
+// One block of the order form: icon tile + title, then its fields.
+const FormSection: React.FC<{
+  icon: React.ElementType; tone: Tone; title: string; description?: React.ReactNode;
+  className?: string; children: React.ReactNode;
+}> = ({ icon, tone, title, description, className, children }) => (
+  <Card className={cn('min-w-0', className)}>
+    <div className="flex items-center gap-3 px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
+      <IconTile icon={icon} tone={tone} size="sm" />
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold leading-tight">{title}</h3>
+        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+      </div>
+    </div>
+    <div className="px-4 pb-4 sm:px-6 sm:pb-6">{children}</div>
+  </Card>
 );
 
 const OrderForm: React.FC = () => {
@@ -1398,34 +1417,50 @@ const OrderForm: React.FC = () => {
   const isPickupUI = formData.deliveryMethod === 'Self Pickup' || formData.caraBayaran === 'Pickup';
   const showPaymentDetails = (formData.caraBayaran === 'CASH' || isPickupUI) && !isMarketplaceCourier;
 
+  // "Masih diperlukan" hint above Submit — mirrors the checks in handleSubmit (display only).
+  const missingItems = [
+    { label: 'Nama Pelanggan (> 3 aksara)', done: formData.namaPelanggan.trim().length > 3 },
+    ...(!isTiktokShopee ? [{ label: 'No. Telefon (mula 6)', done: !!formData.noPhone && formData.noPhone.toString().startsWith('6') }] : []),
+    { label: 'Jenis Closing', done: !!formData.jenisClosing },
+    ...(!isTiktokShopee ? [{ label: 'Jenis Customer', done: !!formData.jenisCustomer && (isEditMode || ['NP', 'EP', 'EC'].includes(formData.jenisCustomer)) }] : []),
+    { label: 'Poskod', done: !!formData.poskod },
+    { label: 'Daerah', done: !!formData.daerah },
+    { label: 'Negeri', done: !!formData.negeri },
+    { label: 'Alamat', done: !!formData.alamat },
+    { label: 'Produk', done: !!formData.produk },
+    ...(!isTiktokShopee ? [{ label: 'Harga ≥ minimum', done: formData.hargaJualan >= minPricePerUnit }] : []),
+    { label: 'Cara Bayaran', done: !!formData.caraBayaran },
+    ...(isMarketplaceCourier ? [{ label: 'No. Tracking', done: !!formData.trackingNumber }] : []),
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isEditMode ? 'Edit Tempahan' : 'Tempahan Baru'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isEditMode ? 'Kemaskini butiran tempahan' : 'Isi butiran untuk membuat tempahan baru'}
-            </p>
-          </div>
-        </div>
-        {!isEditMode && <BulkOrderImport onImported={refreshData} />}
+      <div className="flex items-start gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="-ml-2 shrink-0"
+          onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <PageHeader
+          className="min-w-0 flex-1"
+          title={isEditMode ? 'Edit Tempahan' : 'Tempahan Baru'}
+          description={isEditMode ? 'Kemaskini butiran tempahan' : 'Isi butiran untuk membuat tempahan baru'}
+          icon={ClipboardList}
+          tone="brand"
+          actions={!isEditMode ? <BulkOrderImport onImported={refreshData} /> : undefined}
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Customer & Order Information */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="flex flex-col gap-6 xl:flex-row">
+        {/* Customer */}
+        <FormSection icon={User} tone="purple" title="Maklumat Pelanggan" className="xl:flex-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Nama Pelanggan */}
             <div>
               <FormLabel required>Nama Pelanggan</FormLabel>
@@ -1511,7 +1546,12 @@ const OrderForm: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </FormSection>
 
+        {/* Address */}
+        <FormSection icon={MapPin} tone="blue" title="Alamat Penghantaran" className="xl:flex-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Poskod */}
             <div>
               <FormLabel required>Poskod</FormLabel>
@@ -1546,7 +1586,7 @@ const OrderForm: React.FC = () => {
             </div>
 
             {/* Negeri */}
-            <div>
+            <div className="sm:col-span-2">
               <FormLabel required>Negeri</FormLabel>
               <Select
                 value={formData.negeri}
@@ -1564,7 +1604,7 @@ const OrderForm: React.FC = () => {
             </div>
 
             {/* Alamat */}
-            <div className="lg:col-span-4">
+            <div className="sm:col-span-2">
               <FormLabel required>Alamat</FormLabel>
               <Textarea
                 placeholder="Masukkan alamat penuh"
@@ -1574,7 +1614,14 @@ const OrderForm: React.FC = () => {
                 rows={3}
               />
             </div>
+          </div>
+        </FormSection>
+        </div>
 
+        <div className="flex flex-col gap-6 xl:flex-row">
+        {/* Product & price */}
+        <FormSection icon={Package} tone="indigo" title="Produk & Harga" className="xl:flex-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Produk */}
             <div>
               <FormLabel required>Produk</FormLabel>
@@ -1621,7 +1668,7 @@ const OrderForm: React.FC = () => {
               )}
               {/* Show postage breakdown for COD orders */}
               {formData.caraBayaran === 'COD' && postageCostInfo.total > 0 && (
-                <div className="text-xs mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
+                <div className="text-xs mt-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                   <p className="font-medium text-amber-700 dark:text-amber-400">Kos Postage (COD):</p>
                   <p className="text-amber-600 dark:text-amber-500">
                     Postage {isEastMalaysia(formData.negeri) ? 'SS' : 'SM'}: RM{postageCostInfo.postage.toFixed(2)}
@@ -1635,7 +1682,12 @@ const OrderForm: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </FormSection>
 
+        {/* Payment method & courier */}
+        <FormSection icon={Truck} tone="orange" title="Bayaran & Penghantaran" className="xl:flex-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Cara Bayaran */}
             <div>
               <FormLabel required>Cara Bayaran</FormLabel>
@@ -1695,7 +1747,7 @@ const OrderForm: React.FC = () => {
                 chosen the order is a booking: no tracking now, logistic generates
                 it on that date from the Order Pospada tab. */}
             {pospadaEnabled && !isMarketplaceCourier && !isPickupUI && (
-              <div>
+              <div className="sm:col-span-2">
                 <FormLabel>Pospada (Booking)</FormLabel>
                 <div className="flex items-center gap-2">
                   <Input
@@ -1718,31 +1770,31 @@ const OrderForm: React.FC = () => {
             )}
 
           </div>
+        </FormSection>
         </div>
 
         {/* Payment Details - Only show if CASH is selected */}
         {showPaymentDetails && (
-          <div className="bg-card border border-border rounded-lg p-6 border-l-4 border-l-emerald-500">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Butiran Bayaran</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <FormSection icon={Wallet} tone="green" title="Butiran Bayaran">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {/* Resit Bayaran - FIRST. Pick Link or Manual; Link hides the fields below. */}
               {formData.jenisBayaran !== 'Billplz' && (
                 <div>
                   <FormLabel>Resit Bayaran</FormLabel>
 
                   {/* Toggle: paste a Link, or upload a Manual receipt */}
-                  <div className="mb-2 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
+                  <div className="mb-2 inline-flex rounded-lg border border-border bg-muted/60 p-1">
                     <button
                       type="button"
                       onClick={() => setReceiptMethod('manual')}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${receiptMethod === 'manual' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-all ${receiptMethod === 'manual' ? 'bg-card text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       Manual Receipt
                     </button>
                     <button
                       type="button"
                       onClick={() => setReceiptMethod('link')}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${receiptMethod === 'link' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-all ${receiptMethod === 'link' ? 'bg-card text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       Link
                     </button>
@@ -1767,10 +1819,10 @@ const OrderForm: React.FC = () => {
                       />
                       <label
                         htmlFor="receipt-upload"
-                        className="flex items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
+                        className="flex min-h-10 items-center justify-center gap-2 w-full px-4 py-2 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background"
                       >
-                        <Upload className="w-4 h-4" />
-                        <span className="text-sm text-muted-foreground">
+                        <Upload className="w-4 h-4 shrink-0" />
+                        <span className="min-w-0 truncate text-sm text-muted-foreground">
                           {receiptFile ? receiptFile.name : (isEditMode ? 'Resit sudah dimuat naik' : 'Upload Resit (imej atau PDF)')}
                         </span>
                       </label>
@@ -1857,14 +1909,11 @@ const OrderForm: React.FC = () => {
               )}
 
             </div>
-          </div>
+          </FormSection>
         )}
 
         {/* Nota Staff — reference only, optional */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <FormLabel>
-            Nota Staff <span className="text-xs font-normal text-muted-foreground">(rujukan sahaja · optional)</span>
-          </FormLabel>
+        <FormSection icon={StickyNote} tone="slate" title="Nota Staff" description="(rujukan sahaja · optional)">
           <Textarea
             placeholder="Nota untuk rujukan staff (tidak wajib)..."
             value={formData.nota || ''}
@@ -1872,35 +1921,41 @@ const OrderForm: React.FC = () => {
             className="bg-background resize-none"
             rows={3}
           />
-        </div>
+        </FormSection>
 
-        {/* Submit Button */}
-        <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
-          >
-            Batal
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-primary hover:bg-primary/90"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {isEditMode ? 'Mengemaskini...' : 'Menyimpan...'}
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                {isEditMode ? 'Kemaskini' : 'Submit'}
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Submit area */}
+        <Card className="space-y-4 p-4 sm:p-5">
+          <MissingHint items={missingItems} />
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full px-6 sm:w-auto"
+              onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              size="lg"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto sm:min-w-44"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {isEditMode ? 'Mengemaskini...' : 'Menyimpan...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {isEditMode ? 'Kemaskini' : 'Submit'}
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
       </form>
     </div>
   );

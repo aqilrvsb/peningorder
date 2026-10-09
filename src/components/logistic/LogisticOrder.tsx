@@ -43,12 +43,16 @@ import {
   Receipt,
   ExternalLink,
   Package,
+  ShoppingCart,
+  CalendarClock,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState, type Tone } from "@/components/common/SoftUI";
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -66,6 +70,19 @@ const baseCourier = (kurier?: string): string => {
   if (k.includes("tiktok")) return "Tiktok";
   return kurier?.trim() || "Lain";
 };
+
+// Icon-tile colour per courier on the clickable courier cards (presentation only).
+const COURIER_TONE: Record<string, Tone> = {
+  Poslaju: "amber", Ninjavan: "pink", JNT: "red", DHL: "cyan", SPX: "orange", Tiktok: "slate",
+};
+
+// COD / Cash split shown under a courier card's count.
+const CodCashSplit = ({ cod, cash }: { cod: number; cash: number }) => (
+  <span className="inline-flex items-center gap-2">
+    <span className="font-medium text-orange-600 dark:text-orange-400">COD {cod}</span>
+    <span className="font-medium text-green-600 dark:text-green-400">Cash {cash}</span>
+  </span>
+);
 
 // One page for both logistic order tabs — same table, filters and actions; only the query differs:
 //   Order          → Pending orders with no pospada date (ship now)
@@ -880,124 +897,89 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">{pospada ? "Order Pospada" : "Order Management"}</h1>
-        <p className="text-muted-foreground mt-2">
-          {pospada ? "Booking order — proses pada tarikh pospada" : "Manage pending orders ready for shipment"}
-        </p>
-      </div>
+      <PageHeader
+        title={pospada ? "Order Pospada" : "Order Management"}
+        description={pospada ? "Booking order — proses pada tarikh pospada" : "Manage pending orders ready for shipment"}
+        icon={pospada ? CalendarClock : ShoppingCart}
+        tone="brand"
+      />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setPlatformFilter("All")}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-6 h-6 text-orange-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Order</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-emerald-600" />
-              <div>
-                <p className="text-xl font-bold">RM {filteredOrders.reduce((s: number, o: any) => s + (Number(o.total_sale) || 0), 0).toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground">Total Sales</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+      {/* Stats Cards — COD / CASH / Pickup are click-to-filter (click again to clear). */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          icon={Clock}
+          tone="orange"
+          label="Total Order"
+          value={counts.total}
+          onClick={() => setPlatformFilter("All")}
+        />
+        <StatCard
+          icon={DollarSign}
+          tone="green"
+          label="Total Sales"
+          value={<>RM {filteredOrders.reduce((s: number, o: any) => s + (Number(o.total_sale) || 0), 0).toFixed(2)}</>}
+        />
+        <StatCard
+          icon={DollarSign}
+          tone="amber"
+          label="COD Orders"
+          value={counts.cod}
+          active={paymentFilter === "COD"}
           onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-              <div>
-                <p className="text-xl font-bold">{counts.cod}</p>
-                <p className="text-xs text-muted-foreground">COD Orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={CreditCard}
+          tone="cyan"
+          label="CASH Orders"
+          value={counts.cash}
+          active={paymentFilter === "CASH"}
           onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-6 h-6 text-green-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.cash}</p>
-                <p className="text-xs text-muted-foreground">CASH Orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "Pickup" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={Package}
+          tone="blue"
+          label="Total Pickup"
+          value={counts.pickup}
+          active={paymentFilter === "Pickup"}
           onClick={() => { setPaymentFilter(paymentFilter === "Pickup" ? "All" : "Pickup"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Package className="w-6 h-6 text-blue-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.pickup}</p>
-                <p className="text-xs text-muted-foreground">Total Pickup</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        />
       </div>
 
       {/* Courier summary cards — click a card to filter the table by that courier.
           Each shows its COD / Cash split. */}
       {Object.keys(courierStats).length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          <Card
-            className={`cursor-pointer transition-colors ${courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:grid-cols-6">
+          <StatCard
+            icon={Truck}
+            tone="indigo"
+            label="Semua Kurier"
+            value={counts.total}
+            hint={<CodCashSplit cod={counts.cod} cash={counts.cash} />}
+            active={courierFilter === "All"}
             onClick={() => { setCourierFilter("All"); handleFilterChange(); }}
-          >
-            <CardContent className="py-3 px-4">
-              <p className="text-lg font-bold">{counts.total}</p>
-              <p className="text-xs text-muted-foreground">Semua Kurier</p>
-              <p className="text-[11px] mt-0.5 flex items-center gap-2">
-                <span className="text-orange-600 font-medium">COD {counts.cod}</span>
-                <span className="text-green-600 font-medium">Cash {counts.cash}</span>
-              </p>
-            </CardContent>
-          </Card>
+          />
           {Object.entries(courierStats).sort((a, b) => b[1].n - a[1].n).map(([courier, st]) => (
-            <Card
+            <StatCard
               key={courier}
-              className={`cursor-pointer transition-colors ${courierFilter === courier ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+              icon={Truck}
+              tone={COURIER_TONE[courier] || "slate"}
+              label={courier}
+              value={st.n}
+              hint={<CodCashSplit cod={st.cod} cash={st.cash} />}
+              active={courierFilter === courier}
               onClick={() => { setCourierFilter(courierFilter === courier ? "All" : courier); handleFilterChange(); }}
-            >
-              <CardContent className="py-3 px-4">
-                <p className="text-lg font-bold">{st.n}</p>
-                <p className="text-xs text-muted-foreground">{courier}</p>
-                <p className="text-[11px] mt-0.5 flex items-center gap-2">
-                  <span className="text-orange-600 font-medium">COD {st.cod}</span>
-                  <span className="text-green-600 font-medium">Cash {st.cash}</span>
-                </p>
-              </CardContent>
-            </Card>
+            />
           ))}
         </div>
       )}
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1 flex gap-2">
-                <div className="relative flex-1">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <div className="relative min-w-0 basis-full sm:basis-auto sm:flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     placeholder="Search customer name or phone..."
@@ -1008,77 +990,80 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                 </div>
                 <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
                 <Button
+                  variant="outline"
                   onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
-                  className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
+                  className="shrink-0"
                 >
                   <Search className="w-4 h-4 mr-2" />
                   Search
                 </Button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="date"
                   value={pendingStart}
                   onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
+                  className="min-w-0 flex-1 sm:w-40 sm:flex-none"
                 />
                 <Input
                   type="date"
                   value={pendingEnd}
                   onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
+                  className="min-w-0 flex-1 sm:w-40 sm:flex-none"
                 />
-                <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
+                <DateApplyButton onClick={applyDates} />
+                <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Platform:</span>
-                <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORM_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt === "All" ? "All Order" : opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Platform:</span>
+                  <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLATFORM_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt === "All" ? "All Order" : opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Payment:</span>
+                  <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); handleFilterChange(); }}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Show:</span>
+                  <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <SelectItem key={size.toString()} value={size.toString()}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">entries</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Payment:</span>
-                <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show:</span>
-                <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size.toString()} value={size.toString()}>{size}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">entries</span>
-              </div>
-
-              <div className="flex-1" />
-
-              <div className="flex gap-2">
+              {/* Bulk actions — 2-up grid on phones, a row on wider screens */}
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:ml-auto">
                 {!AUDIT_MODE && (
                   <Button
                     variant="destructive"
@@ -1120,17 +1105,15 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       </Card>
 
       {/* Table */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <TableSkeleton rows={8} cols={8} className="p-4" />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="p-2 text-left w-10">
                         <Checkbox
@@ -1169,7 +1152,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((order: any, index: number) => (
-                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                        <tr key={order.id} className="border-b transition-colors hover:bg-muted/40">
                           <td className="p-2">
                             <Checkbox
                               checked={selectedOrders.has(order.id)}
@@ -1336,8 +1319,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={(hideKomisyen ? 24 : 25) + (pospada ? 1 : 0)} className="text-center py-12 text-muted-foreground">
-                          No pending orders found.
+                        <td colSpan={(hideKomisyen ? 24 : 25) + (pospada ? 1 : 0)} className="p-0 text-muted-foreground">
+                          <EmptyState icon={pospada ? CalendarClock : ShoppingCart} title="No pending orders found." />
                         </td>
                       </tr>
                     )}
@@ -1365,7 +1348,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="customerName">Customer Name</Label>
                 <Input
@@ -1393,7 +1376,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="postcode">Postcode</Label>
                 <Input
@@ -1428,7 +1411,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity</Label>
                 <Input
@@ -1521,8 +1504,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
             </div>
 
             {editingOrder && (editForm.kurier?.includes('Poslaju') || editForm.kurier?.includes('Ninjavan')) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
                   <strong>Note:</strong> This is a {editForm.kurier?.includes('Poslaju') ? 'Poslaju' : 'NinjaVan'} order ({getOrderPlatform(editingOrder)}).
                   {editingOrder.tracking_number ? (
                     <> Current tracking <span className="font-mono">{editingOrder.tracking_number}</span> will be cancelled and a new one will be generated.</>
@@ -1558,16 +1541,16 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-primary" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}
+              <IconTile icon={Receipt} tone="green" size="sm" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}
             </DialogTitle>
           </DialogHeader>
           {viewingPayment && (
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
-                <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{formatDMY(viewingPayment.date_payment)}</b></div>
+              <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/80 bg-muted/30 p-3">
+                <div><p className="section-label">Cara Bayaran</p><p className="mt-0.5 font-semibold">{viewingPayment.type_payment || "-"}</p></div>
+                <div><p className="section-label">Jumlah</p><p className="mt-0.5 whitespace-nowrap font-semibold">RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</p></div>
+                <div><p className="section-label">Bank</p><p className="mt-0.5 break-words font-semibold">{viewingPayment.bank_payment || "-"}</p></div>
+                <div><p className="section-label">Tarikh Bayar</p><p className="mt-0.5 whitespace-nowrap font-semibold">{formatDMY(viewingPayment.date_payment)}</p></div>
               </div>
               <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>

@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText, ClipboardCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
+import { PageHeader, IconTile, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
 type RoasTier = { start: number; end: number; percent: number };
 type Staff = { id: string; idstaff: string; full_name: string | null; whatsapp: string | null; whatsapp_number: string | null; is_active: boolean; pay_mode: string | null; commission_percent: number | null; roas_tiers: RoasTier[] | null; product_scope: string[] | null; hidden_tabs: string[] | null; role?: string; invoice_full_name: string | null; invoice_address: string | null; invoice_phone: string | null };
@@ -315,16 +317,18 @@ const TeamManagement: React.FC = () => {
   const hrAccount = allStaff.find((s) => s.role === 'hr') || null;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6 text-primary" /> Team Marketer</h1>
-        <p className="text-muted-foreground mt-1">Daftar & urus staff marketer anda. Setiap staff dapat ID staff automatik (berdasarkan ID anda: <span className="font-mono">{profile?.idstaff}-1, -2, …</span>) dan login guna ID + password.</p>
-      </div>
+    <div className="sm:p-6 max-w-4xl mx-auto space-y-6">
+      <PageHeader
+        title="Team Marketer"
+        description={<>Daftar & urus staff marketer anda. Setiap staff dapat ID staff automatik (berdasarkan ID anda: <span className="font-mono">{profile?.idstaff}-1, -2, …</span>) dan login guna ID + password.</>}
+        icon={UserPlus}
+        tone="brand"
+      />
 
       {/* Add staff */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <h2 className="font-semibold flex items-center gap-2 mb-3"><UserPlus className="w-4 h-4 text-primary" /> Tambah Staff</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <Card className="p-4 sm:p-5">
+        <h2 className="mb-4 flex items-center gap-3 text-base font-semibold"><IconTile icon={UserPlus} tone="purple" size="sm" /> Tambah Staff</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label>Nama Staff</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="cth: Ali" className="mt-1" />
@@ -338,34 +342,45 @@ const TeamManagement: React.FC = () => {
             <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" />
           </div>
         </div>
-        <Button onClick={createStaff} disabled={creating} className="mt-4">
+        <MissingHint
+          className="mt-4"
+          items={[
+            { label: 'Nama Staff', done: name.trim().length >= 2 },
+            { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(whatsapp.replace(/\D/g, '')) },
+          ]}
+        />
+        <Button onClick={createStaff} disabled={creating} className="mt-4 w-full sm:w-auto">
           {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />} Tambah Staff
         </Button>
 
         {lastCreated && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 text-sm">
-            <p className="font-medium text-green-800 dark:text-green-300">✅ Staff berjaya dicipta — beri login ni pada staff:</p>
-            <p className="mt-1 font-mono">ID Staff: <b>{lastCreated.idstaff}</b> · Password: <b>{lastCreated.password}</b></p>
+          <div className="mt-4 rounded-xl border border-green-200 bg-green-50/70 dark:border-green-500/30 dark:bg-green-500/10 px-4 py-3 text-sm">
+            <p className="flex items-center gap-1.5 font-medium text-green-800 dark:text-green-300"><Check className="h-4 w-4 shrink-0" /> Staff berjaya dicipta — beri login ni pada staff:</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div><p className="section-label">ID Staff</p><p className="mt-0.5 font-mono font-bold break-all">{lastCreated.idstaff}</p></div>
+              <div><p className="section-label">Password</p><p className="mt-0.5 font-mono font-bold break-all">{lastCreated.password}</p></div>
+            </div>
             <Button size="sm" variant="outline" className="mt-2 h-8" onClick={copyLogin}>
               {copied ? <><Check className="w-3.5 h-3.5 mr-1 text-green-600" /> Disalin</> : <><Copy className="w-3.5 h-3.5 mr-1" /> Salin login</>}
             </Button>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Logistic account — max ONE per client. Logs in to see the Logistic section only. */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <h2 className="font-semibold flex items-center gap-2 mb-1"><Truck className="w-4 h-4 text-primary" /> Akaun Logistic</h2>
-        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia nampak seksyen <b>Logistic</b> — <b>semua order</b> secara default, atau hanya order produk tertentu yang anda pilih.</p>
+      <Card className="p-4 sm:p-5">
+        <h2 className="mb-1 flex items-center gap-3 text-base font-semibold"><IconTile icon={Truck} tone="blue" size="sm" /> Akaun Logistic</h2>
+        <p className="text-xs text-muted-foreground mb-4">Satu akaun sahaja. Bila login, ia nampak seksyen <b>Logistic</b> — <b>semua order</b> secara default, atau hanya order produk tertentu yang anda pilih.</p>
         {logisticAccount ? (
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <div>
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="section-label">ID Staff</p>
               <p className="font-mono font-medium">{logisticAccount.idstaff}</p>
               <p className="text-xs text-muted-foreground">{logisticAccount.full_name || '-'} · {logisticAccount.whatsapp || logisticAccount.whatsapp_number || '-'} · <span className={logisticAccount.is_active ? 'text-green-600' : 'text-red-500'}>{logisticAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
               <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><Package className="w-3 h-3" /> Akses: <span className="font-medium text-foreground">{logisticAccount.product_scope?.length ? `${logisticAccount.product_scope.length} produk` : 'Semua produk'}</span></p>
               <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><LayoutGrid className="w-3 h-3" /> Tab: <span className="font-medium text-foreground">{logisticAccount.hidden_tabs?.length ? `${logisticAccount.hidden_tabs.length} disembunyi` : 'Semua dipapar'}</span></p>
             </div>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               <Button size="sm" variant="ghost" title="Akses tab" onClick={() => openTabDialog(logisticAccount)}><LayoutGrid className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" title="Akses produk" onClick={() => openScopeDialog(logisticAccount)}><Package className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Reset password" onClick={() => resetPassword(logisticAccount)}><KeyRound className="w-4 h-4" /></Button>
@@ -375,34 +390,42 @@ const TeamManagement: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label>Nama</Label><Input value={logName} onChange={(e) => setLogName(e.target.value)} placeholder="cth: Logistik" className="mt-1" /></div>
               <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
               <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
-            <div className="mt-3">
+            <div className="mt-4">
               <Label className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Akses Produk</Label>
-              <p className="text-xs text-muted-foreground mb-2">Biar kosong = nampak <b>semua order</b>. Atau pilih produk tertentu — akaun ini hanya nampak order produk itu sahaja.</p>
+              <p className="text-xs text-muted-foreground mt-1.5 mb-2">Biar kosong = nampak <b>semua order</b>. Atau pilih produk tertentu — akaun ini hanya nampak order produk itu sahaja.</p>
               {renderBundleChecklist(logScope, setLogScope)}
             </div>
-            <Button onClick={createLogistic} disabled={creatingLog} className="mt-4">
+            <MissingHint
+              className="mt-4"
+              items={[
+                { label: 'Nama', done: logName.trim().length >= 2 },
+                { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(logWhatsapp.replace(/\D/g, '')) },
+              ]}
+            />
+            <Button onClick={createLogistic} disabled={creatingLog} className="mt-4 w-full sm:w-auto">
               {creatingLog ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Truck className="w-4 h-4 mr-2" />} Tambah Akaun Logistic
             </Button>
           </>
         )}
-      </div>
+      </Card>
 
       {/* HR account — max ONE per client. Logs in to see the HR section only (User + Attendance). */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <h2 className="font-semibold flex items-center gap-2 mb-1"><ClipboardCheck className="w-4 h-4 text-primary" /> Akaun HR</h2>
-        <p className="text-xs text-muted-foreground mb-3">Satu akaun sahaja. Bila login, ia hanya nampak seksyen <b>HR</b> — senarai staff dan <b>attendance</b>. Tiada akses order, sales atau profit.</p>
+      <Card className="p-4 sm:p-5">
+        <h2 className="mb-1 flex items-center gap-3 text-base font-semibold"><IconTile icon={ClipboardCheck} tone="cyan" size="sm" /> Akaun HR</h2>
+        <p className="text-xs text-muted-foreground mb-4">Satu akaun sahaja. Bila login, ia hanya nampak seksyen <b>HR</b> — senarai staff dan <b>attendance</b>. Tiada akses order, sales atau profit.</p>
         {hrAccount ? (
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-            <div>
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="section-label">ID Staff</p>
               <p className="font-mono font-medium">{hrAccount.idstaff}</p>
               <p className="text-xs text-muted-foreground">{hrAccount.full_name || '-'} · {hrAccount.whatsapp || hrAccount.whatsapp_number || '-'} · <span className={hrAccount.is_active ? 'text-green-600' : 'text-red-500'}>{hrAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
             </div>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Reset password" onClick={() => resetPassword(hrAccount)}><KeyRound className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title={hrAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(hrAccount)}>{hrAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Padam" onClick={() => removeStaff(hrAccount)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -410,23 +433,30 @@ const TeamManagement: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label>Nama</Label><Input value={hrName} onChange={(e) => setHrName(e.target.value)} placeholder="cth: HR" className="mt-1" /></div>
               <div><Label>No. WhatsApp</Label><Input value={hrWhatsapp} onChange={(e) => setHrWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
               <div><Label>Password</Label><Input type="text" value={hrPassword} onChange={(e) => setHrPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
-            <Button onClick={createHr} disabled={creatingHr} className="mt-4">
+            <MissingHint
+              className="mt-4"
+              items={[
+                { label: 'Nama', done: hrName.trim().length >= 2 },
+                { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(hrWhatsapp.replace(/\D/g, '')) },
+              ]}
+            />
+            <Button onClick={createHr} disabled={creatingHr} className="mt-4 w-full sm:w-auto">
               {creatingHr ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ClipboardCheck className="w-4 h-4 mr-2" />} Tambah Akaun HR
             </Button>
           </>
         )}
-      </div>
+      </Card>
 
       {/* Edit product scope for the logistic account */}
       <Dialog open={!!scopeDialogFor} onOpenChange={(o) => { if (!o) setScopeDialogFor(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Package className="w-5 h-5 text-primary" /> Akses Produk — {scopeDialogFor?.idstaff}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Package} tone="blue" size="sm" /> Akses Produk — {scopeDialogFor?.idstaff}</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">Biar kosong = akaun logistic nampak <b>semua order</b>. Pilih produk tertentu untuk hadkan.</p>
           {renderBundleChecklist(scopeDraft, setScopeDraft)}
@@ -441,7 +471,7 @@ const TeamManagement: React.FC = () => {
       <Dialog open={!!tabDialogFor} onOpenChange={(o) => { if (!o) setTabDialogFor(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><LayoutGrid className="w-5 h-5 text-primary" /> Akses Tab — {tabDialogFor?.idstaff}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={LayoutGrid} tone="indigo" size="sm" /> Akses Tab — {tabDialogFor?.idstaff}</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">Tandakan tab yang mahu <b>disembunyikan</b> dari akaun logistic. Tab <b>Order</b> sentiasa dipapar.</p>
           <div className="rounded-lg border border-border divide-y divide-border">
@@ -466,13 +496,18 @@ const TeamManagement: React.FC = () => {
       </Dialog>
 
       {/* Staff list */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-5">
+          <IconTile icon={Users} tone="purple" size="sm" />
+          <h2 className="text-base font-semibold">Staff Marketer</h2>
+          {!isLoading && <span className="ml-auto rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{staff.length}</span>}
+        </div>
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <div className="p-4"><TableSkeleton rows={4} cols={5} /></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">ID Staff</th>
                   <th className="p-3 text-left">Nama</th>
@@ -483,10 +518,10 @@ const TeamManagement: React.FC = () => {
               </thead>
               <tbody>
                 {staff.map((s) => (
-                  <tr key={s.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="p-3 font-mono">{s.idstaff}</td>
+                  <tr key={s.id} className="border-t border-border hover:bg-muted/40">
+                    <td className="p-3 font-mono whitespace-nowrap">{s.idstaff}</td>
                     <td className="p-3">{s.full_name || '-'}</td>
-                    <td className="p-3">{s.whatsapp || s.whatsapp_number || '-'}</td>
+                    <td className="p-3 whitespace-nowrap">{s.whatsapp || s.whatsapp_number || '-'}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {s.is_active ? 'Aktif' : 'Nonaktif'}
@@ -511,19 +546,19 @@ const TeamManagement: React.FC = () => {
                   </tr>
                 ))}
                 {staff.length === 0 && (
-                  <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Belum ada staff. Tambah staff pertama anda di atas.</td></tr>
+                  <tr><td colSpan={6} className="p-0"><EmptyState icon={Users} title="Belum ada staff. Tambah staff pertama anda di atas." /></td></tr>
                 )}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Per-staff invoice / salary-slip details */}
       <Dialog open={!!invDialogFor} onOpenChange={(o) => { if (!o) setInvDialogFor(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Maklumat Invoice — {invDialogFor?.idstaff}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={FileText} tone="indigo" size="sm" /> Maklumat Invoice — {invDialogFor?.idstaff}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">Butiran ini dipaparkan pada slip salary staf (bahagian "Bill To").</p>
@@ -549,9 +584,9 @@ const TeamManagement: React.FC = () => {
 
       {/* ROAS tier editor */}
       <Dialog open={!!roasStaff} onOpenChange={(o) => { if (!o) setRoasStaff(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>ROAS Komisyen — {roasStaff?.idstaff}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Percent} tone="green" size="sm" /> ROAS Komisyen — {roasStaff?.idstaff}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">

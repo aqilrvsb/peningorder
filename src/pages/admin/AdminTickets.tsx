@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { Ticket, Loader2, Send, MessageCircle } from 'lucide-react';
+import { Ticket, Loader2, Send, MessageCircle, Clock, CheckCircle } from 'lucide-react';
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -110,31 +110,22 @@ const AdminTickets: React.FC = () => {
   const countBy = (s: string) => (data?.tickets || []).filter((t: any) => t.status === s).length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Ticket className="w-7 h-7 text-primary" /> Tickets
-        </h1>
-        <p className="text-muted-foreground mt-2">All client complaints — reply and update status</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Tickets"
+        description="All client complaints — reply and update status"
+        icon={Ticket}
+        tone="brand"
+      />
 
-      <div className="grid grid-cols-3 gap-4 max-w-xl">
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Pending</p>
-          <p className="text-2xl font-bold text-orange-600">{countBy('Pending')}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Processing</p>
-          <p className="text-2xl font-bold text-blue-600">{countBy('Processing')}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Closed</p>
-          <p className="text-2xl font-bold">{countBy('Closed')}</p>
-        </CardContent></Card>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-w-2xl">
+        <StatCard icon={Clock} tone="orange" label="Pending" value={<span className="text-orange-600">{countBy('Pending')}</span>} />
+        <StatCard icon={MessageCircle} tone="blue" label="Processing" value={<span className="text-blue-600">{countBy('Processing')}</span>} />
+        <StatCard icon={CheckCircle} tone="slate" label="Closed" value={countBy('Closed')} />
       </div>
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="Pending">Pending</SelectItem>
@@ -143,13 +134,13 @@ const AdminTickets: React.FC = () => {
         </SelectContent>
       </Select>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={6} cols={7} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">Ticket No</th>
                   <th className="p-3 text-left">Client</th>
@@ -164,17 +155,17 @@ const AdminTickets: React.FC = () => {
                 {tickets.map((t: any) => {
                   const client = data?.emailMap[t.owner_user_id];
                   return (
-                    <tr key={t.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-3 font-mono font-semibold">{t.ticket_no}</td>
+                    <tr key={t.id} className="border-t border-border hover:bg-muted/40">
+                      <td className="p-3 font-mono font-semibold whitespace-nowrap">{t.ticket_no}</td>
                       <td className="p-3">
                         <p className="font-medium">{client?.email || '-'}</p>
                         <p className="text-xs text-muted-foreground font-mono">{client?.idstaff || ''}</p>
                       </td>
-                      <td className="p-3">
+                      <td className="p-3 whitespace-nowrap">
                         <p>{t.id_sale || '-'}</p>
                         <p className="text-xs text-muted-foreground font-mono">{t.tracking_number || ''}</p>
                       </td>
-                      <td className="p-3 max-w-xs"><span className="line-clamp-2">{t.message}</span></td>
+                      <td className="p-3 min-w-[180px] max-w-xs"><span className="line-clamp-2">{t.message}</span></td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
                       </td>
@@ -188,7 +179,7 @@ const AdminTickets: React.FC = () => {
                   );
                 })}
                 {tickets.length === 0 && (
-                  <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No tickets</td></tr>
+                  <tr><td colSpan={7} className="text-muted-foreground"><EmptyState icon={Ticket} title="No tickets" /></td></tr>
                 )}
               </tbody>
             </table>
@@ -212,8 +203,8 @@ const AdminTickets: React.FC = () => {
           </DialogHeader>
 
           {/* Status control */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Status:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="section-label">Status:</span>
             <Select value={activeTicket?.status || 'Pending'} onValueChange={setTicketStatus}>
               <SelectTrigger className="w-36 h-8"><SelectValue /></SelectTrigger>
               <SelectContent>

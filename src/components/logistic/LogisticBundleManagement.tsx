@@ -41,8 +41,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Package, Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
+import { Package, Plus, Pencil, Trash2, Loader2, X, Boxes } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, IconTile, TableSkeleton, EmptyState, MissingHint } from "@/components/common/SoftUI";
 
 interface BundleItem {
   productId: string;
@@ -421,42 +422,41 @@ const LogisticBundleManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Bundle Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Create and manage product bundles (combos)
-          </p>
-        </div>
-        <Button onClick={handleOpenCreate}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Bundle
-        </Button>
-      </div>
+      <PageHeader
+        title="Bundle Management"
+        description="Create and manage product bundles (combos)"
+        icon={Boxes}
+        tone="brand"
+        actions={
+          <Button onClick={handleOpenCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Bundle
+          </Button>
+        }
+      />
 
       {/* Bundles List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
+            <IconTile icon={Package} tone="blue" size="sm" />
             Your Bundles ({bundles.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
+            <TableSkeleton cols={6} />
           ) : bundles.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No bundles created yet.</p>
-              <p className="text-sm">Click "Create Bundle" to get started.</p>
-            </div>
+            <EmptyState
+              icon={Package}
+              title="No bundles created yet."
+              description={'Click "Create Bundle" to get started.'}
+            />
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>SKU (Products)</TableHead>
@@ -484,10 +484,10 @@ const LogisticBundleManagement = () => {
                         {bundle.sku || "-"}
                       </code>
                     </TableCell>
-                    <TableCell className="text-center font-medium text-red-600">
+                    <TableCell className="text-center font-medium text-red-600 whitespace-nowrap">
                       RM {Number(bundle.base_cost || 0).toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-center font-medium text-blue-600">
+                    <TableCell className="text-center font-medium text-blue-600 whitespace-nowrap">
                       RM {Number(bundle.commission_rm || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-center text-xs whitespace-nowrap">
@@ -510,7 +510,7 @@ const LogisticBundleManagement = () => {
                     <TableCell className="text-center font-medium text-gray-600">
                       {Number(bundle.weight || 0.5).toFixed(2)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={bundle.is_active}
@@ -548,6 +548,7 @@ const LogisticBundleManagement = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -563,7 +564,7 @@ const LogisticBundleManagement = () => {
 
           <div className="space-y-6 py-4">
             {/* Bundle Info */}
-            <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="bundleName">Bundle Name *</Label>
                 <Input
@@ -586,11 +587,11 @@ const LogisticBundleManagement = () => {
             </div>
 
             {/* Add Products Section */}
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="border rounded-xl p-3 sm:p-4 space-y-4">
               <h3 className="font-semibold">Bundle Products</h3>
 
-              <div className="flex gap-2">
-                <div className="flex-1">
+              <div className="flex flex-wrap gap-2">
+                <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select product to add..." />
@@ -606,7 +607,7 @@ const LogisticBundleManagement = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-24">
+                <div className="flex-1 sm:w-24 sm:flex-none">
                   <Input
                     type="number"
                     min="1"
@@ -630,10 +631,10 @@ const LogisticBundleManagement = () => {
                   {bundleItems.map((item) => (
                     <div
                       key={item.productId}
-                      className="flex items-center justify-between bg-muted/50 rounded-lg p-3"
+                      className="flex items-center justify-between gap-3 bg-muted/50 rounded-lg p-3"
                     >
-                      <span className="font-medium">{item.productName}</span>
-                      <div className="flex items-center gap-2">
+                      <span className="min-w-0 break-words font-medium">{item.productName}</span>
+                      <div className="flex shrink-0 items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -672,12 +673,12 @@ const LogisticBundleManagement = () => {
             </div>
 
             {/* Cost Settings Section */}
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="border rounded-xl p-3 sm:p-4 space-y-4">
               <h3 className="font-semibold">Cost Settings</h3>
               <p className="text-xs text-muted-foreground">
                 Cost Product is auto-calculated from product costs. Weight is sent to the courier to price the shipment.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="baseCost" className="text-red-600 font-medium">Cost Product (RM)</Label>
                   <Input
@@ -730,7 +731,7 @@ const LogisticBundleManagement = () => {
                     dalam profit & salary. Harga ParcelDaily tetap disimpan sebagai rujukan HQ.
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="customPostage" className="text-amber-600 font-medium">Cost Postage (RM)</Label>
                     <Input id="customPostage" type="number" min="0" step="0.01" value={customPostage}
@@ -761,7 +762,7 @@ const LogisticBundleManagement = () => {
 
             {/* Summary */}
             {bundleItems.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <h4 className="font-semibold text-blue-800 mb-2">Bundle Summary</h4>
                 <div className="text-sm text-blue-700">
                   <p>Total Products: {bundleItems.length}</p>
@@ -776,6 +777,16 @@ const LogisticBundleManagement = () => {
               </div>
             )}
           </div>
+
+          <MissingHint
+            items={[
+              { label: "Bundle Name", done: !!bundleName.trim() },
+              { label: "Bundle Products", done: bundleItems.length > 0 },
+              ...(customPostage.trim() !== ""
+                ? [{ label: "COD Charges", done: customCodCharge.trim() !== "" }]
+                : []),
+            ]}
+          />
 
           <DialogFooter>
             <Button

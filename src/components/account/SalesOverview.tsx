@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows, formatRM } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
+import { Button } from '@/components/ui/button';
+import { PageHeader, CardsSkeleton } from '@/components/common/SoftUI';
 import {
   BarChart3, RefreshCw, RotateCcw, DollarSign, Wallet, Loader2,
 } from 'lucide-react';
@@ -56,7 +58,7 @@ function quickPeriods(): Period[] {
   ];
 }
 
-const selectCls = 'h-9 rounded-lg border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
+const selectCls = 'h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10';
 
 const SalesOverview: React.FC = () => {
   const now = nowMY();
@@ -118,44 +120,43 @@ const SalesOverview: React.FC = () => {
   }), [periods, orders, teamFilter]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><BarChart3 className="w-6 h-6" /></span>
-          <div>
-            <h1 className="text-2xl font-bold">Sales Overview</h1>
-            <p className="text-muted-foreground text-sm">Track your sales performance and order statistics</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <TeamFilter value={teamFilter} onChange={setTeamFilter} />
-          <span className="text-sm text-muted-foreground">Filter month:</span>
-          <select className={selectCls} value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-          </select>
-          <select className={selectCls} value={selYear} onChange={(e) => setSelYear(Number(e.target.value))}>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <button onClick={load} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Sales Overview"
+        description="Track your sales performance and order statistics"
+        icon={BarChart3}
+        tone="brand"
+        actions={
+          <>
+            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+            <span className="text-sm text-muted-foreground">Filter month:</span>
+            <select className={selectCls} value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))}>
+              {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+            </select>
+            <select className={selectCls} value={selYear} onChange={(e) => setSelYear(Number(e.target.value))}>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <Button variant="outline" onClick={load}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
-        <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <CardsSkeleton count={6} className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {computed.map((c) => (
-            <div key={c.label} className="rounded-xl border border-border bg-card p-5">
+            <div key={c.label} className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-sm font-bold uppercase tracking-wide text-primary">{c.label}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">{c.range}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue</p>
-                  <p className="text-sm font-bold text-green-600 dark:text-green-400">RM {formatRM(c.total.sales)}</p>
+                <div className="text-right shrink-0">
+                  <p className="section-label">Revenue</p>
+                  <p className="text-sm font-bold text-green-600 dark:text-green-400 whitespace-nowrap">RM {formatRM(c.total.sales)}</p>
                 </div>
               </div>
 
@@ -173,7 +174,7 @@ const SalesOverview: React.FC = () => {
                       <span className="inline-flex items-center gap-2 text-amber-600 dark:text-amber-400"><DollarSign className="w-3.5 h-3.5" />Total Sales</span>
                     </td>
                     <td className="py-2 text-center tabular-nums">{c.total.orders}</td>
-                    <td className="py-2 text-right tabular-nums">RM {formatRM(c.total.sales)}</td>
+                    <td className="py-2 text-right tabular-nums whitespace-nowrap">RM {formatRM(c.total.sales)}</td>
                   </tr>
                   {STATUS_ROWS.map((r) => (
                     <tr key={r.key} className="border-t border-border/50">
@@ -181,7 +182,7 @@ const SalesOverview: React.FC = () => {
                         <span className={`inline-flex items-center gap-2 font-medium ${r.color}`}>{r.icon}{r.label}</span>
                       </td>
                       <td className={`py-2 text-center tabular-nums ${r.key === 'collection' ? 'text-green-600 dark:text-green-400 font-medium' : 'text-foreground'}`}>{c.stats[r.key].orders}</td>
-                      <td className="py-2 text-right tabular-nums text-muted-foreground">RM {formatRM(c.stats[r.key].sales)}</td>
+                      <td className="py-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">RM {formatRM(c.stats[r.key].sales)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -27,13 +27,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Calendar, Boxes, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Calendar, Boxes, Edit, Trash2, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBundles } from '@/context/BundleContext';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, TableSkeleton, CardsSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 interface StockMovement {
   id: string;
@@ -229,8 +230,13 @@ const StockInTab: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={2} className="lg:grid-cols-2" />
+        <Card className="border">
+          <CardContent className="p-4 sm:p-6">
+            <TableSkeleton cols={6} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -238,113 +244,94 @@ const StockInTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-primary">Stock In HQ</h2>
-          <p className="text-muted-foreground">Manage HQ inventory and stock additions</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNewDialog} className="bg-success hover:bg-success/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Stock
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-background">
-            <DialogHeader>
-              <DialogTitle>{editingMovement ? 'Edit Stock' : 'Add Stock to HQ'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Product</Label>
-                <Select
-                  value={formData.productId}
-                  onValueChange={(value) => setFormData({ ...formData, productId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select product" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.sku})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Quantity</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description (Optional)</Label>
-                <Textarea
-                  placeholder="Add notes about this stock addition..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-                {editingMovement ? 'Update Stock' : 'Add Stock'}
+      <PageHeader
+        title="Stock In HQ"
+        description="Manage HQ inventory and stock additions"
+        icon={PackagePlus}
+        tone="brand"
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNewDialog} className="bg-success hover:bg-success/90">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Stock
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogTrigger>
+            <DialogContent className="bg-background">
+              <DialogHeader>
+                <DialogTitle>{editingMovement ? 'Edit Stock' : 'Add Stock to HQ'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Product</Label>
+                  <Select
+                    value={formData.productId}
+                    onValueChange={(value) => setFormData({ ...formData, productId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {products.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name} ({product.sku})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Description (Optional)</Label>
+                  <Textarea
+                    placeholder="Add notes about this stock addition..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full sm:col-span-2">
+                  {editingMovement ? 'Update Stock' : 'Add Stock'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="border">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Records</p>
-                <p className="text-3xl font-bold">{stats.totalRecords}</p>
-              </div>
-              <Calendar className="w-10 h-10 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Units</p>
-                <p className="text-3xl font-bold">{stats.totalUnits.toLocaleString()}</p>
-              </div>
-              <Boxes className="w-10 h-10 text-success" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard icon={Calendar} tone="blue" label="Total Records" value={stats.totalRecords} />
+        <StatCard icon={Boxes} tone="green" label="Total Units" value={stats.totalUnits.toLocaleString()} />
       </div>
 
       {/* Filter & Table */}
       <Card className="border">
-        <CardContent className="p-6">
-          <h3 className="font-semibold mb-4">Filter by Date</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <CardContent className="p-4 sm:p-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><IconTile icon={Calendar} tone="blue" size="sm" />Filter by Date</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <Input
@@ -367,7 +354,7 @@ const StockInTab: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Date</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
@@ -380,9 +367,9 @@ const StockInTab: React.FC = () => {
                 {filteredMovements.length > 0 ? (
                   filteredMovements.map((movement) => (
                     <TableRow key={movement.id}>
-                      <TableCell>{format(new Date(movement.date), 'dd-MM-yyyy')}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(movement.date), 'dd-MM-yyyy')}</TableCell>
                       <TableCell>{movement.productName}</TableCell>
-                      <TableCell>{movement.productSku}</TableCell>
+                      <TableCell className="whitespace-nowrap">{movement.productSku}</TableCell>
                       <TableCell className="font-bold text-success">+{movement.quantity.toLocaleString()}</TableCell>
                       <TableCell>{movement.description || '-'}</TableCell>
                       <TableCell>
@@ -409,8 +396,8 @@ const StockInTab: React.FC = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No stock entries found.
+                    <TableCell colSpan={6} className="p-0">
+                      <EmptyState icon={PackagePlus} title="No stock entries found." />
                     </TableCell>
                   </TableRow>
                 )}

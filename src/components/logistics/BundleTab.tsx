@@ -29,8 +29,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Boxes } from 'lucide-react';
 import { useBundles } from '@/context/BundleContext';
+import { TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 const BundleTab: React.FC = () => {
   const { bundles, products, isLoading, addBundle, updateBundle, deleteBundle, toggleBundleActive } = useBundles();
@@ -154,9 +155,11 @@ const BundleTab: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <Card className="border">
+        <CardContent className="p-4 sm:p-6">
+          <TableSkeleton cols={6} />
+        </CardContent>
+      </Card>
     );
   }
 
@@ -164,9 +167,9 @@ const BundleTab: React.FC = () => {
     <div className="space-y-6">
       {/* Bundle Table */}
       <Card className="border">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+            <div className="min-w-0">
               <h3 className="font-semibold text-xl">Bundle Pricing Management</h3>
               <p className="text-sm text-muted-foreground">
                 Create and manage product bundles with tiered pricing for agents
@@ -174,7 +177,7 @@ const BundleTab: React.FC = () => {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openNewDialog} className="bg-primary hover:bg-primary/90">
+                <Button onClick={openNewDialog} className="self-start">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Bundle
                 </Button>
@@ -187,7 +190,7 @@ const BundleTab: React.FC = () => {
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Bundle Name</Label>
                       <Input
@@ -231,9 +234,9 @@ const BundleTab: React.FC = () => {
                   </div>
 
                   {/* Normal Prices Section */}
-                  <div className="border rounded-lg p-4 space-y-3">
+                  <div className="border rounded-xl p-3 sm:p-4 space-y-3">
                     <h4 className="font-semibold text-sm text-blue-600">Normal Price (Facebook, Database, Google)</h4>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">NP (New Prospect)</Label>
                         <Input
@@ -268,9 +271,9 @@ const BundleTab: React.FC = () => {
                   </div>
 
                   {/* Threads Prices Section */}
-                  <div className="border rounded-lg p-4 space-y-3">
+                  <div className="border rounded-xl p-3 sm:p-4 space-y-3">
                     <h4 className="font-semibold text-sm text-orange-600">Threads Price</h4>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">NP (New Prospect)</Label>
                         <Input
@@ -305,9 +308,9 @@ const BundleTab: React.FC = () => {
                   </div>
 
                   {/* TikTok Prices Section */}
-                  <div className="border rounded-lg p-4 space-y-3">
+                  <div className="border rounded-xl p-3 sm:p-4 space-y-3">
                     <h4 className="font-semibold text-sm text-pink-600">TikTok Price</h4>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">NP (New Prospect)</Label>
                         <Input
@@ -341,7 +344,7 @@ const BundleTab: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+                  <Button type="submit" className="w-full">
                     {editingBundle ? 'Update Bundle' : 'Create Bundle'}
                   </Button>
                 </form>
@@ -352,7 +355,7 @@ const BundleTab: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>Bundle Name</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead>Units</TableHead>
@@ -368,7 +371,7 @@ const BundleTab: React.FC = () => {
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
-                <TableRow className="text-xs">
+                <TableRow className="text-xs bg-muted/40">
                   <TableHead></TableHead>
                   <TableHead></TableHead>
                   <TableHead></TableHead>
@@ -395,18 +398,18 @@ const BundleTab: React.FC = () => {
                       </TableCell>
                       <TableCell>{bundle.units.toLocaleString()}</TableCell>
                       {/* Normal prices */}
-                      <TableCell className="text-blue-600">RM {bundle.priceNormalNp.toFixed(2)}</TableCell>
-                      <TableCell className="text-blue-600">RM {bundle.priceNormalEp.toFixed(2)}</TableCell>
-                      <TableCell className="text-blue-600">RM {bundle.priceNormalEc.toFixed(2)}</TableCell>
+                      <TableCell className="text-blue-600 whitespace-nowrap">RM {bundle.priceNormalNp.toFixed(2)}</TableCell>
+                      <TableCell className="text-blue-600 whitespace-nowrap">RM {bundle.priceNormalEp.toFixed(2)}</TableCell>
+                      <TableCell className="text-blue-600 whitespace-nowrap">RM {bundle.priceNormalEc.toFixed(2)}</TableCell>
                       {/* Threads prices */}
-                      <TableCell className="text-orange-600">RM {bundle.priceThreadsNp.toFixed(2)}</TableCell>
-                      <TableCell className="text-orange-600">RM {bundle.priceThreadsEp.toFixed(2)}</TableCell>
-                      <TableCell className="text-orange-600">RM {bundle.priceThreadsEc.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-600 whitespace-nowrap">RM {bundle.priceThreadsNp.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-600 whitespace-nowrap">RM {bundle.priceThreadsEp.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-600 whitespace-nowrap">RM {bundle.priceThreadsEc.toFixed(2)}</TableCell>
                       {/* TikTok prices */}
-                      <TableCell className="text-pink-600">RM {bundle.priceTiktokNp.toFixed(2)}</TableCell>
-                      <TableCell className="text-pink-600">RM {bundle.priceTiktokEp.toFixed(2)}</TableCell>
-                      <TableCell className="text-pink-600">RM {bundle.priceTiktokEc.toFixed(2)}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-pink-600 whitespace-nowrap">RM {bundle.priceTiktokNp.toFixed(2)}</TableCell>
+                      <TableCell className="text-pink-600 whitespace-nowrap">RM {bundle.priceTiktokEp.toFixed(2)}</TableCell>
+                      <TableCell className="text-pink-600 whitespace-nowrap">RM {bundle.priceTiktokEc.toFixed(2)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={bundle.isActive}
@@ -442,8 +445,8 @@ const BundleTab: React.FC = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
-                      No bundles found. Create your first bundle.
+                    <TableCell colSpan={14} className="p-0">
+                      <EmptyState icon={Boxes} title="No bundles found. Create your first bundle." />
                     </TableCell>
                   </TableRow>
                 )}

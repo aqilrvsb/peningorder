@@ -18,7 +18,7 @@ const StaffRoleSelect = ({ value, onChange, onGoToRoles }: StaffRoleSelectProps)
 
   if (!isLoading && names.length === 0) {
     return (
-      <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
         Belum ada role.{" "}
         <Link to="/dashboard/hr/roles" onClick={onGoToRoles} className="font-medium text-primary underline">
           Tambah role di HR → Role

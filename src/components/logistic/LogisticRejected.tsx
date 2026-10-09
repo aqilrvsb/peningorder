@@ -16,6 +16,7 @@ import Swal from "sweetalert2";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 const LogisticRejected = () => {
   const queryClient = useQueryClient();
@@ -103,32 +104,32 @@ const LogisticRejected = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950/40"><Ban className="w-6 h-6" /></span>
-        <div>
-          <h1 className="text-2xl font-bold">Rejected</h1>
-          <p className="text-muted-foreground text-sm">Order yang ditolak oleh logistik (cth: resit palsu / order mencurigakan).</p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Rejected"
+        description="Order yang ditolak oleh logistik (cth: resit palsu / order mencurigakan)."
+        icon={Ban}
+        tone="brand"
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl">
-        <Card><CardContent className="p-4"><div className="flex items-center gap-2"><Ban className="w-6 h-6 text-red-500" /><div><p className="text-xl font-bold">{filtered.length}</p><p className="text-xs text-muted-foreground">Total Rejected</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="flex items-center gap-2"><Receipt className="w-6 h-6 text-emerald-600" /><div><p className="text-xl font-bold">RM {totalSales.toFixed(2)}</p><p className="text-xs text-muted-foreground">Total Sales</p></div></div></CardContent></Card>
+      <div className="grid grid-cols-2 gap-3 lg:max-w-2xl">
+        <StatCard icon={Ban} tone="red" label="Total Rejected" value={filtered.length} />
+        <StatCard icon={Receipt} tone="green" label="Total Sales" value={<span className="block whitespace-normal break-words">RM {totalSales.toFixed(2)}</span>} />
       </div>
 
       {/* Filters */}
-      <Card><CardContent className="p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><span className="text-sm font-medium text-foreground">Tarikh Order:</span></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" /></div>
-          <div><label className="block text-xs text-muted-foreground mb-1">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" /></div>
-        <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama / phone / id sale" className="pl-9 w-56" /></div>
-          <div className="flex items-end pb-0.5"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
-          <div className="flex-1" />
-          <Button variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50" onClick={handleRevert} disabled={selected.size === 0 || isReverting}>
+      <Card><CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex items-center gap-2 text-muted-foreground sm:h-10"><Calendar className="w-4 h-4" /><span className="text-sm font-medium text-foreground">Tarikh Order:</span></div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
+            <div><label className="section-label mb-1 block">Dari</label><Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" /></div>
+            <div><label className="section-label mb-1 block">Hingga</label><Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" /></div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
+          <div className="relative w-full sm:w-56"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama / phone / id sale" className="pl-9 w-full" /></div>
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+          <Button variant="outline" className="h-10 w-full border-amber-300 text-amber-700 hover:bg-amber-50 sm:ml-auto sm:w-auto" onClick={handleRevert} disabled={selected.size === 0 || isReverting}>
             {isReverting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />} Kembali ke Pending ({selected.size})
           </Button>
         </div>
@@ -137,11 +138,12 @@ const LogisticRejected = () => {
       {/* Table */}
       <Card><CardContent className="p-0">
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton className="p-4" rows={8} cols={6} />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50"><tr>
+              <thead className="bg-muted/40"><tr>
                 <th className="p-2 text-left w-10"><Checkbox checked={allSelected} onCheckedChange={toggleAll} /></th>
                 <th className="p-2 text-left">No</th>
                 <th className="p-2 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
@@ -159,7 +161,7 @@ const LogisticRejected = () => {
               </tr></thead>
               <tbody>
                 {paged.map((o: any, i: number) => (
-                  <tr key={o.id} className="border-t border-border hover:bg-muted/30">
+                  <tr key={o.id} className="border-t border-border transition-colors hover:bg-muted/40">
                     <td className="p-2"><Checkbox checked={selected.has(o.id)} onCheckedChange={() => toggle(o.id)} /></td>
                     <td className="p-2">{(page - 1) * pageSize + i + 1}</td>
                     <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || "-"}</td>
@@ -170,7 +172,7 @@ const LogisticRejected = () => {
                     <td className="p-2 whitespace-nowrap">{o.phone_customer || "-"}</td>
                     <td className="p-2">{o.bundle?.name || "-"}</td>
                     <td className="p-2 whitespace-nowrap">{o.kurier || "-"}</td>
-                    <td className="p-2 text-right tabular-nums">{formatRM(Number(o.total_sale) || 0)}</td>
+                    <td className="p-2 text-right tabular-nums whitespace-nowrap">{formatRM(Number(o.total_sale) || 0)}</td>
                     <td className="p-2">{o.type_payment || "-"}</td>
                     <td className="p-2 whitespace-nowrap">
                       {(o.type_payment === "CASH" || o.type_payment === "Pickup")
@@ -181,26 +183,27 @@ const LogisticRejected = () => {
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={14} className="text-center py-12 text-muted-foreground">Tiada order rejected dalam tempoh ini.</td></tr>
+                  <tr><td colSpan={14} className="p-0"><EmptyState icon={Ban} title="Tiada order rejected dalam tempoh ini." /></td></tr>
                 )}
               </tbody>
             </table>
-            <TablePagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
           </div>
+          <TablePagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
+          </>
         )}
       </CardContent></Card>
 
       {/* Detail Bayaran viewer */}
       <Dialog open={!!viewingPayment} onOpenChange={(o) => { if (!o) setViewingPayment(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Receipt className="w-5 h-5 text-primary" /> Detail Bayaran — {viewingPayment?.id_sale || ""}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><IconTile icon={Receipt} tone="green" size="sm" /> Detail Bayaran — {viewingPayment?.id_sale || ""}</DialogTitle></DialogHeader>
           {viewingPayment && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
-                <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{formatDMY(viewingPayment.date_payment)}</b></div>
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/30 p-3">
+                <div><p className="section-label">Cara Bayaran</p><p className="mt-0.5 font-semibold">{viewingPayment.type_payment || "-"}</p></div>
+                <div><p className="section-label">Jumlah</p><p className="mt-0.5 whitespace-nowrap font-semibold">RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</p></div>
+                <div><p className="section-label">Bank</p><p className="mt-0.5 font-semibold">{viewingPayment.bank_payment || "-"}</p></div>
+                <div><p className="section-label">Tarikh Bayar</p><p className="mt-0.5 whitespace-nowrap font-semibold">{formatDMY(viewingPayment.date_payment)}</p></div>
               </div>
               <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>

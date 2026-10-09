@@ -5,9 +5,12 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TeamFilter } from '@/components/TeamFilter';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { PageHeader, StatCard, TableSkeleton, CardsSkeleton, EmptyState } from '@/components/common/SoftUI';
 import {
   DollarSign, Users, TrendingUp, Target,
-  RotateCcw, BarChart3, Percent, Loader2,
+  RotateCcw, BarChart3, Percent,
   Facebook, Video, ShoppingBag, Database, Globe
 } from 'lucide-react';
 import {
@@ -53,6 +56,15 @@ interface AggregatedSpend {
   roas: string;
   closingRate: string;
 }
+
+// Icon-tile colour per platform card (presentation only; literal class names so Tailwind keeps them).
+const PLATFORM_TILE: Record<string, string> = {
+  Facebook: 'icon-tile-blue',
+  Tiktok: 'icon-tile-pink',
+  Threads: 'icon-tile-slate',
+  Database: 'icon-tile-purple',
+  Google: 'icon-tile-green',
+};
 
 interface PlatformSpend {
   platform: string;
@@ -305,8 +317,9 @@ const ReportingSpend: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={4} />
+        <Card className="p-4"><TableSkeleton rows={6} cols={6} /></Card>
       </div>
     );
   }
@@ -314,113 +327,84 @@ const ReportingSpend: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Reporting Spend</h1>
-          <p className="text-muted-foreground">Laporan perbelanjaan marketing mengikut produk</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Reporting Spend"
+        description="Laporan perbelanjaan marketing mengikut produk"
+        icon={BarChart3}
+        tone="brand"
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-green-500" />
-            <span className="text-xs uppercase font-medium">Total Spend</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {stats.totalSpend.toFixed(2)}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Users className="w-4 h-4 text-blue-500" />
-            <span className="text-xs uppercase font-medium">Total Leads</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{stats.totalLeads}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <BarChart3 className="w-4 h-4 text-purple-500" />
-            <span className="text-xs uppercase font-medium">Overall KPK</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {stats.overallKPK}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <TrendingUp className="w-4 h-4 text-orange-500" />
-            <span className="text-xs uppercase font-medium">ROAS</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{stats.roas}x</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard icon={DollarSign} tone="green" label="Total Spend" value={`RM ${stats.totalSpend.toFixed(2)}`} />
+        <StatCard icon={Users} tone="blue" label="Total Leads" value={stats.totalLeads} />
+        <StatCard icon={BarChart3} tone="purple" label="Overall KPK" value={`RM ${stats.overallKPK}`} />
+        <StatCard icon={TrendingUp} tone="orange" label="ROAS" value={`${stats.roas}x`} />
       </div>
 
       {/* Spend By Platform - Dashboard Style */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-3">Spend By Platform</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <h2 className="mb-3 text-base font-semibold text-foreground">Spend By Platform</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {platformStats.map((platform) => (
-            <div key={platform.platform} className={`border rounded-lg overflow-hidden ${platform.bgColor}`}>
+            <Card key={platform.platform} className="p-4">
               {/* Header */}
-              <div className={`p-4 ${platform.headerColor}`}>
-                <div className={`flex items-center gap-2 mb-2 ${platform.color}`}>
-                  {platform.icon}
-                  <span className="text-sm font-semibold uppercase">{platform.platform}</span>
+              <div className="mb-3 flex items-center gap-2">
+                <span className={`icon-tile-sm ${PLATFORM_TILE[platform.platform] || 'icon-tile-slate'}`}>{platform.icon}</span>
+                <span className="truncate text-sm font-semibold">{platform.platform}</span>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <p className="section-label">Spend</p>
+                  <p className={`whitespace-nowrap text-base font-bold ${platform.color}`}>RM {platform.totalSpend.toFixed(2)}</p>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Spend:</span>
-                    <span className={`text-sm font-bold ${platform.color}`}>RM {platform.totalSpend.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Sales:</span>
-                    <span className="text-sm font-bold text-foreground">RM {platform.totalSales.toFixed(2)}</span>
-                  </div>
+                <div>
+                  <p className="section-label">Sales</p>
+                  <p className="whitespace-nowrap text-base font-bold text-foreground">RM {platform.totalSales.toFixed(2)}</p>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
-            <Input
-              type="date"
-              value={pendingStart}
-              onChange={(e) => setPendingStart(e.target.value)}
-              className="bg-background"
-            />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
-            <Input
-              type="date"
-              value={pendingEnd}
-              onChange={(e) => setPendingEnd(e.target.value)}
-              className="bg-background"
-            />
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="grid grid-cols-2 gap-3 sm:contents">
+            <div className="min-w-0 sm:w-44">
+              <Label className="mb-1.5 block">Start Date</Label>
+              <Input
+                type="date"
+                value={pendingStart}
+                onChange={(e) => setPendingStart(e.target.value)}
+                className="bg-background"
+              />
+            </div>
+            <div className="min-w-0 sm:w-44">
+              <Label className="mb-1.5 block">End Date</Label>
+              <Input
+                type="date"
+                value={pendingEnd}
+                onChange={(e) => setPendingEnd(e.target.value)}
+                className="bg-background"
+              />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-          <div className="flex items-end pb-0.5">
-            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
-          </div>
-          <Button variant="outline" onClick={resetFilters}>
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} className="w-full sm:w-auto" />
+          <Button variant="outline" onClick={resetFilters} className="w-full sm:w-auto">
             <RotateCcw className="w-4 h-4 mr-2" />
             Reset
           </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Table - Aggregated by Product + Platform */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <Card className="overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-12">No</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Platform</TableHead>
@@ -434,13 +418,13 @@ const ReportingSpend: React.FC = () => {
           <TableBody>
             {aggregatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Tiada data spend
+                <TableCell colSpan={8} className="p-0">
+                  <EmptyState icon={BarChart3} title="Tiada data spend" />
                 </TableCell>
               </TableRow>
             ) : (
               aggregatedData.map((data, idx) => (
-                <TableRow key={`${data.product}-${data.platform}`} className="hover:bg-muted/30">
+                <TableRow key={`${data.product}-${data.platform}`} className="hover:bg-muted/40">
                   <TableCell className="font-medium">{idx + 1}</TableCell>
                   <TableCell className="font-medium">{data.product}</TableCell>
                   <TableCell>
@@ -455,17 +439,17 @@ const ReportingSpend: React.FC = () => {
                       {data.platform}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-medium">RM {data.totalSpend.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium text-green-600">RM {data.totalSales.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap">RM {data.totalSpend.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium whitespace-nowrap text-green-600">RM {data.totalSales.toFixed(2)}</TableCell>
                   <TableCell className="text-right">{data.totalLeads}</TableCell>
-                  <TableCell className="text-right">RM {data.kpk}</TableCell>
-                  <TableCell className="text-right">{data.roas}x</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">RM {data.kpk}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{data.roas}x</TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
     </div>
   );
 };

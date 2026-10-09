@@ -5,11 +5,12 @@ import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import {
-  Users, Search, Loader2, ShieldCheck, ShieldOff, Wallet, Package, Ticket, CalendarPlus, Truck,
+  Users, Search, Loader2, ShieldCheck, ShieldOff, Wallet, Package, Ticket, CalendarPlus, Truck, BarChart3,
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -117,58 +118,38 @@ const AdminClients: React.FC = () => {
   const totalOrders = Object.values(data?.statsMap || {}).reduce((s: number, v: any) => s + Number(v.total_orders || 0), 0);
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Users className="w-7 h-7 text-primary" /> Reporting
-        </h1>
-        <p className="text-muted-foreground mt-2">Everything your clients do — orders, sales, collection — plus plan, expiry &amp; access</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Reporting"
+        description={<>Everything your clients do — orders, sales, collection — plus plan, expiry &amp; access</>}
+        icon={BarChart3}
+        tone="brand"
+      />
 
       {/* Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Total Clients</p>
-          <p className="text-2xl font-bold">{allClients.length}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Active</p>
-          <p className="text-2xl font-bold text-green-600">{activeCount}</p>
-          <p className="text-xs text-red-500">{expiredCount} expired</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase flex items-center gap-1"><Truck className="w-3 h-3" /> PD Configured</p>
-          <p className="text-2xl font-bold text-blue-600">{data?.pdConfigured ?? 0}</p>
-          <p className="text-xs text-muted-foreground">Merchant ID + Token set</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Revenue (Month)</p>
-          <p className="text-2xl font-bold">RM {mrr.toFixed(2)}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Total Orders</p>
-          <p className="text-2xl font-bold">{totalOrders}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Open Tickets</p>
-          <p className="text-2xl font-bold text-orange-600">{openTickets}</p>
-        </CardContent></Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <StatCard icon={Users} tone="indigo" label="Total Clients" value={allClients.length} />
+        <StatCard icon={ShieldCheck} tone="green" label="Active" value={<span className="text-green-600">{activeCount}</span>} hint={<span className="text-red-500">{expiredCount} expired</span>} />
+        <StatCard icon={Truck} tone="blue" label="PD Configured" value={<span className="text-blue-600">{data?.pdConfigured ?? 0}</span>} hint="Merchant ID + Token set" />
+        <StatCard icon={Wallet} tone="green" label="Revenue (Month)" value={`RM ${mrr.toFixed(2)}`} />
+        <StatCard icon={Package} tone="purple" label="Total Orders" value={totalOrders} />
+        <StatCard icon={Ticket} tone="orange" label="Open Tickets" value={<span className="text-orange-600">{openTickets}</span>} />
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input placeholder="Search email / name / business / PO-id" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={6} cols={8} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">ID</th>
                   <th className="p-3 text-left">Client</th>
@@ -188,23 +169,23 @@ const AdminClients: React.FC = () => {
                   const s = data?.statsMap[p.id];
                   const expired = !p.plan_expires_at || new Date(p.plan_expires_at) <= now;
                   return (
-                    <tr key={p.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-3 font-mono">{p.idstaff}</td>
+                    <tr key={p.id} className="border-t border-border hover:bg-muted/40">
+                      <td className="p-3 font-mono whitespace-nowrap">{p.idstaff}</td>
                       <td className="p-3">
                         <p className="font-medium">{p.email}</p>
                         <p className="text-xs text-muted-foreground">{p.business_name || p.full_name || '-'}{p.whatsapp ? ` · ${p.whatsapp}` : ''}</p>
                       </td>
                       <td className="p-3 capitalize">{p.plan || '-'}</td>
-                      <td className="p-3">
+                      <td className="p-3 whitespace-nowrap">
                         <span className={expired ? 'text-red-500 font-medium' : ''}>
                           {p.plan_expires_at ? new Date(p.plan_expires_at).toLocaleDateString('en-MY') : '-'}
                         </span>
                       </td>
                       <td className="p-3 text-right">{s?.total_orders || 0}</td>
-                      <td className="p-3 text-right">{Number(s?.total_sales || 0).toFixed(2)}</td>
-                      <td className="p-3 text-right">{s?.orders_this_month || 0} <span className="text-xs text-muted-foreground">/ RM {Number(s?.sales_this_month || 0).toFixed(0)}</span></td>
-                      <td className="p-3 text-right">{Number(s?.collected_sales || 0).toFixed(2)}</td>
-                      <td className="p-3 text-xs">{s?.last_order_date || '-'}</td>
+                      <td className="p-3 text-right whitespace-nowrap">{Number(s?.total_sales || 0).toFixed(2)}</td>
+                      <td className="p-3 text-right whitespace-nowrap">{s?.orders_this_month || 0} <span className="text-xs text-muted-foreground">/ RM {Number(s?.sales_this_month || 0).toFixed(0)}</span></td>
+                      <td className="p-3 text-right whitespace-nowrap">{Number(s?.collected_sales || 0).toFixed(2)}</td>
+                      <td className="p-3 text-xs whitespace-nowrap">{s?.last_order_date || '-'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                           {p.is_active ? 'Active' : 'Disabled'}
@@ -224,7 +205,7 @@ const AdminClients: React.FC = () => {
                   );
                 })}
                 {clients.length === 0 && (
-                  <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">No clients found</td></tr>
+                  <tr><td colSpan={11} className="text-muted-foreground"><EmptyState icon={Users} title="No clients found" /></td></tr>
                 )}
               </tbody>
             </table>
@@ -241,17 +222,17 @@ const AdminClients: React.FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Plan</label>
+              <Label>Plan</Label>
               <Select value={editPlan} onValueChange={setEditPlan}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PLAN_OPTIONS.map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Extend expiry by (days)</label>
-              <Input type="number" value={extendDays} onChange={(e) => setExtendDays(e.target.value)} className="mt-1" />
+              <Label>Extend expiry by (days)</Label>
+              <Input type="number" value={extendDays} onChange={(e) => setExtendDays(e.target.value)} className="mt-1.5" />
               <p className="text-xs text-muted-foreground mt-1">
                 Current expiry: {editing?.plan_expires_at ? new Date(editing.plan_expires_at).toLocaleDateString('en-MY') : '-'} — extension adds on top if still valid, else from today.
               </p>

@@ -17,6 +17,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, IconTile, TableSkeleton, MissingHint } from "@/components/common/SoftUI";
 
 interface InvoiceSettings {
   id: string;
@@ -126,32 +127,32 @@ const AccountInvoiceSettings = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <TableSkeleton rows={6} cols={2} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Invoice Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          Configure company information for invoices
-        </p>
-      </div>
+      <PageHeader
+        title="Invoice Settings"
+        description="Configure company information for invoices"
+        icon={FileText}
+        tone="brand"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
+              <IconTile icon={Building2} tone="blue" size="sm" />
               Company Information
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {/* Company Name */}
               <div className="space-y-2">
                 <Label htmlFor="company_name" className="flex items-center gap-2">
@@ -249,7 +250,8 @@ const AccountInvoiceSettings = () => {
               </div>
 
               {/* Submit Button */}
-              <div className="pt-4">
+              <div className="pt-2 space-y-3">
+                <MissingHint items={[{ label: "Company Name", done: !!formData.company_name?.trim() }]} />
                 <Button
                   type="submit"
                   disabled={saveMutation.isPending}
@@ -270,10 +272,13 @@ const AccountInvoiceSettings = () => {
         {/* Preview Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Invoice Preview</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <IconTile icon={FileText} tone="slate" size="sm" />
+              Invoice Preview
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-gray-50 p-6 rounded-lg border">
+            <div className="bg-gray-50 p-4 sm:p-6 rounded-xl border break-words">
               <h2 className="text-xl font-bold text-gray-900">
                 {formData.company_name || "Company Name"}{" "}
                 {formData.registration_no && `(${formData.registration_no})`}

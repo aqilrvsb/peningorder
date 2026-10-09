@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, Trophy, Medal, Award, Search } from 'lucide-react';
+import { Calendar, Filter, Trophy, Medal, Award, Search, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, IconTile, CardsSkeleton, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 interface RankRow {
   idstaff: string;
   name: string;
@@ -71,8 +72,9 @@ const AccountTopRanking: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={3} className="lg:grid-cols-3" />
+        <TableSkeleton rows={6} cols={6} />
       </div>
     );
   }
@@ -80,48 +82,43 @@ const AccountTopRanking: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-          <Trophy className="w-6 h-6" /> Top Ranking
-        </h1>
-        <p className="text-muted-foreground mt-1">Performance leaderboard team</p>
-      </div>
+      <PageHeader title="Top Ranking" description="Performance leaderboard team" icon={Trophy} tone="brand" />
 
       {/* Date filter */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-5 h-5" />
-            <span className="font-medium text-foreground">Date Range:</span>
+            <IconTile icon={Calendar} tone="blue" size="sm" />
+            <span className="whitespace-nowrap font-medium text-foreground">Date Range:</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">From</Label>
-              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">To</Label>
-              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
             </div>
-            <Button onClick={applyFilter} size="sm" className="h-9"><Filter className="w-4 h-4 mr-1" />Filter</Button>
+            <Button onClick={applyFilter} className="h-10"><Filter className="w-4 h-4 mr-1" />Filter</Button>
             <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           </div>
         </div>
       </div>
 
       {/* Top Performers podium */}
-      <div className="bg-card border border-border rounded-lg p-5">
-        <h2 className="font-semibold flex items-center gap-2 mb-4"><Trophy className="w-5 h-5 text-primary" /> Top Performers</h2>
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5">
+        <h2 className="font-semibold flex items-center gap-2 mb-4"><IconTile icon={Trophy} tone="amber" size="sm" /> Top Performers</h2>
         {top3.length === 0 ? (
-          <p className="text-center py-8 text-muted-foreground">Tiada data untuk tempoh ini.</p>
+          <EmptyState icon={Trophy} title="Tiada data untuk tempoh ini." />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
             {top3.map((r, i) => {
               const p = podium[i];
               const Icon = p.icon;
               return (
-                <div key={r.idstaff} className={`relative rounded-xl border-2 ${p.ring} ${p.bg} p-5`}>
-                  <div className={`absolute -top-3 -right-3 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow ${p.badge}`}>{r.rank}</div>
+                <div key={r.idstaff} className={`relative rounded-xl border-2 ${p.ring} ${p.bg} p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
+                  <div className={`absolute -top-3 right-2 sm:-right-3 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow ${p.badge}`}>{r.rank}</div>
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${p.iconBg}`}>
                       <Icon className={`w-6 h-6 ${p.text}`} />
@@ -136,7 +133,7 @@ const AccountTopRanking: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-sm mt-1">
                     <span className="text-muted-foreground">Total Sales</span>
-                    <span className={`font-bold ${p.text}`}>RM {formatNumber(r.total_sales)}</span>
+                    <span className={`font-bold whitespace-nowrap ${p.text}`}>RM {formatNumber(r.total_sales)}</span>
                   </div>
                 </div>
               );
@@ -146,17 +143,17 @@ const AccountTopRanking: React.FC = () => {
       </div>
 
       {/* Full rankings */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="font-semibold">Full Rankings</h2>
+          <h2 className="font-semibold flex items-center gap-2"><IconTile icon={Users} tone="purple" size="sm" /> Full Rankings</h2>
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search marketer..." className="pl-9 h-9" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search marketer..." className="pl-9 h-10" />
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr>
                 <th className="p-3 text-left">No</th>
                 <th className="p-3 text-left">ID Staff</th>
@@ -173,24 +170,24 @@ const AccountTopRanking: React.FC = () => {
             </thead>
             <tbody>
               {filtered.map((r) => (
-                <tr key={r.idstaff} className="border-t border-border hover:bg-muted/30">
+                <tr key={r.idstaff} className="border-t border-border hover:bg-muted/40 transition-colors">
                   <td className="p-3">
                     <span className={`inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full text-xs font-bold ${r.rank <= 3 ? podium[r.rank - 1].badge : 'bg-muted text-muted-foreground'}`}>{r.rank}</span>
                   </td>
                   <td className="p-3 font-mono">{r.idstaff}</td>
-                  <td className="p-3">{r.name}</td>
-                  <td className="p-3 text-right tabular-nums font-medium">RM {formatNumber(r.total_sales)}</td>
-                  <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(r.return_sales)}</td>
-                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(r.collection)}</td>
-                  <td className="p-3 text-right tabular-nums text-indigo-600 dark:text-indigo-400">RM {formatNumber(r.spend)}</td>
-                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{roasOf(r).toFixed(2)}x</td>
+                  <td className="p-3 whitespace-nowrap">{r.name}</td>
+                  <td className="p-3 text-right tabular-nums font-medium whitespace-nowrap">RM {formatNumber(r.total_sales)}</td>
+                  <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400 whitespace-nowrap">RM {formatNumber(r.return_sales)}</td>
+                  <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400 whitespace-nowrap">RM {formatNumber(r.collection)}</td>
+                  <td className="p-3 text-right tabular-nums text-indigo-600 dark:text-indigo-400 whitespace-nowrap">RM {formatNumber(r.spend)}</td>
+                  <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400 whitespace-nowrap">{roasOf(r).toFixed(2)}x</td>
                   <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400 whitespace-nowrap">{salesPct(r.np, r.total_sales)}</td>
                   <td className="p-3 text-right tabular-nums text-purple-600 dark:text-purple-400 whitespace-nowrap">{salesPct(r.ep, r.total_sales)}</td>
                   <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400 whitespace-nowrap">{salesPct(r.ec, r.total_sales)}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Tiada marketer dijumpai.</td></tr>
+                <tr><td colSpan={11} className="p-0"><EmptyState icon={Search} title="Tiada marketer dijumpai." /></td></tr>
               )}
             </tbody>
           </table>

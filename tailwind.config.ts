@@ -18,6 +18,12 @@ export default {
       },
       colors: {
         border: "hsl(var(--border))",
+        // Soft-UI dashboard: grey frame (sidebar + gutters) around a white centre.
+        canvas: "hsl(var(--canvas))",
+        brand: {
+          from: "hsl(var(--brand-from))",
+          to: "hsl(var(--brand-to))",
+        },
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -103,6 +109,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
+        'xs': 'var(--shadow-xs)',
         'sm': 'var(--shadow-sm)',
         'md': 'var(--shadow-md)',
         'lg': 'var(--shadow-lg)',
@@ -117,10 +124,21 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        // Page / panel entrance: fade with a slight zoom. No fill-mode, so no transform
+        // stays on the element afterwards (a lingering transform would trap position:fixed children).
+        "fade-zoom": {
+          from: { opacity: "0", transform: "scale(0.985)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-zoom": "fade-zoom 0.25s ease-out",
+        shimmer: "shimmer 1.6s infinite",
       },
     },
   },

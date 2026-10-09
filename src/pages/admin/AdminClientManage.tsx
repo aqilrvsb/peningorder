@@ -18,7 +18,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   UsersRound, UserPlus, Search, Loader2, KeyRound, CalendarPlus, Trash2, LogIn, Mail, Send, Copy,
+  Users, Briefcase, UserCog,
 } from 'lucide-react';
+import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
 const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale'];
 
@@ -254,43 +256,42 @@ const AdminClientManage: React.FC = () => {
   const filtered = clientScoped.filter((c) => tab === 'all' || (tab === 'staff' ? isStaff(c) : !isStaff(c)));
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2"><UsersRound className="w-7 h-7 text-primary" /> Client Management</h1>
-          <p className="text-muted-foreground mt-2">Register clients, reset passwords, set plan &amp; expiry, or log in as a client.</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}><UserPlus className="w-4 h-4 mr-2" /> New Client</Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Client Management"
+        description={<>Register clients, reset passwords, set plan &amp; expiry, or log in as a client.</>}
+        icon={Users}
+        tone="brand"
+        actions={<Button onClick={() => setCreateOpen(true)}><UserPlus className="w-4 h-4 mr-2" /> New Client</Button>}
+      />
 
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-w-2xl">
         {([
-          { key: 'all', label: 'All', value: counts.all, accent: 'text-primary' },
-          { key: 'client', label: 'Client', value: counts.client, accent: 'text-emerald-600 dark:text-emerald-400' },
-          { key: 'staff', label: 'Staff', value: counts.staff, accent: 'text-blue-600 dark:text-blue-400' },
+          { key: 'all', label: 'All', value: counts.all, accent: 'text-primary', icon: UsersRound, tone: 'indigo' },
+          { key: 'client', label: 'Client', value: counts.client, accent: 'text-emerald-600 dark:text-emerald-400', icon: Briefcase, tone: 'green' },
+          { key: 'staff', label: 'Staff', value: counts.staff, accent: 'text-blue-600 dark:text-blue-400', icon: UserCog, tone: 'blue' },
         ] as const).map((b) => (
-          <button
+          <StatCard
             key={b.key}
+            icon={b.icon}
+            tone={b.tone}
+            label={b.label}
+            value={<span className={b.accent}>{b.value}</span>}
             onClick={() => setTab(b.key)}
-            className={`rounded-xl border p-4 text-left transition-colors ${
-              tab === b.key ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'
-            }`}
-          >
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.value}</p>
-          </button>
+            active={tab === b.key}
+          />
         ))}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative w-full flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search email / name / business / PO-id" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Client:</Label>
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+          <Label className="whitespace-nowrap">Filter by Client:</Label>
           <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Clients</SelectItem>
               {clientList.map((c) => (
@@ -301,13 +302,13 @@ const AdminClientManage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={6} cols={6} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">ID</th>
                   <th className="p-3 text-left">Client (click to login as)</th>
@@ -321,8 +322,8 @@ const AdminClientManage: React.FC = () => {
                 {filtered.map((c) => {
                   const expired = !c.plan_expires_at || new Date(c.plan_expires_at) <= now;
                   return (
-                    <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="p-3 font-mono">{c.idstaff}</td>
+                    <tr key={c.id} className="border-t border-border hover:bg-muted/40">
+                      <td className="p-3 font-mono whitespace-nowrap">{c.idstaff}</td>
                       <td className="p-3">
                         <button onClick={() => loginAsClient(c)} disabled={busyId === c.id}
                           className="text-left font-medium text-primary hover:underline inline-flex items-center gap-1.5" title="Login as this client">
@@ -338,7 +339,7 @@ const AdminClientManage: React.FC = () => {
                         )}
                       </td>
                       <td className="p-3 capitalize">{c.plan || '-'}</td>
-                      <td className="p-3"><span className={expired ? 'text-red-500 font-medium' : ''}>{c.plan_expires_at ? new Date(c.plan_expires_at).toLocaleDateString('en-MY') : '-'}</span></td>
+                      <td className="p-3 whitespace-nowrap"><span className={expired ? 'text-red-500 font-medium' : ''}>{c.plan_expires_at ? new Date(c.plan_expires_at).toLocaleDateString('en-MY') : '-'}</span></td>
                       <td className="p-3">
                         <div className="flex gap-1 flex-wrap">
                           <Button size="sm" variant="outline" onClick={() => openEdit(c)}><CalendarPlus className="w-3.5 h-3.5 mr-1" /> Plan</Button>
@@ -351,7 +352,7 @@ const AdminClientManage: React.FC = () => {
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No clients found</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={6} className="text-muted-foreground"><EmptyState icon={Users} title="No clients found" /></td></tr>}
               </tbody>
             </table>
           </div>
@@ -362,22 +363,25 @@ const AdminClientManage: React.FC = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>New Client</DialogTitle><DialogDescription>Creates a confirmed account. They can log in immediately.</DialogDescription></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Email</Label><Input type="email" value={cForm.email} onChange={(e) => setCForm({ ...cForm, email: e.target.value })} placeholder="client@email.com" /></div>
-            <div><Label>Password</Label><Input type="text" value={cForm.password} onChange={(e) => setCForm({ ...cForm, password: e.target.value })} placeholder="min 6 characters" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Full Name</Label><Input value={cForm.full_name} onChange={(e) => setCForm({ ...cForm, full_name: e.target.value })} /></div>
-              <div><Label>Business</Label><Input value={cForm.business_name} onChange={(e) => setCForm({ ...cForm, business_name: e.target.value })} /></div>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={cForm.email} onChange={(e) => setCForm({ ...cForm, email: e.target.value })} placeholder="client@email.com" /></div>
+              <div className="space-y-1.5"><Label>Password</Label><Input type="text" value={cForm.password} onChange={(e) => setCForm({ ...cForm, password: e.target.value })} placeholder="min 6 characters" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Plan</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label>Full Name</Label><Input value={cForm.full_name} onChange={(e) => setCForm({ ...cForm, full_name: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Business</Label><Input value={cForm.business_name} onChange={(e) => setCForm({ ...cForm, business_name: e.target.value })} /></div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label>Plan</Label>
                 <Select value={cForm.plan} onValueChange={(v) => setCForm({ ...cForm, plan: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{PLAN_OPTIONS.map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Days valid</Label><Input type="number" value={cForm.days} onChange={(e) => setCForm({ ...cForm, days: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Days valid</Label><Input type="number" value={cForm.days} onChange={(e) => setCForm({ ...cForm, days: e.target.value })} /></div>
             </div>
+            <MissingHint items={[{ label: 'Email', done: !!cForm.email }, { label: 'Password (min 6)', done: cForm.password.length >= 6 }]} />
           </div>
           <DialogFooter>
             <Button onClick={handleCreate} disabled={creating || !cForm.email || cForm.password.length < 6}>
@@ -420,18 +424,19 @@ const AdminClientManage: React.FC = () => {
                 <Input type="text" value={sendPw} onChange={(e) => setSendPw(e.target.value)} placeholder="leave blank to auto-generate" className="mt-1" />
                 <p className="text-xs text-muted-foreground mt-1">The current password can't be retrieved, so this <b>sets</b> the password and WhatsApps it to the client. Type the existing one to resend it unchanged, or leave blank for a new random one.</p>
               </div>
+              <MissingHint items={[{ label: 'Password min 6 (or blank)', done: !sendPw.trim() || sendPw.trim().length >= 6 }]} />
               <Button className="w-full" onClick={sendCredentials} disabled={sending}>
                 {sending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} <Send className="w-4 h-4 mr-2" /> Set &amp; Send via WhatsApp
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className={`rounded-md border p-3 text-sm ${sendResult.sent ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20'}`}>
+              <div className={`rounded-lg border p-3 text-sm ${sendResult.sent ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20'}`}>
                 {sendResult.sent
                   ? <p className="text-emerald-700 dark:text-emerald-400 font-medium">WhatsApp sent to {sendResult.phone}.</p>
                   : <p className="text-amber-700 dark:text-amber-400 font-medium">{sendResult.phone ? 'WhatsApp delivery failed' : 'No WhatsApp number on file'} — share these manually:</p>}
               </div>
-              <div className="rounded-md border border-border bg-muted/40 p-3 font-mono text-xs space-y-1">
+              <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs space-y-1 break-all">
                 <div>Email: {sendResult.email}</div>
                 <div>Password: {sendResult.password}</div>
               </div>
@@ -453,6 +458,7 @@ const AdminClientManage: React.FC = () => {
           <div className="space-y-4">
             <div><Label>New email</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="client@email.com" className="mt-1" /></div>
             <p className="text-xs text-muted-foreground">The client logs in with this email immediately after saving. Their ID staff and password stay the same.</p>
+            <MissingHint items={[{ label: 'Valid email', done: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim()) }]} />
             <Button className="w-full" onClick={saveEmail} disabled={savingEmail || !newEmail.trim() || newEmail.trim().toLowerCase() === (emailClient?.email || '').toLowerCase()}>
               {savingEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save email
             </Button>
@@ -466,6 +472,7 @@ const AdminClientManage: React.FC = () => {
           <DialogHeader><DialogTitle>Reset Password</DialogTitle><DialogDescription>{pwClient?.email}</DialogDescription></DialogHeader>
           <div className="space-y-4">
             <div><Label>New password</Label><Input type="text" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="min 6 characters" className="mt-1" /></div>
+            <MissingHint items={[{ label: 'Password (min 6)', done: newPw.length >= 6 }]} />
             <Button className="w-full" onClick={savePassword} disabled={savingPw}>{savingPw && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Set password</Button>
           </div>
         </DialogContent>

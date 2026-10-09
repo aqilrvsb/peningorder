@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/select";
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM, formatDMY } from "@/lib/utils";
 import { TablePagination } from "@/components/TablePagination";
-import { Wallet, Loader2, Search, Filter, RefreshCw, Download } from "lucide-react";
+import { Wallet, Search, Filter, RefreshCw, Download, Truck } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Normalise a stored kurier to its base courier for grouping + filtering.
@@ -147,50 +148,45 @@ const AccountSuccessCollection = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Success COD Collection</h1>
-          <p className="text-muted-foreground mt-2">COD delivered and remitted to your account by ParcelDaily</p>
-        </div>
-        <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-          Sync
-        </Button>
-      </div>
+      <PageHeader
+        title="Success COD Collection"
+        description="COD delivered and remitted to your account by ParcelDaily"
+        icon={Wallet}
+        tone="brand"
+        actions={
+          <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+            Sync
+          </Button>
+        }
+      />
 
       {/* Total + by-Kurier (clickable) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+        <StatCard
+          icon={Wallet}
+          tone="green"
+          label="Total Remitted (COD)"
+          value={baseOrders.length}
+          hint={<span className="font-medium text-emerald-600 dark:text-emerald-400">RM {formatRM(totalRemitted)}</span>}
           onClick={() => { setCourierFilter("all"); handleFilterChange(); }}
-          className={`cursor-pointer transition-all ${courierFilter === "all" ? "ring-2 ring-primary" : "hover:border-primary/60 hover:shadow-sm"}`}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Wallet className="w-8 h-8 text-emerald-500" />
-              <div>
-                <p className="text-2xl font-bold">{baseOrders.length}</p>
-                <p className="text-sm text-muted-foreground">Total Remitted (COD)</p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">RM {formatRM(totalRemitted)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          active={courierFilter === "all"}
+        />
       </div>
 
       {courierStats.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {courierStats.map((cs) => (
-            <Card
+            <StatCard
               key={cs.name}
+              icon={Truck}
+              tone={cs.total > 0 ? "green" : "slate"}
+              label={cs.name}
+              value={cs.total}
+              hint={<span className="whitespace-nowrap">RM {formatRM(cs.sales)}</span>}
               onClick={() => { setCourierFilter(courierFilter === cs.name ? "all" : cs.name); handleFilterChange(); }}
-              className={`cursor-pointer transition-all ${courierFilter === cs.name ? "ring-2 ring-primary" : "hover:shadow-sm"} ${cs.total > 0 ? "border-l-4 border-l-emerald-500" : ""}`}
-            >
-              <CardContent className="p-4">
-                <p className="text-sm font-semibold">{cs.name}</p>
-                <p className="text-xl font-bold">{cs.total}</p>
-                <p className="mt-1 text-xs text-muted-foreground">RM {formatRM(cs.sales)}</p>
-              </CardContent>
-            </Card>
+              active={courierFilter === cs.name}
+            />
           ))}
         </div>
       )}
@@ -198,8 +194,8 @@ const AccountSuccessCollection = () => {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search name / phone / tracking..."
@@ -208,14 +204,14 @@ const AccountSuccessCollection = () => {
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2">
-              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
-              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
-              <Button size="sm" onClick={applyDateFilter}><Filter className="w-4 h-4 mr-1" /> Apply</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="min-w-[130px] flex-1 sm:w-40 sm:flex-none" />
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="min-w-[130px] flex-1 sm:w-40 sm:flex-none" />
+              <Button onClick={applyDateFilter} className="h-10"><Filter className="w-4 h-4 mr-1" /> Apply</Button>
               <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
             </div>
             <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Platform" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Platform" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Platform</SelectItem>
                 <SelectItem value="Facebook">Facebook</SelectItem>
@@ -226,7 +222,7 @@ const AccountSuccessCollection = () => {
               </SelectContent>
             </Select>
             <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Show:</span>
               <Select value={pageSize === 0 ? "all" : pageSize.toString()} onValueChange={(v) => { setPageSize(v === "all" ? 0 : Number(v)); setCurrentPage(1); }}>
                 <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
@@ -245,12 +241,12 @@ const AccountSuccessCollection = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            <TableSkeleton rows={8} cols={7} className="p-4" />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="p-3 text-left">No</th>
                       <th className="p-3 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
@@ -273,7 +269,7 @@ const AccountSuccessCollection = () => {
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((o: any, i: number) => (
-                        <tr key={o.id} className="border-b hover:bg-muted/30">
+                        <tr key={o.id} className="border-b hover:bg-muted/40 transition-colors">
                           <td className="p-3">{(currentPage - 1) * effectivePageSize + i + 1}</td>
                           <td className="p-3 whitespace-nowrap font-mono text-blue-600 dark:text-blue-400">{o.marketer_id_staff || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || "") || "-"}</td>
@@ -281,7 +277,7 @@ const AccountSuccessCollection = () => {
                           <td className="p-3 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                           <td className="p-3 whitespace-nowrap text-emerald-600 dark:text-emerald-400">{formatDMY(o.date_payment)}</td>
                           <td className="p-3 whitespace-nowrap">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${o.cod_remit_manual ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.cod_remit_manual ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
                               {o.cod_remit_manual ? "Manual" : "Auto"}
                             </span>
                           </td>
@@ -297,7 +293,7 @@ const AccountSuccessCollection = () => {
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={16} className="text-center py-12 text-muted-foreground">No remitted COD orders found.</td></tr>
+                      <tr><td colSpan={16} className="p-0"><EmptyState icon={Wallet} title="No remitted COD orders found." /></td></tr>
                     )}
                   </tbody>
                 </table>

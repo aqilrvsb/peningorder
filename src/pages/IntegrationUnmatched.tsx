@@ -10,7 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 import { Inbox, Loader2, Wand2, Trash2, RefreshCw } from 'lucide-react';
+import { TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
 type Unmatched = {
   id: string;
@@ -98,9 +100,9 @@ const IntegrationUnmatched: React.FC = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Belum Match</p>
+          <p className="section-label">Belum Match</p>
           {rows.length > 0 && (
             <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[11px] font-semibold h-5 min-w-5 px-1.5">{rows.length}</span>
           )}
@@ -110,18 +112,15 @@ const IntegrationUnmatched: React.FC = () => {
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+          <TableSkeleton rows={4} cols={8} className="p-4" />
         ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-            <Inbox className="w-8 h-8 mb-2 opacity-60" />
-            <p className="text-sm">Tiada order belum match. Semua order platform tally automatik. 🎉</p>
-          </div>
+          <EmptyState icon={Inbox} title="Tiada order belum match. Semua order platform tally automatik. 🎉" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">Tarikh</th>
                   <th className="p-3 text-left">Sumber</th>
@@ -135,16 +134,16 @@ const IntegrationUnmatched: React.FC = () => {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-t border-border hover:bg-muted/30">
+                  <tr key={r.id} className="border-t border-border hover:bg-muted/40">
                     <td className="p-3 whitespace-nowrap text-xs text-muted-foreground">{(r.created_at || '').slice(0, 10)}</td>
                     <td className="p-3 whitespace-nowrap capitalize">{r.source_platform || '-'}</td>
                     <td className="p-3">
                       <div className="font-medium">{r.name_customer || '-'}</div>
-                      <div className="text-xs text-muted-foreground">{r.phone_customer} · {r.state_customer}</div>
+                      <div className="whitespace-nowrap text-xs text-muted-foreground">{r.phone_customer} · {r.state_customer}</div>
                     </td>
                     <td className="p-3"><span className="block max-w-[240px] truncate" title={r.raw_product || ''}>{r.raw_product || '-'}</span></td>
                     <td className="p-3 text-center">{r.quantity ?? 1}</td>
-                    <td className="p-3 text-right tabular-nums">RM {(Number(r.amount) || 0).toFixed(2)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {(Number(r.amount) || 0).toFixed(2)}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.type_payment === 'COD' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
                         {r.type_payment === 'COD' ? 'COD' : 'CASH'}
@@ -181,7 +180,7 @@ const IntegrationUnmatched: React.FC = () => {
                 <div className="text-xs text-muted-foreground">{mapping.raw_product}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Produk Bundle *</label>
+                <Label className="mb-1.5 block">Produk Bundle *</Label>
                 <Select value={form.bundleId} onValueChange={(v) => setForm((f) => ({ ...f, bundleId: v }))}>
                   <SelectTrigger><SelectValue placeholder="Pilih bundle" /></SelectTrigger>
                   <SelectContent>
@@ -191,7 +190,7 @@ const IntegrationUnmatched: React.FC = () => {
                 <p className="text-xs text-muted-foreground mt-1">Kos produk/HQ auto dari bundle; kurier ikut default Courier Settings; tracking &amp; postage dijana automatik (sama macam key-in manual).</p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Cara Bayaran</label>
+                <Label className="mb-1.5 block">Cara Bayaran</Label>
                 <Select value={form.typePayment} onValueChange={(v) => setForm((f) => ({ ...f, typePayment: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -201,9 +200,10 @@ const IntegrationUnmatched: React.FC = () => {
                 </Select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Harga Jual (RM)</label>
+                <Label className="mb-1.5 block">Harga Jual (RM)</Label>
                 <Input type="number" step="0.01" value={form.totalSale} onChange={(e) => setForm((f) => ({ ...f, totalSale: e.target.value }))} />
               </div>
+              <MissingHint items={[{ label: 'Produk Bundle', done: !!form.bundleId }]} />
             </div>
           )}
           <DialogFooter className="gap-2">

@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { CircleCheck, FilePen, Loader2 } from 'lucide-react';
+import { CircleCheck, FilePen, Users } from 'lucide-react';
+import { TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import { toast } from 'sonner';
 import { useHrPeople, roleBadge, type HrPerson } from './useHrPeople';
 import StaffDetailsModal, { SECTION_TITLE, sectionFilled, type DetailSection, type SectionValue } from './StaffDetailsModal';
@@ -63,14 +64,14 @@ export default function HRDatabaseStaff() {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Total: {people.length} staff</p>
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-4 sm:px-6">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <TableSkeleton rows={6} cols={7} />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b text-left">
+                  <tr className="border-b bg-muted/40 text-left">
                     <th className="w-12 p-2 font-semibold">No</th>
                     <th className="p-2 font-semibold">Employee</th>
                     <th className="p-2 font-semibold">Role</th>
@@ -81,7 +82,7 @@ export default function HRDatabaseStaff() {
                   {people.length ? people.map((p, i) => {
                     const row = byPerson.get(p.id);
                     return (
-                      <tr key={`${p.source}-${p.id}`} className="border-b last:border-0 hover:bg-muted/30">
+                      <tr key={`${p.source}-${p.id}`} className="border-b last:border-0 hover:bg-muted/40">
                         <td className="p-2 text-muted-foreground">{i + 1}</td>
                         <td className="p-2 font-medium">{p.name}</td>
                         <td className="p-2"><span className={`rounded px-1.5 py-0.5 text-xs font-medium ${roleBadge(p.role)}`}>{p.role}</span></td>
@@ -104,7 +105,7 @@ export default function HRDatabaseStaff() {
                       </tr>
                     );
                   }) : (
-                    <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">Tiada staff. Tambah marketer di tab Team, atau staff di HR → User.</td></tr>
+                    <tr><td colSpan={7} className="text-muted-foreground"><EmptyState icon={Users} title="Tiada staff. Tambah marketer di tab Team, atau staff di HR → User." /></td></tr>
                   )}
                 </tbody>
               </table>

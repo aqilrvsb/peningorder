@@ -9,6 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Upload, Download, FileSpreadsheet, Loader2, CheckCircle2 } from 'lucide-react';
+import { IconTile } from '@/components/common/SoftUI';
 
 // Template column headers (the order clients fill in).
 const COLUMNS = [
@@ -166,13 +167,16 @@ const BulkOrderImport: React.FC<{ onImported?: () => void }> = ({ onImported }) 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import Bulk Order</DialogTitle>
+            <DialogTitle className="flex items-center justify-center gap-2 sm:justify-start">
+              <IconTile icon={FileSpreadsheet} tone="green" size="sm" />
+              Import Bulk Order
+            </DialogTitle>
             <DialogDescription>Muat naik fail Excel (.xlsx) atau CSV untuk import banyak order sekaligus.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-              <p className="font-medium mb-1">Lajur yang diperlukan (guna template):</p>
+            <div className="rounded-xl border border-border/80 bg-muted/40 p-3 text-sm">
+              <p className="section-label mb-1.5">Lajur yang diperlukan (guna template):</p>
               <p className="text-xs text-muted-foreground break-words">{COLUMNS.join(' · ')}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 <b>Produk</b> sepadan nama bundle anda (untuk kos automatik). <b>CaraBayaran</b>: CASH atau COD.
@@ -187,14 +191,14 @@ const BulkOrderImport: React.FC<{ onImported?: () => void }> = ({ onImported }) 
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} className="hidden" id="bulk-order-file" />
             <label
               htmlFor="bulk-order-file"
-              className={`flex items-center justify-center gap-2 w-full px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${busy ? 'pointer-events-none opacity-60' : ''}`}
+              className={`flex items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/40 hover:bg-accent transition-colors ${busy ? 'pointer-events-none opacity-60' : ''}`}
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               <span className="text-sm text-muted-foreground">{busy ? 'Mengimport…' : 'Pilih fail .xlsx / .csv'}</span>
             </label>
 
             {result && (
-              <div className="rounded-lg border border-border p-3 text-sm">
+              <div className="rounded-xl border border-border/80 p-3 text-sm">
                 <p className="flex items-center gap-2 font-medium text-green-600">
                   <CheckCircle2 className="w-4 h-4" /> {result.ok} order berjaya
                 </p>

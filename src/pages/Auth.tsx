@@ -68,7 +68,7 @@ const Auth: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
       <div className="w-full max-w-md animate-slide-up">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand text-white shadow-lg shadow-primary/20 mb-4">
             <Bot className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold">
@@ -80,7 +80,7 @@ const Auth: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-card rounded-2xl shadow-lg border border-border p-8">
+        <div className="bg-card rounded-2xl shadow-lg border border-border/80 p-6 sm:p-8">
           <h2 className="text-xl font-bold text-foreground mb-1">Sign In</h2>
           <p className="text-muted-foreground text-sm mb-6">Welcome back! Sign in to your business.</p>
 

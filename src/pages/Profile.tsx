@@ -3,11 +3,14 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import {
   UserCircle, Lock, Phone, Loader2, Eye, EyeOff, Smartphone,
-  RefreshCw, QrCode, Wifi, WifiOff, Plus, LogOut, Pencil, Check, X
+  RefreshCw, QrCode, Wifi, WifiOff, Plus, LogOut, Pencil, Check, X, Info, ExternalLink, Radio, Send
 } from 'lucide-react';
+import { PageHeader, IconTile, TableSkeleton, MissingHint } from '@/components/common/SoftUI';
 import {
   Dialog,
   DialogContent,
@@ -460,18 +463,18 @@ const Profile: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-primary">Profile</h1>
-        <p className="text-muted-foreground">
-          Urus maklumat akaun anda
-        </p>
-      </div>
+      <PageHeader
+        title="Profile"
+        description="Urus maklumat akaun anda"
+        icon={UserCircle}
+        tone="brand"
+      />
 
       {/* User Info Card */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <UserCircle className="w-10 h-10 text-primary" />
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-brand flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-white shadow-sm sm:h-16 sm:w-16">
+            <UserCircle className="h-8 w-8 sm:h-10 sm:w-10" />
           </div>
           <div className="flex-1 min-w-0">
             {isEditingName ? (
@@ -480,7 +483,7 @@ const Profile: React.FC = () => {
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   placeholder="Nama anda"
-                  className="h-9 max-w-xs"
+                  className="h-9 min-w-0 flex-1 sm:max-w-xs"
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setIsEditingName(false); }}
                 />
@@ -493,54 +496,60 @@ const Profile: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-semibold text-foreground truncate">{displayName || 'Set your name'}</h2>
+                <h2 className="text-lg font-semibold text-foreground truncate sm:text-xl">{displayName || 'Set your name'}</h2>
                 <button
                   onClick={() => { setNameInput(displayName); setIsEditingName(true); }}
-                  className="text-muted-foreground hover:text-primary transition-colors"
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
                   title="Edit name"
                 >
                   <Pencil className="w-4 h-4" />
                 </button>
               </div>
             )}
-            <p className="text-muted-foreground">ID Staff: {profile?.idstaff}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="section-label">ID Staff</span>
+              <span className="font-mono text-sm text-foreground">{profile?.idstaff}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* WhatsApp Notification — marketers set their own PeningBot device Instance
           (created/paired on peningbot.com). If set, their own orders' customer
           notifications send from their own WhatsApp; else HQ's instance is used. */}
       {isMarketer && (
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-1">
-            <Smartphone className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">WhatsApp Notification</h3>
+        <Card className="p-4 sm:p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <IconTile icon={Smartphone} tone="green" size="sm" />
+            <h3 className="text-base font-semibold text-foreground">WhatsApp Notification</h3>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p>
             Di <span className="font-medium">peningbot.com</span>: Device Settings → Add Device → scan QR. Kemudian tekan
             {' '}<span className="font-medium">Edit</span> pada device → medan <span className="font-medium">Instance</span> → butang
             {' '}<span className="font-medium">Salin</span>, dan tampal di sini. Jangan guna medan &quot;Device ID&quot; (nama seperti IMAN01).
             {' '}Order anda akan hantar notifikasi dari WhatsApp anda sendiri. Jika kosong, device HQ digunakan.
-          </p>
-          <label className="block text-sm font-medium mb-1">PeningBot Instance</label>
+            </p>
+          </div>
+          <Label className="mb-1.5 block">PeningBot Instance</Label>
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               value={waInstance}
               onChange={(e) => { setWaInstance(e.target.value); setInstanceStatus(null); }}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              className="flex-1"
+              className="flex-1 font-mono"
             />
             <Button onClick={handleSaveInstance} disabled={savingInstance}>
-              {savingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Simpan
+              {savingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} Simpan
             </Button>
             {waInstance.trim() ? (
               <Button variant="outline" onClick={handleCheckInstance} disabled={checkingInstance}>
-                {checkingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Check Status Device
+                {checkingInstance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Radio className="w-4 h-4 mr-2" />} Check Status Device
               </Button>
             ) : (
-              <Button variant="secondary" onClick={() => window.open('https://www.peningbot.com/', '_blank')}>
-                Register Whatsapp Notification
+              <Button variant="outline" onClick={() => window.open('https://www.peningbot.com/', '_blank')}>
+                <ExternalLink className="w-4 h-4 mr-2" /> Register Whatsapp Notification
               </Button>
             )}
           </div>
@@ -558,7 +567,7 @@ const Profile: React.FC = () => {
           {/* Test send — send a test WhatsApp to any Malaysia number. */}
           {waInstance.trim() && (
             <div className="mt-4 pt-4 border-t border-border">
-              <label className="block text-sm font-medium mb-1">Test Hantar Mesej</label>
+              <Label className="mb-1.5 block">Test Hantar Mesej</Label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={testPhone}
@@ -566,23 +575,23 @@ const Profile: React.FC = () => {
                   placeholder="No. telefon (cth: 0123456789)"
                   className="flex-1"
                 />
-                <Button variant="secondary" onClick={handleTestSendInstance} disabled={isSendingTest}>
-                  {isSendingTest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Test Hantar
+                <Button variant="outline" onClick={handleTestSendInstance} disabled={isSendingTest}>
+                  {isSendingTest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />} Test Hantar
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Hantar mesej test ke mana-mana nombor Malaysia untuk sahkan device berfungsi.</p>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* WhatsApp Device — legacy Baileys UI; device creation now lives on peningbot.com. */}
       {false && (
-        <div className="bg-card border border-border rounded-lg p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Smartphone className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">WhatsApp Device</h3>
+              <IconTile icon={Smartphone} tone="green" size="sm" />
+              <h3 className="text-base font-semibold text-foreground">WhatsApp Device</h3>
             </div>
             {device && (
               <div className="flex items-center gap-2">
@@ -602,9 +611,7 @@ const Profile: React.FC = () => {
           </div>
 
           {isLoadingDevice ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
+            <TableSkeleton rows={2} cols={2} />
           ) : !device ? (
             // Create Device — Baileys pairs by scanning a QR, no phone entry.
             <div className="space-y-4">
@@ -634,19 +641,19 @@ const Profile: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">ID Device</p>
+                  <p className="section-label">ID Device</p>
                   <p className="text-sm font-medium text-foreground">{device.id_device || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">No. Telefon</p>
+                  <p className="section-label">No. Telefon</p>
                   <p className="text-sm font-medium text-foreground">{device.phone_number || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Instance ID</p>
-                  <p className="text-sm font-medium text-foreground font-mono">{device.instance || 'Belum generate'}</p>
+                  <p className="section-label">Instance ID</p>
+                  <p className="text-sm font-medium text-foreground font-mono break-all">{device.instance || 'Belum generate'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Provider</p>
+                  <p className="section-label">Provider</p>
                   <p className="text-sm font-medium text-foreground capitalize">{device.provider}</p>
                 </div>
               </div>
@@ -745,22 +752,22 @@ const Profile: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Change Password Card */}
-        <div className="bg-card border border-border rounded-lg p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4">
-            <Lock className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Tukar Kata Laluan</h3>
+            <IconTile icon={Lock} tone="indigo" size="sm" />
+            <h3 className="text-base font-semibold text-foreground">Tukar Kata Laluan</h3>
           </div>
 
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <Label className="mb-1.5 block">
                 Kata Laluan Baru
-              </label>
+              </Label>
               <div className="relative">
                 <Input
                   type={showNewPassword ? "text" : "password"}
@@ -780,9 +787,9 @@ const Profile: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <Label className="mb-1.5 block">
                 Sahkan Kata Laluan Baru
-              </label>
+              </Label>
               <div className="relative">
                 <Input
                   type={showConfirmPassword ? "text" : "password"}
@@ -801,6 +808,15 @@ const Profile: React.FC = () => {
               </div>
             </div>
 
+            {(passwordForm.newPassword || passwordForm.confirmPassword) && (
+              <MissingHint
+                items={[
+                  { label: 'Min 6 aksara', done: passwordForm.newPassword.length >= 6 },
+                  { label: 'Kata laluan sepadan', done: passwordForm.newPassword === passwordForm.confirmPassword },
+                ]}
+              />
+            )}
+
             <Button
               type="submit"
               disabled={isChangingPassword}
@@ -816,20 +832,20 @@ const Profile: React.FC = () => {
               )}
             </Button>
           </form>
-        </div>
+        </Card>
 
         {/* Update WhatsApp Card */}
-        <div className="bg-card border border-border rounded-lg p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4">
-            <Phone className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-foreground">No. WhatsApp</h3>
+            <IconTile icon={Phone} tone="green" size="sm" />
+            <h3 className="text-base font-semibold text-foreground">No. WhatsApp</h3>
           </div>
 
           <form onSubmit={handleWhatsAppUpdate} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <Label className="mb-1.5 block">
                 No. WhatsApp (bermula dengan 6)
-              </label>
+              </Label>
               <Input
                 type="text"
                 placeholder="60123456789"
@@ -841,6 +857,10 @@ const Profile: React.FC = () => {
                 Contoh: 60123456789
               </p>
             </div>
+
+            <MissingHint
+              items={[{ label: 'No. WhatsApp bermula dengan 6', done: !!whatsappNumber && whatsappNumber.startsWith('6') }]}
+            />
 
             <Button
               type="submit"
@@ -857,7 +877,7 @@ const Profile: React.FC = () => {
               )}
             </Button>
           </form>
-        </div>
+        </Card>
       </div>
 
       {/* QR Code Modal */}
@@ -865,14 +885,14 @@ const Profile: React.FC = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <QrCode className="w-5 h-5" />
+              <IconTile icon={QrCode} tone="green" size="sm" />
               Scan QR Code
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center py-4">
             {qrCode ? (
               <>
-                <img src={qrCode} alt="QR Code" className="w-64 h-64 border rounded-lg" />
+                <img src={qrCode} alt="QR Code" className="h-64 w-64 max-w-full rounded-lg border object-contain" />
                 <p className="text-sm text-muted-foreground mt-4 text-center">
                   Buka WhatsApp &gt; Linked Devices &gt; Link a Device
                   <br />
@@ -880,9 +900,7 @@ const Profile: React.FC = () => {
                 </p>
               </>
             ) : (
-              <div className="flex items-center justify-center w-64 h-64 bg-muted rounded-lg">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
+              <div className="shimmer h-64 w-64 max-w-full rounded-lg" aria-busy="true" />
             )}
           </div>
           <div className="flex gap-2">

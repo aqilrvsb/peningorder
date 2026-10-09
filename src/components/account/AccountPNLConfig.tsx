@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { Settings, Plus, Trash2, Loader2, Save, DollarSign, Percent, TrendingUp } from 'lucide-react';
+import { Settings, Plus, Trash2, Loader2, Save, DollarSign, Percent, TrendingUp, Layers } from 'lucide-react';
+import { PageHeader, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 type RevenueBasis = 'nett_sales' | 'collection' | 'komisyen_order';
 type CommissionMode = 'profit_sharing' | 'percent_direct';
@@ -133,8 +134,8 @@ const AccountPNLConfig: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 max-w-3xl">
+        <TableSkeleton rows={6} cols={3} />
       </div>
     );
   }
@@ -147,43 +148,42 @@ const AccountPNLConfig: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-            <Settings className="w-6 h-6" />
-            PNL Configuration
-          </h1>
-          <p className="text-muted-foreground mt-1">Konfigurasi cara kira komisyen staf</p>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Simpan
-        </Button>
-      </div>
+      <PageHeader
+        title="PNL Configuration"
+        description="Konfigurasi cara kira komisyen staf"
+        icon={Settings}
+        tone="brand"
+        actions={
+          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Simpan
+          </Button>
+        }
+      />
 
       {/* 1. Revenue basis */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-2 font-semibold">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
-          <DollarSign className="w-4 h-4 text-blue-500" />
+          <IconTile icon={DollarSign} tone="green" size="sm" />
           Asas Jualan (Revenue)
         </div>
         <RadioGroup value={config.revenue_basis} onValueChange={(v: RevenueBasis) => set({ revenue_basis: v })} className="grid sm:grid-cols-3 gap-3">
-          <label htmlFor="rb-nett" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="rb-nett" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="nett_sales" id="rb-nett" className="mt-0.5" />
             <div>
               <div className="font-medium">Nett Sales</div>
               <div className="text-xs text-muted-foreground">Total Sales − Return</div>
             </div>
           </label>
-          <label htmlFor="rb-coll" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="rb-coll" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="collection" id="rb-coll" className="mt-0.5" />
             <div>
               <div className="font-medium">Collection</div>
               <div className="text-xs text-muted-foreground">Duit yang benar-benar dikutip (COD selepas remit)</div>
             </div>
           </label>
-          <label htmlFor="rb-kom" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="rb-kom" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="komisyen_order" id="rb-kom" className="mt-0.5" />
             <div>
               <div className="font-medium">Komisyen Order</div>
@@ -194,24 +194,24 @@ const AccountPNLConfig: React.FC = () => {
       </div>
 
       {isKomisyenOrder && (
-        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+        <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
           <div className="flex items-center gap-2 font-semibold">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
-            <Percent className="w-4 h-4 text-primary" />
+            <IconTile icon={Percent} tone="indigo" size="sm" />
             Order yang dikira untuk komisyen
           </div>
           <p className="text-xs text-muted-foreground">
             Komisyen = jumlah komisyen bundle (setup di Logistic). Pilih order mana yang layak dapat komisyen:
           </p>
           <RadioGroup value={config.komisyen_basis} onValueChange={(v: KomisyenBasis) => set({ komisyen_basis: v })} className="grid sm:grid-cols-2 gap-3">
-            <label htmlFor="kb-nett" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+            <label htmlFor="kb-nett" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
               <RadioGroupItem value="nett_sales" id="kb-nett" className="mt-0.5" />
               <div>
                 <div className="font-medium">Total Sales − Return</div>
                 <div className="text-xs text-muted-foreground">Semua order kira komisyen kecuali order Return</div>
               </div>
             </label>
-            <label htmlFor="kb-coll" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+            <label htmlFor="kb-coll" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
               <RadioGroupItem value="collection" id="kb-coll" className="mt-0.5" />
               <div>
                 <div className="font-medium">Collection</div>
@@ -224,21 +224,21 @@ const AccountPNLConfig: React.FC = () => {
 
       {!isKomisyenOrder && (<>
       {/* 2. Commission mode */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-2 font-semibold">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
-          <Percent className="w-4 h-4 text-primary" />
+          <IconTile icon={Percent} tone="indigo" size="sm" />
           Jenis Komisyen
         </div>
         <RadioGroup value={config.commission_mode} onValueChange={(v: CommissionMode) => set({ commission_mode: v })} className="grid sm:grid-cols-2 gap-3">
-          <label htmlFor="cm-profit" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="cm-profit" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="profit_sharing" id="cm-profit" className="mt-0.5" />
             <div>
               <div className="font-medium">Profit Sharing (Gross)</div>
               <div className="text-xs text-muted-foreground">% daripada gross profit (asas jualan tolak kos dipilih)</div>
             </div>
           </label>
-          <label htmlFor="cm-direct" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="cm-direct" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="percent_direct" id="cm-direct" className="mt-0.5" />
             <div>
               <div className="font-medium">By Percent Direct</div>
@@ -251,18 +251,18 @@ const AccountPNLConfig: React.FC = () => {
           <div className="mt-2 pt-3 border-t border-border space-y-3">
             <div className="text-sm font-medium text-muted-foreground">Tolak kos berikut untuk kira Gross:</div>
             <div className="grid sm:grid-cols-3 gap-3">
-              <label htmlFor="d-postage" className="flex items-center gap-2 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40">
+              <label htmlFor="d-postage" className="flex items-center gap-2 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40">
                 <Checkbox id="d-postage" checked={config.deduct_postage} onCheckedChange={(v) => set({ deduct_postage: !!v })} />
                 <div>
                   <div className="text-sm font-medium">Kos Postage</div>
                   <div className="text-[11px] text-muted-foreground">termasuk postage order return</div>
                 </div>
               </label>
-              <label htmlFor="d-product" className="flex items-center gap-2 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40">
+              <label htmlFor="d-product" className="flex items-center gap-2 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40">
                 <Checkbox id="d-product" checked={config.deduct_product} onCheckedChange={(v) => set({ deduct_product: !!v })} />
                 <div className="text-sm font-medium">Kos Product</div>
               </label>
-              <label htmlFor="d-spend" className="flex items-center gap-2 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40">
+              <label htmlFor="d-spend" className="flex items-center gap-2 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40">
                 <Checkbox id="d-spend" checked={config.deduct_spend} onCheckedChange={(v) => set({ deduct_spend: !!v })} />
                 <div className="text-sm font-medium">Kos Spend</div>
               </label>
@@ -272,21 +272,21 @@ const AccountPNLConfig: React.FC = () => {
       </div>
 
       {/* 3. KPI */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-2 font-semibold">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">3</span>
-          <TrendingUp className="w-4 h-4 text-amber-500" />
+          <IconTile icon={TrendingUp} tone="amber" size="sm" />
           KPI
         </div>
         <RadioGroup value={config.kpi_type} onValueChange={(v: KpiType) => set({ kpi_type: v })} className="grid sm:grid-cols-2 gap-3">
-          <label htmlFor="kpi-roas" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="kpi-roas" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="roas" id="kpi-roas" className="mt-0.5" />
             <div>
               <div className="font-medium">By ROAS</div>
               <div className="text-xs text-muted-foreground">Tier ikut ROAS (Total Sales / Spend)</div>
             </div>
           </label>
-          <label htmlFor="kpi-range" className="flex items-start gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/40 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="kpi-range" className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer transition-colors hover:bg-muted/40 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-primary/5 has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary/10">
             <RadioGroupItem value="range_sales" id="kpi-range" className="mt-0.5" />
             <div>
               <div className="font-medium">By Range Sales</div>
@@ -297,19 +297,20 @@ const AccountPNLConfig: React.FC = () => {
       </div>
 
       {/* 4. Tiers */}
-      <div className="bg-card border border-border rounded-lg p-5 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-semibold">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">4</span>
+            <IconTile icon={Layers} tone="purple" size="sm" />
             Tiers ({isRoas ? 'ROAS' : 'Range Sales'})
           </div>
           <Button size="sm" variant="outline" onClick={addTier} className="gap-1">
             <Plus className="w-3 h-3" /> Tambah Tier
           </Button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr>
                 <th className="p-2 text-left w-12">No</th>
                 <th className="p-2 text-left">Start {isRoas ? '(ROAS)' : '(RM)'}</th>
@@ -320,7 +321,7 @@ const AccountPNLConfig: React.FC = () => {
             </thead>
             <tbody>
               {config.tiers.map((t, i) => (
-                <tr key={i} className="border-t border-border">
+                <tr key={i} className="border-t border-border hover:bg-muted/40 transition-colors">
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">
                     <Input type="number" step="0.01" value={String(t.start)} onChange={(e) => updateTier(i, 'start', e.target.value)} className="h-9 w-28" placeholder="0" />
@@ -339,7 +340,7 @@ const AccountPNLConfig: React.FC = () => {
                 </tr>
               ))}
               {config.tiers.length === 0 && (
-                <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">Tiada tier. Klik "Tambah Tier".</td></tr>
+                <tr><td colSpan={5} className="p-0"><EmptyState icon={Layers} title={'Tiada tier. Klik "Tambah Tier".'} className="py-8" /></td></tr>
               )}
             </tbody>
           </table>
@@ -354,7 +355,7 @@ const AccountPNLConfig: React.FC = () => {
       </>)}
 
       {/* How it works — reflects the current config */}
-      <div className="bg-card border border-border rounded-lg p-4 text-sm text-muted-foreground">
+      <div className="bg-muted/30 border border-border/80 rounded-xl p-4 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Cara kira: </span>
         {isKomisyenOrder ? (
           <>Komisyen = jumlah <b>Komisyen Order</b> setiap bundle (ikut setup Logistic), dikira untuk order <b>{config.komisyen_basis === 'collection' ? 'yang dah Collect sahaja' : 'Total Sales − Return (semua kecuali Return)'}</b>.</>

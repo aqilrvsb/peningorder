@@ -23,8 +23,10 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil, TrendingUp, Paperclip, Eye
+  Plus, Trash2, Loader2, DollarSign, RotateCcw, Pencil, TrendingUp, Paperclip, Eye, Wallet, Facebook, Database, Globe, Video, AtSign
 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { PageHeader, StatCard, TableSkeleton, CardsSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 import { put } from '@vercel/blob';
 import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { toast } from '@/hooks/use-toast';
@@ -322,8 +324,9 @@ const Spend: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={7} />
+        <Card className="p-4"><TableSkeleton rows={6} cols={6} /></Card>
       </div>
     );
   }
@@ -331,12 +334,12 @@ const Spend: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Spend</h1>
-          <p className="text-muted-foreground">Urus perbelanjaan marketing</p>
-        </div>
-        {canCreate && (
+      <PageHeader
+        title="Spend"
+        description="Urus perbelanjaan marketing"
+        icon={Wallet}
+        tone="brand"
+        actions={canCreate && (
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
@@ -344,12 +347,12 @@ const Spend: React.FC = () => {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-2" />Add Spend</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>{editingSpend ? 'Edit Spend' : 'Add New Spend'}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
+              <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="product">Product *</Label>
                   <Select value={formData.product} onValueChange={(value) => handleChange('product', value)}>
                     <SelectTrigger><SelectValue placeholder="Pilih product" /></SelectTrigger>
@@ -360,7 +363,7 @@ const Spend: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="jenisPlatform">Jenis Platform *</Label>
                   <Select value={formData.jenisPlatform} onValueChange={(value) => handleChange('jenisPlatform', value)}>
                     <SelectTrigger><SelectValue placeholder="Pilih platform" /></SelectTrigger>
@@ -391,7 +394,7 @@ const Spend: React.FC = () => {
                     onChange={(e) => handleChange('tarikhSpend', e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="receiptFile" className="flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5" /> Resit / Bukti Spend <span className="text-muted-foreground font-normal">(optional)</span>
                   </Label>
@@ -407,7 +410,16 @@ const Spend: React.FC = () => {
                     <p className="text-xs text-muted-foreground">Resit sedia ada dilampirkan — pilih fail baru untuk menggantikan.</p>
                   ) : null}
                 </div>
-                <DialogFooter className="gap-3 pt-4">
+                <MissingHint
+                  className="sm:col-span-2"
+                  items={[
+                    { label: 'Product', done: !!formData.product },
+                    { label: 'Jenis Platform', done: !!formData.jenisPlatform },
+                    { label: 'Total Spend', done: !!formData.totalSpend },
+                    { label: 'Tarikh Spend', done: !!formData.tarikhSpend },
+                  ]}
+                />
+                <DialogFooter className="gap-3 pt-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={() => {
                     setIsDialogOpen(false);
                     resetForm();
@@ -421,104 +433,65 @@ const Spend: React.FC = () => {
             </DialogContent>
           </Dialog>
         )}
-      </div>
+      />
 
       {/* Stats Cards - Total Spend + Platform Totals */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-green-500" />
-            <span className="text-xs uppercase font-medium">Total Spend</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {stats.totalSpend.toFixed(2)}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        <StatCard icon={DollarSign} tone="green" label="Total Spend" value={`RM ${stats.totalSpend.toFixed(2)}`} />
 
         {/* ROAS = Sale / Spend for the selected period (informational KPI). */}
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <TrendingUp className="w-4 h-4 text-amber-500" />
-            <span className="text-xs uppercase font-medium">ROAS</span>
-          </div>
-          <p className="text-xl font-bold text-amber-600">{roas.toFixed(2)}x</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Sale RM {totalSales.toFixed(2)} / Spend</p>
-        </div>
+        <StatCard
+          icon={TrendingUp}
+          tone="amber"
+          label="ROAS"
+          value={<span className="text-amber-600 dark:text-amber-400">{roas.toFixed(2)}x</span>}
+          hint={`Sale RM ${totalSales.toFixed(2)} / Spend`}
+        />
 
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-blue-500" />
-            <span className="text-xs uppercase font-medium">Total Spend FB</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Facebook'] || 0).toFixed(2)}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-purple-500" />
-            <span className="text-xs uppercase font-medium">Total Spend Database</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Database'] || 0).toFixed(2)}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-orange-500" />
-            <span className="text-xs uppercase font-medium">Total Spend Google</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Google'] || 0).toFixed(2)}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-pink-500" />
-            <span className="text-xs uppercase font-medium">Total Spend Tiktok</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Tiktok'] || 0).toFixed(2)}</p>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <DollarSign className="w-4 h-4 text-red-500" />
-            <span className="text-xs uppercase font-medium">Total Spend Threads</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">RM {(stats.platformSpends['Threads'] || 0).toFixed(2)}</p>
-        </div>
+        <StatCard icon={Facebook} tone="blue" label="Total Spend FB" value={`RM ${(stats.platformSpends['Facebook'] || 0).toFixed(2)}`} />
+        <StatCard icon={Database} tone="purple" label="Total Spend Database" value={`RM ${(stats.platformSpends['Database'] || 0).toFixed(2)}`} />
+        <StatCard icon={Globe} tone="orange" label="Total Spend Google" value={`RM ${(stats.platformSpends['Google'] || 0).toFixed(2)}`} />
+        <StatCard icon={Video} tone="pink" label="Total Spend Tiktok" value={`RM ${(stats.platformSpends['Tiktok'] || 0).toFixed(2)}`} />
+        <StatCard icon={AtSign} tone="slate" label="Total Spend Threads" value={`RM ${(stats.platformSpends['Threads'] || 0).toFixed(2)}`} />
       </div>
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Start Date</label>
-            <Input
-              type="date"
-              value={pendingStart}
-              onChange={(e) => setPendingStart(e.target.value)}
-              className="bg-background"
-            />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-muted-foreground mb-1">End Date</label>
-            <Input
-              type="date"
-              value={pendingEnd}
-              onChange={(e) => setPendingEnd(e.target.value)}
-              className="bg-background"
-            />
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="grid grid-cols-2 gap-3 sm:contents">
+            <div className="min-w-0 sm:w-44">
+              <Label className="mb-1.5 block">Start Date</Label>
+              <Input
+                type="date"
+                value={pendingStart}
+                onChange={(e) => setPendingStart(e.target.value)}
+                className="bg-background"
+              />
+            </div>
+            <div className="min-w-0 sm:w-44">
+              <Label className="mb-1.5 block">End Date</Label>
+              <Input
+                type="date"
+                value={pendingEnd}
+                onChange={(e) => setPendingEnd(e.target.value)}
+                className="bg-background"
+              />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-          <div className="flex items-end"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
-          <Button variant="outline" onClick={resetFilters}>
+          <TeamFilter value={teamFilter} onChange={setTeamFilter} className="w-full sm:w-auto" />
+          <Button variant="outline" onClick={resetFilters} className="w-full sm:w-auto">
             <RotateCcw className="w-4 h-4 mr-2" />
             Reset
           </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <Card className="overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className="w-16">No</TableHead>
               <TableHead className="text-blue-600 dark:text-blue-400">ID Staff</TableHead>
               <TableHead className="text-blue-600 dark:text-blue-400">Nama</TableHead>
@@ -533,18 +506,18 @@ const Spend: React.FC = () => {
           <TableBody>
             {filteredSpends.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Tiada data spend
+                <TableCell colSpan={9} className="p-0">
+                  <EmptyState icon={Wallet} title="Tiada data spend" />
                 </TableCell>
               </TableRow>
             ) : (
               filteredSpends.map((spend, idx) => (
-                <TableRow key={spend.id} className="hover:bg-muted/30">
+                <TableRow key={spend.id} className="hover:bg-muted/40">
                   <TableCell className="font-medium">{idx + 1}</TableCell>
-                  <TableCell className="font-mono text-blue-600 dark:text-blue-400">{spend.marketerIdStaff || '-'}</TableCell>
+                  <TableCell className="font-mono whitespace-nowrap text-blue-600 dark:text-blue-400">{spend.marketerIdStaff || '-'}</TableCell>
                   <TableCell>{nameByIdstaff.get(spend.marketerIdStaff || '') || '-'}</TableCell>
-                  <TableCell>{formatDMY(spend.tarikhSpend)}</TableCell>
-                  <TableCell className="text-right">RM {spend.totalSpend.toFixed(2)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDMY(spend.tarikhSpend)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap font-medium">RM {spend.totalSpend.toFixed(2)}</TableCell>
                   <TableCell>{spend.product}</TableCell>
                   <TableCell>{spend.jenisPlatform}</TableCell>
                   <TableCell>
@@ -581,7 +554,7 @@ const Spend: React.FC = () => {
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
       {/* Receipt viewer — image shows inline, PDF renders via shared ReceiptViewer */}
       <Dialog open={!!viewingReceipt} onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}>

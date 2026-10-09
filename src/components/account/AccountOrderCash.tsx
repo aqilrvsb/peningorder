@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Banknote, Loader2, Calendar, ExternalLink, Eye, Package, Truck } from 'lucide-react';
+import { Banknote, Calendar, ExternalLink, Eye, Package, Truck, Receipt } from 'lucide-react';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatRM, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
@@ -13,6 +13,7 @@ import { TablePagination } from '@/components/TablePagination';
 import { ReceiptViewer } from '@/components/ReceiptViewer';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 type CashOrder = {
   id: string;
@@ -152,60 +153,67 @@ const AccountOrderCash: React.FC = () => {
   };
   const allCleared = payFilter === 'All' && proofFilter === 'All' && courierFilter === 'All';
   const boxCls = (active: boolean) =>
-    `rounded-xl border p-4 text-left transition-colors ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border bg-card hover:bg-muted/40'}`;
+    `rounded-xl border bg-card p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${active ? 'border-primary/40 ring-2 ring-primary/15' : 'border-border/80'}`;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Banknote className="w-6 h-6" /></span>
-        <div>
-          <h1 className="text-2xl font-bold">Order CASH + PICKUP</h1>
-          <p className="text-muted-foreground text-sm">Semua order CASH &amp; PICKUP dengan bukti bayaran (resit atau link), ikut tarikh order.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Order CASH + PICKUP"
+        description={<>Semua order CASH &amp; PICKUP dengan bukti bayaran (resit atau link), ikut tarikh order.</>}
+        icon={Banknote}
+        tone="brand"
+      />
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-wrap gap-4 items-end">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-4 h-4" /><span className="text-sm font-medium text-foreground">Tarikh Order:</span>
+            <IconTile icon={Calendar} tone="blue" size="sm" /><span className="text-sm font-medium text-foreground">Tarikh Order:</span>
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Dari</label>
-            <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
+            <label className="section-label block mb-1">Dari</label>
+            <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Hingga</label>
-            <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
+            <label className="section-label block mb-1">Hingga</label>
+            <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
           </div>
           <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-          <div className="flex items-end pb-0.5">
-            <TeamFilter value={teamFilter} onChange={setTeamFilter} />
+          <div className="flex items-end">
+            <TeamFilter value={teamFilter} onChange={setTeamFilter} className="w-full sm:w-auto" />
           </div>
         </div>
       </div>
 
       {/* Summary — Total Order (CASH+PICKUP), Total CASH, Total PICKUP.
           The three proof sub-lines under CASH/PICKUP are themselves clickable. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 sm:gap-4">
         {/* Total Order — clears every filter */}
-        <button onClick={() => setFilter({})} className={boxCls(allCleared)}>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Banknote className="w-4 h-4" />Total Order (CASH + PICKUP)</p>
-          <p className="text-2xl font-bold mt-1 text-primary">{counts.all}</p>
-        </button>
+        <StatCard
+          icon={Banknote}
+          tone="blue"
+          label="Total Order (CASH + PICKUP)"
+          value={counts.all}
+          onClick={() => setFilter({})}
+          active={allCleared}
+          className="col-span-2 md:col-span-1"
+        />
 
         {/* Total CASH */}
         {([
-          { pay: 'CASH' as const, label: 'Total CASH', bd: counts.cash, accent: 'text-green-600 dark:text-green-400' },
-          { pay: 'Pickup' as const, label: 'Total PICKUP', bd: counts.pickup, accent: 'text-blue-600 dark:text-blue-400' },
+          { pay: 'CASH' as const, label: 'Total CASH', bd: counts.cash, accent: 'text-green-600 dark:text-green-400', icon: Banknote, tone: 'green' as const },
+          { pay: 'Pickup' as const, label: 'Total PICKUP', bd: counts.pickup, accent: 'text-blue-600 dark:text-blue-400', icon: Package, tone: 'cyan' as const },
         ]).map((b) => (
           <div key={b.pay} className={boxCls(payFilter === b.pay)}>
-            <button onClick={() => setFilter({ pay: b.pay })} className="w-full text-left">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{b.label}</p>
-              <p className={`text-2xl font-bold mt-1 ${b.accent}`}>{b.bd.total}</p>
+            <button onClick={() => setFilter({ pay: b.pay })} className="flex w-full items-center gap-3 text-left">
+              <IconTile icon={b.icon} tone={b.tone} />
+              <div className="min-w-0">
+                <p className={`text-xl sm:text-2xl font-bold leading-tight tracking-tight ${b.accent}`}>{b.bd.total}</p>
+                <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{b.label}</p>
+              </div>
             </button>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 border-t border-border/60 pt-2 text-xs">
               <button onClick={() => setFilter({ pay: b.pay, proof: 'image' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'image' ? 'font-bold underline' : ''} text-emerald-600 dark:text-emerald-400`}>Resit {b.bd.resit}</button>
               <button onClick={() => setFilter({ pay: b.pay, proof: 'link' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'link' ? 'font-bold underline' : ''} text-blue-600 dark:text-blue-400`}>Link {b.bd.link}</button>
               <button onClick={() => setFilter({ pay: b.pay, proof: 'none' })} className={`hover:underline ${payFilter === b.pay && proofFilter === 'none' ? 'font-bold underline' : ''} text-red-600 dark:text-red-400`}>Tiada Both {b.bd.tiada}</button>
@@ -217,17 +225,18 @@ const AccountOrderCash: React.FC = () => {
       {/* Summary by Kurier — each courier with proof breakdown, all clickable */}
       {counts.couriers.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5"><Truck className="w-4 h-4" />Ringkasan Ikut Kurier</p>
+          <p className="section-label mb-2 flex items-center gap-2"><IconTile icon={Truck} tone="cyan" size="sm" />Ringkasan Ikut Kurier</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {counts.couriers.map((c) => (
               <div key={c.name} className={boxCls(courierFilter === c.name)}>
-                <button onClick={() => setFilter({ courier: c.name })} className="w-full text-left">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                    {c.name === 'Pickup' ? <Package className="w-4 h-4" /> : <Truck className="w-4 h-4" />}{c.name}
-                  </p>
-                  <p className="text-2xl font-bold mt-1 text-foreground">{c.total}</p>
+                <button onClick={() => setFilter({ courier: c.name })} className="flex w-full items-center gap-3 text-left">
+                  <IconTile icon={c.name === 'Pickup' ? Package : Truck} tone={c.name === 'Pickup' ? 'cyan' : 'slate'} />
+                  <div className="min-w-0">
+                    <p className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-foreground">{c.total}</p>
+                    <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{c.name}</p>
+                  </div>
                 </button>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 border-t border-border/60 pt-2 text-xs">
                   <button onClick={() => setFilter({ courier: c.name, proof: 'none' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'none' ? 'font-bold underline' : ''} text-red-600 dark:text-red-400`}>Tiada {c.tiada}</button>
                   <button onClick={() => setFilter({ courier: c.name, proof: 'image' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'image' ? 'font-bold underline' : ''} text-emerald-600 dark:text-emerald-400`}>Resit {c.resit}</button>
                   <button onClick={() => setFilter({ courier: c.name, proof: 'link' })} className={`hover:underline ${courierFilter === c.name && proofFilter === 'link' ? 'font-bold underline' : ''} text-blue-600 dark:text-blue-400`}>Link {c.link}</button>
@@ -239,13 +248,13 @@ const AccountOrderCash: React.FC = () => {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={8} cols={7} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-2 text-left">No</th>
                   <th className="p-2 text-left text-blue-600 dark:text-blue-400">ID Staff</th>
@@ -265,7 +274,7 @@ const AccountOrderCash: React.FC = () => {
                 {paged.map((o, i) => {
                   const pt = proofType(o);
                   return (
-                    <tr key={o.id} className="border-t border-border hover:bg-muted/30">
+                    <tr key={o.id} className="border-t border-border hover:bg-muted/40 transition-colors">
                       <td className="p-2">{(page - 1) * pageSize + i + 1}</td>
                       <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || '') || '-'}</td>
@@ -275,12 +284,12 @@ const AccountOrderCash: React.FC = () => {
                       <td className="p-2">{o.name_customer || '-'}</td>
                       <td className="p-2">{o.bundle?.name || '-'}</td>
                       <td className="p-2">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${isPickup(o) ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isPickup(o) ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
                           {isPickup(o) ? 'PICKUP' : 'CASH'}
                         </span>
                       </td>
                       <td className="p-2">{o.bank_payment || '-'}</td>
-                      <td className="p-2 text-right tabular-nums">{formatRM(Number(o.total_sale) || 0)}</td>
+                      <td className="p-2 text-right tabular-nums whitespace-nowrap">{formatRM(Number(o.total_sale) || 0)}</td>
                       <td className="p-2 text-center">
                         {pt === 'none' ? (
                           <span className="text-xs text-muted-foreground">Tiada</span>
@@ -300,14 +309,14 @@ const AccountOrderCash: React.FC = () => {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground">Tiada order cash dalam tempoh ini.</td></tr>
+                  <tr><td colSpan={12} className="p-0"><EmptyState icon={Receipt} title="Tiada order cash dalam tempoh ini." /></td></tr>
                 )}
               </tbody>
               {filtered.length > 0 && (
                 <tfoot>
-                  <tr className="border-t border-border bg-muted/30 font-semibold">
+                  <tr className="border-t border-border bg-muted/40 font-semibold">
                     <td className="p-2" colSpan={10}>Jumlah Cash ({filtered.length} order)</td>
-                    <td className="p-2 text-right tabular-nums text-green-600 dark:text-green-400">{formatRM(totalCash)}</td>
+                    <td className="p-2 text-right tabular-nums whitespace-nowrap text-green-600 dark:text-green-400">{formatRM(totalCash)}</td>
                     <td />
                   </tr>
                 </tfoot>

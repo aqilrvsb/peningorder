@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, TrendingUp, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw, Users, Wallet } from 'lucide-react';
+import { Calendar, Loader2, Filter, TrendingUp, TrendingDown, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw, Users, Wallet, Megaphone, Receipt, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
@@ -14,6 +14,13 @@ import ProductFilter from '@/components/ProductFilter';
 import { useAuth } from '@/context/AuthContext';
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, CardsSkeleton, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
+
+// Money stat cards: stack the icon above the value on phones and let long RM
+// amounts wrap instead of being cut off.
+const MONEY_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
+const wrapVal = (v: React.ReactNode, cls = '') => <span className={`whitespace-normal ${cls}`}>{v}</span>;
+
 interface Order {
   id: string;
   marketer_id_staff: string;
@@ -469,8 +476,9 @@ const AccountReportProfit: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={8} className="lg:grid-cols-3 xl:grid-cols-4" />
+        <TableSkeleton rows={6} cols={6} />
       </div>
     );
   }
@@ -478,24 +486,21 @@ const AccountReportProfit: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-            <TrendingUp className="w-6 h-6" />
-            Report Profit
-          </h1>
-          <p className="text-muted-foreground mt-1">Profit analysis by marketer (including Return orders)</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Report Profit"
+        description="Profit analysis by marketer (including Return orders)"
+        icon={TrendingUp}
+        tone="brand"
+      />
 
       {/* Date Filter */}
-      <div className="stat-card">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-5 h-5" />
-            <span className="font-medium text-foreground">Date Range:</span>
+            <IconTile icon={Calendar} tone="blue" size="sm" />
+            <span className="whitespace-nowrap font-medium text-foreground">Date Range:</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
             <div className="space-y-1">
               <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
               <Input
@@ -503,7 +508,7 @@ const AccountReportProfit: React.FC = () => {
                 type="date"
                 value={pendingStart}
                 onChange={(e) => setPendingStart(e.target.value)}
-                className="w-40"
+                className="w-full sm:w-40"
               />
             </div>
             <div className="space-y-1">
@@ -513,10 +518,10 @@ const AccountReportProfit: React.FC = () => {
                 type="date"
                 value={pendingEnd}
                 onChange={(e) => setPendingEnd(e.target.value)}
-                className="w-40"
+                className="w-full sm:w-40"
               />
             </div>
-            <Button onClick={applyFilter} disabled={isLoading} size="sm" className="h-9">
+            <Button onClick={applyFilter} disabled={isLoading} className="h-10">
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Filter className="w-4 h-4 mr-1" />}
               Filter
             </Button>
@@ -536,142 +541,84 @@ const AccountReportProfit: React.FC = () => {
       )}
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="stat-card border-l-4 border-l-blue-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <DollarSign className="w-3 h-3" />
-            Total Sales
-          </div>
-          <div className="text-lg font-bold text-blue-600">RM {formatNumber(totals.totalSales)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-green-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <DollarSign className="w-3 h-3" />
-            Total Collection
-          </div>
-          <div className="text-lg font-bold text-green-600">RM {formatNumber(totals.totalCollection)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-amber-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <Package className="w-3 h-3" />
-            Total Unit
-          </div>
-          <div className="text-lg font-bold text-amber-600">{totals.totalUnitBundle}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-rose-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <RotateCcw className="w-3 h-3" />
-            Return
-          </div>
-          <div className="text-lg font-bold text-rose-600">RM {formatNumber(totals.totalReturn)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-red-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <DollarSign className="w-3 h-3" />
-            Total Spend
-          </div>
-          <div className="text-lg font-bold text-red-600">RM {formatNumber(totals.totalSpend)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-purple-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <Package className="w-3 h-3" />
-            Cost Product
-          </div>
-          <div className="text-lg font-bold text-purple-600">RM {formatNumber(totals.totalCostProduct)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-orange-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <Truck className="w-3 h-3" />
-            Postage
-          </div>
-          <div className="text-lg font-bold text-orange-600">RM {formatNumber(totals.totalPostage)}</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-amber-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <TrendingUp className="w-3 h-3" />
-            ROAS
-          </div>
-          <div className="text-lg font-bold text-amber-600">{totals.roas.toFixed(2)}x</div>
-        </div>
-        <div className="stat-card border-l-4 border-l-slate-500">
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <Wallet className="w-3 h-3" />
-            Expenses
-          </div>
-          <div className="text-lg font-bold text-slate-600">RM {formatNumber(expenseStats.total)}</div>
-        </div>
-        <div className={`stat-card border-l-4 ${totals.profitBySales >= 0 ? 'border-l-green-500' : 'border-l-red-500'}`}>
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <DollarSign className="w-3 h-3" />
-            Profit By Sales
-          </div>
-          <div className={`text-lg font-bold ${totals.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            RM {formatNumber(totals.profitBySales)}
-          </div>
-        </div>
-        <div className={`stat-card border-l-4 ${totals.profitByCollection >= 0 ? 'border-l-green-500' : 'border-l-red-500'}`}>
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1">
-            <DollarSign className="w-3 h-3" />
-            Profit By Collection
-          </div>
-          <div className={`text-lg font-bold ${totals.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            RM {formatNumber(totals.profitByCollection)}
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+        <StatCard icon={DollarSign} tone="blue" label="Total Sales" value={wrapVal(`RM ${formatNumber(totals.totalSales)}`)} className={MONEY_CARD} />
+        <StatCard icon={Wallet} tone="green" label="Total Collection" value={wrapVal(`RM ${formatNumber(totals.totalCollection)}`)} className={MONEY_CARD} />
+        <StatCard icon={Package} tone="amber" label="Total Unit" value={totals.totalUnitBundle} className={MONEY_CARD} />
+        <StatCard icon={RotateCcw} tone="pink" label="Return" value={wrapVal(`RM ${formatNumber(totals.totalReturn)}`)} className={MONEY_CARD} />
+        <StatCard icon={Megaphone} tone="red" label="Total Spend" value={wrapVal(`RM ${formatNumber(totals.totalSpend)}`)} className={MONEY_CARD} />
+        <StatCard icon={Package} tone="purple" label="Cost Product" value={wrapVal(`RM ${formatNumber(totals.totalCostProduct)}`)} className={MONEY_CARD} />
+        <StatCard icon={Truck} tone="orange" label="Postage" value={wrapVal(`RM ${formatNumber(totals.totalPostage)}`)} className={MONEY_CARD} />
+        <StatCard icon={TrendingUp} tone="amber" label="ROAS" value={`${totals.roas.toFixed(2)}x`} className={MONEY_CARD} />
+        <StatCard icon={Receipt} tone="slate" label="Expenses" value={wrapVal(`RM ${formatNumber(expenseStats.total)}`)} className={MONEY_CARD} />
+        <StatCard
+          icon={totals.profitBySales >= 0 ? TrendingUp : TrendingDown}
+          tone={totals.profitBySales >= 0 ? 'green' : 'red'}
+          label="Profit By Sales"
+          value={wrapVal(`RM ${formatNumber(totals.profitBySales)}`, totals.profitBySales >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}
+          className={MONEY_CARD}
+        />
+        <StatCard
+          icon={totals.profitByCollection >= 0 ? TrendingUp : TrendingDown}
+          tone={totals.profitByCollection >= 0 ? 'green' : 'red'}
+          label="Profit By Collection"
+          value={wrapVal(`RM ${formatNumber(totals.profitByCollection)}`, totals.profitByCollection >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}
+          className={MONEY_CARD}
+        />
       </div>
 
       {/* Profit By Platform */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">Profit By Platform</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><IconTile icon={BarChart3} tone="indigo" size="sm" />Profit By Platform</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
           {/* Facebook */}
           <div className="stat-card bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-2 text-blue-600 font-semibold mb-3">
-              <Facebook className="w-5 h-5" />
+              <IconTile icon={Facebook} tone="blue" size="sm" />
               FACEBOOK
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.sales)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.facebook.sales)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.facebook.collection)}</span>
+                <span className="font-semibold whitespace-nowrap text-green-600">RM {formatNumber(platformTotals.facebook.collection)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.facebook.spend)}</span>
+                <span className="font-semibold whitespace-nowrap text-red-600">RM {formatNumber(platformTotals.facebook.spend)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.costProduct)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.facebook.costProduct)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.facebook.postage)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.facebook.postage)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Unit:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.facebook.unitBundle}</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.facebook.unitBundle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-slate-600">RM {formatNumber(platformTotals.facebook.expense)}</span>
+                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.facebook.expense)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-800">
+              <div className="flex justify-between gap-2 pt-2 border-t border-blue-200 dark:border-blue-800">
                 <span className="font-semibold">Profit By Sales:</span>
-                <span className={`font-bold ${platformTotals.facebook.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.facebook.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.facebook.profitBySales)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="font-semibold">Profit By Collection:</span>
-                <span className={`font-bold ${platformTotals.facebook.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.facebook.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.facebook.profitByCollection)}
                 </span>
               </div>
@@ -681,51 +628,51 @@ const AccountReportProfit: React.FC = () => {
           {/* Tiktok */}
           <div className="stat-card bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-800">
             <div className="flex items-center gap-2 text-pink-600 font-semibold mb-3">
-              <Video className="w-5 h-5" />
+              <IconTile icon={Video} tone="pink" size="sm" />
               TIKTOK
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.sales)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.tiktok.sales)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.tiktok.collection)}</span>
+                <span className="font-semibold whitespace-nowrap text-green-600">RM {formatNumber(platformTotals.tiktok.collection)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.tiktok.spend)}</span>
+                <span className="font-semibold whitespace-nowrap text-red-600">RM {formatNumber(platformTotals.tiktok.spend)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.costProduct)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.tiktok.costProduct)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.tiktok.postage)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.tiktok.postage)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Unit:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.tiktok.unitBundle}</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.tiktok.unitBundle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.tiktok.roas.toFixed(2)}x</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.tiktok.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-slate-600">RM {formatNumber(platformTotals.tiktok.expense)}</span>
+                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.tiktok.expense)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-pink-200 dark:border-pink-800">
+              <div className="flex justify-between gap-2 pt-2 border-t border-pink-200 dark:border-pink-800">
                 <span className="font-semibold">Profit By Sales:</span>
-                <span className={`font-bold ${platformTotals.tiktok.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.tiktok.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.tiktok.profitBySales)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="font-semibold">Profit By Collection:</span>
-                <span className={`font-bold ${platformTotals.tiktok.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.tiktok.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.tiktok.profitByCollection)}
                 </span>
               </div>
@@ -735,51 +682,51 @@ const AccountReportProfit: React.FC = () => {
           {/* Threads */}
           <div className="stat-card bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2 text-slate-600 font-semibold mb-3">
-              <ShoppingBag className="w-5 h-5" />
+              <IconTile icon={ShoppingBag} tone="slate" size="sm" />
               THREADS
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.threads.sales)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.threads.sales)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.threads.collection)}</span>
+                <span className="font-semibold whitespace-nowrap text-green-600">RM {formatNumber(platformTotals.threads.collection)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.threads.spend)}</span>
+                <span className="font-semibold whitespace-nowrap text-red-600">RM {formatNumber(platformTotals.threads.spend)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.threads.costProduct)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.threads.costProduct)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.threads.postage)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.threads.postage)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Unit:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.threads.unitBundle}</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.threads.unitBundle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.threads.roas.toFixed(2)}x</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.threads.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-slate-600">RM {formatNumber(platformTotals.threads.expense)}</span>
+                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.threads.expense)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <span className="font-semibold">Profit By Sales:</span>
-                <span className={`font-bold ${platformTotals.threads.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.threads.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.threads.profitBySales)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="font-semibold">Profit By Collection:</span>
-                <span className={`font-bold ${platformTotals.threads.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.threads.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.threads.profitByCollection)}
                 </span>
               </div>
@@ -789,51 +736,51 @@ const AccountReportProfit: React.FC = () => {
           {/* Database */}
           <div className="stat-card bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
             <div className="flex items-center gap-2 text-purple-600 font-semibold mb-3">
-              <Database className="w-5 h-5" />
+              <IconTile icon={Database} tone="purple" size="sm" />
               DATABASE
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.database.sales)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.database.sales)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.database.collection)}</span>
+                <span className="font-semibold whitespace-nowrap text-green-600">RM {formatNumber(platformTotals.database.collection)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.database.spend)}</span>
+                <span className="font-semibold whitespace-nowrap text-red-600">RM {formatNumber(platformTotals.database.spend)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.database.costProduct)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.database.costProduct)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.database.postage)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.database.postage)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Unit:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.database.unitBundle}</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.database.unitBundle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.database.roas.toFixed(2)}x</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.database.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-slate-600">RM {formatNumber(platformTotals.database.expense)}</span>
+                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.database.expense)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-purple-200 dark:border-purple-800">
+              <div className="flex justify-between gap-2 pt-2 border-t border-purple-200 dark:border-purple-800">
                 <span className="font-semibold">Profit By Sales:</span>
-                <span className={`font-bold ${platformTotals.database.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.database.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.database.profitBySales)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="font-semibold">Profit By Collection:</span>
-                <span className={`font-bold ${platformTotals.database.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.database.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.database.profitByCollection)}
                 </span>
               </div>
@@ -843,51 +790,51 @@ const AccountReportProfit: React.FC = () => {
           {/* Google */}
           <div className="stat-card bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
             <div className="flex items-center gap-2 text-red-600 font-semibold mb-3">
-              <Globe className="w-5 h-5" />
+              <IconTile icon={Globe} tone="red" size="sm" />
               GOOGLE
             </div>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Sales:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.google.sales)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.google.sales)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Collection:</span>
-                <span className="font-semibold text-green-600">RM {formatNumber(platformTotals.google.collection)}</span>
+                <span className="font-semibold whitespace-nowrap text-green-600">RM {formatNumber(platformTotals.google.collection)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Spend:</span>
-                <span className="font-semibold text-red-600">RM {formatNumber(platformTotals.google.spend)}</span>
+                <span className="font-semibold whitespace-nowrap text-red-600">RM {formatNumber(platformTotals.google.spend)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Cost Product:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.google.costProduct)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.google.costProduct)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Postage:</span>
-                <span className="font-semibold">RM {formatNumber(platformTotals.google.postage)}</span>
+                <span className="font-semibold whitespace-nowrap">RM {formatNumber(platformTotals.google.postage)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Unit:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.google.unitBundle}</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.google.unitBundle}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">ROAS:</span>
-                <span className="font-semibold text-amber-600">{platformTotals.google.roas.toFixed(2)}x</span>
+                <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.google.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold text-slate-600">RM {formatNumber(platformTotals.google.expense)}</span>
+                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.google.expense)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-red-200 dark:border-red-800">
+              <div className="flex justify-between gap-2 pt-2 border-t border-red-200 dark:border-red-800">
                 <span className="font-semibold">Profit By Sales:</span>
-                <span className={`font-bold ${platformTotals.google.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.google.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.google.profitBySales)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="font-semibold">Profit By Collection:</span>
-                <span className={`font-bold ${platformTotals.google.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold whitespace-nowrap ${platformTotals.google.profitByCollection >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   RM {formatNumber(platformTotals.google.profitByCollection)}
                 </span>
               </div>
@@ -898,13 +845,13 @@ const AccountReportProfit: React.FC = () => {
 
       {/* Per-staff profit breakdown — same metrics as the platform cards, per staff.
           Profit figures here exclude company Expenses (not attributable per staff). */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Profit Team</h2>
+          <h2 className="font-semibold flex items-center gap-2"><IconTile icon={Users} tone="purple" size="sm" /> Profit Team</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr>
                 <th className="p-3 text-left">ID Staff</th>
                 <th className="p-3 text-left">Nama</th>
@@ -924,22 +871,22 @@ const AccountReportProfit: React.FC = () => {
                 const pbs = s.totalSales - s.totalReturn - s.totalCostProduct - s.totalPostage - s.totalSpend;
                 const pbc = s.totalCollection - s.totalCostProduct - s.totalPostage - s.totalSpend;
                 return (
-                  <tr key={s.idStaff} className="border-t border-border hover:bg-muted/30">
-                    <td className="p-3 font-mono">{s.idStaff}</td>
-                    <td className="p-3">{nama}</td>
-                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalSales)}</td>
-                    <td className="p-3 text-right tabular-nums text-green-600 dark:text-green-400">RM {formatNumber(s.totalCollection)}</td>
-                    <td className="p-3 text-right tabular-nums text-red-600 dark:text-red-400">RM {formatNumber(s.totalSpend)}</td>
-                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalCostProduct)}</td>
-                    <td className="p-3 text-right tabular-nums">RM {formatNumber(s.totalPostage)}</td>
-                    <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">{(s.roas || 0).toFixed(2)}x</td>
-                    <td className={`p-3 text-right tabular-nums font-medium ${pbs >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbs)}</td>
-                    <td className={`p-3 text-right tabular-nums font-medium ${pbc >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbc)}</td>
+                  <tr key={s.idStaff} className="border-t border-border hover:bg-muted/40 transition-colors">
+                    <td className="p-3 font-mono whitespace-nowrap">{s.idStaff}</td>
+                    <td className="p-3 whitespace-nowrap">{nama}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {formatNumber(s.totalSales)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-green-600 dark:text-green-400">RM {formatNumber(s.totalCollection)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-red-600 dark:text-red-400">RM {formatNumber(s.totalSpend)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {formatNumber(s.totalCostProduct)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap">RM {formatNumber(s.totalPostage)}</td>
+                    <td className="p-3 text-right tabular-nums whitespace-nowrap text-amber-600 dark:text-amber-400">{(s.roas || 0).toFixed(2)}x</td>
+                    <td className={`p-3 text-right tabular-nums whitespace-nowrap font-medium ${pbs >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbs)}</td>
+                    <td className={`p-3 text-right tabular-nums whitespace-nowrap font-medium ${pbc >= 0 ? 'text-green-600' : 'text-red-600'}`}>RM {formatNumber(pbc)}</td>
                   </tr>
                 );
               })}
               {listedStats.length === 0 && (
-                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Tiada data untuk tempoh ini.</td></tr>
+                <tr><td colSpan={10} className="p-0"><EmptyState icon={Users} title="Tiada data untuk tempoh ini." /></td></tr>
               )}
             </tbody>
           </table>

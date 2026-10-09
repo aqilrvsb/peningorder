@@ -17,6 +17,7 @@ import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { fetchAllRows, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 import { TRACKING_STATUSES, KEYIN_STATUS } from '@/lib/trackingStatuses';
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 type Order = {
   id: string; date_order: string; marketer_id_staff: string | null; name_customer: string | null;
@@ -182,48 +183,52 @@ const NotificationReport: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Bell className="w-6 h-6" />Notification</h1>
-        <p className="text-muted-foreground mt-1">Status notifikasi WhatsApp kepada customer, ikut setiap status yang diaktifkan di Courier Settings → Tracking Webhook.</p>
-      </div>
+      <PageHeader
+        title="Notification"
+        description="Status notifikasi WhatsApp kepada customer, ikut setiap status yang diaktifkan di Courier Settings → Tracking Webhook."
+        icon={Bell}
+        tone="brand"
+      />
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+          <div className="flex items-center gap-2 text-muted-foreground sm:self-center">
             <Calendar className="w-5 h-5" /><span className="font-medium text-foreground">Tarikh Order:</span>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">From</Label>
-            <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">To</Label>
-            <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
+            <div className="min-w-0 space-y-1">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <DateApplyButton onClick={applyDates} disabled={loading} />
             <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           </div>
           {!isMarketer && <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); setPage(1); }} />}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama / phone / tracking" className="pl-9 w-60" />
+            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Cari nama / phone / tracking" className="pl-9 w-full sm:w-60" />
           </div>
         </div>
       </div>
 
       {/* Cards — one per notify-enabled status; click to filter the table */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <button
-          type="button"
+        <StatCard
+          icon={ListChecks}
+          tone="slate"
+          label="Jumlah Order"
+          value={baseRows.length}
+          hint="Klik untuk papar semua"
           onClick={() => { setStatusFilter(null); setPage(1); }}
-          className={`stat-card text-left border-l-4 border-l-slate-400 ${!statusFilter ? 'ring-2 ring-primary' : ''}`}
-        >
-          <div className="flex items-center gap-1 text-muted-foreground text-xs uppercase mb-1"><ListChecks className="w-3 h-3" />Jumlah Order</div>
-          <div className="text-lg font-bold">{baseRows.length}</div>
-          <div className="text-[11px] text-muted-foreground">Klik untuk papar semua</div>
-        </button>
+          active={!statusFilter}
+        />
         {cardStats.map((s) => {
           const active = statusFilter?.key === s.key;
           return (
@@ -233,10 +238,10 @@ const NotificationReport: React.FC = () => {
               tabIndex={0}
               onClick={() => toggleFilter(s.key, 'any')}
               onKeyDown={(e) => { if (e.key === 'Enter') toggleFilter(s.key, 'any'); }}
-              className={`stat-card cursor-pointer border-l-4 border-l-primary ${active ? 'ring-2 ring-primary' : ''}`}
+              className={`stat-card cursor-pointer p-4 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 ${active ? 'border-primary/40 ring-2 ring-primary/15' : ''}`}
             >
-              <div className="text-muted-foreground text-xs uppercase mb-1 truncate" title={s.label}>{s.label}</div>
-              <div className="flex items-center gap-3 text-sm font-semibold">
+              <div className="section-label mb-2 truncate" title={s.label}>{s.label}</div>
+              <div className="flex items-center gap-3 text-base font-semibold">
                 <button type="button" onClick={(e) => { e.stopPropagation(); toggleFilter(s.key, 'success'); }}
                   className={`flex items-center gap-1 text-green-600 rounded px-1 ${active && statusFilter?.mode === 'success' ? 'bg-green-100 dark:bg-green-900/30' : ''}`}
                   title="Tapis: berjaya">
@@ -257,10 +262,10 @@ const NotificationReport: React.FC = () => {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr className="text-left">
                 <th className="p-3 whitespace-nowrap">No</th>
                 <th className="p-3 whitespace-nowrap">Date Order</th>
@@ -275,13 +280,13 @@ const NotificationReport: React.FC = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8 + enabled.length} className="p-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Memuatkan…</td></tr>
+                <tr><td colSpan={8 + enabled.length} className="p-3"><TableSkeleton rows={6} cols={8} /></td></tr>
               ) : pageRows.length === 0 ? (
-                <tr><td colSpan={8 + enabled.length} className="p-8 text-center text-muted-foreground">Tiada order.</td></tr>
+                <tr><td colSpan={8 + enabled.length} className="text-muted-foreground"><EmptyState icon={Bell} title="Tiada order." /></td></tr>
               ) : pageRows.map((o, i) => {
                 const staff = staffLabel(o.marketer_id_staff);
                 return (
-                  <tr key={o.id} className="border-t border-border hover:bg-muted/30">
+                  <tr key={o.id} className="border-t border-border hover:bg-muted/40">
                     <td className="p-3">{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td className="p-3 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                     <td className="p-3 whitespace-nowrap">
@@ -340,7 +345,7 @@ const NotificationReport: React.FC = () => {
           </table>
         </div>
         {rows.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between p-3 border-t border-border text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-t border-border text-sm">
             <span className="text-muted-foreground">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, rows.length)} daripada {rows.length}</span>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Sebelum</Button>

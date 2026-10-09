@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Shared pagination footer for every data table. Shows "menunjukkan X–Y of Z"
@@ -33,13 +34,13 @@ export function TablePagination({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border">
-      <div className="text-sm text-muted-foreground">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border/70">
+      <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
         Menunjukkan <b className="text-foreground">{start}</b>–<b className="text-foreground">{end}</b> daripada <b className="text-foreground">{total}</b>
         {totalPages > 1 && <span className="ml-1">· {totalPages} halaman</span>}
       </div>
       <div className="flex items-center gap-1 flex-wrap justify-center">
-        <Button size="sm" variant="outline" className="h-8" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Prev</Button>
+        <Button size="sm" variant="outline" className="h-8 px-2.5" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label="Previous page"><ChevronLeft />Prev</Button>
         {nums.map((n, i) =>
           n === '…' ? (
             <span key={`e${i}`} className="px-1.5 text-muted-foreground select-none">…</span>
@@ -47,7 +48,7 @@ export function TablePagination({
             <Button
               key={n}
               size="sm"
-              variant={n === page ? 'default' : 'outline'}
+              variant={n === page ? 'default' : 'ghost'}
               className="h-8 min-w-8 px-2"
               onClick={() => onPageChange(n)}
             >
@@ -55,7 +56,7 @@ export function TablePagination({
             </Button>
           ),
         )}
-        <Button size="sm" variant="outline" className="h-8" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>Next</Button>
+        <Button size="sm" variant="outline" className="h-8 px-2.5" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label="Next page">Next<ChevronRight /></Button>
       </div>
     </div>
   );

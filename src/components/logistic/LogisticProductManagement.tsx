@@ -23,8 +23,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Package, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Package, Loader2, Pencil, Plus, Trash2, Boxes, Layers } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, StatCard, TableSkeleton, CardsSkeleton, EmptyState, MissingHint } from "@/components/common/SoftUI";
 
 const LogisticProductManagement = () => {
   const queryClient = useQueryClient();
@@ -297,8 +298,19 @@ const LogisticProductManagement = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <PageHeader
+          title="Product Management"
+          description="Manage your products and inventory"
+          icon={Package}
+          tone="brand"
+        />
+        <CardsSkeleton count={3} className="sm:grid-cols-3 lg:grid-cols-3" />
+        <Card>
+          <CardContent className="p-4">
+            <TableSkeleton cols={5} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -306,58 +318,24 @@ const LogisticProductManagement = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            Product Management
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your products and inventory
-          </p>
-        </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </Button>
-      </div>
+      <PageHeader
+        title="Product Management"
+        description="Manage your products and inventory"
+        icon={Package}
+        tone="brand"
+        actions={
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Products</p>
-                <p className="text-2xl font-bold">{totalProducts}</p>
-              </div>
-              <Package className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Products with Stock</p>
-                <p className="text-2xl font-bold text-green-600">{productsWithStock}</p>
-              </div>
-              <Package className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Quantity</p>
-                <p className="text-2xl font-bold text-blue-600">{totalQuantity.toLocaleString()}</p>
-              </div>
-              <Package className="w-8 h-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard icon={Package} tone="brand" label="Total Products" value={totalProducts} />
+        <StatCard icon={Boxes} tone="green" label="Products with Stock" value={productsWithStock} />
+        <StatCard icon={Layers} tone="blue" label="Total Quantity" value={totalQuantity.toLocaleString()} />
       </div>
 
       {/* Inventory Table */}
@@ -370,7 +348,7 @@ const LogisticProductManagement = () => {
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>SKU</TableHead>
                   <TableHead>Product Name</TableHead>
                   <TableHead>Cost Product</TableHead>
@@ -382,9 +360,9 @@ const LogisticProductManagement = () => {
                 {products && products.length > 0 ? (
                   products.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.sku}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{product.sku}</TableCell>
                       <TableCell>{product.name}</TableCell>
-                      <TableCell>RM {(product.base_cost || 0).toFixed(2)}</TableCell>
+                      <TableCell className="whitespace-nowrap">RM {(product.base_cost || 0).toFixed(2)}</TableCell>
                       <TableCell className="font-bold text-lg">
                         {(product.quantity || 0).toLocaleString()}
                       </TableCell>
@@ -414,8 +392,8 @@ const LogisticProductManagement = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No products available.
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState icon={Package} title="No products available." />
                     </TableCell>
                   </TableRow>
                 )}
@@ -432,6 +410,7 @@ const LogisticProductManagement = () => {
             <DialogTitle>Add New Product</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="newProductName">Product Name *</Label>
               <Input
@@ -473,7 +452,14 @@ const LogisticProductManagement = () => {
                 placeholder="Enter initial quantity"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            </div>
+            <MissingHint
+              items={[
+                { label: "Product Name", done: !!newProductName.trim() },
+                { label: "SKU", done: !!newProductSku.trim() },
+              ]}
+            />
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -503,6 +489,7 @@ const LogisticProductManagement = () => {
             <DialogTitle>Edit Product</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="editName">Product Name *</Label>
               <Input
@@ -544,7 +531,14 @@ const LogisticProductManagement = () => {
                 placeholder="Enter quantity"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            </div>
+            <MissingHint
+              items={[
+                { label: "Product Name", done: !!editName.trim() },
+                { label: "SKU", done: !!editSku.trim() },
+              ]}
+            />
+            <div className="flex flex-wrap justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"

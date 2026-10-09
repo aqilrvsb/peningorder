@@ -7,6 +7,7 @@ import {
   Plug, ShoppingBag, Store, CreditCard, Sparkles, Copy, Check, ArrowLeft, ExternalLink,
 } from 'lucide-react';
 import IntegrationUnmatched from './IntegrationUnmatched';
+import { PageHeader } from '@/components/common/SoftUI';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -117,19 +118,19 @@ const Integration: React.FC = () => {
   };
 
   if (!idstaff) {
-    return <div className="p-6 text-muted-foreground">Loading your account…</div>;
+    return <div className="p-4 text-muted-foreground sm:p-6">Loading your account…</div>;
   }
 
   // Detail view
   if (selected) {
     return (
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         <button onClick={() => setSelected(null)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to integrations
         </button>
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden"><ChannelLogo domain={selected.domain} fallback={selected.icon} /></span>
-          <div>
+          <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-border/80 bg-card text-primary shadow-sm overflow-hidden"><ChannelLogo domain={selected.domain} fallback={selected.icon} /></span>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">{selected.name}</h1>
             <p className="text-muted-foreground text-sm">{selected.tagline}</p>
           </div>
@@ -137,9 +138,9 @@ const Integration: React.FC = () => {
 
         <Card>
           <CardContent className="p-5 space-y-3">
-            <p className="text-sm font-semibold">Your Delivery / Webhook URL</p>
+            <p className="section-label">Your Delivery / Webhook URL</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto whitespace-nowrap rounded-lg bg-muted px-3 py-2.5 text-xs">{url}</code>
+              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg border border-border/80 bg-muted/40 px-3 py-2.5 text-xs">{url}</code>
               <Button size="sm" onClick={copy} variant="outline">
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </Button>
@@ -150,11 +151,11 @@ const Integration: React.FC = () => {
 
         <Card>
           <CardContent className="p-5">
-            <p className="text-sm font-semibold mb-3">Setup steps</p>
+            <p className="section-label mb-3">Setup steps</p>
             <ol className="space-y-2.5">
               {selected.steps.map((s, i) => (
                 <li key={i} className="flex gap-3 text-sm">
-                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{i + 1}</span>
+                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-primary-foreground">{i + 1}</span>
                   <span className="text-foreground/90">{s}</span>
                 </li>
               ))}
@@ -168,23 +169,22 @@ const Integration: React.FC = () => {
 
   // Grid view
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Plug className="w-6 h-6" /></span>
-        <div>
-          <h1 className="text-2xl font-bold">Integration</h1>
-          <p className="text-muted-foreground text-sm">Connect your platforms and tools to receive orders in PeningOrder.</p>
-        </div>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <PageHeader
+        title="Integration"
+        description="Connect your platforms and tools to receive orders in PeningOrder."
+        icon={Plug}
+        tone="brand"
+      />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Channels</p>
+        <p className="section-label mb-3">Channels</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {CHANNELS.map((c) => (
             <button key={c.key} onClick={() => { setSelected(c); setCopied(false); }}
-              className="group text-left rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md">
+              className="group text-left rounded-xl border border-border/80 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15">
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary overflow-hidden"><ChannelLogo domain={c.domain} fallback={c.icon} /></span>
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-border/80 bg-muted/40 text-primary overflow-hidden"><ChannelLogo domain={c.domain} fallback={c.icon} /></span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h3 className="font-semibold text-foreground">{c.name}</h3>

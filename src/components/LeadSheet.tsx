@@ -5,7 +5,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Bot, PhoneCall, MessageCircle, Ban, Users } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { IconTile, EmptyState, type Tone } from '@/components/common/SoftUI';
 import { AUDIT_MODE } from '@/lib/audit';
 import { formatDMY } from '@/lib/utils';
 import {
@@ -59,23 +61,26 @@ export function LeadStuckCards({ items }: { items: { fu: LeadFu; closed: boolean
     items.filter(({ fu, closed }) => fu[at] && (next ? !fu[next] : !closed)).length;
   const bot = [stuck('wa_intro', 'wa_ff'), stuck('wa_ff', 'wa_present'), stuck('wa_present', 'wa_offer'), stuck('wa_offer', null)];
   const call = [stuck('call_intro', 'call_ff'), stuck('call_ff', 'call_present'), stuck('call_present', 'call_offer'), stuck('call_offer', null)];
-  const card = (title: string, nums: number[], border: string) => (
-    <div className={`bg-card border border-border rounded-lg p-4 border-t-4 ${border}`}>
-      <p className="text-sm font-semibold mb-2">{title}</p>
+  const card = (title: string, nums: number[], icon: React.ElementType, tone: Tone) => (
+    <Card className="p-4">
+      <div className="mb-3 flex items-center gap-2.5">
+        <IconTile icon={icon} tone={tone} size="sm" />
+        <p className="min-w-0 text-sm font-semibold leading-tight">{title}</p>
+      </div>
       <div className="grid grid-cols-4 gap-2 text-center">
         {STAGES.map((s, i) => (
-          <div key={s}>
-            <p className="text-xl font-bold">{nums[i]}</p>
-            <p className="text-xs text-muted-foreground">{s}</p>
+          <div key={s} className="rounded-lg bg-muted/50 px-1 py-2">
+            <p className="text-xl font-bold leading-tight tracking-tight">{nums[i]}</p>
+            <p className="section-label mt-0.5">{s}</p>
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
   return (
-    <div className="grid sm:grid-cols-2 gap-3">
-      {card('STATUS BOT — stuck di tahap', bot, 'border-t-yellow-300')}
-      {card('STATUS CALL — stuck di tahap', call, 'border-t-orange-400')}
+    <div className="grid gap-3 sm:grid-cols-2">
+      {card('STATUS BOT — stuck di tahap', bot, Bot, 'amber')}
+      {card('STATUS CALL — stuck di tahap', call, PhoneCall, 'orange')}
     </div>
   );
 }
@@ -86,7 +91,7 @@ const tsTag = (iso?: string | null) =>
 const waLink = (num: string) => {
   const d = String(num || '').replace(/\D/g, '');
   return d.length >= 9 ? (
-    <a href={`https://wa.me/${d}`} target="_blank" rel="noopener noreferrer" className="shrink-0 text-base leading-none" title={`Buka WhatsApp ${d}`}>💬</a>
+    <a href={`https://wa.me/${d}`} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded p-0.5 leading-none text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/40" title={`Buka WhatsApp ${d}`} aria-label={`Buka WhatsApp ${d}`}><MessageCircle className="h-4 w-4" /></a>
   ) : null;
 };
 
@@ -226,8 +231,13 @@ export function LeadSheet({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={colCount} className="border border-slate-300 dark:border-slate-600 px-3 py-6 text-center text-muted-foreground">
-                  Tiada prospek dalam julat tarikh ini. Klik <b>Add Prospect</b> atau <b>Import Excel</b>, atau ubah julat tarikh di atas.
+                <td colSpan={colCount} className="border border-slate-300 dark:border-slate-600 p-0 text-muted-foreground">
+                  {/* Left-aligned + sticky so it stays in view on phones (the sheet is 1200px wide). */}
+                  <EmptyState
+                    icon={Users}
+                    className="sticky left-0 max-w-[min(28rem,calc(100vw_-_3rem))] items-start py-8 text-left"
+                    title={<>Tiada prospek dalam julat tarikh ini. Klik <b>Add Prospect</b> atau <b>Import Excel</b>, atau ubah julat tarikh di atas.</>}
+                  />
                 </td>
               </tr>
             )}
@@ -256,7 +266,7 @@ export function LeadSheet({
                   )}
                   <td className={`${td} min-w-[160px] text-left px-2 text-xs font-medium`}>{p.namaProspek}</td>
                   <td className={`${td} min-w-[140px]`}>
-                    <div className="flex items-center justify-center gap-1 font-mono text-xs">{p.noTelefon}{waLink(p.noTelefon)}</div>
+                    <div className="flex items-center justify-center gap-1 whitespace-nowrap font-mono text-xs">{p.noTelefon}{waLink(p.noTelefon)}</div>
                   </td>
                   <td className={`${td} px-2 text-xs`}>{p.niche || '—'}</td>
                   {WA_COLS.map((c) => tickCell(p, f, c.key))}
@@ -284,12 +294,12 @@ export function LeadSheet({
                     {tsTag(f.ts_tidak_angkat)}
                     <button
                       onClick={() => save(p.id, { blocked: !f.blocked })}
-                      className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      className={`mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                         f.blocked ? 'bg-red-600 text-white border-red-700' : 'bg-white text-slate-400 border-slate-200'
                       }`}
                       title="Nombor blocked — tak perlu 3x tidak angkat, terus lepas KPI"
                     >
-                      🚫 BLOCKED
+                      <Ban className="h-3 w-3" /> BLOCKED
                     </button>
                     {tsTag(f.ts_blocked)}
                   </td>
@@ -335,7 +345,7 @@ export function LeadSheet({
                     {closed ? (
                       <>
                         <span className="text-base font-bold text-emerald-700 dark:text-emerald-300">/</span>
-                        <div className="text-xs font-bold text-emerald-800 dark:text-emerald-200">RM{(p.priceClosed || 0).toFixed(2)}</div>
+                        <div className="whitespace-nowrap text-xs font-bold text-emerald-800 dark:text-emerald-200">RM{(p.priceClosed || 0).toFixed(2)}</div>
                         {p.countOrder > 1 && <div className="text-[10px] opacity-70">{p.countOrder} order</div>}
                       </>
                     ) : (
@@ -346,7 +356,7 @@ export function LeadSheet({
                     {ord?.alamat || ''}
                   </td>
                   <td className={`${td} min-w-[120px] px-2 text-xs`}>
-                    {ord?.tracking ? <div className="font-mono">{ord.tracking}</div> : null}
+                    {ord?.tracking ? <div className="whitespace-nowrap font-mono">{ord.tracking}</div> : null}
                     {ord?.delivery_status ? <div className="text-[10px] opacity-70">{ord.delivery_status}</div> : null}
                   </td>
                   <td className={td}>

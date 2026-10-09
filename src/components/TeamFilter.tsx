@@ -11,12 +11,12 @@ export const TeamFilter: React.FC<{ value: string; onChange: (v: string) => void
   const { members, showFilter } = useTeam();
   if (!showFilter) return null;
   return (
-    <div className={`flex items-center gap-2 ${className || ''}`}>
+    <div className={`flex min-w-0 items-center gap-2 ${className || ''}`}>
       <Users className="w-4 h-4 text-muted-foreground shrink-0" />
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-lg border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 sm:w-auto"
       >
         <option value="">Semua Team</option>
         {members.map((m) => (

@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, CreditCard, KeyRound, ShieldCheck, MessageCircle, Smartphone } from 'lucide-react';
+import { Loader2, CreditCard, KeyRound, MessageCircle, Smartphone, Settings } from 'lucide-react';
+import { PageHeader, IconTile, MissingHint } from '@/components/common/SoftUI';
 
 const AdminSettings: React.FC = () => {
   const { profile } = useAuth();
@@ -88,19 +89,27 @@ const AdminSettings: React.FC = () => {
   };
 
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (loading) return (
+    <div className="max-w-3xl mx-auto space-y-6" aria-busy="true">
+      <div className="shimmer h-10 w-48" />
+      <div className="shimmer h-56 rounded-xl" />
+      <div className="shimmer h-56 rounded-xl" />
+    </div>
+  );
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-primary" /> Settings</h1>
-        <p className="text-muted-foreground mt-2">Platform configuration — payment gateway &amp; WhatsApp notifications.</p>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <PageHeader
+        title="Settings"
+        description={<>Platform configuration — payment gateway &amp; WhatsApp notifications.</>}
+        icon={Settings}
+        tone="brand"
+      />
 
       {/* CHIP */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="w-5 h-5 text-primary" /> CHIP Payment Gateway</CardTitle>
+          <CardTitle className="flex items-center gap-3 text-lg"><IconTile icon={CreditCard} tone="blue" size="sm" /> CHIP Payment Gateway</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -126,7 +135,7 @@ const AdminSettings: React.FC = () => {
       {/* WhatsApp device (PeningBot Baileys gateway) */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="w-5 h-5 text-green-600" /> WhatsApp Notifications</CardTitle>
+          <CardTitle className="flex items-center gap-3 text-lg"><IconTile icon={MessageCircle} tone="green" size="sm" /> WhatsApp Notifications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -142,6 +151,7 @@ const AdminSettings: React.FC = () => {
                 : 'No device linked yet — WhatsApp notifications are disabled until set.'}
             </p>
           </div>
+          <MissingHint items={[{ label: 'PeningBot Instance', done: !!waInstance.trim() }]} />
           <Button onClick={saveWaDevice} disabled={savingWa}>
             {savingWa && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save WhatsApp device
           </Button>

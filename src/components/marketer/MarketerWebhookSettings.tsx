@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Check, ExternalLink, Webhook, Globe, Key, AlertCircle, CheckCircle, ShoppingCart, Store } from "lucide-react";
+import { Copy, Check, ExternalLink, Webhook, Globe, Key, AlertCircle, CheckCircle, ShoppingCart, Store, ListChecks, Zap, Activity } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, IconTile, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 
 const MarketerWebhookSettings = () => {
   const { profile } = useAuth();
@@ -72,12 +71,12 @@ const MarketerWebhookSettings = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Webhook Settings</h1>
-        <p className="text-muted-foreground text-sm">
-          Configure auto order from your WooCommerce website or Shoppego store
-        </p>
-      </div>
+      <PageHeader
+        title="Webhook Settings"
+        description="Configure auto order from your WooCommerce website or Shoppego store"
+        icon={Webhook}
+        tone="brand"
+      />
 
       {/* Platform Tabs */}
       <Tabs defaultValue="woocommerce" className="w-full" onValueChange={handleTabChange}>
@@ -97,30 +96,27 @@ const MarketerWebhookSettings = () => {
           {/* Webhook URL Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Webhook className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-3">
+                <IconTile icon={ShoppingCart} tone="purple" size="sm" />
                 WooCommerce Webhook Configuration
               </CardTitle>
               <CardDescription>
                 Use these settings in your WooCommerce admin panel under WooCommerce → Settings → Advanced → Webhooks
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5">
               {/* Delivery URL */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <p className="section-label flex items-center gap-2">
                   <Globe className="h-4 w-4" />
                   Delivery URL
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={woocommerceWebhookUrl}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <code className="min-w-0 flex-1 break-all px-1 text-xs">{woocommerceWebhookUrl}</code>
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => copyToClipboard(woocommerceWebhookUrl, "WooCommerce URL")}
                   >
                     {copied === "WooCommerce URL" ? (
@@ -133,20 +129,17 @@ const MarketerWebhookSettings = () => {
               </div>
 
               {/* Secret */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <p className="section-label flex items-center gap-2">
                   <Key className="h-4 w-4" />
                   Secret (Your ID Staff)
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={webhookSecret}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <code className="min-w-0 flex-1 break-all px-1 text-xs">{webhookSecret}</code>
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => copyToClipboard(webhookSecret, "Secret")}
                   >
                     {copied === "Secret" ? (
@@ -159,17 +152,14 @@ const MarketerWebhookSettings = () => {
               </div>
 
               {/* Topic */}
-              <div className="space-y-2">
-                <Label>Topic</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value="order.updated"
-                    readOnly
-                    className="font-mono text-sm"
-                  />
+              <div className="space-y-1.5">
+                <p className="section-label flex items-center gap-2">Topic</p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <code className="min-w-0 flex-1 break-all px-1 text-xs">order.updated</code>
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => copyToClipboard("order.updated", "Topic")}
                   >
                     {copied === "Topic" ? (
@@ -182,9 +172,11 @@ const MarketerWebhookSettings = () => {
               </div>
 
               {/* Status */}
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Input value="Active" readOnly className="text-sm" />
+              <div className="space-y-1.5">
+                <p className="section-label">Status</p>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Active
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -192,12 +184,12 @@ const MarketerWebhookSettings = () => {
           {/* WooCommerce Setup Instructions */}
           <Card>
             <CardHeader>
-              <CardTitle>WooCommerce Setup Instructions</CardTitle>
+              <CardTitle className="flex items-center gap-3"><IconTile icon={ListChecks} tone="blue" size="sm" /> WooCommerce Setup Instructions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     1
                   </div>
                   <div>
@@ -209,7 +201,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     2
                   </div>
                   <div>
@@ -228,7 +220,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     3
                   </div>
                   <div>
@@ -241,7 +233,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     4
                   </div>
                   <div>
@@ -262,30 +254,27 @@ const MarketerWebhookSettings = () => {
           {/* Webhook URL Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Webhook className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-3">
+                <IconTile icon={Store} tone="orange" size="sm" />
                 Shoppego Webhook Configuration
               </CardTitle>
               <CardDescription>
                 Use this webhook URL in your Shoppego dashboard under Settings → Webhook
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5">
               {/* Delivery URL */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
+              <div className="space-y-1.5">
+                <p className="section-label flex items-center gap-2">
                   <Globe className="h-4 w-4" />
                   Webhook URL
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={shoppegoWebhookUrl}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <code className="min-w-0 flex-1 break-all px-1 text-xs">{shoppegoWebhookUrl}</code>
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => copyToClipboard(shoppegoWebhookUrl, "Shoppego URL")}
                   >
                     {copied === "Shoppego URL" ? (
@@ -298,17 +287,14 @@ const MarketerWebhookSettings = () => {
               </div>
 
               {/* Event */}
-              <div className="space-y-2">
-                <Label>Event</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value="checkout.completed"
-                    readOnly
-                    className="font-mono text-sm"
-                  />
+              <div className="space-y-1.5">
+                <p className="section-label flex items-center gap-2">Event</p>
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-2">
+                  <code className="min-w-0 flex-1 break-all px-1 text-xs">checkout.completed</code>
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => copyToClipboard("checkout.completed", "Shoppego Event")}
                   >
                     {copied === "Shoppego Event" ? (
@@ -321,9 +307,11 @@ const MarketerWebhookSettings = () => {
               </div>
 
               {/* Status */}
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Input value="Active" readOnly className="text-sm" />
+              <div className="space-y-1.5">
+                <p className="section-label">Status</p>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Active
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -331,12 +319,12 @@ const MarketerWebhookSettings = () => {
           {/* Shoppego Setup Instructions */}
           <Card>
             <CardHeader>
-              <CardTitle>Shoppego Setup Instructions</CardTitle>
+              <CardTitle className="flex items-center gap-3"><IconTile icon={ListChecks} tone="blue" size="sm" /> Shoppego Setup Instructions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     1
                   </div>
                   <div>
@@ -348,7 +336,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     2
                   </div>
                   <div>
@@ -365,7 +353,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     3
                   </div>
                   <div>
@@ -378,7 +366,7 @@ const MarketerWebhookSettings = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-brand text-primary-foreground flex items-center justify-center text-sm font-bold">
                     4
                   </div>
                   <div>
@@ -398,32 +386,32 @@ const MarketerWebhookSettings = () => {
       {/* What Happens When Order Received */}
       <Card>
         <CardHeader>
-          <CardTitle>Auto Features</CardTitle>
+          <CardTitle className="flex items-center gap-3"><IconTile icon={Zap} tone="amber" size="sm" /> Auto Features</CardTitle>
           <CardDescription>
             When an order is received from WooCommerce or Shoppego, the following happens automatically:
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3">
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="font-medium text-green-900">Auto Key-In Order</p>
-                <p className="text-sm text-green-700">Order automatically created in your History tab</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50/70 p-3 dark:border-green-500/30 dark:bg-green-500/10">
+              <IconTile icon={CheckCircle} tone="green" size="sm" />
+              <div className="min-w-0">
+                <p className="font-medium text-green-900 dark:text-green-300">Auto Key-In Order</p>
+                <p className="text-sm text-green-700 dark:text-green-400/80">Order automatically created in your History tab</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="font-medium text-blue-900">Auto Generate Tracking</p>
-                <p className="text-sm text-blue-700">NinjaVan tracking number generated instantly</p>
+            <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
+              <IconTile icon={CheckCircle} tone="blue" size="sm" />
+              <div className="min-w-0">
+                <p className="font-medium text-blue-900 dark:text-blue-300">Auto Generate Tracking</p>
+                <p className="text-sm text-blue-700 dark:text-blue-400/80">NinjaVan tracking number generated instantly</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-purple-600" />
-              <div>
-                <p className="font-medium text-purple-900">Auto WhatsApp</p>
-                <p className="text-sm text-purple-700">Customer receives WhatsApp with order details & tracking</p>
+            <div className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50/70 p-3 dark:border-purple-500/30 dark:bg-purple-500/10">
+              <IconTile icon={CheckCircle} tone="purple" size="sm" />
+              <div className="min-w-0">
+                <p className="font-medium text-purple-900 dark:text-purple-300">Auto WhatsApp</p>
+                <p className="text-sm text-purple-700 dark:text-purple-400/80">Customer receives WhatsApp with order details & tracking</p>
               </div>
             </div>
           </div>
@@ -433,13 +421,13 @@ const MarketerWebhookSettings = () => {
       {/* Recent Webhook Activity */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Recent Webhook Activity</span>
-            <div className="flex gap-2 text-sm font-normal">
-              <span className="flex items-center gap-1 text-green-600">
+          <CardTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="flex items-center gap-3"><IconTile icon={Activity} tone="cyan" size="sm" /> Recent Webhook Activity</span>
+            <div className="flex flex-wrap gap-2 text-sm font-normal">
+              <span className="flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-green-600 dark:bg-green-500/10 dark:text-green-400">
                 <CheckCircle className="h-4 w-4" /> {successCount} success
               </span>
-              <span className="flex items-center gap-1 text-red-600">
+              <span className="flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-red-600 dark:bg-red-500/10 dark:text-red-400">
                 <AlertCircle className="h-4 w-4" /> {errorCount} errors
               </span>
             </div>
@@ -447,34 +435,34 @@ const MarketerWebhookSettings = () => {
         </CardHeader>
         <CardContent>
           {logsLoading ? (
-            <p className="text-muted-foreground text-center py-4">Loading...</p>
+            <TableSkeleton rows={3} cols={3} />
           ) : webhookLogs.length > 0 ? (
             <div className="space-y-2">
               {webhookLogs.slice(0, 5).map((log: any) => (
                 <div
                   key={log.id}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    log.response_status === 200 ? "bg-green-50" : "bg-red-50"
+                  className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                    log.response_status === 200 ? "border-green-200 bg-green-50/70 dark:border-green-500/30 dark:bg-green-500/10" : "border-red-200 bg-red-50/70 dark:border-red-500/30 dark:bg-red-500/10"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     {log.response_status === 200 ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <CheckCircle className="h-5 w-5 shrink-0 text-green-600" />
                     ) : (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
                     )}
-                    <div>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">
                         {log.parsed_data?.idSale || "Order"} - {log.parsed_data?.customerName || "Unknown"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(log.created_at).toLocaleString("en-MY")}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     {log.parsed_data?.trackingNumber && (
-                      <p className="font-mono text-sm">{log.parsed_data.trackingNumber}</p>
+                      <p className="font-mono text-sm whitespace-nowrap">{log.parsed_data.trackingNumber}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
                       {log.processing_time_ms}ms
@@ -484,11 +472,12 @@ const MarketerWebhookSettings = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Webhook className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No webhook activity yet</p>
-              <p className="text-sm">Orders from your website will appear here</p>
-            </div>
+            <EmptyState
+              icon={Webhook}
+              title="No webhook activity yet"
+              description="Orders from your website will appear here"
+              className="py-8"
+            />
           )}
         </CardContent>
       </Card>

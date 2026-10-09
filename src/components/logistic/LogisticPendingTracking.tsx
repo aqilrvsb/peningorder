@@ -30,8 +30,10 @@ import {
   Filter,
   RefreshCw,
   AlertTriangle,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
@@ -338,113 +340,90 @@ const LogisticPendingTracking = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Pending Tracking</h1>
-          <p className="text-muted-foreground mt-2">
-            Orders in transit — shipped, awaiting delivery
-          </p>
-        </div>
-        <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-          Sync
-        </Button>
-      </div>
+      <PageHeader
+        title="Pending Tracking"
+        description="Orders in transit — shipped, awaiting delivery"
+        icon={Clock}
+        tone="brand"
+        actions={
+          <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+            Sync
+          </Button>
+        }
+      />
 
       {/* Stats Cards — clickable filters. Total Shipped clears; COD/Cash filter by
           payment; Problematic filters to problem parcels only. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "All" && !problematicOnly && courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          icon={Clock}
+          tone="purple"
+          label="Total Shipped"
+          value={counts.total}
+          active={paymentFilter === "All" && !problematicOnly && courierFilter === "All"}
           onClick={() => { setPaymentFilter("All"); setProblematicOnly(false); setCourierFilter("All"); handleFilterChange(); }}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-purple-500" />
-              <div>
-                <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">Total Shipped</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={DollarSign}
+          tone="orange"
+          label="Total COD"
+          value={<span className="text-orange-600">{counts.cod}</span>}
+          active={paymentFilter === "COD"}
           onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-orange-500" />
-              <div>
-                <p className="text-2xl font-bold text-orange-600">{counts.cod}</p>
-                <p className="text-sm text-muted-foreground">Total COD</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={DollarSign}
+          tone="green"
+          label="Total Cash"
+          value={<span className="text-green-600">{counts.cash}</span>}
+          active={paymentFilter === "CASH"}
           onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold text-green-600">{counts.cash}</p>
-                <p className="text-sm text-muted-foreground">Total Cash</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        />
         {/* Problematic — click to show only problem parcels (high chance of Return). */}
-        <Card
-          className={`cursor-pointer transition-colors ${problematicOnly ? "border-primary ring-1 ring-primary/30 bg-red-50/60 dark:bg-red-950/20" : counts.problematic > 0 ? "border-red-300 bg-red-50/60 dark:bg-red-950/20" : "hover:border-primary"}`}
+        <StatCard
+          icon={AlertTriangle}
+          tone={counts.problematic > 0 ? "red" : "slate"}
+          label="Total Problematic"
+          value={<span className={counts.problematic > 0 ? "text-red-600 dark:text-red-400" : ""}>{counts.problematic}</span>}
+          active={problematicOnly}
           onClick={() => { setProblematicOnly(!problematicOnly); handleFilterChange(); }}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className={`w-8 h-8 ${counts.problematic > 0 ? "text-red-500" : "text-muted-foreground"}`} />
-              <div>
-                <p className={`text-2xl font-bold ${counts.problematic > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{counts.problematic}</p>
-                <p className="text-sm text-muted-foreground">Total Problematic</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          className={problematicOnly ? "bg-red-50/60 dark:bg-red-950/20" : counts.problematic > 0 ? "border-red-300 bg-red-50/60 dark:border-red-500/40 dark:bg-red-950/20" : ""}
+        />
       </div>
 
       {/* Kurier breakdown — click to filter by courier. Shipped / COD / Cash / Problematic */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {courierStats.map((cs) => (
-          <Card
-            key={cs.name}
-            onClick={() => { setCourierFilter(courierFilter === cs.name ? "All" : cs.name); handleFilterChange(); }}
-            className={`cursor-pointer transition-colors ${courierFilter === cs.name ? "border-primary ring-1 ring-primary/30" : cs.problematic > 0 ? "border-l-4 border-l-red-500" : "border-l-4 border-l-purple-500"}`}
-          >
-            <CardContent className="p-4">
-              <div>
-                <p className="text-sm font-semibold">{cs.name}</p>
-                <p className="text-xl font-bold">{cs.total}</p>
-                <p className="text-[11px] text-muted-foreground">Shipped</p>
-                <div className="flex gap-2 mt-1 text-xs flex-wrap">
+      {courierStats.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {courierStats.map((cs) => (
+            <StatCard
+              key={cs.name}
+              icon={Truck}
+              tone={cs.problematic > 0 ? "red" : "purple"}
+              label={cs.name}
+              value={cs.total}
+              active={courierFilter === cs.name}
+              onClick={() => { setCourierFilter(courierFilter === cs.name ? "All" : cs.name); handleFilterChange(); }}
+              className={courierFilter !== cs.name && cs.problematic > 0 ? "border-l-4 border-l-red-500" : ""}
+              hint={<span className="flex flex-col gap-0.5 whitespace-normal">
+                <span>Shipped</span>
+                <span className="flex flex-wrap gap-x-2">
                   <span className="text-orange-600">{cs.cod} COD</span>
                   <span className="text-green-600">{cs.cash} Cash</span>
-                </div>
-                <div className="mt-0.5 text-xs">
-                  <span className={cs.problematic > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>{cs.problematic} Problematic</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </span>
+                <span className={cs.problematic > 0 ? "text-red-600 font-medium" : ""}>{cs.problematic} Problematic</span>
+              </span>}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search... (use + to combine)"
@@ -454,30 +433,32 @@ const LogisticPendingTracking = () => {
                 />
               </div>
               {!isMarketer && <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />}
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
                 <Input
                   type="date"
                   value={pendingStart}
                   onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
+                  className="w-full sm:w-40"
                 />
                 <Input
                   type="date"
                   value={pendingEnd}
                   onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
+                  className="w-full sm:w-40"
                 />
-                <Button onClick={applyDateFilter}>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={applyDateFilter} className="h-10">
                   <Filter className="w-4 h-4 mr-2" />
                   Apply
                 </Button>
                 <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
                 <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Platform" />
                   </SelectTrigger>
                   <SelectContent>
@@ -507,6 +488,7 @@ const LogisticPendingTracking = () => {
                 variant="outline"
                 onClick={handleBulkPrint}
                 disabled={selectedOrders.size === 0 || isPrinting}
+                className="w-full sm:w-auto"
               >
                 {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
                 Print ({selectedOrders.size})
@@ -520,14 +502,12 @@ const LogisticPendingTracking = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <TableSkeleton className="p-4" rows={8} cols={6} />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="p-2 text-left w-10">
                         <Checkbox
@@ -564,7 +544,7 @@ const LogisticPendingTracking = () => {
                       paginatedOrders.map((order: any, index: number) => (
                         <tr
                           key={order.id}
-                          className={`border-b hover:bg-muted/30 ${
+                          className={`border-b transition-colors hover:bg-muted/40 ${
                             isProblematic(order)
                               ? "bg-red-50 dark:bg-red-950/30 border-l-4 border-l-red-500"
                               : ""
@@ -690,8 +670,8 @@ const LogisticPendingTracking = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={24} className="text-center py-12 text-muted-foreground">
-                          No pending tracking orders found.
+                        <td colSpan={24} className="p-0">
+                          <EmptyState icon={Clock} title="No pending tracking orders found." />
                         </td>
                       </tr>
                     )}

@@ -51,6 +51,7 @@ import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { useQuery } from '@tanstack/react-query';
 import { LeadSheet, LeadStuckCards, useLeadFu, type OrderInfo } from '@/components/LeadSheet';
 import { normPhone, fmtTs } from '@/lib/leadFollowup';
+import { PageHeader, StatCard, IconTile, TableSkeleton, CardsSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
 // Jenis Prospek is now auto-determined by OrderForm based on lead date
 
@@ -629,8 +630,9 @@ const Prospects: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={3} className="lg:grid-cols-3" />
+        <TableSkeleton rows={8} cols={6} />
       </div>
     );
   }
@@ -638,13 +640,13 @@ const Prospects: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">Leads</h1>
-          <p className="text-muted-foreground">Urus prospek dan leads</p>
-        </div>
-        {canCreate && (
-          <div className="flex gap-2">
+      <PageHeader
+        title="Leads"
+        description="Urus prospek dan leads"
+        icon={Users}
+        tone="brand"
+        actions={canCreate ? (
+          <>
             <input
               ref={fileInputRef}
               type="file"
@@ -653,16 +655,16 @@ const Prospects: React.FC = () => {
               className="hidden"
             />
             <Button variant="outline" onClick={() => setShowFormatDialog(true)}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              <FileSpreadsheet className="w-4 h-4" />
               Import Format
             </Button>
             <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
-              {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+              {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               Import Excel
             </Button>
             {!AUDIT_MODE && selectedProspectIds.length > 0 && (
               <Button variant="destructive" onClick={handleBulkDeleteClick}>
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="w-4 h-4" />
                 Delete ({selectedProspectIds.length})
               </Button>
             )}
@@ -671,7 +673,7 @@ const Prospects: React.FC = () => {
               if (!open) resetForm();
             }}>
               <DialogTrigger asChild>
-                <Button><UserPlus className="w-4 h-4 mr-2" />Add Prospect</Button>
+                <Button><UserPlus className="w-4 h-4" />Add Prospect</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -717,85 +719,83 @@ const Prospects: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tarikhPhoneNumber">Tarikh Phone Number *</Label>
-                    <Input 
-                      id="tarikhPhoneNumber" 
-                      type="date" 
-                      value={formData.tarikhPhoneNumber} 
-                      onChange={(e) => handleChange('tarikhPhoneNumber', e.target.value)} 
+                    <Input
+                      id="tarikhPhoneNumber"
+                      type="date"
+                      value={formData.tarikhPhoneNumber}
+                      onChange={(e) => handleChange('tarikhPhoneNumber', e.target.value)}
                     />
                   </div>
-                  <DialogFooter className="gap-3 pt-4">
+                  <MissingHint
+                    items={[
+                      { label: 'Nama Prospek', done: !!formData.namaProspek },
+                      { label: 'No. Telefon (mula 6)', done: !!formData.noTelefon && formData.noTelefon.startsWith('6') },
+                      { label: 'Niche', done: !!formData.niche },
+                      { label: 'Tarikh', done: !!formData.tarikhPhoneNumber },
+                    ]}
+                  />
+                  <DialogFooter className="gap-3 pt-2">
                     <Button type="button" variant="outline" onClick={() => {
                       setIsDialogOpen(false);
                       resetForm();
                     }}>Batal</Button>
                     <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                       {editingProspect ? 'Kemaskini' : 'Tambah'}
                     </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
-          </div>
-        )}
-      </div>
+          </>
+        ) : undefined}
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:max-w-2xl">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Users className="w-4 h-4 text-blue-500" />
-            <span className="text-xs uppercase font-medium">Total Lead</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{stats.totalLead}</p>
-        </div>
-
-        <div className="bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 mb-1">
-            <Target className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">Total Close</span>
-          </div>
-          <p className="text-2xl font-bold text-teal-700 dark:text-teal-300">{stats.leadClose}</p>
-        </div>
-
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="text-xs uppercase font-medium">RM Close</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">RM {stats.totalSales.toFixed(2)}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <StatCard icon={Users} tone="blue" label="Total Lead" value={stats.totalLead} />
+        <StatCard icon={Target} tone="cyan" label="Total Close" value={stats.leadClose} />
+        <StatCard
+          icon={DollarSign}
+          tone="green"
+          label="RM Close"
+          value={`RM ${stats.totalSales.toFixed(2)}`}
+          className="col-span-2 xl:col-span-1"
+        />
       </div>
 
       <LeadStuckCards items={filteredProspects.map((p) => ({ fu: fuOf(p), closed: p.statusClosed === 'closed' }))} />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Start Date</span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="flex flex-col gap-1.5">
+          <span className="section-label flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            Start Date
+          </span>
           <Input
             type="date"
             value={pendingStart}
             onChange={(e) => setPendingStart(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-44"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">End Date</span>
+        <div className="flex flex-col gap-1.5">
+          <span className="section-label flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            End Date
+          </span>
           <Input
             type="date"
             value={pendingEnd}
             onChange={(e) => setPendingEnd(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-44"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
 
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Cari nama, phone, niche..."
@@ -807,20 +807,20 @@ const Prospects: React.FC = () => {
 
         <TeamFilter value={teamFilter} onChange={setTeamFilter} />
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={resetFilters}>
-            <RotateCcw className="w-4 h-4 mr-2" />
+            <RotateCcw className="w-4 h-4" />
             Reset
           </Button>
           <Button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white">
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="w-4 h-4" />
             Export CSV
           </Button>
         </div>
       </div>
 
       {/* Table — follow-up sheet (STATUS BOT / CALL / BOOKING / CLOSE) */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
         <LeadSheet
           rows={pagedProspects}
           startIndex={(page - 1) * pageSize}
@@ -899,8 +899,8 @@ const Prospects: React.FC = () => {
             <p className="text-sm text-muted-foreground">
               Sila gunakan format berikut untuk import prospect. Fail mestilah dalam format CSV atau Excel.
             </p>
-            <div className="bg-muted/50 rounded-lg p-4 overflow-x-auto">
-              <table className="text-xs w-full">
+            <div className="bg-muted/50 rounded-xl p-4 overflow-x-auto">
+              <table className="text-xs w-full whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-2 px-2 font-semibold">Nama</th>
@@ -948,39 +948,37 @@ const Prospects: React.FC = () => {
       <Dialog open={ordersModalOpen} onOpenChange={setOrdersModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-blue-500" />
-              Senarai Order - {selectedProspectName}
+            <DialogTitle className="flex items-center gap-2.5">
+              <IconTile icon={ShoppingCart} tone="blue" size="sm" />
+              <span className="min-w-0">Senarai Order - {selectedProspectName}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {isLoadingOrders ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
+              <TableSkeleton rows={3} cols={3} />
             ) : selectedProspectOrders.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-border/80">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Tarikh Order</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">ID Sale</th>
-                      <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground uppercase">Price</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">Tarikh Order</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">ID Sale</th>
+                      <th className="px-3 py-2 text-right text-[11px] font-semibold tracking-wider text-muted-foreground uppercase whitespace-nowrap">Price</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {selectedProspectOrders.map((order, idx) => (
-                      <tr key={idx} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 text-foreground">{formatDMY(order.date_order)}</td>
-                        <td className="px-3 py-2 text-foreground">{order.id_sale || '-'}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-foreground">RM {(Number(order.total_sale) || 0).toFixed(2)}</td>
+                      <tr key={idx} className="hover:bg-muted/40">
+                        <td className="px-3 py-2 text-foreground whitespace-nowrap">{formatDMY(order.date_order)}</td>
+                        <td className="px-3 py-2 text-foreground whitespace-nowrap">{order.id_sale || '-'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-foreground whitespace-nowrap">RM {(Number(order.total_sale) || 0).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-muted/30">
                     <tr>
                       <td className="px-3 py-2 font-semibold text-foreground" colSpan={2}>Total</td>
-                      <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
+                      <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums whitespace-nowrap">
                         RM {selectedProspectOrders.reduce((sum, o) => sum + (Number(o.total_sale) || 0), 0).toFixed(2)}
                       </td>
                     </tr>
@@ -988,9 +986,7 @@ const Prospects: React.FC = () => {
                 </table>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                Tiada order dijumpai.
-              </div>
+              <EmptyState icon={ShoppingCart} title="Tiada order dijumpai." className="py-8" />
             )}
           </div>
           <DialogFooter>

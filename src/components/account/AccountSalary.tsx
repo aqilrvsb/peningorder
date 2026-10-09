@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package, Lock, LockOpen } from 'lucide-react';
+import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package, Lock, LockOpen, DollarSign, RotateCcw, Coins, Percent, TrendingUp, PiggyBank } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
@@ -17,6 +17,18 @@ import { toast } from '@/hooks/use-toast';
 import { FileText } from 'lucide-react';
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, CardsSkeleton, TableSkeleton, EmptyState, type Tone } from '@/components/common/SoftUI';
+
+// Money stat cards: stack the icon above the value on phones and let long RM
+// amounts wrap instead of being cut off.
+const MONEY_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
+const wrapVal = (v: React.ReactNode) => <span className="whitespace-normal">{v}</span>;
+// Summary-card icon per label (presentation only).
+const CARD_ICON: Record<string, React.ElementType> = {
+  'Total Sales': DollarSign, 'Total Return': RotateCcw, 'Total Commission': Coins, 'Komisyen %': Percent,
+  'Total Collection': Wallet, 'Total Nett Sales': DollarSign, 'Total Gross Profit': TrendingUp, 'Baki Profit': PiggyBank,
+};
+
 interface InvoiceSettings {
   company_name?: string | null;
   registration_no?: string | null;
@@ -628,8 +640,9 @@ const AccountSalary: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={4} />
+        <TableSkeleton rows={6} cols={6} />
       </div>
     );
   }
@@ -637,28 +650,27 @@ const AccountSalary: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-            <Wallet className="w-6 h-6" />
-            Salary
-          </h1>
-          <p className="text-muted-foreground mt-1">Komisyen staf mengikut konfigurasi PNL</p>
-        </div>
-        <Button onClick={exportToXLSX} className="bg-green-600 hover:bg-green-700 text-white w-fit">
-          <Download className="w-4 h-4 mr-2" />Export XLSX
-        </Button>
-      </div>
+      <PageHeader
+        title="Salary"
+        description="Komisyen staf mengikut konfigurasi PNL"
+        icon={Wallet}
+        tone="brand"
+        actions={
+          <Button onClick={exportToXLSX} className="bg-green-600 hover:bg-green-700 text-white w-fit">
+            <Download className="w-4 h-4 mr-2" />Export XLSX
+          </Button>
+        }
+      />
 
       {!config && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
           <span>Belum ada konfigurasi PNL. Pergi ke <b>PNL Config</b> untuk tetapkan cara kira komisyen dahulu.</span>
         </div>
       )}
 
       {config && (
-        <div className="bg-card border border-border rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+        <div className="bg-muted/30 border border-border/80 rounded-xl px-4 py-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
           {isKomisyenOrder ? (
             <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen bundle (setup Logistic), dikira untuk order <b className="text-foreground">{basisIsCollection ? 'yang dah Collect' : 'Total Sales − Return'}</b>.</span>
           ) : (
@@ -676,22 +688,22 @@ const AccountSalary: React.FC = () => {
       )}
 
       {/* Date filter */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-5 h-5" />
-            <span className="font-medium text-foreground">Date Range:</span>
+            <IconTile icon={Calendar} tone="blue" size="sm" />
+            <span className="whitespace-nowrap font-medium text-foreground">Date Range:</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">From</Label>
-              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">To</Label>
-              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
             </div>
-            <Button onClick={applyFilter} size="sm" className="h-9">
+            <Button onClick={applyFilter} className="h-10">
               <Filter className="w-4 h-4 mr-1" />Filter
             </Button>
             <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
@@ -708,26 +720,26 @@ const AccountSalary: React.FC = () => {
 
       {/* Staff: pick a Month/Year to view the LOCKED commission (finalized by HQ). */}
       {isMarketer && (
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+        <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 sm:items-end">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Lock className="w-5 h-5" /><span className="font-medium text-foreground">Komisyen Lock:</span>
+              <IconTile icon={Lock} tone="amber" size="sm" /><span className="font-medium text-foreground">Komisyen Lock:</span>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Bulan</Label>
               <Select value={pendingLockMonth} onValueChange={setPendingLockMonth}>
-                <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>{MONTH_OPTS.map((m) => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Tahun</Label>
               <Select value={pendingLockYear} onValueChange={setPendingLockYear}>
-                <SelectTrigger className="w-24 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-24"><SelectValue /></SelectTrigger>
                 <SelectContent>{YEAR_OPTS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <Button onClick={applyLockFilter} size="sm" className="h-9">
+            <Button onClick={applyLockFilter} className="h-10">
               <Filter className="w-4 h-4 mr-1" />Filter
             </Button>
           </div>
@@ -745,24 +757,28 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
-        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 4 ? 'md:grid-cols-4' : cards.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
           {cards.map((c) => (
-            <div key={c.label} className={`stat-card border-l-4 ${cardColor[c.color] || 'border-l-slate-500 text-slate-600'}`}>
-              <div className="text-muted-foreground text-xs uppercase mb-1">{c.label}</div>
-              <div className={`text-lg font-bold ${(cardColor[c.color] || '').split(' ')[1] || ''}`}>{c.value}</div>
-            </div>
+            <StatCard
+              key={c.label}
+              icon={CARD_ICON[c.label] || Wallet}
+              tone={(c.color as Tone) || 'slate'}
+              label={c.label}
+              value={wrapVal(c.value)}
+              className={MONEY_CARD}
+            />
           ))}
         </div>
       )}
 
       {/* Salary table (config-driven columns) */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Staff Commission</h2>
+          <h2 className="font-semibold flex items-center gap-2"><IconTile icon={Users} tone="purple" size="sm" /> Staff Commission</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead className="bg-muted/40">
               <tr>
                 {columns.map((c) => (
                   <th key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.headClass || ''}`}>{c.label}</th>
@@ -777,9 +793,9 @@ const AccountSalary: React.FC = () => {
             </thead>
             <tbody>
               {salaryRows.map((r) => (
-                <tr key={r.idStaff} className="border-t border-border hover:bg-muted/30">
+                <tr key={r.idStaff} className="border-t border-border hover:bg-muted/40 transition-colors">
                   {columns.map((c) => (
-                    <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{c.cell(r)}</td>
+                    <td key={c.key} className={`p-3 whitespace-nowrap ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>{c.cell(r)}</td>
                   ))}
                   {isKomisyenOrder && (
                     <td className="p-3 text-center">
@@ -813,7 +829,7 @@ const AccountSalary: React.FC = () => {
                     const lk = lockByIdstaff.get(r.idStaff);
                     return (
                       <>
-                        <td className="p-3 text-right tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{lk ? `RM ${formatNumber(Number(lk.commission) || 0)}` : '—'}</td>
+                        <td className="p-3 text-right tabular-nums whitespace-nowrap font-bold text-emerald-600 dark:text-emerald-400">{lk ? `RM ${formatNumber(Number(lk.commission) || 0)}` : '—'}</td>
                         {isKomisyenOrder && (
                           <td className="p-3 text-center">
                             {lk?.snapshot?.groups ? (
@@ -836,21 +852,21 @@ const AccountSalary: React.FC = () => {
                 </tr>
               ))}
               {salaryRows.length === 0 && (
-                <tr><td colSpan={(columns.length || 1) + 1 + (isKomisyenOrder ? 1 : 0) + (isMarketer ? 0 : 1) + (showLockCols ? (isKomisyenOrder ? 3 : 2) : 0)} className="p-6 text-center text-muted-foreground">Tiada staf untuk dikira.</td></tr>
+                <tr><td colSpan={(columns.length || 1) + 1 + (isKomisyenOrder ? 1 : 0) + (isMarketer ? 0 : 1) + (showLockCols ? (isKomisyenOrder ? 3 : 2) : 0)} className="p-0"><EmptyState icon={Users} title="Tiada staf untuk dikira." /></td></tr>
               )}
             </tbody>
             {salaryRows.length > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-border bg-muted/30 font-semibold">
+                <tr className="border-t-2 border-border bg-muted/40 font-semibold">
                   {columns.map((c, idx) => (
-                    <td key={c.key} className={`p-3 ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                    <td key={c.key} className={`p-3 whitespace-nowrap ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
                       {idx === 0 ? 'TOTAL' : (c.total ?? '')}
                     </td>
                   ))}
                   {isKomisyenOrder && <td className="p-3"></td>}
                   <td className="p-3"></td>
                   {!isMarketer && <td className="p-3"></td>}
-                  {showLockCols && <td className="p-3 text-right tabular-nums font-bold text-emerald-600 dark:text-emerald-400">RM {formatNumber(locks.reduce((s, l) => s + (Number(l.commission) || 0), 0))}</td>}
+                  {showLockCols && <td className="p-3 text-right tabular-nums whitespace-nowrap font-bold text-emerald-600 dark:text-emerald-400">RM {formatNumber(locks.reduce((s, l) => s + (Number(l.commission) || 0), 0))}</td>}
                   {showLockCols && isKomisyenOrder && <td className="p-3"></td>}
                   {showLockCols && <td className="p-3"></td>}
                 </tr>
@@ -864,16 +880,16 @@ const AccountSalary: React.FC = () => {
       <Dialog open={!!bundleModal} onOpenChange={(o) => { if (!o) setBundleModal(null); }}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" /> Komisyen ikut Bundle — {bundleModal?.name} <span className="font-mono text-sm text-muted-foreground">({bundleModal?.idStaff})</span>
+            <DialogTitle className="flex flex-wrap items-center gap-2 pr-6">
+              <IconTile icon={Package} tone="purple" size="sm" /> Komisyen ikut Bundle — {bundleModal?.name} <span className="font-mono text-sm text-muted-foreground">({bundleModal?.idStaff})</span>
             </DialogTitle>
           </DialogHeader>
           {bundleLoading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
+            <TableSkeleton rows={4} cols={3} />
           ) : (bundleGroups && bundleGroups.length > 0) ? (
-            <div className="overflow-y-auto -mx-6 px-6">
+            <div className="overflow-auto -mx-5 px-5 sm:-mx-6 sm:px-6">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 sticky top-0">
+                <thead className="bg-muted/40 backdrop-blur sticky top-0">
                   <tr>
                     <th className="p-2.5 text-left">Bundle</th>
                     <th className="p-2.5 text-right">Kuantiti</th>
@@ -887,10 +903,10 @@ const AccountSalary: React.FC = () => {
                     const open = openBundleKey === key;
                     return (
                       <React.Fragment key={key}>
-                        <tr className="border-t border-border hover:bg-muted/30 cursor-pointer" onClick={() => setOpenBundleKey(open ? null : key)}>
+                        <tr className="border-t border-border hover:bg-muted/40 transition-colors cursor-pointer" onClick={() => setOpenBundleKey(open ? null : key)}>
                           <td className="p-2.5"><b>{g.name}</b>{g.sku ? <span className="text-muted-foreground"> ({g.sku})</span> : ''}</td>
                           <td className="p-2.5 text-right tabular-nums">{g.orders.length}</td>
-                          <td className="p-2.5 text-right tabular-nums font-semibold text-primary">RM {formatNumber(g.sum)}</td>
+                          <td className="p-2.5 text-right tabular-nums whitespace-nowrap font-semibold text-primary">RM {formatNumber(g.sum)}</td>
                           <td className="p-2.5 text-muted-foreground">{open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</td>
                         </tr>
                         {open && (
@@ -911,14 +927,14 @@ const AccountSalary: React.FC = () => {
                                   </thead>
                                   <tbody>
                                     {g.orders.map((o, i) => (
-                                      <tr key={i} className="border-t border-border/60">
-                                        <td className="p-2 font-mono">{o.id}</td>
+                                      <tr key={i} className="border-t border-border/60 hover:bg-muted/40">
+                                        <td className="p-2 font-mono whitespace-nowrap">{o.id}</td>
                                         <td className="p-2 whitespace-nowrap">{o.date}</td>
                                         <td className="p-2">{o.product}</td>
                                         <td className="p-2">{o.name}</td>
-                                        <td className="p-2">{o.phone}</td>
-                                        <td className="p-2 font-mono">{o.tracking}</td>
-                                        <td className="p-2 text-right tabular-nums">RM {formatNumber(o.komisyen)}</td>
+                                        <td className="p-2 whitespace-nowrap">{o.phone}</td>
+                                        <td className="p-2 font-mono whitespace-nowrap">{o.tracking}</td>
+                                        <td className="p-2 text-right tabular-nums whitespace-nowrap">RM {formatNumber(o.komisyen)}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -932,17 +948,17 @@ const AccountSalary: React.FC = () => {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-border bg-muted/30 font-semibold">
+                  <tr className="border-t-2 border-border bg-muted/40 font-semibold">
                     <td className="p-2.5">TOTAL</td>
                     <td className="p-2.5 text-right tabular-nums">{bundleGroups.reduce((s, g) => s + g.orders.length, 0)}</td>
-                    <td className="p-2.5 text-right tabular-nums text-primary">RM {formatNumber(bundleGroups.reduce((s, g) => s + g.sum, 0))}</td>
+                    <td className="p-2.5 text-right tabular-nums whitespace-nowrap text-primary">RM {formatNumber(bundleGroups.reduce((s, g) => s + g.sum, 0))}</td>
                     <td></td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           ) : (
-            <div className="py-12 text-center text-muted-foreground">Tiada order layak untuk tempoh ini.</div>
+            <EmptyState icon={Package} title="Tiada order layak untuk tempoh ini." />
           )}
         </DialogContent>
       </Dialog>

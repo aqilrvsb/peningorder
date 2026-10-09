@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar, CreditCard, Building2, Receipt, ExternalLink, X } from "lucide-react";
 import { formatDMY } from "@/lib/utils";
+import { IconTile } from "@/components/common/SoftUI";
 
 interface PaymentDetailsModalProps {
   isOpen: boolean;
@@ -38,50 +39,50 @@ const PaymentDetailsModal = ({ isOpen, onClose, order }: PaymentDetailsModalProp
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Receipt className="w-5 h-5" />
+            <IconTile icon={Receipt} tone="green" size="sm" />
             Payment Details
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 py-2">
           {/* Customer Name */}
-          <div className="text-sm text-muted-foreground mb-2">
+          <div className="text-sm text-muted-foreground mb-1 break-words">
             Customer: <span className="font-medium text-foreground">{customerName}</span>
           </div>
 
           {/* Payment Date */}
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-            <Calendar className="w-5 h-5 text-blue-500" />
-            <div>
-              <p className="text-xs text-muted-foreground">Payment Date</p>
-              <p className="font-medium">{formatDMY(order.date_payment)}</p>
+          <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 p-3">
+            <IconTile icon={Calendar} tone="blue" size="sm" />
+            <div className="min-w-0">
+              <p className="section-label">Payment Date</p>
+              <p className="font-medium whitespace-nowrap">{formatDMY(order.date_payment)}</p>
             </div>
           </div>
 
           {/* Payment Type */}
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-            <CreditCard className="w-5 h-5 text-green-500" />
-            <div>
-              <p className="text-xs text-muted-foreground">Payment Type</p>
+          <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 p-3">
+            <IconTile icon={CreditCard} tone="green" size="sm" />
+            <div className="min-w-0">
+              <p className="section-label">Payment Type</p>
               <p className="font-medium">{order.jenis_bayaran || order.payment_method || "-"}</p>
             </div>
           </div>
 
           {/* Bank */}
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-            <Building2 className="w-5 h-5 text-purple-500" />
-            <div>
-              <p className="text-xs text-muted-foreground">Bank</p>
-              <p className="font-medium">{order.bank || "-"}</p>
+          <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 p-3">
+            <IconTile icon={Building2} tone="purple" size="sm" />
+            <div className="min-w-0">
+              <p className="section-label">Bank</p>
+              <p className="font-medium break-words">{order.bank || "-"}</p>
             </div>
           </div>
 
           {/* Amount */}
-          <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-green-600 font-bold text-lg">RM</div>
-            <div>
-              <p className="text-xs text-muted-foreground">Amount Paid</p>
-              <p className="font-bold text-green-700">RM {Number(order.total_price || 0).toFixed(2)}</p>
+          <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-3 dark:border-green-500/30 dark:bg-green-500/10">
+            <span className="icon-tile-sm icon-tile-green text-xs font-bold">RM</span>
+            <div className="min-w-0">
+              <p className="section-label">Amount Paid</p>
+              <p className="font-bold whitespace-nowrap text-green-700 dark:text-green-400">RM {Number(order.total_price || 0).toFixed(2)}</p>
             </div>
           </div>
 
@@ -89,13 +90,13 @@ const PaymentDetailsModal = ({ isOpen, onClose, order }: PaymentDetailsModalProp
           {order.receipt_image_url && (
             <div className="space-y-2">
               <p className="text-sm font-medium flex items-center gap-2">
-                <Receipt className="w-4 h-4" />
+                <Receipt className="w-4 h-4 text-muted-foreground" />
                 Payment Receipt
               </p>
-              <div className="relative border rounded-lg overflow-hidden bg-muted/30">
+              <div className="relative min-h-[120px] border rounded-xl overflow-hidden bg-muted/30">
                 {imageLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="animate-pulse text-muted-foreground">Loading...</div>
+                  <div className="shimmer absolute inset-0 flex items-center justify-center rounded-none">
+                    <div className="relative text-xs text-muted-foreground">Loading...</div>
                   </div>
                 )}
                 <img
@@ -119,7 +120,7 @@ const PaymentDetailsModal = ({ isOpen, onClose, order }: PaymentDetailsModalProp
           )}
 
           {!order.receipt_image_url && (
-            <div className="text-center py-4 text-muted-foreground border border-dashed rounded-lg">
+            <div className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-xl">
               No receipt image available
             </div>
           )}

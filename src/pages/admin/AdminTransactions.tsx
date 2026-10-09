@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { CreditCard, Loader2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, Loader2, CheckCircle, XCircle, RefreshCw, Wallet, Clock } from 'lucide-react';
+import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 const STATUS_BADGE: Record<string, string> = {
   paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -127,56 +127,45 @@ const AdminTransactions: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <CreditCard className="w-7 h-7 text-primary" /> Transactions
-          </h1>
-          <p className="text-muted-foreground mt-2">Subscription payments (Chip) — showing {MONTHS[selMonth]} {selYear}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filter month:</span>
-          <select
-            value={selMonth}
-            onChange={(e) => setSelMonth(Number(e.target.value))}
-            className="h-9 rounded-lg border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-          </select>
-          <select
-            value={selYear}
-            onChange={(e) => setSelYear(Number(e.target.value))}
-            className="h-9 rounded-lg border border-border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Transactions"
+        description={<>Subscription payments (Chip) — showing {MONTHS[selMonth]} {selYear}</>}
+        icon={CreditCard}
+        tone="brand"
+        actions={
+          <>
+            <span className="text-sm text-muted-foreground">Filter month:</span>
+            <select
+              value={selMonth}
+              onChange={(e) => setSelMonth(Number(e.target.value))}
+              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+            >
+              {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+            </select>
+            <select
+              value={selYear}
+              onChange={(e) => setSelYear(Number(e.target.value))}
+              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
+            >
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatCard icon={Wallet} tone="indigo" label="Revenue (All Time)" value={`RM ${totalPaid.toFixed(2)}`} hint={`${totalPaidCount} paid transactions`} />
+        <StatCard icon={CheckCircle} tone="green" label={`Revenue (${MONTHS[selMonth]} ${selYear})`} value={<span className="text-green-600">RM {monthPaid.toFixed(2)}</span>} hint={`${monthPaidList.length} paid this month`} />
+        <StatCard icon={Clock} tone="orange" label={`Pending (${MONTHS[selMonth]})`} value={<span className="text-orange-600">{pendingCount}</span>} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Revenue (All Time)</p>
-          <p className="text-2xl font-bold">RM {totalPaid.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground">{totalPaidCount} paid transactions</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Revenue ({MONTHS[selMonth]} {selYear})</p>
-          <p className="text-2xl font-bold text-green-600">RM {monthPaid.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground">{monthPaidList.length} paid this month</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase">Pending ({MONTHS[selMonth]})</p>
-          <p className="text-2xl font-bold text-orange-600">{pendingCount}</p>
-        </CardContent></Card>
-      </div>
-
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
               tab === t.key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -190,13 +179,13 @@ const AdminTransactions: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <TableSkeleton rows={6} cols={8} className="p-4" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">Date</th>
                   <th className="p-3 text-left">Client</th>
@@ -212,18 +201,18 @@ const AdminTransactions: React.FC = () => {
                 {payments.map((p: any) => {
                   const client = data?.emailMap[p.user_id];
                   return (
-                    <tr key={p.id} className="border-t border-border hover:bg-muted/30">
+                    <tr key={p.id} className="border-t border-border hover:bg-muted/40">
                       <td className="p-3 text-xs whitespace-nowrap">{new Date(p.created_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="p-3">
                         <p className="font-medium">{client?.email || p.user_id}</p>
                         <p className="text-xs text-muted-foreground font-mono">{client?.idstaff || ''}</p>
                       </td>
                       <td className="p-3 capitalize">{p.plan || '-'}</td>
-                      <td className="p-3 text-right font-semibold">{Number(p.amount || 0).toFixed(2)}</td>
+                      <td className="p-3 text-right font-semibold whitespace-nowrap">{Number(p.amount || 0).toFixed(2)}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[p.status] || 'bg-muted text-muted-foreground'}`}>{p.status}</span>
                       </td>
-                      <td className="p-3 text-xs">{p.paid_at ? new Date(p.paid_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                      <td className="p-3 text-xs whitespace-nowrap">{p.paid_at ? new Date(p.paid_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                       <td className="p-3 font-mono text-xs max-w-[120px] truncate">{p.chip_purchase_id || '-'}</td>
                       <td className="p-3">
                         <div className="flex gap-1 items-center">
@@ -248,7 +237,7 @@ const AdminTransactions: React.FC = () => {
                   );
                 })}
                 {payments.length === 0 && (
-                  <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No transactions</td></tr>
+                  <tr><td colSpan={8} className="text-muted-foreground"><EmptyState icon={CreditCard} title="No transactions" /></td></tr>
                 )}
               </tbody>
             </table>

@@ -14,6 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import { PageHeader, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
 const STATUS_BADGE: Record<string, string> = {
   Pending: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
@@ -180,34 +181,29 @@ const Tickets: React.FC = () => {
   const isClosed = activeTicket?.status === 'Closed';
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Ticket className="w-7 h-7 text-primary" /> Open Ticket
-          </h1>
-          <p className="text-muted-foreground mt-2">Buat aduan untuk order anda — kami akan balas di sini</p>
-        </div>
-        <Button onClick={() => { resetCreate(); setCreateOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> New Ticket
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Open Ticket"
+        description="Buat aduan untuk order anda — kami akan balas di sini"
+        icon={Ticket}
+        tone="brand"
+        actions={
+          <Button onClick={() => { resetCreate(); setCreateOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> New Ticket
+          </Button>
+        }
+      />
 
       {/* Ticket history */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <TableSkeleton rows={5} cols={7} className="p-4" />
         ) : tickets.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Ticket className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p>Tiada ticket lagi. Klik "New Ticket" untuk buat aduan.</p>
-          </div>
+          <EmptyState icon={Ticket} title={'Tiada ticket lagi. Klik "New Ticket" untuk buat aduan.'} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="p-3 text-left">Ticket No</th>
                   <th className="p-3 text-left">Order</th>
@@ -220,11 +216,11 @@ const Tickets: React.FC = () => {
               </thead>
               <tbody>
                 {tickets.map((t: any) => (
-                  <tr key={t.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="p-3 font-mono font-semibold">{t.ticket_no}</td>
-                    <td className="p-3">{t.id_sale || '-'}</td>
-                    <td className="p-3 font-mono text-xs">{t.tracking_number || '-'}</td>
-                    <td className="p-3 max-w-xs"><span className="line-clamp-2">{t.message}</span></td>
+                  <tr key={t.id} className="border-t border-border hover:bg-muted/40">
+                    <td className="p-3 font-mono font-semibold whitespace-nowrap">{t.ticket_no}</td>
+                    <td className="p-3 whitespace-nowrap">{t.id_sale || '-'}</td>
+                    <td className="p-3 font-mono text-xs whitespace-nowrap">{t.tracking_number || '-'}</td>
+                    <td className="p-3 min-w-[180px] max-w-xs"><span className="line-clamp-2">{t.message}</span></td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[t.status] || STATUS_BADGE.Pending}`}>
                         {t.status}
@@ -280,9 +276,9 @@ const Tickets: React.FC = () => {
                       className="w-full text-left p-3 hover:bg-muted/50 transition-colors"
                       onClick={() => setSelectedOrder(o)}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-sm">{o.id_sale || o.tracking_number}</span>
-                        <span className="text-xs text-muted-foreground">{formatDMY(o.date_order)}</span>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="font-semibold text-sm truncate">{o.id_sale || o.tracking_number}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDMY(o.date_order)}</span>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {o.name_customer} · {o.kurier} · RM {Number(o.total_sale || 0).toFixed(2)} · {o.delivery_status}
@@ -294,8 +290,8 @@ const Tickets: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-3 flex justify-between items-center">
-                <div>
+              <div className="bg-muted/40 border border-border/80 rounded-lg p-3 flex justify-between items-center gap-2">
+                <div className="min-w-0">
                   <p className="font-semibold text-sm">{selectedOrder.id_sale}</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedOrder.name_customer} · {selectedOrder.kurier} · Tracking: {selectedOrder.tracking_number || '-'}
@@ -323,6 +319,8 @@ const Tickets: React.FC = () => {
                   <img src={imagePreview} alt="preview" className="mt-2 max-h-32 rounded-lg border border-border" />
                 )}
               </div>
+
+              <MissingHint items={[{ label: 'Order', done: !!selectedOrder }, { label: 'Aduan', done: !!message.trim() }]} />
 
               <Button className="w-full" onClick={submitTicket} disabled={submitting}>
                 {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
@@ -395,7 +393,7 @@ const Tickets: React.FC = () => {
 
           {/* Reply box (hidden when Closed) */}
           {isClosed ? (
-            <div className="bg-muted/50 rounded-lg p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <div className="bg-muted/40 rounded-lg p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <Clock className="w-4 h-4" /> Ticket ini telah ditutup. Buka ticket baru jika masih ada masalah.
             </div>
           ) : (
@@ -406,8 +404,8 @@ const Tickets: React.FC = () => {
                 onChange={(e) => setReplyText(e.target.value)}
                 rows={2}
               />
-              <div className="flex items-center justify-between">
-                <label className="inline-flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+              <div className="flex items-center justify-between gap-2">
+                <label className="inline-flex min-w-0 items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                   <ImagePlus className="w-4 h-4" />
                   {replyImage ? replyImage.name : 'Gambar'}
                   <input

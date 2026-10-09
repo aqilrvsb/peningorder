@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Tags, Loader2, Save, Clock, Zap, Rocket, Crown } from 'lucide-react';
+import { Receipt, Loader2, Save, Clock, Zap, Rocket, Crown } from 'lucide-react';
+import { PageHeader, CardsSkeleton, MissingHint } from '@/components/common/SoftUI';
 
 interface PlanCfg {
   label: string;
@@ -86,18 +87,16 @@ const AdminPricing: React.FC = () => {
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Tags className="w-7 h-7 text-primary" /> Pricing Plans
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Dynamic pricing — changes apply instantly to Billing page, checkout, and the landing page
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Pricing Plans"
+        description="Dynamic pricing — changes apply instantly to Billing page, checkout, and the landing page"
+        icon={Receipt}
+        tone="brand"
+      />
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <CardsSkeleton count={4} className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {PLAN_KEYS.map((key) => {
@@ -105,10 +104,10 @@ const AdminPricing: React.FC = () => {
             if (!cfg) return null;
             return (
               <Card key={key} className={cfg.active === false ? 'opacity-70' : ''}>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-primary">
-                      {PLAN_ICONS[key]}
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="icon-tile-sm icon-tile-brand">{PLAN_ICONS[key]}</span>
                       <span className="font-semibold text-lg capitalize">{key}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -119,26 +118,27 @@ const AdminPricing: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Label</label>
+                    <label className="section-label">Label</label>
                     <Input value={cfg.label} onChange={(e) => setField(key, 'label', e.target.value)} className="mt-1" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Original Price (RM)</label>
+                    <label className="section-label">Original Price (RM)</label>
                     <Input type="number" value={cfg.original_price ?? ''} onChange={(e) => setField(key, 'original_price', e.target.value)} className="mt-1" placeholder="cth: 79 (kosong = tiada diskaun)" disabled={key === 'trial'} />
                     <p className="text-[11px] text-muted-foreground mt-1">Dicoret di depan. Kosongkan jika tiada diskaun.</p>
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Price (RM) — dibayar</label>
+                    <label className="section-label">Price (RM) — dibayar</label>
                     <Input type="number" value={cfg.price} onChange={(e) => setField(key, 'price', e.target.value)} className="mt-1" disabled={key === 'trial'} />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Duration (days)</label>
+                    <label className="section-label">Duration (days)</label>
                     <Input type="number" value={cfg.days} onChange={(e) => setField(key, 'days', e.target.value)} className="mt-1" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase">Max Orders / Month</label>
+                    <label className="section-label">Max Orders / Month</label>
                     <Input type="number" value={cfg.max_orders_per_month} onChange={(e) => setField(key, 'max_orders_per_month', e.target.value)} className="mt-1" />
                   </div>
+                  <MissingHint items={[{ label: 'Label', done: !!cfg.label }, { label: 'Days > 0', done: cfg.days > 0 }]} />
                   <Button className="w-full" onClick={() => savePlan(key)} disabled={savingKey === key}>
                     {savingKey === key ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                     Save

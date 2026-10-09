@@ -142,6 +142,24 @@ const baseRoleGroups: RoleGroup[] = [
   { key: 'hr', label: 'HR', icon: <ClipboardCheck className="w-5 h-5" />, items: hrItems },
 ];
 
+// Soft-UI nav link: grey text; active = white tile with a soft shadow and a brand-coloured icon.
+const navLink = (active: boolean, collapsed = false, sub = false) => cn(
+  'group flex w-full items-center gap-3 rounded-lg text-sm transition-all duration-200',
+  sub ? 'px-3 py-2' : 'px-3 py-2.5',
+  active
+    ? 'bg-card font-medium text-foreground shadow-sm ring-1 ring-border/70 [&_svg]:text-primary'
+    : 'text-muted-foreground hover:bg-card/70 hover:text-foreground',
+  collapsed && 'justify-center px-2',
+);
+
+// Footer shortcuts (Billing / Profile / Logout): a compact row of small tiles so the menu keeps its height.
+const footerLink = (active: boolean, collapsed: boolean) => collapsed
+  ? navLink(active, true)
+  : cn(
+      'flex flex-1 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium transition-all duration-200',
+      active ? 'bg-card text-foreground shadow-sm ring-1 ring-border/70 [&_svg]:text-primary' : 'text-muted-foreground hover:bg-card/70 hover:text-foreground',
+    );
+
 const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mobileOpen = false, onClose }) => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -253,52 +271,55 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     <>
       {/* Mobile backdrop — tap to close the drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] md:hidden animate-in fade-in-0 duration-200" onClick={onClose} aria-hidden="true" />
       )}
       <aside
         className={cn(
-          'bg-background border-r border-border flex flex-col transition-transform duration-300',
+          'bg-canvas flex flex-col transition-[transform,width] duration-300',
           // Mobile: off-canvas fixed drawer (always full width), slides in when open.
           'fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           // Desktop: normal in-flow sidebar, always visible, collapsible.
-          'md:static md:z-auto md:translate-x-0 md:min-h-screen md:max-w-none',
+          'md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:max-w-none',
           collapsed ? 'md:w-16' : 'md:w-64',
         )}
       >
       {/* Logo & Toggle */}
-      <div className="p-4 flex items-center justify-between">
+      <div className={cn('p-4 flex items-center justify-between', collapsed && 'md:justify-center md:px-2')}>
         {!collapsed && (
-          <h1 className="text-xl font-bold text-primary">
-            pening<span className="text-foreground">order</span>
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <span className="icon-tile-sm icon-tile-brand text-sm font-bold">p</span>
+            <span className="text-lg font-bold tracking-tight text-primary">
+              pening<span className="text-foreground">order</span>
+            </span>
+          </div>
         )}
         {/* Desktop: collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:block p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="hidden md:block p-2 rounded-lg hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <PanelLeft className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
         </button>
         {/* Mobile: close drawer */}
         <button
           onClick={onClose}
-          className="md:hidden p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="md:hidden p-2 rounded-lg hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Close menu"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {!collapsed && (
-        <div className="px-6 pb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Navigation
-          </span>
+        <div className="px-6 pb-2 pt-1">
+          <span className="section-label">Navigation</span>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto pb-3">
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto pb-3 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]">
         {frozen && !collapsed && (
           <div className="mb-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
             <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -313,11 +334,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard"
             title={collapsed ? 'Dashboard' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isDashboardActive && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isDashboardActive, collapsed)}
           >
             <LayoutDashboard className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Dashboard</span>}
@@ -331,12 +348,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to={item.path}
             title={collapsed ? item.label : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              (isItemActive(item.path) || (item.path === '/dashboard/admin/clients' && isDashboardActive)) &&
-                'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink((isItemActive(item.path) || (item.path === '/dashboard/admin/clients' && isDashboardActive)), collapsed)}
           >
             {item.icon}
             {!collapsed && <span className="text-sm">{item.label}</span>}
@@ -353,35 +365,27 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
                 onClick={() => toggleGroup(group.key)}
                 title={collapsed ? group.label : undefined}
                 className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-foreground/80 hover:bg-muted hover:text-foreground',
-                  isExpanded && !collapsed && 'bg-muted/60',
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 text-foreground/80 hover:bg-card/70 hover:text-foreground',
                   collapsed && 'justify-center px-2'
                 )}
               >
                 {group.icon}
                 {!collapsed && (
                   <>
-                    <span className="text-sm font-medium flex-1 text-left">{group.label}</span>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
+                    <span className="font-medium flex-1 text-left">{group.label}</span>
+                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform duration-200', !isExpanded && '-rotate-90')} />
                   </>
                 )}
               </button>
 
               {isExpanded && !collapsed && (
-                <div className="mt-1 ml-3 pl-3 border-l border-border/70 space-y-0.5">
+                <div className="mt-1 ml-[1.35rem] pl-3 border-l border-border space-y-0.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
                   {group.items.map((item) => (
                     <Link
                       key={item.path}
                       to={item.path}
                       onClick={handleNavClick}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-                        isItemActive(item.path) && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground'
-                      )}
+                      className={navLink(isItemActive(item.path), false, true)}
                     >
                       {item.icon}
                       <span className="text-sm">{item.label}</span>
@@ -400,11 +404,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/account/salary"
             title={collapsed ? 'Salary' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/account/salary') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/account/salary'), collapsed)}
           >
             <Wallet className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Salary</span>}
@@ -417,11 +417,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/account/top-ranking"
             title={collapsed ? 'Top Ranking' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/account/top-ranking') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/account/top-ranking'), collapsed)}
           >
             <Trophy className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Top Ranking</span>}
@@ -435,11 +431,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/notification"
             title={collapsed ? 'Notification' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/notification') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/notification'), collapsed)}
           >
             <Bell className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Notification</span>}
@@ -452,11 +444,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/logistics/courier-settings"
             title={collapsed ? 'Courier Settings' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/logistics/courier-settings') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/logistics/courier-settings'), collapsed)}
           >
             <Settings className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Courier Settings</span>}
@@ -471,11 +459,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/integration"
             title={collapsed ? 'Integration' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/integration') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/integration'), collapsed)}
           >
             <Plug className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Integration</span>}
@@ -489,11 +473,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             to="/dashboard/tickets"
             title={collapsed ? 'Open Ticket' : undefined}
             onClick={handleNavClick}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-muted hover:text-foreground',
-              isItemActive('/dashboard/tickets') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            className={navLink(isItemActive('/dashboard/tickets'), collapsed)}
           >
             <Ticket className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Open Ticket</span>}
@@ -503,9 +483,9 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
       </nav>
 
       {/* User Profile & Logout */}
-      <div className="p-3 border-t border-border">
-        <div className={cn('flex items-center gap-3 px-3 py-2 mb-2', collapsed && 'justify-center px-0')}>
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary flex-shrink-0 uppercase">
+      <div className="p-3 border-t border-border/70">
+        <div className={cn('flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl bg-card shadow-sm ring-1 ring-border/60', collapsed && 'justify-center px-0 bg-transparent shadow-none ring-0')}>
+          <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-sm font-semibold text-white flex-shrink-0 uppercase">
             {profile?.email?.charAt(0) || 'U'}
           </div>
           {!collapsed && (
@@ -532,44 +512,37 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
             </div>
           )}
         </div>
+        <div className={cn(collapsed ? 'space-y-1' : 'flex gap-1')}>
         {/* Billing is a client concern (their subscription). Admin/staff don't subscribe. */}
         {!isAdmin && !isMarketer && !isLogistic && !isHr && (
           <Link
             to="/dashboard/billing"
             title={collapsed ? 'Billing' : undefined}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200',
-              isItemActive('/dashboard/billing') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-              collapsed && 'justify-center px-2'
-            )}
+            onClick={onClose}
+            className={footerLink(isItemActive('/dashboard/billing'), collapsed)}
           >
             <CreditCard className="w-5 h-5" />
-            {!collapsed && <span className="text-sm">Billing</span>}
+            {!collapsed && <span>Billing</span>}
           </Link>
         )}
         <Link
           to="/dashboard/profile"
           title={collapsed ? 'Profile' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200',
-            isItemActive('/dashboard/profile') && 'bg-primary text-primary-foreground font-medium hover:bg-primary hover:text-primary-foreground',
-            collapsed && 'justify-center px-2'
-          )}
+          onClick={onClose}
+          className={footerLink(isItemActive('/dashboard/profile'), collapsed)}
         >
           <UserCircle className="w-5 h-5" />
-          {!collapsed && <span className="text-sm">Profile</span>}
+          {!collapsed && <span>Profile</span>}
         </Link>
         <button
           onClick={handleLogout}
           title={collapsed ? 'Logout' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200',
-            collapsed && 'justify-center px-2'
-          )}
+          className={cn(footerLink(false, collapsed), !collapsed && 'hover:text-red-600')}
         >
           <LogOut className="w-5 h-5" />
-          {!collapsed && <span className="text-sm">Logout</span>}
+          {!collapsed && <span>Logout</span>}
         </button>
+        </div>
       </div>
       </aside>
     </>

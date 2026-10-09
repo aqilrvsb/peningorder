@@ -10,6 +10,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Check, Loader2, Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { TableSkeleton } from '@/components/common/SoftUI';
 import { toast } from 'sonner';
 import { useHrPeople, useHrRoles, roleBadge, type HrRole } from './useHrPeople';
 
@@ -95,7 +96,7 @@ export default function HRRoles() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-4 sm:px-6">
           <form onSubmit={submitAdd} className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={newName}
@@ -113,16 +114,16 @@ export default function HRRoles() {
       </Card>
 
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-4 sm:px-6">
           {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <TableSkeleton rows={5} cols={4} />
           ) : error ? (
             <p className="py-8 text-center text-sm text-red-600">Gagal muat role: {(error as Error).message}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border">
               <table className="w-full min-w-[420px] text-sm">
                 <thead>
-                  <tr className="border-b text-left text-muted-foreground">
+                  <tr className="border-b bg-muted/40 text-left text-muted-foreground">
                     <th className="w-12 p-2 font-medium">No</th>
                     <th className="p-2 font-medium">Role</th>
                     <th className="w-24 p-2 text-center font-medium">Staff</th>
@@ -147,7 +148,7 @@ export default function HRRoles() {
                     const used = usage(r.name);
                     const isEditing = editingId === r.id;
                     return (
-                      <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
                         <td className="p-2 text-muted-foreground">{i + 2}</td>
                         <td className="p-2">
                           {isEditing ? (

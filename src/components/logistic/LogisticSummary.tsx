@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ElementType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
 import {
-  Package, Clock, Truck, RotateCcw, CheckCircle2, Loader2, Calendar,
-  Banknote, CreditCard, AlertTriangle, PackageCheck, Ban,
+  Package, Clock, Truck, RotateCcw, CheckCircle2, Calendar,
+  Banknote, CreditCard, AlertTriangle, PackageCheck, Ban, BarChart3,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHeader, IconTile, CardsSkeleton, EmptyState, type Tone } from "@/components/common/SoftUI";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 // Logistic Summary — top-of-page overview of all orders in a date range.
@@ -95,27 +97,35 @@ const LogisticSummary = () => {
     };
   }, [rows]);
 
-  // Left-border colour per courier for the compare row.
-  const COURIER_BORDER: Record<string, string> = {
-    JNT: "border-l-red-500", Poslaju: "border-l-yellow-500", Ninjavan: "border-l-rose-500",
-    DHL: "border-l-amber-500", SPX: "border-l-orange-500", Pickup: "border-l-blue-500",
+  // Icon-tile colour per courier for the compare row.
+  const COURIER_TONE: Record<string, Tone> = {
+    JNT: "red", Poslaju: "amber", Ninjavan: "pink",
+    DHL: "cyan", SPX: "orange", Pickup: "blue",
   };
 
   // Small COD/Cash/Pickup breakdown shown inside every lifecycle/platform box.
   const Split = ({ v }: { v: { cod: number; cash: number; pickup: number } }) => (
-    <p className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
-      <span className="text-orange-600 font-medium">COD {v.cod}</span>
+    <p className="text-[11px] mt-1.5 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+      <span className="text-orange-600 dark:text-orange-400 font-medium">COD {v.cod}</span>
       <span className="text-muted-foreground">·</span>
-      <span className="text-green-600 font-medium">Cash {v.cash}</span>
+      <span className="text-green-600 dark:text-green-400 font-medium">Cash {v.cash}</span>
       <span className="text-muted-foreground">·</span>
-      <span className="text-blue-600 font-medium">Pickup {v.pickup}</span>
+      <span className="text-blue-600 dark:text-blue-400 font-medium">Pickup {v.pickup}</span>
     </p>
   );
 
-  const Stat = ({ icon, label, value, sub, color, border, split }: any) => (
-    <div className={`bg-card border-l-4 ${border} border border-border rounded-xl p-4`}>
-      <div className={`flex items-center gap-2 ${color} mb-1`}>{icon}<span className="text-xs uppercase font-semibold tracking-wide">{label}</span></div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+  // Soft stat tile: icon tile + small label on top, big value, then sub text and
+  // the COD/Cash/Pickup split (kept stacked so nothing is truncated on phones).
+  const Stat = ({ icon, label, value, sub, tone, split }: {
+    icon: ElementType; label: ReactNode; value: ReactNode; sub?: ReactNode; tone: Tone;
+    split?: { cod: number; cash: number; pickup: number };
+  }) => (
+    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex min-w-0 items-center gap-2">
+        <IconTile icon={icon} tone={tone} size="sm" />
+        <span className="section-label truncate">{label}</span>
+      </div>
+      <p className="mt-3 text-2xl font-bold leading-tight tracking-tight text-foreground">{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       {split && <Split v={split} />}
     </div>
@@ -123,69 +133,67 @@ const LogisticSummary = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-primary">Summary</h1>
-        <p className="text-muted-foreground mt-1">Ringkasan operasi logistik</p>
-      </div>
+      <PageHeader title="Summary" description="Ringkasan operasi logistik" icon={BarChart3} tone="brand" />
 
       {/* Date range + team */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium">Date Range:</span></div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">From</label>
-            <input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-sm" />
+      <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex items-center gap-2 sm:self-center"><IconTile icon={Calendar} tone="blue" size="sm" /><span className="whitespace-nowrap text-sm font-medium">Date Range:</span></div>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:items-end">
+            <div className="min-w-0">
+              <label className="section-label mb-1 block">From</label>
+              <input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 sm:w-44" />
+            </div>
+            <div className="min-w-0">
+              <label className="section-label mb-1 block">To</label>
+              <input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm shadow-xs focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 sm:w-44" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">To</label>
-            <input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-sm" />
-          </div>
-          <button onClick={() => { setStartDate(pendingStart); setEndDate(pendingEnd); }} className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Apply</button>
+          <Button onClick={() => { setStartDate(pendingStart); setEndDate(pendingEnd); }} className="h-10 w-full sm:w-auto">Apply</Button>
           <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
-          <div className="ml-auto"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
+          <div className="sm:ml-auto"><TeamFilter value={teamFilter} onChange={setTeamFilter} /></div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-48"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <CardsSkeleton count={8} />
       ) : (
         <>
           {/* Row 1 — top-line lifecycle. These three partition every order, so:
               Total Order = Total Pending + Total Shipped + Total Reject. */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Stat icon={<Package className="w-4 h-4" />} label="Total Order" value={s.total.n} split={s.total} sub="All orders in period" color="text-primary" border="border-l-primary" />
-            <Stat icon={<Clock className="w-4 h-4" />} label="Total Pending" value={s.pending.n} split={s.pending} sub="Awaiting processing" color="text-amber-600" border="border-l-amber-500" />
-            <Stat icon={<Truck className="w-4 h-4" />} label="Total Shipped" value={s.process.n} split={s.process} sub="Ever shipped (incl. success/return)" color="text-blue-600" border="border-l-blue-500" />
-            <Stat icon={<Ban className="w-4 h-4" />} label="Total Reject" value={s.rejected.n} split={s.rejected} sub="Rejected / cancelled" color="text-slate-600" border="border-l-slate-500" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat icon={Package} label="Total Order" value={s.total.n} split={s.total} sub="All orders in period" tone="indigo" />
+            <Stat icon={Clock} label="Total Pending" value={s.pending.n} split={s.pending} sub="Awaiting processing" tone="amber" />
+            <Stat icon={Truck} label="Total Shipped" value={s.process.n} split={s.process} sub="Ever shipped (incl. success/return)" tone="blue" />
+            <Stat icon={Ban} label="Total Reject" value={s.rejected.n} split={s.rejected} sub="Rejected / cancelled" tone="slate" />
           </div>
 
           {/* Breakdown of Shipped — Success vs Return (subsets of Total Shipped). */}
           <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-2">Breakdown of Shipped</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Stat icon={<CheckCircle2 className="w-4 h-4" />} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" color="text-green-600" border="border-l-green-500" />
-              <Stat icon={<RotateCcw className="w-4 h-4" />} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" color="text-red-600" border="border-l-red-600" />
-              <Stat icon={<Truck className="w-4 h-4" />} label="Remaining Ship" value={s.process.n - s.success.n - s.returned.n} sub="Shipped, still in transit" color="text-cyan-600" border="border-l-cyan-500" />
+            <p className="section-label mb-2">Breakdown of Shipped</p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <Stat icon={CheckCircle2} label="Total Success" value={s.success.n} split={s.success} sub="Delivered orders" tone="green" />
+              <Stat icon={RotateCcw} label="Total Return" value={s.returned.n} split={s.returned} sub="Returned orders" tone="red" />
+              <Stat icon={Truck} label="Remaining Ship" value={s.process.n - s.success.n - s.returned.n} sub="Shipped, still in transit" tone="cyan" />
             </div>
           </div>
 
           {/* Row 2 — Courier Compare (per courier keyed in, by date range) */}
           <div>
-            <p className="text-sm font-semibold text-muted-foreground mb-2">Courier Compare</p>
+            <p className="section-label mb-2">Courier Compare</p>
             {s.couriers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tiada order dalam tempoh ini.</p>
+              <EmptyState icon={Truck} title="Tiada order dalam tempoh ini." className="rounded-xl border border-dashed py-8" />
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
                 {s.couriers.map((c) => (
                   <Stat
                     key={c.name}
-                    icon={<Truck className="w-4 h-4" />}
+                    icon={Truck}
                     label={c.name}
                     value={c.t.n}
                     split={c.t}
                     sub="orders"
-                    color="text-foreground"
-                    border={COURIER_BORDER[c.name] || "border-l-primary"}
+                    tone={COURIER_TONE[c.name] || "slate"}
                   />
                 ))}
               </div>
@@ -193,10 +201,10 @@ const LogisticSummary = () => {
           </div>
 
           {/* Row 3 — payment + total pickup */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Stat icon={<Banknote className="w-4 h-4" />} label="Total Cash" value={s.cash} sub="Cash payments" color="text-green-600" border="border-l-green-500" />
-            <Stat icon={<CreditCard className="w-4 h-4" />} label="Total COD" value={s.cod} sub="Cash on Delivery" color="text-orange-600" border="border-l-orange-500" />
-            <Stat icon={<PackageCheck className="w-4 h-4" />} label="Total Pickup" value={s.pickup.n} sub="Self pickup / collect" color="text-blue-600" border="border-l-blue-500" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <Stat icon={Banknote} label="Total Cash" value={s.cash} sub="Cash payments" tone="green" />
+            <Stat icon={CreditCard} label="Total COD" value={s.cod} sub="Cash on Delivery" tone="orange" />
+            <Stat icon={PackageCheck} label="Total Pickup" value={s.pickup.n} sub="Self pickup / collect" tone="blue" />
           </div>
         </>
       )}

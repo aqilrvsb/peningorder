@@ -31,9 +31,11 @@ import {
   Ban,
   ExternalLink,
   Package,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 
@@ -344,152 +346,127 @@ const LogisticSuccess = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Success Management</h1>
-        <p className="text-muted-foreground mt-2">
-          View and manage returned orders
-        </p>
-      </div>
+      <PageHeader
+        title="Success Management"
+        description="View and manage returned orders"
+        icon={CheckCircle}
+        tone="brand"
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => { setPaymentFilter("All"); handleFilterChange(); }}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-6 h-6 text-red-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.total}</p>
-                <p className="text-xs text-muted-foreground">Total Success</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "COD" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          icon={Clock}
+          tone="green"
+          label="Total Success"
+          value={counts.total}
+          active={paymentFilter === "All"}
+          onClick={() => { setPaymentFilter("All"); handleFilterChange(); }}
+        />
+        <StatCard
+          icon={DollarSign}
+          tone="amber"
+          label="COD Orders"
+          value={counts.cod}
+          active={paymentFilter === "COD"}
           onClick={() => { setPaymentFilter(paymentFilter === "COD" ? "All" : "COD"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-              <div>
-                <p className="text-xl font-bold">{counts.cod}</p>
-                <p className="text-xs text-muted-foreground">COD Orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "CASH" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={CreditCard}
+          tone="cyan"
+          label="CASH Orders"
+          value={counts.cash}
+          active={paymentFilter === "CASH"}
           onClick={() => { setPaymentFilter(paymentFilter === "CASH" ? "All" : "CASH"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-6 h-6 text-green-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.cash}</p>
-                <p className="text-xs text-muted-foreground">CASH Orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer transition-colors ${paymentFilter === "Pickup" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        />
+        <StatCard
+          icon={Package}
+          tone="blue"
+          label="Total Pickup"
+          value={counts.pickup}
+          active={paymentFilter === "Pickup"}
           onClick={() => { setPaymentFilter(paymentFilter === "Pickup" ? "All" : "Pickup"); handleFilterChange(); }}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Package className="w-6 h-6 text-blue-500" />
-              <div>
-                <p className="text-xl font-bold">{counts.pickup}</p>
-                <p className="text-xs text-muted-foreground">Total Pickup</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        />
       </div>
 
       {/* Courier summary cards — click a card to filter the table by that courier.
           Each shows its COD / Cash split. */}
       {Object.keys(courierStats).length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          <Card
-            className={`cursor-pointer transition-colors ${courierFilter === "All" ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <StatCard
+            icon={Truck}
+            tone="slate"
+            label="Semua Kurier"
+            value={counts.total}
+            active={courierFilter === "All"}
             onClick={() => { setCourierFilter("All"); handleFilterChange(); }}
-          >
-            <CardContent className="py-3 px-4">
-              <p className="text-lg font-bold">{counts.total}</p>
-              <p className="text-xs text-muted-foreground">Semua Kurier</p>
-              <p className="text-[11px] mt-0.5 flex items-center gap-2">
-                <span className="text-orange-600 font-medium">COD {counts.cod}</span>
-                <span className="text-green-600 font-medium">Cash {counts.cash}</span>
-              </p>
-            </CardContent>
-          </Card>
+            hint={<span className="flex flex-wrap gap-x-2 whitespace-normal">
+              <span className="font-medium text-orange-600">COD {counts.cod}</span>
+              <span className="font-medium text-green-600">Cash {counts.cash}</span>
+            </span>}
+          />
           {Object.entries(courierStats).sort((a, b) => b[1].n - a[1].n).map(([courier, st]) => (
-            <Card
+            <StatCard
               key={courier}
-              className={`cursor-pointer transition-colors ${courierFilter === courier ? "border-primary ring-1 ring-primary/30" : "hover:border-primary"}`}
+              icon={Truck}
+              tone="purple"
+              label={courier}
+              value={st.n}
+              active={courierFilter === courier}
               onClick={() => { setCourierFilter(courierFilter === courier ? "All" : courier); handleFilterChange(); }}
-            >
-              <CardContent className="py-3 px-4">
-                <p className="text-lg font-bold">{st.n}</p>
-                <p className="text-xs text-muted-foreground">{courier}</p>
-                <p className="text-[11px] mt-0.5 flex items-center gap-2">
-                  <span className="text-orange-600 font-medium">COD {st.cod}</span>
-                  <span className="text-green-600 font-medium">Cash {st.cash}</span>
-                </p>
-              </CardContent>
-            </Card>
+              hint={<span className="flex flex-wrap gap-x-2 whitespace-normal">
+                <span className="font-medium text-orange-600">COD {st.cod}</span>
+                <span className="font-medium text-green-600">Cash {st.cash}</span>
+              </span>}
+            />
           ))}
         </div>
       )}
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1 flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search... (use + to combine filters)"
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
-                    className="pl-10"
-                  />
-                </div>
-                <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
-                <Button
-                  onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
-                  className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white"
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  Search
-                </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="relative w-full sm:min-w-[220px] sm:flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search... (use + to combine filters)"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+                  className="pl-10"
+                />
               </div>
-              <div className="flex gap-2">
+              <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
+              <Button
+                onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
+                className="h-10 w-full shrink-0 sm:w-auto"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
                 <Input
                   type="date"
                   value={pendingStart}
                   onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
+                  className="w-full sm:w-40"
                 />
                 <Input
                   type="date"
                   value={pendingEnd}
                   onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
+                  className="w-full sm:w-40"
                 />
-                <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
               </div>
+              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Platform:</span>
+                <span className="w-16 shrink-0 text-sm text-muted-foreground sm:w-auto">Platform:</span>
                 <Select value={platformFilter} onValueChange={(v) => { setPlatformFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-full sm:w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -501,9 +478,9 @@ const LogisticSuccess = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Payment:</span>
+                <span className="w-16 shrink-0 text-sm text-muted-foreground sm:w-auto">Payment:</span>
                 <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v); handleFilterChange(); }}>
-                  <SelectTrigger className="w-36">
+                  <SelectTrigger className="w-full sm:w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -515,9 +492,9 @@ const LogisticSuccess = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show:</span>
+                <span className="w-16 shrink-0 text-sm text-muted-foreground sm:w-auto">Show:</span>
                 <Select value={pageSize.toString()} onValueChange={(v) => { setPageSize(v === "All" ? "All" : Number(v)); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-20">
+                  <SelectTrigger className="w-full sm:w-20">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -529,13 +506,12 @@ const LogisticSuccess = () => {
                 <span className="text-sm text-muted-foreground">entries</span>
               </div>
 
-              <div className="flex-1" />
-
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 sm:ml-auto">
                 <Button
                   variant="outline"
                   onClick={handleBulkPrint}
                   disabled={selectedOrders.size === 0 || isPrinting}
+                  className="w-full sm:w-auto"
                 >
                   {isPrinting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
                   Print ({selectedOrders.size})
@@ -550,14 +526,12 @@ const LogisticSuccess = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <TableSkeleton className="p-4" rows={8} cols={6} />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="p-2 text-left w-10">
                         <Checkbox
@@ -597,7 +571,7 @@ const LogisticSuccess = () => {
                   <tbody>
                     {paginatedOrders.length > 0 ? (
                       paginatedOrders.map((order: any, index: number) => (
-                        <tr key={order.id} className="border-b hover:bg-muted/30">
+                        <tr key={order.id} className="border-b transition-colors hover:bg-muted/40">
                           <td className="p-2">
                             <Checkbox
                               checked={selectedOrders.has(order.id)}
@@ -711,8 +685,8 @@ const LogisticSuccess = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={27} className="text-center py-12 text-muted-foreground">
-                          No success orders found.
+                        <td colSpan={27} className="p-0">
+                          <EmptyState icon={CheckCircle} title="No success orders found." />
                         </td>
                       </tr>
                     )}
@@ -736,15 +710,15 @@ const LogisticSuccess = () => {
       <Dialog open={!!viewingPayment} onOpenChange={(o) => { if (!o) setViewingPayment(null); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Receipt className="w-5 h-5 text-primary" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Receipt} tone="green" size="sm" /> Detail Bayaran — {viewingPayment?.id_sale || viewingPayment?.name_customer || ""}</DialogTitle>
           </DialogHeader>
           {viewingPayment && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-muted-foreground">Cara Bayaran:</span> <b>{viewingPayment.type_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Jumlah:</span> <b>RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</b></div>
-                <div><span className="text-muted-foreground">Bank:</span> <b>{viewingPayment.bank_payment || "-"}</b></div>
-                <div><span className="text-muted-foreground">Tarikh Bayar:</span> <b>{formatDMY(viewingPayment.date_payment)}</b></div>
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/30 p-3">
+                <div><p className="section-label">Cara Bayaran</p><p className="mt-0.5 font-semibold">{viewingPayment.type_payment || "-"}</p></div>
+                <div><p className="section-label">Jumlah</p><p className="mt-0.5 whitespace-nowrap font-semibold">RM {(Number(viewingPayment.total_sale) || 0).toFixed(2)}</p></div>
+                <div><p className="section-label">Bank</p><p className="mt-0.5 font-semibold">{viewingPayment.bank_payment || "-"}</p></div>
+                <div><p className="section-label">Tarikh Bayar</p><p className="mt-0.5 whitespace-nowrap font-semibold">{formatDMY(viewingPayment.date_payment)}</p></div>
               </div>
               <ReceiptViewer url={viewingPayment.receipt_payment_url} type={viewingPayment.receipt_payment_type} />
             </div>

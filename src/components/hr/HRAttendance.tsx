@@ -5,7 +5,8 @@ import { AUDIT_MODE } from '@/lib/audit';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, X, Loader2, ChevronLeft, ChevronRight, Pencil, Trash2, TriangleAlert } from 'lucide-react';
+import { Check, X, ChevronLeft, ChevronRight, Pencil, Trash2, TriangleAlert } from 'lucide-react';
+import { TableSkeleton } from '@/components/common/SoftUI';
 import { toast } from 'sonner';
 import { format, getDaysInMonth, getDay } from 'date-fns';
 import EditAttendanceStaffModal from './EditAttendanceStaffModal';
@@ -236,23 +237,23 @@ export default function HRAttendance() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+        <CardContent className="p-4 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               <Button variant="outline" size="icon" onClick={prevMonth} aria-label="Bulan sebelum"><ChevronLeft className="h-4 w-4" /></Button>
               <Select value={String(month)} onValueChange={(v) => setMonth(parseInt(v))}>
-                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="min-w-0 flex-1 sm:w-32 sm:flex-none"><SelectValue /></SelectTrigger>
                 <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={String(i)}>{m}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={String(year)} onValueChange={(v) => setYear(parseInt(v))}>
-                <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[5.5rem] sm:w-24"><SelectValue /></SelectTrigger>
                 <SelectContent>{years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
               </Select>
               <Button variant="outline" size="icon" onClick={nextMonth} aria-label="Bulan seterusnya"><ChevronRight className="h-4 w-4" /></Button>
             </div>
 
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="All Roles" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Roles" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="marketer">Marketer</SelectItem>
@@ -267,23 +268,23 @@ export default function HRAttendance() {
               <span className="flex items-center gap-1"><span className="h-6 w-6 rounded bg-gray-100" /><span className="text-muted-foreground">Not Marked</span></span>
             </div>
           </div>
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-500" />
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
+            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-500" />
             Klik sel untuk tukar status. Sebab / lampiran (MC, surat — gambar atau PDF) untuk Half Day / Absent: tekan “Sebab / lampiran” selepas klik, atau klik kanan (telefon: tekan lama) pada sel. Titik = ada sebab / lampiran.
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="p-4 sm:px-6">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            <TableSkeleton rows={6} cols={8} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="sticky left-0 z-10 min-w-[160px] bg-background p-2 text-left sm:min-w-[180px]">Employee</th>
+                  <tr className="border-b bg-muted/40">
+                    <th className="sticky left-0 z-10 min-w-[160px] bg-background bg-[linear-gradient(hsl(var(--muted)/0.4),hsl(var(--muted)/0.4))] p-2 text-left sm:min-w-[180px]">Employee</th>
                     <th className="min-w-[50px] bg-muted/30 p-1 text-center">Role</th>
                     {days.map((d) => (
                       <th key={d} className={`min-w-[32px] p-1 text-center ${isWeekend(d) ? 'bg-gray-100' : ''}`}>
@@ -303,7 +304,7 @@ export default function HRAttendance() {
                   {rows.length ? rows.map((p) => {
                     const { present, half, absent } = count(p.id);
                     return (
-                      <tr key={`${p.source}-${p.id}`} className="border-b hover:bg-muted/30">
+                      <tr key={`${p.source}-${p.id}`} className="border-b hover:bg-muted/40">
                         <td className="sticky left-0 z-10 bg-background p-2">
                           <p className="font-medium">{p.name}</p>
                           {p.source === 'team' && p.idstaff && <p className="text-xs text-muted-foreground">{p.idstaff}</p>}

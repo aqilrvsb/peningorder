@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Loader2,
+  LayoutDashboard,
   Calendar,
   TrendingUp,
   TrendingDown,
@@ -38,7 +38,8 @@ import {
   AtSign,
 } from 'lucide-react';
 import { format, parseISO, isWithinInterval, eachDayOfInterval } from 'date-fns';
-import { getMalaysiaStartOfMonth, getMalaysiaDate, fetchAllRows } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaDate, fetchAllRows, cn } from '@/lib/utils';
+import { PageHeader, StatCard, IconTile, CardsSkeleton, EmptyState, type Tone } from '@/components/common/SoftUI';
 import { useTeam } from '@/hooks/useTeam';
 import { TeamFilter } from '@/components/TeamFilter';
 import {
@@ -76,6 +77,44 @@ interface Spend {
   tarikh_spend: string;
   marketer_id_staff: string;
 }
+
+// ---- Presentation helpers (soft-UI layout only — no data logic) ----
+
+// StatCard laid out vertically (tile on top) so long "RM 123,456.00" values get the
+// full card width instead of truncating; the value is a size smaller on phones.
+const KPI = 'flex-col items-stretch gap-3 p-3 sm:p-4 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl';
+const KPI_GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4';
+
+/** Brand-gradient highlight tile (Closing Rate / Pending Tracking), same shape as a KPI StatCard. */
+const HighlightCard: React.FC<{ icon: React.ElementType; label: React.ReactNode; value: React.ReactNode; hint: React.ReactNode; className?: string }> = ({ icon: Icon, label, value, hint, className }) => (
+  <div className={cn('stat-card-highlight flex flex-col gap-3 p-3 sm:p-4', className)}>
+    <span className="icon-tile bg-white/20 text-white"><Icon /></span>
+    <div className="min-w-0">
+      <p className="truncate text-lg font-bold leading-tight tracking-tight text-white sm:text-xl">{value}</p>
+      <p className="mt-1 truncate text-xs font-medium text-white/80">{label}</p>
+      <p className="mt-0.5 truncate text-[11px] text-white/70">{hint}</p>
+    </div>
+  </div>
+);
+
+/** Platform sales card: tile + share %, total, then closing / customer-type breakdown rows. */
+const PlatformCard: React.FC<{ icon: React.ElementType; tone: Tone; label: string; value: string; percent: string; children?: React.ReactNode }> = ({ icon, tone, label, value, percent, children }) => (
+  <div className="stat-card flex flex-col p-4">
+    <div className="flex items-start justify-between gap-3">
+      <IconTile icon={icon} tone={tone} />
+      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">{percent}</span>
+    </div>
+    <p className="mt-3 truncate text-xl font-bold leading-tight tracking-tight">{value}</p>
+    <p className="mt-1 text-xs font-medium text-muted-foreground">{label}</p>
+    {children}
+  </div>
+);
+
+interface ClosingSplit {
+  manual: number; manualPct: number; waBot: number; waBotPct: number; website: number; websitePct: number;
+  call: number; callPct: number; live: number; livePct: number; shop: number; shopPct: number;
+}
+interface CustomerSplit { np: number; npPct: number; ep: number; epPct: number; ec: number; ecPct: number }
 
 const Dashboard: React.FC = () => {
   const { profile } = useAuth();
@@ -665,6 +704,7 @@ const Dashboard: React.FC = () => {
 
     return {
       totalSales,
+      totalSalesPospada,
       totalCollection,
       totalReturn,
       returnPercent,
@@ -846,12 +886,83 @@ const Dashboard: React.FC = () => {
     return `${value.toFixed(1)}%`;
   };
 
-  if (isLoading || (isMarketer && spendsLoading)) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+  // ---- Presentation helpers (closures over the formatters / date state above) ----
+
+  // One "label ........ RM x (y%)" line inside a platform card.
+  const breakdownRow = (label: string, dot: string, value: number, pct: number) => (
+    <div className="flex flex-wrap items-center justify-between gap-x-2 text-xs">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+        {label}
+      </span>
+      <span className="whitespace-nowrap font-medium tabular-nums text-foreground">
+        {formatCurrency(value)} <span className="font-normal text-muted-foreground">({formatPercent(pct)})</span>
+      </span>
+    </div>
+  );
+
+  // Closing-type rows (Manual / WA Bot / Website / Call, plus Live / Shop where shown).
+  const closingRows = (c: ClosingSplit, extra: { live?: boolean; shop?: boolean } = {}) => (
+    <div className="mt-4 space-y-1.5 border-t border-border/70 pt-3">
+      {breakdownRow('Manual', 'bg-slate-400', c.manual, c.manualPct)}
+      {breakdownRow('WA Bot', 'bg-green-500', c.waBot, c.waBotPct)}
+      {breakdownRow('Website', 'bg-violet-500', c.website, c.websitePct)}
+      {breakdownRow('Call', 'bg-sky-500', c.call, c.callPct)}
+      {extra.live && breakdownRow('Live', 'bg-rose-500', c.live, c.livePct)}
+      {extra.shop && breakdownRow('Shop', 'bg-orange-500', c.shop, c.shopPct)}
+    </div>
+  );
+
+  // Customer-type rows (NP / EP / EC).
+  const customerRows = (c: CustomerSplit) => (
+    <div className="mt-3 space-y-1.5 border-t border-border/70 pt-3">
+      {breakdownRow('NP', 'bg-cyan-500', c.np, c.npPct)}
+      {breakdownRow('EP', 'bg-emerald-500', c.ep, c.epPct)}
+      {breakdownRow('EC', 'bg-amber-500', c.ec, c.ecPct)}
+    </div>
+  );
+
+  // Date range toolbar (same on every role's dashboard; Team filter only for marketer view).
+  const dateFilterBar = (withTeam: boolean) => (
+    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="flex items-center gap-2 sm:h-10">
+          <IconTile icon={Calendar} tone="blue" size="sm" />
+          <span className="whitespace-nowrap text-sm font-medium text-foreground">Date Range:</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:flex">
+          <div className="min-w-0 space-y-1.5">
+            <Label htmlFor="startDate">From</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={pendingStart}
+              onChange={(e) => setPendingStart(e.target.value)}
+              className="w-full sm:w-40"
+            />
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            <Label htmlFor="endDate">To</Label>
+            <Input
+              id="endDate"
+              type="date"
+              value={pendingEnd}
+              onChange={(e) => setPendingEnd(e.target.value)}
+              className="w-full sm:w-40"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DateApplyButton onClick={applyDates} />
+          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
+        </div>
+        {withTeam && <TeamFilter value={teamFilter} onChange={setTeamFilter} />}
       </div>
-    );
+    </div>
+  );
+
+  if (isLoading || (isMarketer && spendsLoading)) {
+    return <CardsSkeleton count={8} />;
   }
 
   // Staff payout view: a marketer staff is paid either by bundle commission per
@@ -868,165 +979,37 @@ const Dashboard: React.FC = () => {
   if (isMarketer) {
     return (
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-primary">
-            Welcome back, {profile?.fullName || 'Marketer'}!
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Your performance dashboard
-          </p>
-        </div>
+        <PageHeader
+          title={<>Welcome back, {profile?.fullName || 'Marketer'}!</>}
+          description="Your performance dashboard"
+          icon={LayoutDashboard}
+          tone="brand"
+        />
 
         {/* Date Filter */}
-        <div className="stat-card">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium text-foreground">Date Range:</span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={pendingStart}
-                  onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="endDate" className="text-xs text-muted-foreground">To</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={pendingEnd}
-                  onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-              <div className="flex items-end pb-0.5">
-                <TeamFilter value={teamFilter} onChange={setTeamFilter} />
-              </div>
-            </div>
-          </div>
-        </div>
+        {dateFilterBar(true)}
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {/* Total Parcel */}
-          <div className="stat-card border-l-4 border-l-blue-500">
-            <div className="flex items-center gap-2 text-blue-600 mb-2">
-              <Package className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL PARCEL</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.totalParcel}</p>
-            <p className="text-xs text-muted-foreground mt-1">Orders in period</p>
-          </div>
-
-          {/* Total Sales */}
-          <div className="stat-card border-l-4 border-l-success">
-            <div className="flex items-center gap-2 text-success mb-2">
-              <DollarSign className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL SALES</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSales)}</p>
-            <p className="text-xs text-muted-foreground mt-1">100%</p>
-          </div>
-
+        <div className={KPI_GRID}>
+          <StatCard className={KPI} icon={Package} tone="blue" label="TOTAL PARCEL" value={marketerStats.totalParcel} hint="Orders in period" />
+          <StatCard className={KPI} icon={DollarSign} tone="green" label="TOTAL SALES" value={formatCurrency(marketerStats.totalSales)} hint="100%" />
           {pospadaEnabled && (
-            <div className="stat-card border-l-4 border-l-purple-500">
-              <div className="flex items-center gap-2 text-purple-600 mb-2">
-                <Calendar className="w-5 h-5" />
-                <span className="text-sm font-medium">TOTAL SALES POSPADA</span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSalesPospada)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Booking orders</p>
-            </div>
+            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(marketerStats.totalSalesPospada)} hint="Booking orders" />
           )}
-
-          {/* Total Collection */}
-          <div className="stat-card border-l-4 border-l-emerald-500">
-            <div className="flex items-center gap-2 text-emerald-600 mb-2">
-              <DollarSign className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL COLLECTION</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCollection)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.collectionPercent)}</p>
-          </div>
-
+          <StatCard className={KPI} icon={DollarSign} tone="cyan" label="TOTAL COLLECTION" value={formatCurrency(marketerStats.totalCollection)} hint={formatPercent(marketerStats.collectionPercent)} />
           {/* Remaining = Total Sales - Collection - Return (outstanding COD) */}
-          <div className="stat-card border-l-4 border-l-purple-500">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <Clock className="w-5 h-5" />
-              <span className="text-sm font-medium">REMAINING</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalRemaining)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Sales − Collection − Return</p>
-          </div>
-
-          {/* Return */}
-          <div className="stat-card border-l-4 border-l-destructive">
-            <div className="flex items-center gap-2 text-destructive mb-2">
-              <RotateCcw className="w-5 h-5" />
-              <span className="text-sm font-medium">RETURN</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalReturn)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.returnPercent)}</p>
-          </div>
-
-          {/* Total Spend */}
-          <div className="stat-card border-l-4 border-l-warning">
-            <div className="flex items-center gap-2 text-warning mb-2">
-              <Wallet className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL SPEND</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalSpend)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Ad Budget</p>
-          </div>
-
-          {/* ROAS SALES */}
-          <div className="stat-card border-l-4 border-l-primary">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS SALES</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.roas.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Sales / Spend</p>
-          </div>
-
-          {/* ROAS COLLECTION */}
-          <div className="stat-card border-l-4 border-l-green-500">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS COLLECTION</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.roasCollection.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
-          </div>
-
+          <StatCard className={KPI} icon={Clock} tone="orange" label="REMAINING" value={formatCurrency(marketerStats.totalRemaining)} hint="Sales − Collection − Return" />
+          <StatCard className={KPI} icon={RotateCcw} tone="red" label="RETURN" value={formatCurrency(marketerStats.totalReturn)} hint={formatPercent(marketerStats.returnPercent)} />
+          <StatCard className={KPI} icon={Wallet} tone="amber" label="TOTAL SPEND" value={formatCurrency(marketerStats.totalSpend)} hint="Ad Budget" />
+          <StatCard className={KPI} icon={BarChart3} tone="indigo" label="ROAS SALES" value={`${marketerStats.roas.toFixed(2)}x`} hint="Sales / Spend" />
+          <StatCard className={KPI} icon={BarChart3} tone="green" label="ROAS COLLECTION" value={`${marketerStats.roasCollection.toFixed(2)}x`} hint="Collection / Spend" />
           {/* COST PRODUCT — hidden for commission-order staff */}
           {!commissionOrderMode && (
-            <div className="stat-card border-l-4 border-l-rose-400">
-              <div className="flex items-center gap-2 text-rose-500 mb-2">
-                <Package className="w-5 h-5" />
-                <span className="text-sm font-medium">COST PRODUCT</span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalCostProduct)}</p>
-            </div>
+            <StatCard className={KPI} icon={Package} tone="pink" label="COST PRODUCT" value={formatCurrency(marketerStats.totalCostProduct)} />
           )}
-
           {/* POSTAGE — hidden for commission-order staff */}
           {!commissionOrderMode && (
-            <div className="stat-card border-l-4 border-l-amber-400">
-              <div className="flex items-center gap-2 text-amber-500 mb-2">
-                <Truck className="w-5 h-5" />
-                <span className="text-sm font-medium">POSTAGE</span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.totalPostage)}</p>
-            </div>
+            <StatCard className={KPI} icon={Truck} tone="slate" label="POSTAGE" value={formatCurrency(marketerStats.totalPostage)} />
           )}
 
           {/* GROSS PROFIT card removed on request. */}
@@ -1035,231 +1018,51 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {/* Sales FB */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-blue-600 mb-2">
-              <Facebook className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES FB</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesFB)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.fbPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingFB.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingFB.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingFB.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingFB.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingFB.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingFB.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingFB.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingFB.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerFB.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerFB.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerFB.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerFB.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerFB.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerFB.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Database */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <Database className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES DATABASE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesDatabase)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.dbPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingDatabase.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingDatabase.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingDatabase.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingDatabase.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingDatabase.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingDatabase.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingDatabase.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingDatabase.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerDatabase.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerDatabase.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerDatabase.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerDatabase.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerDatabase.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerDatabase.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Threads */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 mb-2">
-              <AtSign className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES THREADS</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesThreads)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.threadsPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingThreads.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingThreads.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingThreads.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingThreads.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingThreads.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerThreads.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerThreads.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerThreads.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerThreads.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales TikTok */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-pink-600 mb-2">
-              <Play className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES TIKTOK</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesTiktok)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.tiktokPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingTiktok.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingTiktok.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingTiktok.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingTiktok.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.callPct)})</span></p>
-              <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(marketerStats.closingTiktok.live)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingTiktok.livePct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerTiktok.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerTiktok.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerTiktok.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerTiktok.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerTiktok.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerTiktok.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Google */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-red-600 mb-2">
-              <SearchIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES GOOGLE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesGoogle)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.googlePercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(marketerStats.closingGoogle.manual)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingGoogle.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(marketerStats.closingGoogle.waBot)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingGoogle.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(marketerStats.closingGoogle.website)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingGoogle.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(marketerStats.closingGoogle.call)} <span className="text-muted-foreground">({formatPercent(marketerStats.closingGoogle.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(marketerStats.customerGoogle.np)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerGoogle.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(marketerStats.customerGoogle.ep)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerGoogle.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(marketerStats.customerGoogle.ec)} <span className="text-muted-foreground">({formatPercent(marketerStats.customerGoogle.ecPct)})</span></p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <PlatformCard icon={Facebook} tone="blue" label="SALES FB" value={formatCurrency(marketerStats.salesFB)} percent={formatPercent(marketerStats.fbPercent)}>
+            {closingRows(marketerStats.closingFB)}
+            {customerRows(marketerStats.customerFB)}
+          </PlatformCard>
+          <PlatformCard icon={Database} tone="purple" label="SALES DATABASE" value={formatCurrency(marketerStats.salesDatabase)} percent={formatPercent(marketerStats.dbPercent)}>
+            {closingRows(marketerStats.closingDatabase)}
+            {customerRows(marketerStats.customerDatabase)}
+          </PlatformCard>
+          <PlatformCard icon={AtSign} tone="slate" label="SALES THREADS" value={formatCurrency(marketerStats.salesThreads)} percent={formatPercent(marketerStats.threadsPercent)}>
+            {closingRows(marketerStats.closingThreads)}
+            {customerRows(marketerStats.customerThreads)}
+          </PlatformCard>
+          <PlatformCard icon={Play} tone="pink" label="SALES TIKTOK" value={formatCurrency(marketerStats.salesTiktok)} percent={formatPercent(marketerStats.tiktokPercent)}>
+            {closingRows(marketerStats.closingTiktok, { live: true })}
+            {customerRows(marketerStats.customerTiktok)}
+          </PlatformCard>
+          <PlatformCard icon={SearchIcon} tone="red" label="SALES GOOGLE" value={formatCurrency(marketerStats.salesGoogle)} percent={formatPercent(marketerStats.googlePercent)}>
+            {closingRows(marketerStats.closingGoogle)}
+            {customerRows(marketerStats.customerGoogle)}
+          </PlatformCard>
         </div>
 
         {/* Closing Summary Row (All Platforms) */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Closing Manual */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-slate-600 mb-2">
-              <ClipboardList className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING MANUAL</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesManual)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.manualPercent)}</p>
-          </div>
-
-          {/* Closing WA Bot */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING WA BOT</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesWaBot)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.waBotPercent)}</p>
-          </div>
-
-          {/* Closing Website */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-violet-600 mb-2">
-              <Globe className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING WEBSITE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesWebsite)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.websitePercent)}</p>
-          </div>
-
-          {/* Closing Call */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-sky-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING CALL</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesCall)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.callPercent)}</p>
-          </div>
-
-          {/* Closing Live */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-rose-600 mb-2">
-              <Play className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING LIVE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesLive)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.livePercent)}</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+          <StatCard className={KPI} icon={ClipboardList} tone="slate" label="CLOSING MANUAL" value={formatCurrency(marketerStats.salesManual)} hint={formatPercent(marketerStats.manualPercent)} />
+          <StatCard className={KPI} icon={Phone} tone="green" label="CLOSING WA BOT" value={formatCurrency(marketerStats.salesWaBot)} hint={formatPercent(marketerStats.waBotPercent)} />
+          <StatCard className={KPI} icon={Globe} tone="purple" label="CLOSING WEBSITE" value={formatCurrency(marketerStats.salesWebsite)} hint={formatPercent(marketerStats.websitePercent)} />
+          <StatCard className={KPI} icon={Phone} tone="blue" label="CLOSING CALL" value={formatCurrency(marketerStats.salesCall)} hint={formatPercent(marketerStats.callPercent)} />
+          <StatCard className={KPI} icon={Play} tone="pink" label="CLOSING LIVE" value={formatCurrency(marketerStats.salesLive)} hint={formatPercent(marketerStats.livePercent)} />
         </div>
 
         {/* Customer Type Sales Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Sales NP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-cyan-600 mb-2">
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES NP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesNP)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.npPercent)} - New Prospect</p>
-          </div>
-
-          {/* Sales EP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-amber-600 mb-2">
-              <Users className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES EP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesEP)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.epPercent)} - Existing Prospect</p>
-          </div>
-
-          {/* Sales EC */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-emerald-600 mb-2">
-              <UserCheck className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES EC</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(marketerStats.salesEC)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(marketerStats.ecPercent)} - Existing Customer</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatCard className={KPI} icon={UserPlus} tone="cyan" label="SALES NP" value={formatCurrency(marketerStats.salesNP)} hint={<>{formatPercent(marketerStats.npPercent)} - New Prospect</>} />
+          <StatCard className={KPI} icon={Users} tone="amber" label="SALES EP" value={formatCurrency(marketerStats.salesEP)} hint={<>{formatPercent(marketerStats.epPercent)} - Existing Prospect</>} />
+          <StatCard className={KPI} icon={UserCheck} tone="green" label="SALES EC" value={formatCurrency(marketerStats.salesEC)} hint={<>{formatPercent(marketerStats.ecPercent)} - Existing Customer</>} />
         </div>
 
         {/* Lead Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Total Lead */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-indigo-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL LEAD</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{marketerStats.totalLead}</p>
-            <p className="text-xs text-muted-foreground mt-1">Prospects in period</p>
-          </div>
-
-          {/* Average KPK */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-teal-600 mb-2">
-              <Target className="w-5 h-5" />
-              <span className="text-sm font-medium">AVERAGE KPK</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(marketerStats.averageKPK)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Kos Per Lead</p>
-          </div>
-
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatCard className={KPI} icon={Phone} tone="indigo" label="TOTAL LEAD" value={marketerStats.totalLead} hint="Prospects in period" />
+          <StatCard className={KPI} icon={Target} tone="cyan" label="AVERAGE KPK" value={formatCurrency(marketerStats.averageKPK)} hint="Kos Per Lead" />
           {/* Closing Rate Lead */}
-          <div className="stat-card-highlight">
-            <div className="flex items-center gap-2 text-white/80 mb-2">
-              <Percent className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING RATE</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{formatPercent(marketerStats.closingRate)}</p>
-            <p className="text-xs text-white/60 mt-1">Lead Conversion</p>
-          </div>
+          <HighlightCard className="col-span-2 lg:col-span-1" icon={Percent} label="CLOSING RATE" value={formatPercent(marketerStats.closingRate)} hint="Lead Conversion" />
         </div>
       </div>
     );
@@ -1268,185 +1071,44 @@ const Dashboard: React.FC = () => {
   // Logistic Dashboard
   if (isLogistic) {
     if (allOrdersLoading) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      );
+      return <CardsSkeleton count={8} />;
     }
 
     return (
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-primary">
-            Welcome back, {profile?.fullName || 'Logistic'}!
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Logistics operations dashboard
-          </p>
-        </div>
+        <PageHeader
+          title={<>Welcome back, {profile?.fullName || 'Logistic'}!</>}
+          description="Logistics operations dashboard"
+          icon={LayoutDashboard}
+          tone="brand"
+        />
 
         {/* Date Filter */}
-        <div className="stat-card">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium text-foreground">Date Range:</span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={pendingStart}
-                  onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="endDate" className="text-xs text-muted-foreground">To</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={pendingEnd}
-                  onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-            </div>
-          </div>
-        </div>
+        {dateFilterBar(false)}
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Total Order */}
-          <div className="stat-card border-l-4 border-l-primary">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <Package className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL ORDER</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalOrder}</p>
-            <p className="text-xs text-muted-foreground mt-1">All orders in period</p>
-          </div>
-
-          {/* Total Pending */}
-          <div className="stat-card border-l-4 border-l-warning">
-            <div className="flex items-center gap-2 text-warning mb-2">
-              <Clock className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL PENDING</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalPending}</p>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting processing</p>
-          </div>
-
-          {/* Total Process */}
-          <div className="stat-card border-l-4 border-l-info">
-            <div className="flex items-center gap-2 text-info mb-2">
-              <Truck className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL PROCESS</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalProcess}</p>
-            <p className="text-xs text-muted-foreground mt-1">Shipped orders</p>
-          </div>
-
-          {/* Total Return */}
-          <div className="stat-card border-l-4 border-l-destructive">
-            <div className="flex items-center gap-2 text-destructive mb-2">
-              <RotateCcw className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL RETURN</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalReturn}</p>
-            <p className="text-xs text-muted-foreground mt-1">Returned orders</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard className={KPI} icon={Package} tone="blue" label="TOTAL ORDER" value={logisticStats.totalOrder} hint="All orders in period" />
+          <StatCard className={KPI} icon={Clock} tone="amber" label="TOTAL PENDING" value={logisticStats.totalPending} hint="Awaiting processing" />
+          <StatCard className={KPI} icon={Truck} tone="cyan" label="TOTAL PROCESS" value={logisticStats.totalProcess} hint="Shipped orders" />
+          <StatCard className={KPI} icon={RotateCcw} tone="red" label="TOTAL RETURN" value={logisticStats.totalReturn} hint="Returned orders" />
         </div>
 
         {/* Platform Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Total Facebook */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-blue-600 mb-2">
-              <Facebook className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL FACEBOOK</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalFacebook}</p>
-            <p className="text-xs text-muted-foreground mt-1">Facebook orders</p>
-          </div>
-
-          {/* Total Database */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <Database className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL DATABASE</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalDatabase}</p>
-            <p className="text-xs text-muted-foreground mt-1">Database orders</p>
-          </div>
-
-          {/* Total Google */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <SearchIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL GOOGLE</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalGoogle}</p>
-            <p className="text-xs text-muted-foreground mt-1">Google orders</p>
-          </div>
-
-          {/* Total Shopee */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-orange-600 mb-2">
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL SHOPEE</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalShopee}</p>
-            <p className="text-xs text-muted-foreground mt-1">Shopee orders</p>
-          </div>
-
-          {/* Total TikTok */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-pink-600 mb-2">
-              <Play className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL TIKTOK</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalTiktok}</p>
-            <p className="text-xs text-muted-foreground mt-1">TikTok orders</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <StatCard className={KPI} icon={Facebook} tone="blue" label="TOTAL FACEBOOK" value={logisticStats.totalFacebook} hint="Facebook orders" />
+          <StatCard className={KPI} icon={Database} tone="purple" label="TOTAL DATABASE" value={logisticStats.totalDatabase} hint="Database orders" />
+          <StatCard className={KPI} icon={SearchIcon} tone="green" label="TOTAL GOOGLE" value={logisticStats.totalGoogle} hint="Google orders" />
+          <StatCard className={KPI} icon={ShoppingBag} tone="orange" label="TOTAL SHOPEE" value={logisticStats.totalShopee} hint="Shopee orders" />
+          <StatCard className={KPI} icon={Play} tone="pink" label="TOTAL TIKTOK" value={logisticStats.totalTiktok} hint="TikTok orders" />
         </div>
 
         {/* Payment Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Total Cash */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-emerald-600 mb-2">
-              <Banknote className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL CASH</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalCash}</p>
-            <p className="text-xs text-muted-foreground mt-1">Cash payments</p>
-          </div>
-
-          {/* Total COD */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-amber-600 mb-2">
-              <CreditCard className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL COD</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{logisticStats.totalCOD}</p>
-            <p className="text-xs text-muted-foreground mt-1">Cash on Delivery</p>
-          </div>
-
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatCard className={KPI} icon={Banknote} tone="green" label="TOTAL CASH" value={logisticStats.totalCash} hint="Cash payments" />
+          <StatCard className={KPI} icon={CreditCard} tone="amber" label="TOTAL COD" value={logisticStats.totalCOD} hint="Cash on Delivery" />
           {/* Total Pending Tracking */}
-          <div className="stat-card-highlight">
-            <div className="flex items-center gap-2 text-white/80 mb-2">
-              <ClipboardList className="w-5 h-5" />
-              <span className="text-sm font-medium">PENDING TRACKING</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{logisticStats.totalPendingTracking}</p>
-            <p className="text-xs text-white/60 mt-1">COD awaiting delivery confirmation</p>
-          </div>
+          <HighlightCard className="col-span-2 lg:col-span-1" icon={ClipboardList} label="PENDING TRACKING" value={logisticStats.totalPendingTracking} hint="COD awaiting delivery confirmation" />
         </div>
       </div>
     );
@@ -1455,382 +1117,92 @@ const Dashboard: React.FC = () => {
   // BOD Dashboard - Business Owner Dashboard
   if (isBOD) {
     if (allOrdersLoading || bodDataLoading) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      );
+      return <CardsSkeleton count={8} />;
     }
 
     return (
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-primary">
-            Welcome back, {profile?.fullName || 'Owner'}!
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Business performance overview - All marketers combined
-          </p>
-        </div>
+        <PageHeader
+          title={<>Welcome back, {profile?.fullName || 'Owner'}!</>}
+          description="Business performance overview - All marketers combined"
+          icon={LayoutDashboard}
+          tone="brand"
+        />
 
         {/* Date Filter */}
-        <div className="stat-card">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium text-foreground">Date Range:</span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="startDate" className="text-xs text-muted-foreground">From</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={pendingStart}
-                  onChange={(e) => setPendingStart(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="endDate" className="text-xs text-muted-foreground">To</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={pendingEnd}
-                  onChange={(e) => setPendingEnd(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-            </div>
-          </div>
-        </div>
+        {dateFilterBar(false)}
 
         {/* Main Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {/* Total Sales */}
-          <div className="stat-card border-l-4 border-l-success">
-            <div className="flex items-center gap-2 text-success mb-2">
-              <DollarSign className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL SALES</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSales)}</p>
-            <p className="text-xs text-muted-foreground mt-1">100%</p>
-          </div>
-
+        <div className={KPI_GRID}>
+          <StatCard className={KPI} icon={DollarSign} tone="green" label="TOTAL SALES" value={formatCurrency(bodStats.totalSales)} hint="100%" />
           {pospadaEnabled && (
-            <div className="stat-card border-l-4 border-l-purple-500">
-              <div className="flex items-center gap-2 text-purple-600 mb-2">
-                <Calendar className="w-5 h-5" />
-                <span className="text-sm font-medium">TOTAL SALES POSPADA</span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSalesPospada)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Booking orders</p>
-            </div>
+            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(bodStats.totalSalesPospada)} hint="Booking orders" />
           )}
-
-          {/* Total Collection */}
-          <div className="stat-card border-l-4 border-l-green-500">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <CheckCircle className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL COLLECTION</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalCollection)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Successful Delivery</p>
-          </div>
-
-          {/* Return */}
-          <div className="stat-card border-l-4 border-l-destructive">
-            <div className="flex items-center gap-2 text-destructive mb-2">
-              <RotateCcw className="w-5 h-5" />
-              <span className="text-sm font-medium">RETURN</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalReturn)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.returnPercent)}</p>
-          </div>
-
-          {/* Total Spend */}
-          <div className="stat-card border-l-4 border-l-warning">
-            <div className="flex items-center gap-2 text-warning mb-2">
-              <Wallet className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL SPEND</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.totalSpend)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Ad Budget</p>
-          </div>
-
-          {/* ROAS SALES */}
-          <div className="stat-card border-l-4 border-l-primary">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS SALES</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{bodStats.roas.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Sales / Spend</p>
-          </div>
-
-          {/* ROAS COLLECTION */}
-          <div className="stat-card border-l-4 border-l-green-500">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-sm font-medium">ROAS COLLECTION</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{bodStats.roasCollection.toFixed(2)}x</p>
-            <p className="text-xs text-muted-foreground mt-1">Collection / Spend</p>
-          </div>
+          <StatCard className={KPI} icon={CheckCircle} tone="cyan" label="TOTAL COLLECTION" value={formatCurrency(bodStats.totalCollection)} hint="Successful Delivery" />
+          <StatCard className={KPI} icon={RotateCcw} tone="red" label="RETURN" value={formatCurrency(bodStats.totalReturn)} hint={formatPercent(bodStats.returnPercent)} />
+          <StatCard className={KPI} icon={Wallet} tone="amber" label="TOTAL SPEND" value={formatCurrency(bodStats.totalSpend)} hint="Ad Budget" />
+          <StatCard className={KPI} icon={BarChart3} tone="indigo" label="ROAS SALES" value={`${bodStats.roas.toFixed(2)}x`} hint="Sales / Spend" />
+          <StatCard className={KPI} icon={BarChart3} tone="green" label="ROAS COLLECTION" value={`${bodStats.roasCollection.toFixed(2)}x`} hint="Collection / Spend" />
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {/* Sales FB */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-blue-600 mb-2">
-              <Facebook className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES FB</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesFB)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.fbPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(bodStats.closingFB.manual)} <span className="text-muted-foreground">({formatPercent(bodStats.closingFB.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(bodStats.closingFB.waBot)} <span className="text-muted-foreground">({formatPercent(bodStats.closingFB.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingFB.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingFB.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingFB.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingFB.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerFB.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerFB.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(bodStats.customerFB.ep)} <span className="text-muted-foreground">({formatPercent(bodStats.customerFB.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(bodStats.customerFB.ec)} <span className="text-muted-foreground">({formatPercent(bodStats.customerFB.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Database */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-purple-600 mb-2">
-              <Database className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES DATABASE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesDatabase)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.dbPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(bodStats.closingDatabase.manual)} <span className="text-muted-foreground">({formatPercent(bodStats.closingDatabase.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(bodStats.closingDatabase.waBot)} <span className="text-muted-foreground">({formatPercent(bodStats.closingDatabase.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingDatabase.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingDatabase.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingDatabase.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingDatabase.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerDatabase.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerDatabase.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(bodStats.customerDatabase.ep)} <span className="text-muted-foreground">({formatPercent(bodStats.customerDatabase.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(bodStats.customerDatabase.ec)} <span className="text-muted-foreground">({formatPercent(bodStats.customerDatabase.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Shopee */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-orange-600 mb-2">
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES SHOPEE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesShopee)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.shopeePercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(bodStats.closingShopee.manual)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(bodStats.closingShopee.waBot)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingShopee.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingShopee.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.callPct)})</span></p>
-              <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(bodStats.closingShopee.live)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(bodStats.closingShopee.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingShopee.shopPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerShopee.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerShopee.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(bodStats.customerShopee.ep)} <span className="text-muted-foreground">({formatPercent(bodStats.customerShopee.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(bodStats.customerShopee.ec)} <span className="text-muted-foreground">({formatPercent(bodStats.customerShopee.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales TikTok */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-pink-600 mb-2">
-              <Play className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES TIKTOK</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesTiktok)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.tiktokPercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(bodStats.closingTiktok.manual)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(bodStats.closingTiktok.waBot)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingTiktok.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingTiktok.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.callPct)})</span></p>
-              <p className="text-xs"><span className="text-rose-600">Live:</span> {formatCurrency(bodStats.closingTiktok.live)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.livePct)})</span></p>
-              <p className="text-xs"><span className="text-orange-500">Shop:</span> {formatCurrency(bodStats.closingTiktok.shop)} <span className="text-muted-foreground">({formatPercent(bodStats.closingTiktok.shopPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerTiktok.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerTiktok.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(bodStats.customerTiktok.ep)} <span className="text-muted-foreground">({formatPercent(bodStats.customerTiktok.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(bodStats.customerTiktok.ec)} <span className="text-muted-foreground">({formatPercent(bodStats.customerTiktok.ecPct)})</span></p>
-            </div>
-          </div>
-
-          {/* Sales Google */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-red-600 mb-2">
-              <SearchIcon className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES GOOGLE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesGoogle)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.googlePercent)}</p>
-            <div className="mt-3 pt-3 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-slate-600">Manual:</span> {formatCurrency(bodStats.closingGoogle.manual)} <span className="text-muted-foreground">({formatPercent(bodStats.closingGoogle.manualPct)})</span></p>
-              <p className="text-xs"><span className="text-green-600">WA Bot:</span> {formatCurrency(bodStats.closingGoogle.waBot)} <span className="text-muted-foreground">({formatPercent(bodStats.closingGoogle.waBotPct)})</span></p>
-              <p className="text-xs"><span className="text-violet-600">Website:</span> {formatCurrency(bodStats.closingGoogle.website)} <span className="text-muted-foreground">({formatPercent(bodStats.closingGoogle.websitePct)})</span></p>
-              <p className="text-xs"><span className="text-sky-600">Call:</span> {formatCurrency(bodStats.closingGoogle.call)} <span className="text-muted-foreground">({formatPercent(bodStats.closingGoogle.callPct)})</span></p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-border space-y-1">
-              <p className="text-xs"><span className="text-cyan-600">NP:</span> {formatCurrency(bodStats.customerGoogle.np)} <span className="text-muted-foreground">({formatPercent(bodStats.customerGoogle.npPct)})</span></p>
-              <p className="text-xs"><span className="text-emerald-600">EP:</span> {formatCurrency(bodStats.customerGoogle.ep)} <span className="text-muted-foreground">({formatPercent(bodStats.customerGoogle.epPct)})</span></p>
-              <p className="text-xs"><span className="text-amber-600">EC:</span> {formatCurrency(bodStats.customerGoogle.ec)} <span className="text-muted-foreground">({formatPercent(bodStats.customerGoogle.ecPct)})</span></p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <PlatformCard icon={Facebook} tone="blue" label="SALES FB" value={formatCurrency(bodStats.salesFB)} percent={formatPercent(bodStats.fbPercent)}>
+            {closingRows(bodStats.closingFB)}
+            {customerRows(bodStats.customerFB)}
+          </PlatformCard>
+          <PlatformCard icon={Database} tone="purple" label="SALES DATABASE" value={formatCurrency(bodStats.salesDatabase)} percent={formatPercent(bodStats.dbPercent)}>
+            {closingRows(bodStats.closingDatabase)}
+            {customerRows(bodStats.customerDatabase)}
+          </PlatformCard>
+          <PlatformCard icon={ShoppingBag} tone="orange" label="SALES SHOPEE" value={formatCurrency(bodStats.salesShopee)} percent={formatPercent(bodStats.shopeePercent)}>
+            {closingRows(bodStats.closingShopee, { live: true, shop: true })}
+            {customerRows(bodStats.customerShopee)}
+          </PlatformCard>
+          <PlatformCard icon={Play} tone="pink" label="SALES TIKTOK" value={formatCurrency(bodStats.salesTiktok)} percent={formatPercent(bodStats.tiktokPercent)}>
+            {closingRows(bodStats.closingTiktok, { live: true, shop: true })}
+            {customerRows(bodStats.customerTiktok)}
+          </PlatformCard>
+          <PlatformCard icon={SearchIcon} tone="red" label="SALES GOOGLE" value={formatCurrency(bodStats.salesGoogle)} percent={formatPercent(bodStats.googlePercent)}>
+            {closingRows(bodStats.closingGoogle)}
+            {customerRows(bodStats.customerGoogle)}
+          </PlatformCard>
         </div>
 
         {/* Closing Summary Row (All Platforms) */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          {/* Closing Manual */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-slate-600 mb-2">
-              <ClipboardList className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING MANUAL</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesManual)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.manualPercent)}</p>
-          </div>
-
-          {/* Closing WA Bot */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-green-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING WA BOT</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesWaBot)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.waBotPercent)}</p>
-          </div>
-
-          {/* Closing Website */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-violet-600 mb-2">
-              <Globe className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING WEBSITE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesWebsite)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.websitePercent)}</p>
-          </div>
-
-          {/* Closing Call */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-sky-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING CALL</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesCall)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.callPercent)}</p>
-          </div>
-
-          {/* Closing Live */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-rose-600 mb-2">
-              <Play className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING LIVE</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesLive)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.livePercent)}</p>
-          </div>
-
-          {/* Closing Shop */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-orange-500 mb-2">
-              <ShoppingBag className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING SHOP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesShop)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.shopPercent)}</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+          <StatCard className={KPI} icon={ClipboardList} tone="slate" label="CLOSING MANUAL" value={formatCurrency(bodStats.salesManual)} hint={formatPercent(bodStats.manualPercent)} />
+          <StatCard className={KPI} icon={Phone} tone="green" label="CLOSING WA BOT" value={formatCurrency(bodStats.salesWaBot)} hint={formatPercent(bodStats.waBotPercent)} />
+          <StatCard className={KPI} icon={Globe} tone="purple" label="CLOSING WEBSITE" value={formatCurrency(bodStats.salesWebsite)} hint={formatPercent(bodStats.websitePercent)} />
+          <StatCard className={KPI} icon={Phone} tone="blue" label="CLOSING CALL" value={formatCurrency(bodStats.salesCall)} hint={formatPercent(bodStats.callPercent)} />
+          <StatCard className={KPI} icon={Play} tone="pink" label="CLOSING LIVE" value={formatCurrency(bodStats.salesLive)} hint={formatPercent(bodStats.livePercent)} />
+          <StatCard className={KPI} icon={ShoppingBag} tone="orange" label="CLOSING SHOP" value={formatCurrency(bodStats.salesShop)} hint={formatPercent(bodStats.shopPercent)} />
         </div>
 
         {/* Customer Type Sales Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Sales NP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-cyan-600 mb-2">
-              <UserPlus className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES NP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesNP)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.npPercent)} - New Prospect</p>
-          </div>
-
-          {/* Sales EP */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-amber-600 mb-2">
-              <Users className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES EP</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesEP)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.epPercent)} - Existing Prospect</p>
-          </div>
-
-          {/* Sales EC */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-emerald-600 mb-2">
-              <UserCheck className="w-5 h-5" />
-              <span className="text-sm font-medium">SALES EC</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(bodStats.salesEC)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{formatPercent(bodStats.ecPercent)} - Existing Customer</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatCard className={KPI} icon={UserPlus} tone="cyan" label="SALES NP" value={formatCurrency(bodStats.salesNP)} hint={<>{formatPercent(bodStats.npPercent)} - New Prospect</>} />
+          <StatCard className={KPI} icon={Users} tone="amber" label="SALES EP" value={formatCurrency(bodStats.salesEP)} hint={<>{formatPercent(bodStats.epPercent)} - Existing Prospect</>} />
+          <StatCard className={KPI} icon={UserCheck} tone="green" label="SALES EC" value={formatCurrency(bodStats.salesEC)} hint={<>{formatPercent(bodStats.ecPercent)} - Existing Customer</>} />
         </div>
 
         {/* Lead Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Total Lead */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-indigo-600 mb-2">
-              <Phone className="w-5 h-5" />
-              <span className="text-sm font-medium">TOTAL LEAD</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{bodStats.totalLead}</p>
-            <p className="text-xs text-muted-foreground mt-1">Prospects in period</p>
-          </div>
-
-          {/* Average KPK */}
-          <div className="stat-card">
-            <div className="flex items-center gap-2 text-teal-600 mb-2">
-              <Target className="w-5 h-5" />
-              <span className="text-sm font-medium">AVERAGE KPK</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(bodStats.averageKPK)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Kos Per Lead</p>
-          </div>
-
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <StatCard className={KPI} icon={Phone} tone="indigo" label="TOTAL LEAD" value={bodStats.totalLead} hint="Prospects in period" />
+          <StatCard className={KPI} icon={Target} tone="cyan" label="AVERAGE KPK" value={formatCurrency(bodStats.averageKPK)} hint="Kos Per Lead" />
           {/* Closing Rate Lead */}
-          <div className="stat-card-highlight">
-            <div className="flex items-center gap-2 text-white/80 mb-2">
-              <Percent className="w-5 h-5" />
-              <span className="text-sm font-medium">CLOSING RATE</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{formatPercent(bodStats.closingRate)}</p>
-            <p className="text-xs text-white/60 mt-1">Lead Conversion</p>
-          </div>
+          <HighlightCard className="col-span-2 lg:col-span-1" icon={Percent} label="CLOSING RATE" value={formatPercent(bodStats.closingRate)} hint="Lead Conversion" />
         </div>
 
         {/* Sales Chart - Chart.js */}
-        <div className="stat-card">
-          <div className="flex items-center gap-2 mb-4">
-            <LineChartIcon className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">
+        <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-start gap-3">
+            <IconTile icon={LineChartIcon} tone="blue" size="sm" />
+            <h2 className="pt-1 text-base font-semibold text-foreground sm:text-lg sm:pt-0.5">
               Sales Trend from {format(parseISO(startDate), 'dd-MMM-yyyy')} to {format(parseISO(endDate), 'dd-MMM-yyyy')}
             </h2>
           </div>
-          <div className="h-80">
+          <div className="h-64 sm:h-80">
             <Line data={bodChartData} options={bodChartOptions} />
           </div>
         </div>
@@ -1841,19 +1213,16 @@ const Dashboard: React.FC = () => {
   // Default Dashboard for other roles (admin, account)
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-primary">
-          Welcome back, {profile?.fullName || 'User'}!
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Here's an overview of your system and performance.
-        </p>
-      </div>
+      <PageHeader
+        title={<>Welcome back, {profile?.fullName || 'User'}!</>}
+        description="Here's an overview of your system and performance."
+        icon={LayoutDashboard}
+        tone="brand"
+      />
 
       {/* Default dashboard content - can be customized per role later */}
-      <div className="stat-card">
-        <p className="text-muted-foreground">Dashboard for {profile?.role || 'user'} role coming soon...</p>
+      <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+        <EmptyState icon={LayoutDashboard} title={<>Dashboard for {profile?.role || 'user'} role coming soon...</>} />
       </div>
     </div>
   );

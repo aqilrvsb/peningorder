@@ -19,11 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Package, TrendingUp, CheckCircle, XCircle, Edit, Trash2, Calendar, Loader2 } from 'lucide-react';
+import { Plus, Package, TrendingUp, TrendingDown, CheckCircle, XCircle, Edit, Trash2, Calendar, Undo2, Truck } from 'lucide-react';
 import { useBundles } from '@/context/BundleContext';
 import { supabase } from '@/integrations/supabase/client';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { PageHeader, StatCard, IconTile, TableSkeleton, CardsSkeleton, EmptyState } from '@/components/common/SoftUI';
 
 interface FilteredStock {
   productId: string;
@@ -351,8 +352,13 @@ const ProductTab: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <CardsSkeleton count={8} />
+        <Card className="border">
+          <CardContent className="p-4">
+            <TableSkeleton cols={6} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -360,115 +366,30 @@ const ProductTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-primary">Inventory Management</h2>
-        <p className="text-muted-foreground">Manage your inventory quantities and stock levels</p>
-      </div>
+      <PageHeader
+        title="Inventory Management"
+        description="Manage your inventory quantities and stock levels"
+        icon={Package}
+        tone="brand"
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Products</p>
-                <p className="text-2xl font-bold">{stats.totalProducts}</p>
-              </div>
-              <Package className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Quantity</p>
-                <p className="text-2xl font-bold">{stats.totalQuantity.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-purple-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Products</p>
-                <p className="text-2xl font-bold">{stats.activeProducts}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Inactive Products</p>
-                <p className="text-2xl font-bold">{stats.inactiveProducts}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Stock In {hasDateFilter && '(Filtered)'}</p>
-                <p className="text-2xl font-bold">{stats.stockIn.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Return In {hasDateFilter && '(Filtered)'}</p>
-                <p className="text-2xl font-bold">{stats.returnIn.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Stock Out {hasDateFilter && '(Filtered)'}</p>
-                <p className="text-2xl font-bold">{stats.stockOut.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-destructive rotate-180" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Processed Out {hasDateFilter && '(Filtered)'}</p>
-                <p className="text-2xl font-bold">{stats.processedOut.toLocaleString()}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-orange-500 rotate-180" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard icon={Package} tone="brand" label="Total Products" value={stats.totalProducts} />
+        <StatCard icon={TrendingUp} tone="purple" label="Total Quantity" value={stats.totalQuantity.toLocaleString()} />
+        <StatCard icon={CheckCircle} tone="green" label="Active Products" value={stats.activeProducts} />
+        <StatCard icon={XCircle} tone="orange" label="Inactive Products" value={stats.inactiveProducts} />
+        <StatCard icon={TrendingUp} tone="green" label={<>Stock In {hasDateFilter && '(Filtered)'}</>} value={stats.stockIn.toLocaleString()} />
+        <StatCard icon={Undo2} tone="blue" label={<>Return In {hasDateFilter && '(Filtered)'}</>} value={stats.returnIn.toLocaleString()} />
+        <StatCard icon={TrendingDown} tone="red" label={<>Stock Out {hasDateFilter && '(Filtered)'}</>} value={stats.stockOut.toLocaleString()} />
+        <StatCard icon={Truck} tone="orange" label={<>Processed Out {hasDateFilter && '(Filtered)'}</>} value={stats.processedOut.toLocaleString()} />
       </div>
 
       {/* Date Filters */}
       <Card className="border">
         <CardContent className="p-4">
-          <h3 className="font-semibold mb-4">Date Filters (Stock In/Out only)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><IconTile icon={Calendar} tone="blue" size="sm" />Date Filters (Stock In/Out only)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <div className="relative">
@@ -494,28 +415,30 @@ const ProductTab: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 mt-3"><DateApplyButton onClick={applyDates} /><UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} /></div>
-          {hasDateFilter && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-3"
-              onClick={() => { setStartDate(''); setPendingStart(''); setEndDate(''); setPendingEnd(''); }}
-            >
-              Clear Filter
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <DateApplyButton onClick={applyDates} />
+            {hasDateFilter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setStartDate(''); setPendingStart(''); setEndDate(''); setPendingEnd(''); }}
+              >
+                Clear Filter
+              </Button>
+            )}
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
+          </div>
         </CardContent>
       </Card>
 
       {/* Inventory Table */}
       <Card className="border">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 className="font-semibold text-lg">Inventory Management</h3>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openNewDialog} className="bg-primary hover:bg-primary/90">
+                <Button onClick={openNewDialog}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Product
                 </Button>
@@ -525,7 +448,7 @@ const ProductTab: React.FC = () => {
                   <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Product Name</Label>
                       <Input
@@ -553,7 +476,7 @@ const ProductTab: React.FC = () => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+                  <Button type="submit" className="w-full">
                     {editingProduct ? 'Update Product' : 'Create Product'}
                   </Button>
                 </form>
@@ -564,7 +487,7 @@ const ProductTab: React.FC = () => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/40">
                   <TableHead>SKU</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Base Cost</TableHead>
@@ -580,9 +503,9 @@ const ProductTab: React.FC = () => {
                 {products.length > 0 ? (
                   products.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.sku}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{product.sku}</TableCell>
                       <TableCell>{product.name}</TableCell>
-                      <TableCell>RM {product.baseCost.toFixed(2)}</TableCell>
+                      <TableCell className="whitespace-nowrap">RM {product.baseCost.toFixed(2)}</TableCell>
                       <TableCell className="text-success">
                         {isFilterLoading ? '...' : getStockIn(product.id, product.stockIn).toLocaleString()}
                       </TableCell>
@@ -621,8 +544,8 @@ const ProductTab: React.FC = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No products found. Add your first product.
+                    <TableCell colSpan={9} className="p-0">
+                      <EmptyState icon={Package} title="No products found. Add your first product." />
                     </TableCell>
                   </TableRow>
                 )}

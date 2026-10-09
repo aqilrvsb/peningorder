@@ -5,50 +5,60 @@
 /* Inter font is loaded via <link> in index.html (preconnect + non-blocking)
    so it no longer blocks first paint. */
 
+/* Dashboard look: "modern SaaS soft UI" — soft rounded corners, thin grey borders with
+   light shadows, a grey frame (sidebar + gutters) around a white centre, the brand gradient
+   only on main buttons and icon tiles, small uppercase grey labels, soft focus glow. */
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 224 71% 4%;
+    --background: 0 0% 100%;
+    --canvas: 220 20% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 216 85% 42%;
+    --primary: 216 85% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 224 71% 4%;
+    /* Brand gradient (main buttons + icon tiles only). PeningOrder sapphire → indigo. */
+    --brand-from: 216 85% 47%;
+    --brand-to: 248 80% 62%;
 
-    --muted: 220 14% 96%;
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 16% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 6 93% 64%;
-    --accent-foreground: 0 0% 100%;
+    /* Hover / highlight tint used by menus, ghost + outline buttons. */
+    --accent: 216 90% 96%;
+    --accent-foreground: 216 85% 32%;
+
+    --coral: 6 93% 64%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 216 85% 42%;
+    --border: 220 14% 90%;
+    --input: 220 14% 87%;
+    --ring: 216 85% 45%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - Sapphire */
-    --sidebar-background: 216 85% 42%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 216 85% 42%;
-    --sidebar-accent: 216 85% 52%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 216 85% 52%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 216 85% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 14% 90%;
+    --sidebar-ring: 216 85% 45%;
 
     /* Status colors */
-    --success: 142 71% 45%;
+    --success: 142 71% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
@@ -58,57 +68,62 @@
     --error-foreground: 0 0% 100%;
 
     /* Custom stat colors */
-    --stat-purple: 216 85% 42%;
+    --stat-purple: 216 85% 45%;
     --stat-red: 0 84% 60%;
-    --stat-green: 142 71% 45%;
+    --stat-green: 142 71% 40%;
     --stat-orange: 38 92% 50%;
     --stat-blue: 199 89% 48%;
     --stat-teal: 174 72% 40%;
     --stat-coral: 6 93% 64%;
 
-    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 8px 10px -6px hsl(0 0% 0% / 0.1);
+    --shadow-xs: 0 1px 2px 0 rgb(16 24 40 / 0.04);
+    --shadow-sm: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06);
+    --shadow-md: 0 6px 16px -4px rgb(16 24 40 / 0.10), 0 2px 4px -2px rgb(16 24 40 / 0.05);
+    --shadow-lg: 0 14px 28px -8px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.05);
+    --shadow-xl: 0 24px 48px -12px rgb(16 24 40 / 0.20);
   }
 
   .dark {
-    --background: 224 71% 4%;
+    --background: 224 40% 8%;
+    --canvas: 224 45% 5%;
     --foreground: 0 0% 98%;
 
-    --card: 224 71% 8%;
+    --card: 224 40% 10%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 224 71% 8%;
+    --popover: 224 40% 10%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 216 85% 52%;
+    --primary: 216 85% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 224 71% 12%;
+    --brand-from: 216 85% 55%;
+    --brand-to: 248 80% 66%;
+
+    --secondary: 224 35% 15%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 224 71% 12%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 224 35% 15%;
+    --muted-foreground: 220 9% 62%;
 
-    --accent: 6 88% 58%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 216 50% 18%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 224 71% 15%;
-    --input: 224 71% 15%;
-    --ring: 216 85% 52%;
+    --border: 224 30% 18%;
+    --input: 224 30% 20%;
+    --ring: 216 85% 58%;
 
-    --sidebar-background: 216 85% 20%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 216 85% 42%;
-    --sidebar-accent: 216 85% 30%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 216 85% 30%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-background: 224 45% 5%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 216 85% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 40% 10%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 224 30% 18%;
+    --sidebar-ring: 216 85% 58%;
   }
 }
 
@@ -120,36 +135,85 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    font-feature-settings: "cv11", "ss01";
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
+
+  /* Dashboard tables: small uppercase grey column labels. :where() keeps specificity at 0,
+     so any colour/size utility already on a <th> still wins. */
+  :where(.dashboard-main) :where(thead th) {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  :where(.dashboard-main) :where(tbody tr) {
+    @apply transition-colors;
+  }
 }
 
 @layer components {
+  /* Brand gradient — main buttons and icon tiles only. */
+  .bg-brand {
+    background-image: linear-gradient(135deg, hsl(var(--brand-from)), hsl(var(--brand-to)));
+  }
+
+  /* Coloured square behind a block / stat icon. Pair with a tone: icon-tile-blue etc. */
+  .icon-tile {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl [&_svg]:h-5 [&_svg]:w-5;
+  }
+  .icon-tile-sm {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:h-4 [&_svg]:w-4;
+  }
+  .icon-tile-brand { @apply bg-brand text-white shadow-sm; }
+  .icon-tile-blue { @apply bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400; }
+  .icon-tile-indigo { @apply bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400; }
+  .icon-tile-purple { @apply bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400; }
+  .icon-tile-pink { @apply bg-pink-50 text-pink-600 dark:bg-pink-500/15 dark:text-pink-400; }
+  .icon-tile-green { @apply bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400; }
+  .icon-tile-amber { @apply bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400; }
+  .icon-tile-orange { @apply bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400; }
+  .icon-tile-red { @apply bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400; }
+  .icon-tile-cyan { @apply bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-400; }
+  .icon-tile-slate { @apply bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300; }
+
+  /* Small uppercase grey section label, e.g. DEVICE ID, NICHE. */
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+
+  /* Grey shimmer placeholder while loading. */
+  .shimmer {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+  .shimmer::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.65), transparent);
+  }
+
   .stat-card {
-    @apply bg-card rounded-xl p-5 border border-border shadow-sm transition-all duration-200 hover:shadow-md;
+    @apply bg-card rounded-xl p-5 border border-border/80 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
   }
 
   .stat-card-highlight {
-    @apply bg-primary text-primary-foreground rounded-xl p-5 shadow-md;
+    @apply bg-brand text-primary-foreground rounded-xl p-5 shadow-md;
   }
 
   .stat-label {
-    @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-wide mb-2;
+    @apply flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider mb-2;
   }
 
   .stat-value {
-    @apply text-2xl font-bold;
+    @apply text-2xl font-bold tracking-tight;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground;
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-muted-foreground hover:bg-card hover:text-foreground;
   }
 
   .sidebar-link-active {
-    @apply bg-sidebar-accent text-sidebar-foreground font-medium;
+    @apply bg-card text-foreground font-medium shadow-sm ring-1 ring-border/70;
   }
 
   .data-table {
@@ -157,7 +221,7 @@
   }
 
   .data-table th {
-    @apply bg-muted/50 px-4 py-3 text-left font-semibold text-muted-foreground uppercase text-xs tracking-wide border-b border-border;
+    @apply bg-muted/50 px-4 py-3 text-left font-semibold text-muted-foreground uppercase text-[11px] tracking-wider border-b border-border;
   }
 
   .data-table td {
@@ -169,11 +233,11 @@
   }
 
   .form-section {
-    @apply bg-card rounded-xl p-6 shadow-sm border border-border;
+    @apply bg-card rounded-xl p-5 sm:p-6 shadow-sm border border-border/80;
   }
 
   .filter-section {
-    @apply bg-card rounded-xl p-6 shadow-sm border border-border;
+    @apply bg-card rounded-xl p-5 sm:p-6 shadow-sm border border-border/80;
   }
 
   .status-badge {
@@ -198,6 +262,21 @@
 
   .niche-badge {
     @apply inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary;
+  }
+
+  /* Page titles: smaller on phones, crisp on desktop (beats the text-3xl utility). */
+  .dashboard-main h1.text-3xl,
+  .dashboard-main h1.text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    letter-spacing: -0.02em;
+  }
+  @media (min-width: 640px) {
+    .dashboard-main h1.text-3xl,
+    .dashboard-main h1.text-2xl {
+      font-size: 1.75rem;
+      line-height: 2.25rem;
+    }
   }
 }
 

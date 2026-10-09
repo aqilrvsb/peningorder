@@ -163,8 +163,8 @@ export default function StaffDetailsModal({ open, onOpenChange, section, personN
         {section === 'waris' && (
           <div className="space-y-5 py-2">
             {waris.map((w, i) => (
-              <div key={i} className="space-y-3">
-                <p className="text-sm font-semibold">Waris {i + 1}</p>
+              <div key={i} className="space-y-3 rounded-xl border border-border/80 p-4">
+                <p className="section-label">Waris {i + 1}</p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Nama"><Input value={w.nama} onChange={(e) => setW(i, 'nama', e.target.value)} /></Field>
                   <Field label="Hubungan"><Input value={w.hubungan} onChange={(e) => setW(i, 'hubungan', e.target.value)} placeholder="cth. Ibu, Suami" /></Field>
@@ -179,9 +179,9 @@ export default function StaffDetailsModal({ open, onOpenChange, section, personN
         {section === 'akademik' && (
           <div className="space-y-5 py-2">
             {akademik.map((a, i) => (
-              <div key={i} className="space-y-3">
+              <div key={i} className="space-y-3 rounded-xl border border-border/80 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Kelayakan {i + 1}</p>
+                  <p className="section-label">Kelayakan {i + 1}</p>
                   {akademik.length > 1 && (
                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-600" title="Buang kelayakan ni"
                       onClick={() => setAkademik(akademik.filter((_, j) => j !== i))}>

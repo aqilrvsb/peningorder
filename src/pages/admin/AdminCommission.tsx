@@ -4,7 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatRM, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
-import { Coins, Package, Users, Loader2, Download, Calendar } from 'lucide-react';
+import { Coins, Package, Users, Download, Calendar } from 'lucide-react';
+import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import * as XLSX from 'xlsx';
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
@@ -105,27 +106,33 @@ const AdminCommission: React.FC = () => {
   if (!isSuperadmin) return <div className="p-6 text-muted-foreground">Not authorized.</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Coins className="w-7 h-7 text-amber-500" /> ParcelDaily Commission</h1>
-        <p className="text-muted-foreground mt-1">Komisen RM{RATE.toFixed(2)} setiap tracking yang kurier ambil (termasuk return). Ikut tarikh proses.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="ParcelDaily Commission"
+        description={<>Komisen RM{RATE.toFixed(2)} setiap tracking yang kurier ambil (termasuk return). Ikut tarikh proses.</>}
+        icon={Coins}
+        tone="brand"
+      />
 
       {/* Date range */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium">Tarikh:</span></div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Dari</label>
-            <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-40" />
+      <div className="bg-card border border-border/80 rounded-xl shadow-sm p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+          <div className="flex items-center gap-2 sm:self-center"><Calendar className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium">Tarikh:</span></div>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
+            <div className="min-w-0">
+              <label className="section-label block mb-1">Dari</label>
+              <Input type="date" value={pendingStart} onChange={(e) => setPendingStart(e.target.value)} className="w-full sm:w-40" />
+            </div>
+            <div className="min-w-0">
+              <label className="section-label block mb-1">Hingga</label>
+              <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Hingga</label>
-            <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-40" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={apply}>Apply</Button>
+            <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
           </div>
-          <Button onClick={apply}>Apply</Button>
-          <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
-          <div className="ml-auto flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="outline" onClick={exportCSV} disabled={shownDetails.length === 0}>
               <Download className="w-4 h-4 mr-2" /> Export CSV
             </Button>
@@ -137,34 +144,29 @@ const AdminCommission: React.FC = () => {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-5">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-1"><Coins className="w-5 h-5" /><span className="text-xs uppercase font-semibold tracking-wide">Total Komisen</span></div>
-          <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">RM {formatRM(totals.commission)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{totals.tracking} × RM{RATE.toFixed(2)}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1"><Package className="w-5 h-5" /><span className="text-xs uppercase font-semibold tracking-wide">Total Tracking</span></div>
-          <p className="text-3xl font-bold text-foreground">{totals.tracking}</p>
-          <p className="text-xs text-muted-foreground mt-1">kurier ambil barang (incl. return)</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1"><Users className="w-5 h-5" /><span className="text-xs uppercase font-semibold tracking-wide">Total Client</span></div>
-          <p className="text-3xl font-bold text-foreground">{totals.clientCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">client aktif guna ParcelDaily</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          icon={Coins}
+          tone="amber"
+          label="Total Komisen"
+          value={<span className="text-amber-700 dark:text-amber-300">RM {formatRM(totals.commission)}</span>}
+          hint={`${totals.tracking} × RM${RATE.toFixed(2)}`}
+          className="border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30"
+        />
+        <StatCard icon={Package} tone="blue" label="Total Tracking" value={totals.tracking} hint="kurier ambil barang (incl. return)" />
+        <StatCard icon={Users} tone="green" label="Total Client" value={totals.clientCount} hint="client aktif guna ParcelDaily" />
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm"><TableSkeleton rows={6} cols={4} /></div>
       ) : (
         <>
           {/* Per-client — click to filter the tracking list */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-border font-semibold">Komisen ikut Client</div>
+          <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border font-semibold"><IconTile icon={Users} tone="purple" size="sm" />Komisen ikut Client</div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50">
+                <thead className="bg-muted/40">
                   <tr>
                     <th className="p-3 text-left">Client</th>
                     <th className="p-3 text-right">Tracking</th>
@@ -176,15 +178,15 @@ const AdminCommission: React.FC = () => {
                     <tr
                       key={c.owner_user_id}
                       onClick={() => setClientFilter(clientFilter === c.owner_user_id ? 'all' : c.owner_user_id)}
-                      className={`border-t border-border cursor-pointer hover:bg-muted/30 ${clientFilter === c.owner_user_id ? 'bg-primary/5' : ''}`}
+                      className={`border-t border-border cursor-pointer hover:bg-muted/40 ${clientFilter === c.owner_user_id ? 'bg-primary/5' : ''}`}
                     >
                       <td className="p-3 font-medium">{c.client}</td>
                       <td className="p-3 text-right tabular-nums">{c.tracking_count}</td>
-                      <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">RM {formatRM(c.commission)}</td>
+                      <td className="p-3 text-right tabular-nums whitespace-nowrap text-amber-600 dark:text-amber-400">RM {formatRM(c.commission)}</td>
                     </tr>
                   ))}
                   {clients.length === 0 && (
-                    <tr><td colSpan={3} className="p-6 text-center text-muted-foreground">Tiada komisen dalam tempoh ini.</td></tr>
+                    <tr><td colSpan={3} className="text-muted-foreground"><EmptyState icon={Coins} title="Tiada komisen dalam tempoh ini." /></td></tr>
                   )}
                 </tbody>
                 {clients.length > 0 && (
@@ -192,7 +194,7 @@ const AdminCommission: React.FC = () => {
                     <tr className="border-t border-border bg-muted/30 font-semibold">
                       <td className="p-3">JUMLAH</td>
                       <td className="p-3 text-right tabular-nums">{totals.tracking}</td>
-                      <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">RM {formatRM(totals.commission)}</td>
+                      <td className="p-3 text-right tabular-nums whitespace-nowrap text-amber-600 dark:text-amber-400">RM {formatRM(totals.commission)}</td>
                     </tr>
                   </tfoot>
                 )}
@@ -201,14 +203,14 @@ const AdminCommission: React.FC = () => {
           </div>
 
           {/* Tracking list */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-border font-semibold flex items-center justify-between">
-              <span>Senarai Tracking {clientFilter !== 'all' && <span className="text-muted-foreground font-normal">— {clients.find((c) => c.owner_user_id === clientFilter)?.client}</span>}</span>
+          <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-border font-semibold flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-3"><IconTile icon={Package} tone="blue" size="sm" /><span>Senarai Tracking {clientFilter !== 'all' && <span className="text-muted-foreground font-normal">— {clients.find((c) => c.owner_user_id === clientFilter)?.client}</span>}</span></span>
               <span className="text-sm text-muted-foreground">{shownDetails.length} tracking</span>
             </div>
             <div className="overflow-x-auto max-h-[600px]">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 sticky top-0">
+                <thead className="bg-muted sticky top-0">
                   <tr>
                     <th className="p-3 text-left">No</th>
                     <th className="p-3 text-left">Client</th>
@@ -222,7 +224,7 @@ const AdminCommission: React.FC = () => {
                 </thead>
                 <tbody>
                   {shownDetails.map((d, i) => (
-                    <tr key={`${d.tracking_number}-${i}`} className="border-t border-border hover:bg-muted/30">
+                    <tr key={`${d.tracking_number}-${i}`} className="border-t border-border hover:bg-muted/40">
                       <td className="p-3">{i + 1}</td>
                       <td className="p-3 whitespace-nowrap">{d.client}</td>
                       <td className="p-3 whitespace-nowrap">{d.id_sale || '-'}</td>
@@ -232,11 +234,11 @@ const AdminCommission: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${d.delivery_status === 'Success' ? 'bg-green-100 text-green-700' : d.delivery_status === 'Return' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{d.delivery_status || '-'}</span>
                       </td>
                       <td className="p-3 whitespace-nowrap">{formatDMY(d.remark_date)}</td>
-                      <td className="p-3 text-right tabular-nums text-amber-600 dark:text-amber-400">RM {RATE.toFixed(2)}</td>
+                      <td className="p-3 text-right tabular-nums whitespace-nowrap text-amber-600 dark:text-amber-400">RM {RATE.toFixed(2)}</td>
                     </tr>
                   ))}
                   {shownDetails.length === 0 && (
-                    <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Tiada tracking.</td></tr>
+                    <tr><td colSpan={8} className="text-muted-foreground"><EmptyState icon={Package} title="Tiada tracking." /></td></tr>
                   )}
                 </tbody>
               </table>

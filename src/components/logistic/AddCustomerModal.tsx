@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -16,7 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, ShoppingCart } from "lucide-react";
+import { IconTile, MissingHint } from "@/components/common/SoftUI";
 
 interface BundleItem {
   product_id: string;
@@ -277,13 +279,34 @@ const AddCustomerModal = ({
     (!requiresManualTracking || trackingNumber) &&
     (!usesNinjaVan || (customerPhone && customerPostcode && customerCity));
 
+  // Same conditions as isFormValid — shown as guidance above the Submit button.
+  const missingItems = [
+    { label: "Name Customer", done: !!customerName },
+    ...(usesNinjaVan ? [
+      { label: "Phone Customer", done: !!customerPhone },
+      { label: "Postcode", done: !!customerPostcode },
+      { label: "City", done: !!customerCity },
+    ] : []),
+    { label: "State", done: !!customerState },
+    { label: "Payment Method", done: !!paymentMethod },
+    { label: "Order From", done: !!orderFrom },
+    { label: "Jenis Closing", done: !!closingType },
+    { label: selectionType === "bundle" ? "Bundle" : "Product", done: !!(isProductSelected || isBundleSelected) },
+    { label: "Unit", done: !!quantity && parseInt(quantity) > 0 },
+    { label: "Price (RM)", done: !!price && parseFloat(price) > 0 },
+    ...(requiresManualTracking ? [{ label: "Tracking Number", done: !!trackingNumber }] : []),
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add Customer Purchase</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <IconTile icon={ShoppingCart} tone="brand" size="sm" />
+            Add Customer Purchase
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="grid gap-4 py-2 sm:grid-cols-2">
           {/* Customer Name */}
           <div className="space-y-2">
             <Label htmlFor="customer-name">Name Customer *</Label>
@@ -314,7 +337,7 @@ const AddCustomerModal = ({
           </div>
 
           {/* Customer Address */}
-          <div className="space-y-2">
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="customer-address">Address</Label>
             <Textarea
               id="customer-address"
@@ -327,7 +350,7 @@ const AddCustomerModal = ({
 
           {/* Postcode and City - Required for NinjaVan */}
           {usesNinjaVan && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:col-span-2">
               <div className="space-y-2">
                 <Label htmlFor="customer-postcode">Postcode *</Label>
                 <Input
@@ -445,8 +468,8 @@ const AddCustomerModal = ({
           {bundles.length > 0 && (
             <div className="space-y-2">
               <Label>Item Type *</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-accent has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
                   <input
                     type="radio"
                     name="selectionType"
@@ -456,11 +479,11 @@ const AddCustomerModal = ({
                       setSelectionType("product");
                       setBundleId("");
                     }}
-                    className="w-4 h-4"
+                    className="w-4 h-4 accent-primary"
                   />
                   <span>Product</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-accent has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5">
                   <input
                     type="radio"
                     name="selectionType"
@@ -470,7 +493,7 @@ const AddCustomerModal = ({
                       setSelectionType("bundle");
                       setProductId("");
                     }}
-                    className="w-4 h-4"
+                    className="w-4 h-4 accent-primary"
                   />
                   <span>Bundle</span>
                 </label>
@@ -480,7 +503,7 @@ const AddCustomerModal = ({
 
           {/* Product Selection */}
           {selectionType === "product" && (
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="product">Product *</Label>
               <Select value={productId} onValueChange={setProductId}>
                 <SelectTrigger id="product">
@@ -499,7 +522,7 @@ const AddCustomerModal = ({
 
           {/* Bundle Selection */}
           {selectionType === "bundle" && (
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="bundle">Bundle *</Label>
               <Select value={bundleId} onValueChange={handleBundleChange}>
                 <SelectTrigger id="bundle">
@@ -515,21 +538,21 @@ const AddCustomerModal = ({
               </Select>
               {/* Show bundle items when selected */}
               {selectedBundle && (
-                <div className="mt-2 p-3 bg-muted/50 rounded-md text-sm">
+                <div className="mt-2 rounded-xl border bg-muted/30 p-3 text-sm">
                   {selectedBundle.sku && (
-                    <div className="mb-2 p-2 bg-blue-50 rounded">
-                      <p className="text-xs text-blue-600">Bundle SKU:</p>
-                      <code className="text-xs font-mono font-bold text-blue-900">
+                    <div className="mb-2 rounded-lg bg-blue-50 p-2 dark:bg-blue-500/10">
+                      <p className="section-label text-blue-600 dark:text-blue-400">Bundle SKU:</p>
+                      <code className="break-all text-xs font-mono font-bold text-blue-900 dark:text-blue-200">
                         {selectedBundle.sku}
                       </code>
                     </div>
                   )}
-                  <p className="font-medium mb-2">Bundle Contents:</p>
+                  <p className="section-label mb-2">Bundle Contents:</p>
                   <ul className="space-y-1">
                     {selectedBundle.items.map((item, index) => (
-                      <li key={index} className="flex justify-between">
-                        <span>{item.product?.name || 'Unknown Product'}</span>
-                        <span className="text-muted-foreground">x {item.quantity}</span>
+                      <li key={index} className="flex justify-between gap-3">
+                        <span className="min-w-0">{item.product?.name || 'Unknown Product'}</span>
+                        <span className="shrink-0 whitespace-nowrap text-muted-foreground">x {item.quantity}</span>
                       </li>
                     ))}
                   </ul>
@@ -614,10 +637,10 @@ const AddCustomerModal = ({
                     Upload PDF
                   </Button>
                 ) : (
-                  <div className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-red-500" />
-                      <span className="text-sm truncate max-w-[200px]">
+                  <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileText className="w-4 h-4 shrink-0 text-red-500" />
+                      <span className="min-w-0 truncate text-sm">
                         {attachmentFile.name}
                       </span>
                     </div>
@@ -638,7 +661,8 @@ const AddCustomerModal = ({
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2">
+        <MissingHint items={missingItems} />
+        <DialogFooter className="gap-2 sm:gap-2 sm:space-x-0">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -649,7 +673,7 @@ const AddCustomerModal = ({
           <Button onClick={handleSubmit} disabled={!isFormValid || isLoading}>
             {isLoading ? "Processing..." : "Submit"}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, CreditCard, Check, Crown, Zap, Rocket, Clock } from 'lucide-react';
+import { PageHeader, CardsSkeleton, TableSkeleton } from '@/components/common/SoftUI';
 
 interface PlanCfg {
   price: number;
@@ -105,27 +106,28 @@ const Billing: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="max-w-5xl mx-auto space-y-6">
+        <CardsSkeleton count={3} className="lg:grid-cols-3" />
+        <TableSkeleton rows={4} cols={4} />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <CreditCard className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-          <p className="text-sm text-muted-foreground">Manage your PeningOrder plan</p>
-        </div>
-      </div>
+    <div className="max-w-5xl mx-auto">
+      <PageHeader
+        className="mb-6"
+        title="Billing & Subscription"
+        description="Manage your PeningOrder plan"
+        icon={CreditCard}
+        tone="brand"
+      />
 
       {/* Current plan card */}
-      <div className={`rounded-lg border p-5 mb-8 ${isExpired ? 'border-red-300 bg-red-50 dark:bg-red-950/30' : 'border-green-300 bg-green-50 dark:bg-green-950/30'}`}>
+      <div className={`rounded-xl border p-5 mb-8 shadow-sm ${isExpired ? 'border-red-300 bg-red-50 dark:bg-red-950/30' : 'border-green-300 bg-green-50 dark:bg-green-950/30'}`}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p className="text-sm text-muted-foreground">Current plan</p>
+            <p className="section-label">Current plan</p>
             <p className="text-xl font-bold capitalize">{profilePlan}</p>
           </div>
           <div className="flex items-center gap-2 text-sm">
@@ -152,15 +154,15 @@ const Billing: React.FC = () => {
           return (
             <div
               key={key}
-              className={`relative rounded-xl border p-6 flex flex-col ${isBest ? 'border-primary shadow-md' : 'border-border'}`}
+              className={`relative rounded-xl border bg-card p-6 flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isBest ? 'border-primary/60 shadow-md ring-2 ring-primary/10' : 'border-border/80 shadow-sm'}`}
             >
               {isBest && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded-full">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded-full shadow-sm">
                   Popular
                 </span>
               )}
-              <div className="flex items-center gap-2 text-primary mb-2">{PLAN_ICONS[key]}<span className="font-semibold text-lg">{cfg.label}</span></div>
-              <div className="mb-4 flex items-baseline gap-1.5">
+              <div className="flex items-center gap-3 mb-3"><span className="icon-tile icon-tile-brand">{PLAN_ICONS[key]}</span><span className="font-semibold text-lg">{cfg.label}</span></div>
+              <div className="mb-4 flex flex-wrap items-baseline gap-1.5">
                 {Number((cfg as any).original_price) > cfg.price && (
                   <span className="text-lg font-semibold text-muted-foreground line-through decoration-red-500/70">RM {(cfg as any).original_price}</span>
                 )}
@@ -199,9 +201,9 @@ const Billing: React.FC = () => {
 
       {/* Payment history */}
       <h2 className="font-semibold text-lg mb-3">Payment History</h2>
-      <div className="rounded-lg border border-border overflow-x-auto">
+      <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50">
+          <thead className="bg-muted/40">
             <tr>
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Plan</th>
@@ -214,10 +216,10 @@ const Billing: React.FC = () => {
               <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No payments yet</td></tr>
             )}
             {payments.map((p) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="p-3">{new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+              <tr key={p.id} className="border-t border-border hover:bg-muted/40">
+                <td className="p-3 whitespace-nowrap">{new Date(p.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                 <td className="p-3 capitalize">{p.plan || '-'}</td>
-                <td className="p-3 text-right">RM {Number(p.amount).toFixed(2)}</td>
+                <td className="p-3 text-right whitespace-nowrap">RM {Number(p.amount).toFixed(2)}</td>
                 <td className="p-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                     p.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
