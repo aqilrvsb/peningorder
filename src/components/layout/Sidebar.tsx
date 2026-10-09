@@ -122,6 +122,7 @@ const adminItems: NavItem[] = [
 const hrItems: NavItem[] = [
   { label: 'User', path: '/dashboard/hr/users', icon: <Users className="w-5 h-5" /> },
   { label: 'Attendance', path: '/dashboard/hr/attendance', icon: <ClipboardCheck className="w-5 h-5" /> },
+  { label: 'Database Staff', path: '/dashboard/hr/database-staff', icon: <Database className="w-5 h-5" /> },
   { label: 'Role', path: '/dashboard/hr/roles', icon: <Tags className="w-5 h-5" /> },
 ];
 
