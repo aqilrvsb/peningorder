@@ -80,10 +80,11 @@ interface Spend {
 
 // ---- Presentation helpers (soft-UI layout only — no data logic) ----
 
-// StatCard laid out vertically (tile on top) so long "RM 123,456.00" values get the
-// full card width instead of truncating; the value is a size smaller on phones.
-const KPI = 'flex-col items-stretch gap-3 p-3 sm:p-4 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl';
-const KPI_GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4';
+// StatCard laid out vertically (tile on top) on phones and in the 5-up grid, so long
+// "RM 123,456.00" values get the full card width; value size scales with the screen there.
+const KPI = 'flex-col items-stretch gap-3 p-3 sm:p-4 xl:flex-col xl:items-start xl:gap-2 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl xl:[&_p:first-child]:text-[length:clamp(1rem,1.25vw,1.375rem)]';
+// 2 per row on phones, 3 on tablets, 5 on wide screens.
+const KPI_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5';
 
 /** Brand-gradient highlight tile (Closing Rate / Pending Tracking), same shape as a KPI StatCard. */
 const HighlightCard: React.FC<{ icon: React.ElementType; label: React.ReactNode; value: React.ReactNode; hint: React.ReactNode; className?: string }> = ({ icon: Icon, label, value, hint, className }) => (
@@ -895,7 +896,8 @@ const Dashboard: React.FC = () => {
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
         {label}
       </span>
-      <span className="whitespace-nowrap font-medium tabular-nums text-foreground">
+      {/* ml-auto: when a narrow 5-up card wraps the value onto its own line, it stays right-aligned. */}
+      <span className="ml-auto whitespace-nowrap text-right font-medium tabular-nums text-foreground">
         {formatCurrency(value)} <span className="font-normal text-muted-foreground">({formatPercent(pct)})</span>
       </span>
     </div>
@@ -1018,7 +1020,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <PlatformCard icon={Facebook} tone="blue" label="SALES FB" value={formatCurrency(marketerStats.salesFB)} percent={formatPercent(marketerStats.fbPercent)}>
             {closingRows(marketerStats.closingFB)}
             {customerRows(marketerStats.customerFB)}
@@ -1042,7 +1044,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Closing Summary Row (All Platforms) */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+        <div className={KPI_GRID}>
           <StatCard className={KPI} icon={ClipboardList} tone="slate" label="CLOSING MANUAL" value={formatCurrency(marketerStats.salesManual)} hint={formatPercent(marketerStats.manualPercent)} />
           <StatCard className={KPI} icon={Phone} tone="green" label="CLOSING WA BOT" value={formatCurrency(marketerStats.salesWaBot)} hint={formatPercent(marketerStats.waBotPercent)} />
           <StatCard className={KPI} icon={Globe} tone="purple" label="CLOSING WEBSITE" value={formatCurrency(marketerStats.salesWebsite)} hint={formatPercent(marketerStats.websitePercent)} />
@@ -1095,7 +1097,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Platform Stats Row */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className={KPI_GRID}>
           <StatCard className={KPI} icon={Facebook} tone="blue" label="TOTAL FACEBOOK" value={logisticStats.totalFacebook} hint="Facebook orders" />
           <StatCard className={KPI} icon={Database} tone="purple" label="TOTAL DATABASE" value={logisticStats.totalDatabase} hint="Database orders" />
           <StatCard className={KPI} icon={SearchIcon} tone="green" label="TOTAL GOOGLE" value={logisticStats.totalGoogle} hint="Google orders" />
@@ -1146,7 +1148,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Platform Sales Row with Closing Breakdown */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <PlatformCard icon={Facebook} tone="blue" label="SALES FB" value={formatCurrency(bodStats.salesFB)} percent={formatPercent(bodStats.fbPercent)}>
             {closingRows(bodStats.closingFB)}
             {customerRows(bodStats.customerFB)}
@@ -1170,7 +1172,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Closing Summary Row (All Platforms) */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className={KPI_GRID}>
           <StatCard className={KPI} icon={ClipboardList} tone="slate" label="CLOSING MANUAL" value={formatCurrency(bodStats.salesManual)} hint={formatPercent(bodStats.manualPercent)} />
           <StatCard className={KPI} icon={Phone} tone="green" label="CLOSING WA BOT" value={formatCurrency(bodStats.salesWaBot)} hint={formatPercent(bodStats.waBotPercent)} />
           <StatCard className={KPI} icon={Globe} tone="purple" label="CLOSING WEBSITE" value={formatCurrency(bodStats.salesWebsite)} hint={formatPercent(bodStats.websitePercent)} />

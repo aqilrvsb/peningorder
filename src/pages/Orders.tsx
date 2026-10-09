@@ -906,8 +906,8 @@ ${trackingUrl}`;
         tone="brand"
       />
 
-      {/* Stats — Row 1: money & collection (clickable). Boxes computed from
-          baseOrders so totals stay stable while a click narrows the table. */}
+      {/* Stats — one grid: money & collection, then lifecycle + costs (clickable). Boxes
+          computed from baseOrders so totals stay stable while a click narrows the table. */}
       <div className={BOX_GRID}>
         <StatCard
           className={BOX}
@@ -996,11 +996,9 @@ ${trackingUrl}`;
             value={`RM ${formatRM(stats.totalSalesPospada)}`}
           />
         )}
-      </div>
 
-      {/* Stats — Row 2: lifecycle (clickable) + costs.
-          Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
-      <div className={BOX_GRID}>
+        {/* Lifecycle (clickable) + costs — same grid, so boxes flow into full rows with no gaps.
+            Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
         <StatCard
           className={BOX}
           icon={Clock}
