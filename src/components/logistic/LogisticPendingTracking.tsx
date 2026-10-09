@@ -43,10 +43,11 @@ const PROBLEM_RE = /problem|failed|gagal|unsuccess|unable|reject|reschedul|not a
 // "Awaiting handover" = booked but the courier has NOT collected it yet (no real
 // movement scan). Excluded from Pending Tracking, which is for parcels actually
 // in transit ("courier tak ambil lagi" — belongs in the Shipped tab, not here).
+// "Parcel is failed to be picked up" = courier came but didn't collect — same thing.
 const isAwaitingHandover = (o: any): boolean => {
   const s = String(o?.seos || "").trim().toLowerCase();
   if (!s || s === "pending") return true;
-  return /dropped off|drop off|awaiting pickup|awaiting handover/.test(s);
+  return /dropped off|drop off|awaiting pickup|awaiting handover|failed to be picked up/.test(s);
 };
 // Courier name from the kurier field ("JNT COD" -> "JNT").
 const ptBaseCourier = (kurier?: string): string => {
