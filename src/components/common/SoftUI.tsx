@@ -66,8 +66,9 @@ export function StatCard({ icon, tone = 'blue', label, value, hint, onClick, act
       <IconTile icon={icon} tone={tone} className="h-8 w-8 rounded-lg [&_svg]:h-4 [&_svg]:w-4 sm:h-10 sm:w-10 sm:rounded-xl sm:[&_svg]:h-5 sm:[&_svg]:w-5" />
       <div className="min-w-0 w-full">
         <p className="break-words text-lg font-bold leading-tight tracking-tight sm:text-2xl">{value}</p>
-        <p className="mt-1 line-clamp-2 text-xs font-medium text-muted-foreground">{label}</p>
-        {hint && <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{hint}</p>}
+        {/* Labels/hints wrap in full — in narrow 6-up grids a clamp would hide the CASH/COD split. */}
+        <p className="mt-1 break-words text-xs font-medium text-muted-foreground">{label}</p>
+        {hint && <p className="mt-0.5 break-words text-[11px] text-muted-foreground">{hint}</p>}
       </div>
     </Comp>
   );

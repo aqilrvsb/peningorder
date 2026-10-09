@@ -67,10 +67,10 @@ interface OrderForTracking {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
 
-// Summary-box StatCard: tile above the value on phones (2-column grid), side by side
-// from sm up; value capped at text-xl so "RM 12,345.00" fits without truncating.
-const BOX = 'flex-col items-stretch gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl';
-const BOX_GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4';
+// Summary-box StatCard: 2 per row on phones, 3 on tablets, 6 on wide screens. Tile sits above
+// the value on phones and in the 6-up grid (boxes are narrow there); value capped at text-xl.
+const BOX = 'flex-col items-stretch gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4 xl:flex-col xl:items-start xl:gap-2 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl xl:[&_p:first-child]:text-[length:clamp(1rem,1.25vw,1.375rem)]';
+const BOX_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6';
 // Extra lines under a box's label (they wrap instead of truncating).
 const boxLine = 'block whitespace-normal leading-snug';
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success"];

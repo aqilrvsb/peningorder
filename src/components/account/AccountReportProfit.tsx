@@ -16,9 +16,9 @@ import { useAuth } from '@/context/AuthContext';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, IconTile, CardsSkeleton, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 
-// Money stat cards: stack the icon above the value on phones and let long RM
-// amounts wrap instead of being cut off.
-const MONEY_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
+// Money stat cards: 2 per row on phones, 3 on tablets, 6 on wide screens. The icon sits above
+// the value on phones and in the 6-up grid; long RM amounts wrap instead of being cut off.
+const MONEY_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 xl:flex-col xl:items-start xl:gap-2 xl:[&_p:first-child]:text-[length:clamp(1rem,1.25vw,1.375rem)]';
 const wrapVal = (v: React.ReactNode, cls = '') => <span className={`whitespace-normal ${cls}`}>{v}</span>;
 
 interface Order {
@@ -541,7 +541,7 @@ const AccountReportProfit: React.FC = () => {
       )}
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatCard icon={DollarSign} tone="blue" label="Total Sales" value={wrapVal(`RM ${formatNumber(totals.totalSales)}`)} className={MONEY_CARD} />
         <StatCard icon={Wallet} tone="green" label="Total Collection" value={wrapVal(`RM ${formatNumber(totals.totalCollection)}`)} className={MONEY_CARD} />
         <StatCard icon={Package} tone="amber" label="Total Unit" value={totals.totalUnitBundle} className={MONEY_CARD} />
