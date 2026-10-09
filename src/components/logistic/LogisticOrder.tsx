@@ -67,7 +67,10 @@ const baseCourier = (kurier?: string): string => {
   return kurier?.trim() || "Lain";
 };
 
-const LogisticOrder = () => {
+// One page for both logistic order tabs — same table, filters and actions; only the query differs:
+//   Order          → Pending orders with no pospada date (ship now)
+//   Order Pospada  → Pending bookings with a pospada date (ship on that date)
+const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const today = getMalaysiaDate();
@@ -82,8 +85,9 @@ const LogisticOrder = () => {
   // logistic account is never counted (it earns no commission).
   const teamMarketers = members.filter((m: any) => m.role === 'marketer');
   const hideKomisyen = teamMarketers.length > 0 && teamMarketers.every((m: any) => (m.pay_mode || 'commission_order') === 'gross_profit');
-  const [startDate, setStartDate] = useState(firstDayOfMonth);
-  const [endDate, setEndDate] = useState(today);
+  // Pospada bookings can be keyed in long before their date, so that tab starts with no date range.
+  const [startDate, setStartDate] = useState(pospada ? "" : firstDayOfMonth);
+  const [endDate, setEndDate] = useState(pospada ? "" : today);
   // Picked dates; the data follows startDate/endDate, which only change on Filter.
   const [pendingStart, setPendingStart] = useState(startDate);
   const [pendingEnd, setPendingEnd] = useState(endDate);
@@ -191,7 +195,7 @@ const LogisticOrder = () => {
 
   // Fetch pending orders - using new schema field names
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["logistic-order", startDate, endDate],
+    queryKey: ["logistic-order", pospada ? "pospada" : "order", startDate, endDate],
     queryFn: async () => {
       // Paginated: PostgREST caps a single response at max_rows (1000) no matter
       // the requested range, so page through every row.
@@ -202,9 +206,11 @@ const LogisticOrder = () => {
             *,
             bundle:logistic_bundles(name, sku, base_cost, kos_postage_sm, kos_postage_ss)
           `)
-          .eq("delivery_status", "Pending")
-          .is("pospada_date", null) // Pospada bookings live in the Order Pospada tab, not here
-          .order("created_at", { ascending: false });
+          .eq("delivery_status", "Pending");
+        // Order: pospada_date IS NULL · Order Pospada: pospada_date IS NOT NULL (soonest first)
+        query = pospada
+          ? query.not("pospada_date", "is", null).order("pospada_date", { ascending: true })
+          : query.is("pospada_date", null).order("created_at", { ascending: false });
 
         if (startDate) {
           query = query.gte("date_order", startDate);
@@ -875,9 +881,9 @@ const LogisticOrder = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Order Management</h1>
+        <h1 className="text-3xl font-bold">{pospada ? "Order Pospada" : "Order Management"}</h1>
         <p className="text-muted-foreground mt-2">
-          Manage pending orders ready for shipment
+          {pospada ? "Booking order — proses pada tarikh pospada" : "Manage pending orders ready for shipment"}
         </p>
       </div>
 
@@ -1137,6 +1143,7 @@ const LogisticOrder = () => {
                       <th className="p-2 text-left text-blue-600 dark:text-blue-400">Nama</th>
                       <th className="p-2 text-left">Id Sales</th>
                       <th className="p-2 text-left">Tarikh Order</th>
+                      {pospada && <th className="p-2 text-left">Tarikh Pospada</th>}
                       <th className="p-2 text-left">Nama Pelanggan</th>
                       <th className="p-2 text-left">Phone</th>
                       <th className="p-2 text-left">Produk</th>
@@ -1183,6 +1190,17 @@ const LogisticOrder = () => {
                               className="bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1 py-0.5 text-sm cursor-pointer focus:outline-none disabled:opacity-50"
                             />
                           </td>
+                          {pospada && (
+                            <td className="p-2 whitespace-nowrap">
+                              {/* green = due (today or past), amber = still upcoming */}
+                              <span
+                                title={(order.pospada_date || "") <= today ? "Sudah sampai tarikh — boleh proses" : "Belum sampai tarikh pospada"}
+                                className={`rounded px-1.5 py-0.5 text-xs font-medium ${(order.pospada_date || "") <= today ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}
+                              >
+                                {formatDMY(order.pospada_date)}
+                              </span>
+                            </td>
+                          )}
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
@@ -1318,7 +1336,7 @@ const LogisticOrder = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={hideKomisyen ? 24 : 25} className="text-center py-12 text-muted-foreground">
+                        <td colSpan={(hideKomisyen ? 24 : 25) + (pospada ? 1 : 0)} className="text-center py-12 text-muted-foreground">
                           No pending orders found.
                         </td>
                       </tr>
