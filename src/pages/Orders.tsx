@@ -67,10 +67,11 @@ interface OrderForTracking {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, "All"];
 
-// Summary-box StatCard: 2 per row on phones, 3 on tablets, 5 on wide screens. Tile sits above
-// the value on phones and in the 5-up grid (boxes are narrow there); value capped at text-xl.
-const BOX = 'flex-col items-stretch gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4 xl:flex-col xl:items-start xl:gap-2 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl xl:[&_p:first-child]:text-[length:clamp(1rem,1.25vw,1.375rem)]';
-const BOX_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5';
+// Summary-box StatCard: each row of 8 boxes is 2 per row on phones, 4 on tablets/laptops
+// (4+4) and all 8 in one row on big screens (1536px+). Tile sits above the value (boxes are
+// narrow); value size scales with the screen in the 8-up row.
+const BOX = 'flex-col items-stretch gap-2 p-3 sm:flex-row sm:items-center sm:gap-3 sm:p-4 md:flex-col md:items-start md:gap-2 2xl:p-3 [&_p:first-child]:text-lg sm:[&_p:first-child]:text-xl 2xl:[&_p:first-child]:text-[length:clamp(0.95rem,0.95vw,1.25rem)]';
+const BOX_GRID = 'grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-8';
 // Extra lines under a box's label (they wrap instead of truncating).
 const boxLine = 'block whitespace-normal leading-snug';
 const DELIVERY_STATUS_OPTIONS = ["All", "Pending", "Shipped", "Return", "Success"];
@@ -906,7 +907,7 @@ ${trackingUrl}`;
         tone="brand"
       />
 
-      {/* Stats — money & collection + Return / costs (2 full rows of 5), then the lifecycle row.
+      {/* Stats — two rows of 8 (money & collection, then lifecycle + Return / costs).
           Boxes computed from baseOrders so totals stay stable while a click narrows the table. */}
       <div className={BOX_GRID}>
         <StatCard
@@ -997,41 +998,9 @@ ${trackingUrl}`;
           />
         )}
 
-        {/* Return + costs fill the second row (after Collection / Remain Coll). */}
-        <StatCard
-          className={BOX}
-          icon={RotateCw}
-          tone="red"
-          label="Return"
-          value={stats.totalReturn}
-          hint={<>
-            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>RM {formatRM(stats.totalSalesReturn)}</span>
-            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</span>
-          </>}
-          onClick={() => boxFilter({ del: "Return" })}
-          active={deliveryStatusFilter === "Return"}
-        />
-
-        <StatCard
-          className={BOX}
-          icon={Package}
-          tone="pink"
-          label="Cost Product"
-          value={`RM ${formatRM(stats.totalCostProduct)}`}
-          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</span>}
-        />
-
-        <StatCard
-          className={BOX}
-          icon={Truck}
-          tone="indigo"
-          label="Cost Postage"
-          value={`RM ${formatRM(stats.totalCostPostage)}`}
-          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</span>}
-        />
       </div>
 
-      {/* Lifecycle row — always together on its own row (clickable).
+      {/* Row 2 — lifecycle (clickable) + Return / costs.
           Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
       <div className={BOX_GRID}>
         <StatCard
@@ -1091,6 +1060,38 @@ ${trackingUrl}`;
           active={deliveryStatusFilter === "Success"}
         />
 
+        {/* Return + costs complete the row of 8. */}
+        <StatCard
+          className={BOX}
+          icon={RotateCw}
+          tone="red"
+          label="Return"
+          value={stats.totalReturn}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>RM {formatRM(stats.totalSalesReturn)}</span>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</span>
+          </>}
+          onClick={() => boxFilter({ del: "Return" })}
+          active={deliveryStatusFilter === "Return"}
+        />
+
+        <StatCard
+          className={BOX}
+          icon={Package}
+          tone="pink"
+          label="Cost Product"
+          value={`RM ${formatRM(stats.totalCostProduct)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</span>}
+        />
+
+        <StatCard
+          className={BOX}
+          icon={Truck}
+          tone="indigo"
+          label="Cost Postage"
+          value={`RM ${formatRM(stats.totalCostPostage)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</span>}
+        />
       </div>
 
       {/* Filters - like logistic Order layout */}
