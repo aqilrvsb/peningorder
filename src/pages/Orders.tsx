@@ -906,8 +906,8 @@ ${trackingUrl}`;
         tone="brand"
       />
 
-      {/* Stats — one grid: money & collection, then lifecycle + costs (clickable). Boxes
-          computed from baseOrders so totals stay stable while a click narrows the table. */}
+      {/* Stats — money & collection + Return / costs (2 full rows of 5), then the lifecycle row.
+          Boxes computed from baseOrders so totals stay stable while a click narrows the table. */}
       <div className={BOX_GRID}>
         <StatCard
           className={BOX}
@@ -997,8 +997,43 @@ ${trackingUrl}`;
           />
         )}
 
-        {/* Lifecycle (clickable) + costs — same grid, so boxes flow into full rows with no gaps.
-            Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
+        {/* Return + costs fill the second row (after Collection / Remain Coll). */}
+        <StatCard
+          className={BOX}
+          icon={RotateCw}
+          tone="red"
+          label="Return"
+          value={stats.totalReturn}
+          hint={<>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>RM {formatRM(stats.totalSalesReturn)}</span>
+            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</span>
+          </>}
+          onClick={() => boxFilter({ del: "Return" })}
+          active={deliveryStatusFilter === "Return"}
+        />
+
+        <StatCard
+          className={BOX}
+          icon={Package}
+          tone="pink"
+          label="Cost Product"
+          value={`RM ${formatRM(stats.totalCostProduct)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</span>}
+        />
+
+        <StatCard
+          className={BOX}
+          icon={Truck}
+          tone="indigo"
+          label="Cost Postage"
+          value={`RM ${formatRM(stats.totalCostPostage)}`}
+          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</span>}
+        />
+      </div>
+
+      {/* Lifecycle row — always together on its own row (clickable).
+          Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
+      <div className={BOX_GRID}>
         <StatCard
           className={BOX}
           icon={Clock}
@@ -1056,37 +1091,6 @@ ${trackingUrl}`;
           active={deliveryStatusFilter === "Success"}
         />
 
-        <StatCard
-          className={BOX}
-          icon={RotateCw}
-          tone="red"
-          label="Return"
-          value={stats.totalReturn}
-          hint={<>
-            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>RM {formatRM(stats.totalSalesReturn)}</span>
-            <span className={`${boxLine} font-semibold text-red-600 dark:text-red-400`}>{(stats.totalSales > 0 ? (stats.totalSalesReturn / stats.totalSales) * 100 : 0).toFixed(1)}% return</span>
-          </>}
-          onClick={() => boxFilter({ del: "Return" })}
-          active={deliveryStatusFilter === "Return"}
-        />
-
-        <StatCard
-          className={BOX}
-          icon={Package}
-          tone="pink"
-          label="Cost Product"
-          value={`RM ${formatRM(stats.totalCostProduct)}`}
-          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costProduct.cash)} · COD RM {formatRM(stats.split.costProduct.cod)}</span>}
-        />
-
-        <StatCard
-          className={BOX}
-          icon={Truck}
-          tone="indigo"
-          label="Cost Postage"
-          value={`RM ${formatRM(stats.totalCostPostage)}`}
-          hint={<span className={boxLine}>CASH RM {formatRM(stats.split.costPostage.cash)} · COD RM {formatRM(stats.split.costPostage.cod)}</span>}
-        />
       </div>
 
       {/* Filters - like logistic Order layout */}
