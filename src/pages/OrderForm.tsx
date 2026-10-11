@@ -112,7 +112,8 @@ const OrderForm: React.FC = () => {
           price_online_np,
           price_online_ep,
           price_online_ec,
-          is_active
+          is_active,
+          skip_courier
         `)
         .eq('is_active', true)
         .order('name');
@@ -148,6 +149,8 @@ const OrderForm: React.FC = () => {
       kosPostageSs: Number(lb.kos_postage_ss) || 0,
       postageCod: Number(lb.postage_cod) || 0,
       weight: Number(lb.weight) || 0.5,
+      // "Tanpa tracking ParcelDaily" (e.g. MOMMYHANA — the brand ships it): never booked with PD.
+      skipCourier: !!lb.skip_courier,
       // Single price set for all platforms (using price_online_* as the standard)
       priceNormalNp: Number(lb.price_online_np) || 0,
       priceNormalEp: Number(lb.price_online_ep) || 0,
@@ -879,7 +882,9 @@ const OrderForm: React.FC = () => {
 
         let editWaybillPdfUrl = ''; // For Poslaju PDF link in edit mode
 
-        if (isNowKurierOrder) {
+        // Bundles set to "Tanpa tracking ParcelDaily" (e.g. MOMMYHANA) are saved without tracking.
+        const editSkipsCourier = !!activeBundles.find(b => b.name === formData.produk)?.skipCourier;
+        if (isNowKurierOrder && !editSkipsCourier) {
           // Generate new sale ID for edit mode
           idSale = await generateSaleId();
           console.log('Generated new Sale ID for edit:', idSale);
@@ -1074,8 +1079,9 @@ const OrderForm: React.FC = () => {
         }
 
         // Call kurier API (Ninjavan or Poslaju) - skip for Self Pickup, marketplace
-        // couriers, and Pospada bookings (tracking is generated later by logistic).
-        const shouldCallKurier = !isPickup && !isMarketplaceCourier && !isPospada;
+        // couriers, Pospada bookings (tracking is generated later by logistic) and
+        // bundles set to "Tanpa tracking ParcelDaily" (e.g. MOMMYHANA — no tracking at all).
+        const shouldCallKurier = !isPickup && !isMarketplaceCourier && !isPospada && !selectedBundle?.skipCourier;
         let waybillPdfUrl = ''; // For Poslaju PDF link
 
         if (shouldCallKurier) {
@@ -1647,6 +1653,11 @@ const OrderForm: React.FC = () => {
                   )}
                 </SelectContent>
               </Select>
+              {activeBundles.find((b) => b.name === formData.produk)?.skipCourier && (
+                <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                  Bundle ini tanpa tracking ParcelDaily — order disimpan tanpa no. tracking.
+                </p>
+              )}
             </div>
 
             {/* Harga Jualan */}

@@ -85,6 +85,8 @@ const LogisticBundleManagement = () => {
   const [customPostage, setCustomPostage] = useState("");
   const [customCodCharge, setCustomCodCharge] = useState("");
   const [customPickup, setCustomPickup] = useState("");
+  // "Tanpa tracking ParcelDaily" — orders for this bundle are never booked with PD (e.g. MOMMYHANA).
+  const [skipCourier, setSkipCourier] = useState(false);
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -149,6 +151,7 @@ const LogisticBundleManagement = () => {
     setCustomPostage("");
     setCustomCodCharge("");
     setCustomPickup("");
+    setSkipCourier(false);
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -183,6 +186,7 @@ const LogisticBundleManagement = () => {
     setCustomPostage(opt(bundle.custom_postage));
     setCustomCodCharge(opt(bundle.custom_cod_charge));
     setCustomPickup(opt(bundle.custom_pickup));
+    setSkipCourier(!!bundle.skip_courier);
     // Parse SKU to reconstruct bundle items for editing
     const skuParts = (bundle.sku || "").split(" + ");
     const reconstructedItems: BundleItem[] = [];
@@ -284,6 +288,8 @@ const LogisticBundleManagement = () => {
       custom_cod_charge: num(customPostage) === null ? null : num(customCodCharge),
       custom_pickup: num(customPickup),
     };
+    // Saved with the postage overrides (column isn't in the generated types yet).
+    const courierFlags = { skip_courier: skipCourier };
     if (Object.values(postageOverrides).some((v) => v !== null && (isNaN(v) || v < 0))) {
       toast.error("Kos postage / COD / pickup mesti nombor 0 atau lebih");
       return;
@@ -324,6 +330,7 @@ const LogisticBundleManagement = () => {
             postage_cod: postageCod,
             weight: weight,
             ...postageOverrides,
+            ...courierFlags,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingBundleId);
@@ -357,6 +364,7 @@ const LogisticBundleManagement = () => {
             postage_cod: postageCod,
             weight: weight,
             ...postageOverrides,
+            ...courierFlags,
           });
 
         if (insertError) throw insertError;
@@ -473,6 +481,11 @@ const LogisticBundleManagement = () => {
                   <TableRow key={bundle.id}>
                     <TableCell>
                       <p className="font-medium">{bundle.name}</p>
+                      {bundle.skip_courier && (
+                        <span className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                          Tanpa tracking
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <p className="text-sm text-muted-foreground max-w-[240px] whitespace-normal break-words">
@@ -758,6 +771,16 @@ const LogisticBundleManagement = () => {
                   Order biasa = Cost Postage + COD Charges (jika order COD). Order pickup = Cost Pickup.
                 </p>
               </div>
+
+              <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <span>
+                  <span className="block text-sm font-medium">Tanpa tracking ParcelDaily</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Order bundle ini TIDAK dihantar ke ParcelDaily — tiada no. tracking dijana (contoh: MOMMYHANA, brand hantar sendiri).
+                  </span>
+                </span>
+                <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />
+              </label>
             </div>
 
             {/* Summary */}

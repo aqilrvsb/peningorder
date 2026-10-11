@@ -114,6 +114,25 @@ serve(async (req) => {
       const { data } = await supabase.rpc("tenant_owner");
       ownerUuid = data;
     }
+
+    // Bundles set to "Tanpa tracking ParcelDaily" (logistic_bundles.skip_courier — e.g.
+    // MOMMYHANA, shipped by the brand) are never booked, whichever path calls this
+    // (key-in, WooCommerce webhook, Integration map, manual Generate Tracking).
+    // Callers send the bundle SKU and/or name; match either within this tenant.
+    if (ownerUuid) {
+      const sku = clean((orderData as any).productSku);
+      const name = clean(orderData.productName || orderData.produk);
+      const isSkipped = async (col: "sku" | "name", val: string) => {
+        if (!val) return false;
+        const { data } = await service.from("logistic_bundles").select("id")
+          .eq("owner_user_id", ownerUuid).eq("skip_courier", true).eq(col, val).limit(1);
+        return !!data?.length;
+      };
+      if ((await isSkipped("sku", sku)) || (await isSkipped("name", name))) {
+        return fail("Bundle ini ditetapkan 'Tanpa tracking ParcelDaily' — tiada no. tracking dijana. (Tukar di Logistic → Bundle jika perlu.)", { skipped: true });
+      }
+    }
+
     const { data: config, error: configError } = await service
       .from("parceldaily_config")
       .select("*")
