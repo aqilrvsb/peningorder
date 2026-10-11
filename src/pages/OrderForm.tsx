@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -38,6 +38,14 @@ const JENIS_CLOSING_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call'];
 const JENIS_CLOSING_MARKETPLACE_OPTIONS = ['Manual', 'Wa Bot', 'Website', 'Call', 'Live'];
 const CARA_BAYARAN_OPTIONS = ['CASH', 'COD', 'Pickup'];
 const DELIVERY_METHOD_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
+
+// Courier by region (Courier Settings): Sabah, Sarawak and Labuan = 'east', the rest = 'semenanjung'.
+type Region = 'semenanjung' | 'east';
+const regionOf = (negeri?: string): Region | null => {
+  const n = (negeri || '').trim().toUpperCase();
+  if (!n) return null;
+  return /SABAH|SARAWAK|LABUAN/.test(n) ? 'east' : 'semenanjung';
+};
 const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
@@ -213,6 +221,38 @@ const OrderForm: React.FC = () => {
   const [waybillFileName, setWaybillFileName] = useState<string>('');
   // Per-tenant courier restriction (e.g. only JNT). null = all couriers.
   const [allowedCouriers, setAllowedCouriers] = useState<string[] | null>(null);
+  // Courier by region from Courier Settings (null until loaded; values '' = no rule).
+  const [regionCouriers, setRegionCouriers] = useState<{ semenanjung: string; sabah_sarawak: string } | null>(null);
+  // Region the courier was last auto-set for — editing an order starts at its own region,
+  // so opening it never overrides the courier it was saved with.
+  const regionRef = useRef<Region | null>(editOrder ? regionOf(editOrder.negeri) : null);
+
+  // Courier by region: load the HQ's rule (staff read it via a security-definer RPC).
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any).rpc('my_region_couriers');
+      setRegionCouriers({ semenanjung: data?.semenanjung || '', sabah_sarawak: data?.sabah_sarawak || '' });
+    })();
+  }, []);
+
+  // When the customer's negeri moves to another region, switch the courier to that region's
+  // courier (marketer can still change it by hand afterwards). Pickup / marketplace untouched.
+  useEffect(() => {
+    if (!regionCouriers) return;
+    const region = regionOf(formData.negeri);
+    // Ignore "no negeri yet" so an edit form that fills in after this loads keeps its courier.
+    if (!region || region === regionRef.current) return;
+    regionRef.current = region;
+    const wanted = region === 'east' ? regionCouriers.sabah_sarawak : regionCouriers.semenanjung;
+    const opt = DELIVERY_METHOD_OPTIONS.find((o) => o.toLowerCase() === (wanted || '').toLowerCase());
+    if (!opt) return;
+    if (allowedCouriers?.length && !allowedCouriers.some((c) => c.toLowerCase() === opt.toLowerCase())) return;
+    setFormData((prev) =>
+      ['Self Pickup', 'Kurier Tiktok', 'Kurier Shopee'].includes(prev.deliveryMethod) || prev.deliveryMethod === opt
+        ? prev
+        : { ...prev, deliveryMethod: opt },
+    );
+  }, [formData.negeri, regionCouriers, allowedCouriers]);
 
   // Restrict the Delivery Method dropdown to the tenant's allowed couriers.
   useEffect(() => {
@@ -1737,6 +1777,17 @@ const OrderForm: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(() => {
+                  const region = regionOf(formData.negeri);
+                  const wanted = region === 'east' ? regionCouriers?.sabah_sarawak : region ? regionCouriers?.semenanjung : '';
+                  if (!region || !wanted) return null;
+                  return (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Auto ikut kawasan ({region === 'east' ? 'Sabah/Sarawak' : 'Semenanjung'}): <b>{wanted}</b>
+                      {formData.deliveryMethod.toLowerCase() !== wanted.toLowerCase() && ' — anda pilih kurier lain'}
+                    </p>
+                  );
+                })()}
               </div>
             )}
 

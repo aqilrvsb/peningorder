@@ -6,7 +6,7 @@
  *   POST /channel-webhook?marketer_id=PO-0002&channel=convertly
  *
  * Creates a PENDING customer_purchases row scoped to the tenant (owner_user_id
- * looked up from idstaff), kurier = the tenant's default courier. Tracking +
+ * looked up from idstaff), kurier = the region courier, else the tenant default. Tracking +
  * cost are handled later in the Order tab, matching the woocommerce-webhook
  * flow. Fields are matched flexibly because OnPay/Convertly post flat
  * Malay/English form fields.
@@ -62,7 +62,7 @@ function normalize(data: any) {
   };
 }
 
-const COURIER_LABELS: Record<string, string> = { ninjavan: "Ninjavan", poslaju: "Poslaju", jnt: "JNT", dhl: "DHL" };
+const COURIER_LABELS: Record<string, string> = { ninjavan: "Ninjavan", poslaju: "Poslaju", jnt: "JNT", dhl: "DHL", spx: "SPX" };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -87,9 +87,17 @@ serve(async (req) => {
 
     const order = normalize(body);
 
-    const { data: pdConfig } = await supabase.from("parceldaily_config").select("default_courier").eq("owner_user_id", owner.id).maybeSingle();
+    const { data: pdConfig } = await supabase
+      .from("parceldaily_config")
+      .select("default_courier, courier_semenanjung, courier_sabah_sarawak")
+      .eq("owner_user_id", owner.id)
+      .maybeSingle();
     const defaultCourier = (pdConfig?.default_courier || "poslaju").toLowerCase();
-    const courierLabel = COURIER_LABELS[defaultCourier] || "Poslaju";
+    // Region courier (Courier Settings → Kurier Ikut Kawasan) wins over the default.
+    const regionCourier = String((/sabah|sarawak|labuan/i.test(order.state || "")
+      ? pdConfig?.courier_sabah_sarawak
+      : pdConfig?.courier_semenanjung) || "").toLowerCase();
+    const courierLabel = COURIER_LABELS[regionCourier] || COURIER_LABELS[defaultCourier] || "Poslaju";
 
     let idSale = "";
     try { const { data } = await supabase.rpc("generate_sale_id"); idSale = data || ""; } catch { /* fallback below */ }

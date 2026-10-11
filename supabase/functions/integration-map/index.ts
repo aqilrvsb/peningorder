@@ -152,13 +152,23 @@ serve(async (req) => {
       .maybeSingle();
     if (!bundle || bundle.owner_user_id !== ownerUuid) return json(404, { error: "bundle not found" });
 
-    // Courier = the tenant's default (Courier Settings), same as an integration match.
-    const { data: cfg } = await admin.from("parceldaily_config").select("default_courier").eq("owner_user_id", ownerUuid).maybeSingle();
-    const courierCode = (cfg?.default_courier || "poslaju").toLowerCase();
-    const courierLabel = COURIER_LABELS[courierCode] || "Poslaju";
+    // Courier = the courier for the customer's region (Courier Settings → Kurier Ikut
+    // Kawasan), else the tenant's default — same rule as an integration match.
+    const { data: cfg } = await admin
+      .from("parceldaily_config")
+      .select("default_courier, courier_semenanjung, courier_sabah_sarawak")
+      .eq("owner_user_id", ownerUuid)
+      .maybeSingle();
+    const defaultCode = (cfg?.default_courier || "poslaju").toLowerCase();
+    const courierFor = (state: string | null) => {
+      const east = /sabah|sarawak|labuan/i.test(state || "");
+      const regionCode = String((east ? cfg?.courier_sabah_sarawak : cfg?.courier_semenanjung) || "").toLowerCase();
+      const code = COURIER_LABELS[regionCode] ? regionCode : defaultCode;
+      return { code, label: COURIER_LABELS[code] || "Poslaju" };
+    };
 
     // LEARN the mapping first so any order (this batch + future webhooks) with the
-    // same product signature auto-tallies (courier stays the tenant default).
+    // same product signature auto-tallies (courier follows the region rule above).
     if (row.product_signature) {
       await admin.from("integration_product_map").upsert({
         owner_user_id: ownerUuid,
@@ -169,7 +179,8 @@ serve(async (req) => {
     }
 
     // Process the clicked row with the Map dialog's payment/total overrides.
-    const clicked = await createOrderFromRow(admin, row, ownerUuid, bundle, courierCode, courierLabel, isCOD, totalSale);
+    const c = courierFor(row.state_customer);
+    const clicked = await createOrderFromRow(admin, row, ownerUuid, bundle, c.code, c.label, isCOD, totalSale);
     if (!clicked.ok) return json(500, { error: "insert_failed", details: clicked.error });
 
     // SWEEP every OTHER parked row with the same product signature for this tenant
@@ -185,7 +196,8 @@ serve(async (req) => {
         .eq("product_signature", row.product_signature);
       for (const sib of siblings || []) {
         const sibCOD = String(sib.type_payment || "").toUpperCase() === "COD";
-        const res = await createOrderFromRow(admin, sib, ownerUuid, bundle, courierCode, courierLabel, sibCOD, Number(sib.amount) || 0);
+        const sc = courierFor(sib.state_customer);
+        const res = await createOrderFromRow(admin, sib, ownerUuid, bundle, sc.code, sc.label, sibCOD, Number(sib.amount) || 0);
         if (res.ok) swept++; else failed.push(sib.id);
       }
     }

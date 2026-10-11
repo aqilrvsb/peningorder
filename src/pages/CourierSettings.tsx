@@ -68,6 +68,9 @@ interface ParcelDailyConfig {
   is_notify: 'SMS' | 'WhatsApp' | 'None';
   default_courier: '' | 'poslaju' | 'ninjavan' | 'jnt' | 'dhl';
   allowed_couriers: string[]; // couriers offered at order key-in. [] = all.
+  // Courier by region — auto-picked at key-in from the customer's negeri ('' = no rule).
+  courier_semenanjung: string;
+  courier_sabah_sarawak: string; // Sabah, Sarawak and Labuan
   pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
   webhook_confirmed: boolean; // client confirmed they set up the ParcelDaily webhook.
   whacenter_instance: string; // PeningBot device Instance (pasted from peningbot.com) for WhatsApp notify.
@@ -94,6 +97,8 @@ const emptyConfig: ParcelDailyConfig = {
   is_notify: 'None',
   default_courier: '',
   allowed_couriers: [],
+  courier_semenanjung: '',
+  courier_sabah_sarawak: '',
   pospada_enabled: false,
   webhook_confirmed: false,
   whacenter_instance: '',
@@ -270,7 +275,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed, whacenter_instance: data.whacenter_instance || '' });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], courier_semenanjung: data.courier_semenanjung || '', courier_sabah_sarawak: data.courier_sabah_sarawak || '', pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed, whacenter_instance: data.whacenter_instance || '' });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -336,6 +341,8 @@ const CourierSettings: React.FC = () => {
         is_notify: 'None', // courier SMS disabled — notifications via WhatsApp Device
         default_courier: formData.default_courier || null,
         allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
+        courier_semenanjung: formData.courier_semenanjung || null,
+        courier_sabah_sarawak: formData.courier_sabah_sarawak || null,
         pospada_enabled: formData.pospada_enabled,
         webhook_confirmed: formData.webhook_confirmed,
         whacenter_instance: formData.whacenter_instance.trim() || null,
@@ -723,6 +730,49 @@ const CourierSettings: React.FC = () => {
             {formData.allowed_couriers.length === 0 && (
               <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">Semua kurier tersedia (tiada had).</p>
             )}
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-border">
+            <FormLabel>Kurier Ikut Kawasan (auto semasa Key-in)</FormLabel>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              Bila poskod / negeri pelanggan diisi, kurier ditukar automatik ikut kawasan. Marketer masih boleh tukar
+              sendiri. Order WooCommerce / Integration pun ikut tetapan ni.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ['courier_semenanjung', 'Semenanjung', 'Semua negeri Semenanjung'],
+                ['courier_sabah_sarawak', 'Sabah / Sarawak', 'Sabah, Sarawak & Labuan'],
+              ] as const).map(([key, label, hint]) => {
+                const choices = formData.allowed_couriers.length ? COURIER_OPTIONS.filter((c) => formData.allowed_couriers.includes(c)) : COURIER_OPTIONS;
+                const value = formData[key];
+                return (
+                  <div key={key} className="rounded-xl border border-border bg-muted/20 p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <IconTile icon={MapPin} tone={key === 'courier_semenanjung' ? 'blue' : 'green'} size="sm" />
+                      <div>
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="text-[11px] text-muted-foreground">{hint}</p>
+                      </div>
+                    </div>
+                    <Select value={value || 'none'} onValueChange={(v) => setField(key, v === 'none' ? '' : v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Tiada (ikut pilihan biasa)</SelectItem>
+                        {choices.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {value && !choices.includes(value) && (
+                      <p className="mt-1.5 text-xs text-red-600">{value} tiada dalam Kurier Tersedia — pilih semula.</p>
+                    )}
+                    {key === 'courier_sabah_sarawak' && value === 'Poslaju' && (
+                      <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                        Poslaju COD tak sampai Sabah/Sarawak — order COD ke sana akan gagal. Cadangan: JNT atau SPX.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

@@ -1166,7 +1166,7 @@ serve(async (req) => {
     const { data: pdConfig } = ownerUserId
       ? await supabase
           .from('parceldaily_config')
-          .select('default_courier')
+          .select('default_courier, courier_semenanjung, courier_sabah_sarawak')
           .eq('owner_user_id', ownerUserId)
           .maybeSingle()
       : { data: null };
@@ -1175,9 +1175,13 @@ serve(async (req) => {
       ninjavan: 'Ninjavan', poslaju: 'Poslaju', jnt: 'JNT', dhl: 'DHL',
     };
     const defaultCourier = (pdConfig?.default_courier || 'poslaju').toLowerCase();
-    // Courier = the tenant's default (Courier Settings); a product mapping may override.
+    // Courier = product mapping override, else the courier for the customer's region
+    // (Courier Settings → Kurier Ikut Kawasan), else the tenant's default.
     const COURIER_CODES: Record<string, string> = { Ninjavan: 'ninjavan', Poslaju: 'poslaju', JNT: 'jnt', DHL: 'dhl', SPX: 'spx' };
-    const courierLabel = mappedKurierLabel || COURIER_LABELS[defaultCourier] || 'Poslaju';
+    const regionLabel = (/sabah|sarawak|labuan/i.test(orderData.state || '')
+      ? (pdConfig as any)?.courier_sabah_sarawak
+      : (pdConfig as any)?.courier_semenanjung) || '';
+    const courierLabel = mappedKurierLabel || (COURIER_CODES[regionLabel] ? regionLabel : '') || COURIER_LABELS[defaultCourier] || 'Poslaju';
     const courierCode = COURIER_CODES[courierLabel] || defaultCourier || 'poslaju';
 
     // Auto-generate the ParcelDaily tracking now — exactly like a manual key-in —
