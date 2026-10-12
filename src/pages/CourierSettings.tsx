@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio, ImagePlus, X, Settings, MapPin, SlidersHorizontal, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Truck, Info, ExternalLink, Calculator, KeyRound, ChevronDown, ChevronUp, Bell, Copy, Check, Webhook, Banknote, RotateCcw, Radio, ImagePlus, X, Settings, MapPin, SlidersHorizontal, CalendarClock, Store } from 'lucide-react';
 import { put } from '@vercel/blob';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
@@ -71,6 +71,7 @@ interface ParcelDailyConfig {
   // Courier by region — auto-picked at key-in from the customer's negeri ('' = no rule).
   courier_semenanjung: string;
   courier_sabah_sarawak: string; // Sabah, Sarawak and Labuan
+  is_dropoff: boolean; // ParcelDaily isDropoff: false = courier Pickup (default), true = seller Drop Off.
   pospada_enabled: boolean; // Pospada (booking) feature on/off. Default off.
   webhook_confirmed: boolean; // client confirmed they set up the ParcelDaily webhook.
   whacenter_instance: string; // PeningBot device Instance (pasted from peningbot.com) for WhatsApp notify.
@@ -99,6 +100,7 @@ const emptyConfig: ParcelDailyConfig = {
   allowed_couriers: [],
   courier_semenanjung: '',
   courier_sabah_sarawak: '',
+  is_dropoff: false,
   pospada_enabled: false,
   webhook_confirmed: false,
   whacenter_instance: '',
@@ -275,7 +277,7 @@ const CourierSettings: React.FC = () => {
         const normState = NEGERI_OPTIONS.find(
           (n) => n.toUpperCase() === String(data.sender_state || '').toUpperCase(),
         ) || data.sender_state || '';
-        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], courier_semenanjung: data.courier_semenanjung || '', courier_sabah_sarawak: data.courier_sabah_sarawak || '', pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed, whacenter_instance: data.whacenter_instance || '' });
+        setFormData({ ...emptyConfig, ...data, sender_state: normState, default_courier: data.default_courier || '', allowed_couriers: Array.isArray(data.allowed_couriers) ? data.allowed_couriers : [], courier_semenanjung: data.courier_semenanjung || '', courier_sabah_sarawak: data.courier_sabah_sarawak || '', is_dropoff: !!data.is_dropoff, pospada_enabled: !!data.pospada_enabled, webhook_confirmed: !!data.webhook_confirmed, whacenter_instance: data.whacenter_instance || '' });
       } else if (user) {
         // New client: inherit the platform courier defaults (environment +
         // default courier) set by admin, and pre-fill sender from profile.
@@ -343,6 +345,7 @@ const CourierSettings: React.FC = () => {
         allowed_couriers: formData.allowed_couriers.length ? formData.allowed_couriers : null, // null = all couriers offered
         courier_semenanjung: formData.courier_semenanjung || null,
         courier_sabah_sarawak: formData.courier_sabah_sarawak || null,
+        is_dropoff: formData.is_dropoff,
         pospada_enabled: formData.pospada_enabled,
         webhook_confirmed: formData.webhook_confirmed,
         whacenter_instance: formData.whacenter_instance.trim() || null,
@@ -573,6 +576,42 @@ const CourierSettings: React.FC = () => {
 
         <div className="border-t border-border pt-6">
           <SectionHeader icon={MapPin} tone="purple" title="Pickup / Sender Address" />
+          <div className="mb-5">
+            <FormLabel>Cara Serah Parcel</FormLabel>
+            <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Cara serah parcel">
+              {([
+                [false, Truck, 'Pickup', 'Kurier datang ambil parcel di alamat bawah (anggaran 2pm – 6pm).'],
+                [true, Store, 'Drop Off', 'Anda hantar sendiri parcel ke kaunter / drop point kurier.'],
+              ] as const).map(([value, Icon, label, desc]) => {
+                const active = formData.is_dropoff === value;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setField('is_dropoff', value)}
+                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+                      active
+                        ? 'border-primary/50 bg-primary/10 shadow-xs'
+                        : 'border-border bg-background hover:bg-muted'
+                    }`}
+                  >
+                    <IconTile icon={Icon} tone={value ? 'amber' : 'blue'} size="sm" />
+                    <div className="min-w-0">
+                      <p className={`text-sm font-semibold ${active ? 'text-primary' : ''}`}>{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Harga pos sama. Terpakai untuk order baru yang dihantar ke ParcelDaily (key-in, WooCommerce, Integration,
+              Generate Tracking).
+              {!formData.is_dropoff && ' Ninjavan & DHL perlukan minimum 5 parcel setiap pickup.'}
+            </p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FormLabel required>Sender / Business Name</FormLabel>
@@ -763,11 +802,6 @@ const CourierSettings: React.FC = () => {
                     </Select>
                     {value && !choices.includes(value) && (
                       <p className="mt-1.5 text-xs text-red-600">{value} tiada dalam Kurier Tersedia — pilih semula.</p>
-                    )}
-                    {key === 'courier_sabah_sarawak' && value === 'Poslaju' && (
-                      <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
-                        Poslaju COD tak sampai Sabah/Sarawak — order COD ke sana akan gagal. Cadangan: JNT atau SPX.
-                      </p>
                     )}
                   </div>
                 );

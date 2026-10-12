@@ -315,7 +315,9 @@ serve(async (req) => {
       content: contentDescription,
       content_value: contentValue,
       contentValueCurrency: "MYR",
-      isDropoff: orderData.isDropoff ?? false,
+      // Handover mode (Courier Settings → Cara Serah Parcel): false = courier picks up
+      // from pickupAddress, true = seller drops it at the courier. Same price either way.
+      isDropoff: typeof orderData.isDropoff === "boolean" ? orderData.isDropoff : Boolean(config.is_dropoff),
       isNotify: notifyValue,
     };
     // Ninjavan requires a quantity field
