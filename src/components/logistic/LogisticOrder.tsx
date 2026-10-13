@@ -71,6 +71,9 @@ const baseCourier = (kurier?: string): string => {
   return kurier?.trim() || "Lain";
 };
 
+// ParcelDaily couriers an order without tracking can be switched between (Kurier column).
+const PD_COURIER_LABELS = ["Poslaju", "Ninjavan", "JNT", "DHL", "SPX"];
+
 // Icon-tile colour per courier on the clickable courier cards (presentation only).
 const COURIER_TONE: Record<string, Tone> = {
   Poslaju: "amber", Ninjavan: "pink", JNT: "red", DHL: "cyan", SPX: "orange", Tiktok: "slate",
@@ -148,6 +151,16 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   });
 
   // Fetch all bundles for dropdown - using logistic_bundles table
+  // Tenant's Kurier Tersedia (Courier Settings); [] = every courier allowed.
+  const { data: allowedCouriers = [] } = useQuery({
+    queryKey: ["my-allowed-couriers"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).rpc("my_allowed_couriers");
+      return Array.isArray(data) ? (data as string[]).filter(Boolean) : [];
+    },
+  });
+  const [savingKurierId, setSavingKurierId] = useState<string | null>(null);
+
   const { data: allProducts = [] } = useQuery({
     queryKey: ["all-bundles-dropdown"],
     queryFn: async () => {
@@ -716,9 +729,36 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   };
 
   // Check if order needs tracking generation (courier orders without tracking)
-  const needsTrackingGeneration = (order: any) => {
-    const kurier = order.kurier || '';
-    return (kurier.includes('Poslaju') || kurier.includes('Ninjavan') || kurier.includes('JNT') || kurier.includes('DHL')) && !order.tracking_number;
+  const needsTrackingGeneration = (order: any) =>
+    !order.tracking_number && PD_COURIER_LABELS.includes(baseCourier(order.kurier));
+
+  // An order not yet booked with ParcelDaily (no tracking) can switch courier;
+  // Generate Tracking then books it with the new one.
+  const codSuffix = (order: any) =>
+    /\bCOD\b/i.test(order.kurier || "") || order.type_payment === "COD" ? "COD" : "CASH";
+  const courierChoices = (order: any) => {
+    const allowed = allowedCouriers.length
+      ? PD_COURIER_LABELS.filter((c) => allowedCouriers.some((a: string) => a.toLowerCase() === c.toLowerCase()))
+      : PD_COURIER_LABELS;
+    const current = baseCourier(order.kurier);
+    return allowed.includes(current) ? allowed : [current, ...allowed];
+  };
+  const handleCourierChange = async (order: any, courier: string) => {
+    if (order.tracking_number || courier === baseCourier(order.kurier)) return;
+    setSavingKurierId(order.id);
+    try {
+      const { error } = await supabase
+        .from("customer_purchases")
+        .update({ kurier: `${courier} ${codSuffix(order)}`, updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+      if (error) throw error;
+      toast.success(`Kurier ditukar ke ${courier}`);
+      queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+    } catch (e: any) {
+      toast.error(e.message || "Gagal tukar kurier");
+    } finally {
+      setSavingKurierId(null);
+    }
   };
 
   // Open edit dialog - using new schema field names
@@ -1205,7 +1245,26 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                             )}
                           </td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="text-xs">{order.kurier || "-"}</span>
+                            {needsTrackingGeneration(order) ? (
+                              <Select
+                                value={baseCourier(order.kurier)}
+                                onValueChange={(v) => handleCourierChange(order, v)}
+                                disabled={savingKurierId === order.id || generatingTrackingFor === order.id}
+                              >
+                                <SelectTrigger className="h-7 w-[110px] text-xs" title="Belum ada tracking — boleh tukar kurier">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {courierChoices(order).map((c) => (
+                                    <SelectItem key={c} value={c} className="text-xs">
+                                      {c} {codSuffix(order)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-xs">{order.kurier || "-"}</span>
+                            )}
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
