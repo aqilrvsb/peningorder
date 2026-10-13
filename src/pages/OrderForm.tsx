@@ -46,7 +46,7 @@ const regionOf = (negeri?: string): Region | null => {
   if (!n) return null;
   return /SABAH|SARAWAK|LABUAN/.test(n) ? 'east' : 'semenanjung';
 };
-const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz', 'Others'];
+const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
 const BANK_OPTIONS = [
   'Maybank',
   'CIMB Bank',
@@ -63,6 +63,8 @@ const BANK_OPTIONS = [
   'Standard Chartered',
   'UOB Bank',
   'BSN',
+  'AEON Bank',
+  'Others',
 ];
 
 const FormLabel: React.FC<{ required?: boolean; children: React.ReactNode }> = ({ required, children }) => (
