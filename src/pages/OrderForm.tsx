@@ -46,7 +46,7 @@ const regionOf = (negeri?: string): Region | null => {
   if (!n) return null;
   return /SABAH|SARAWAK|LABUAN/.test(n) ? 'east' : 'semenanjung';
 };
-const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz'];
+const JENIS_BAYARAN_OPTIONS = ['Online Transfer', 'Credit Card', 'CDM', 'CASH', 'Billplz', 'Others'];
 const BANK_OPTIONS = [
   'Maybank',
   'CIMB Bank',
