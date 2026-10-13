@@ -105,7 +105,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     jenisClosing: d.jenis_closing || '',
     caraBayaran: d.type_payment || '', // NEW: type_payment
     tarikhBayaran: d.date_payment || '', // NEW: date_payment
-    jenisBayaran: d.type_payment || '', // NEW: type_payment (same as caraBayaran)
+    jenisBayaran: d.jenis_bayaran || '', // Jenis Bayaran (Online Transfer / CDM / …); Cara Bayaran is type_payment
     bank: d.bank_payment || '', // NEW: bank_payment
     receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
     receiptType: d.receipt_payment_type || null,
@@ -196,6 +196,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       type_payment: order.caraBayaran, // NEW: type_payment
       date_payment: order.tarikhBayaran || null, // NEW: date_payment
       bank_payment: order.bank || null, // NEW: bank_payment
+      jenis_bayaran: order.jenisBayaran || null, // Jenis Bayaran (not stored Jan–Oct 2026)
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
       receipt_payment_type: order.receiptType ?? null,
       commission_amount: order.commission ?? 0, // snapshot bundle commission

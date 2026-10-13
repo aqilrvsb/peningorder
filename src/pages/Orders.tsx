@@ -1626,12 +1626,16 @@ ${trackingUrl}`;
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="section-label">Tarikh Bayaran</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{formatDMY(selectedOrderPayment.tarikhBayaran)}</p>
+                  <p className="section-label">Cara Bayaran</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{selectedOrderPayment.caraBayaran || '-'}</p>
                 </div>
                 <div>
                   <p className="section-label">Jenis Bayaran</p>
                   <p className="mt-1 text-sm font-medium text-foreground">{selectedOrderPayment.jenisBayaran || '-'}</p>
+                </div>
+                <div>
+                  <p className="section-label">Tarikh Bayaran</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{formatDMY(selectedOrderPayment.tarikhBayaran)}</p>
                 </div>
                 <div>
                   <p className="section-label">Bank</p>

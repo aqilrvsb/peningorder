@@ -1085,6 +1085,7 @@ const OrderForm: React.FC = () => {
             nota_staff: formData.nota,
             date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
             bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
+            jenis_bayaran: showPaymentDetails ? formData.jenisBayaran || null : null, // Jenis Bayaran (Online Transfer / CDM / …)
             receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
             receipt_payment_type: !newReceiptUrl
               ? null
@@ -1280,6 +1281,7 @@ const OrderForm: React.FC = () => {
               nota_staff: formData.nota,
               date_payment: showPaymentDetails && tarikhBayaran ? format(tarikhBayaran, 'yyyy-MM-dd') : null, // NEW: date_payment
               bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
+              jenis_bayaran: showPaymentDetails ? formData.jenisBayaran || null : null, // Jenis Bayaran (Online Transfer / CDM / …)
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
               receipt_payment_type: receiptType, // 'image' | 'link' | null
               commission_amount: commissionAmount, // snapshot bundle commission
