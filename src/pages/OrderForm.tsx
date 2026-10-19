@@ -26,7 +26,7 @@ import { toast } from '@/hooks/use-toast';
 import Swal from 'sweetalert2';
 import BulkOrderImport from '@/components/BulkOrderImport';
 import { NEGERI_OPTIONS } from '@/types';
-import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search, ClipboardList, User, MapPin, Package, Truck, Wallet, StickyNote } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, CalendarIcon, Upload, Search, ClipboardList, User, MapPin, Package, Truck, Wallet, StickyNote, BadgeCheck, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, getMalaysiaDate, getMalaysiaYesterday, postcodeToNegeri } from '@/lib/utils';
 import { put } from '@vercel/blob';
@@ -172,6 +172,10 @@ const OrderForm: React.FC = () => {
   const [tarikhBayaran, setTarikhBayaran] = useState<Date>();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string>('');
+  // Optional "Bukti Confirmation" image (e.g. customer's WhatsApp confirmation screenshot).
+  const [buktiFile, setBuktiFile] = useState<File | null>(null);
+  const [buktiPreview, setBuktiPreview] = useState<string>('');
+  const [buktiRemoved, setBuktiRemoved] = useState(false); // edit: clear the saved image
   // Pospada = optional booking. When a date is set, the order is held as a
   // booking (no tracking generated now); logistic generates it on that date.
   const [pospadaDate, setPospadaDate] = useState<string>('');
@@ -715,6 +719,26 @@ const OrderForm: React.FC = () => {
     }
   };
 
+  const handleBuktiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Imej sahaja', description: 'Bukti Confirmation mesti fail imej (JPG / PNG / WEBP).', variant: 'destructive' });
+      return;
+    }
+    setBuktiFile(file);
+    setBuktiRemoved(false);
+    const reader = new FileReader();
+    reader.onloadend = () => setBuktiPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  const clearBukti = () => {
+    setBuktiFile(null);
+    setBuktiPreview('');
+    setBuktiRemoved(true);
+  };
+
   const handleWaybillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -1048,6 +1072,21 @@ const OrderForm: React.FC = () => {
           }
         }
 
+        // Bukti Confirmation (optional image): replace, remove or keep the saved one.
+        let newConfirmationUrl = buktiRemoved ? '' : (editOrder.confirmationUrl || '');
+        if (buktiFile) {
+          try {
+            newConfirmationUrl = await uploadToVercelBlob(buktiFile, 'confirmations');
+            if (editOrder.confirmationUrl) await deleteFromBlob(editOrder.confirmationUrl);
+          } catch (uploadError) {
+            console.error('Bukti upload error:', uploadError);
+            newConfirmationUrl = editOrder.confirmationUrl || '';
+            toast({ title: 'Amaran', description: 'Gagal memuat naik Bukti Confirmation. Order tetap disimpan.', variant: 'destructive' });
+          }
+        } else if (buktiRemoved && editOrder.confirmationUrl) {
+          await deleteFromBlob(editOrder.confirmationUrl);
+        }
+
         // Waybill URL - use Poslaju PDF link if available
         let newWaybillUrl = editWaybillPdfUrl || '';
 
@@ -1087,6 +1126,7 @@ const OrderForm: React.FC = () => {
             bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
             jenis_bayaran: showPaymentDetails ? formData.jenisBayaran || null : null, // Jenis Bayaran (Online Transfer / CDM / …)
             receipt_payment_url: newReceiptUrl || null, // NEW: receipt_payment_url
+            confirmation_url: newConfirmationUrl || null, // optional Bukti Confirmation image
             receipt_payment_type: !newReceiptUrl
               ? null
               : (newReceiptUrl === editOrder.receiptImageUrl
@@ -1230,6 +1270,17 @@ const OrderForm: React.FC = () => {
           }
         }
 
+        // Bukti Confirmation (optional image). A failed upload never blocks the order.
+        let confirmationUrl = '';
+        if (buktiFile) {
+          try {
+            confirmationUrl = await uploadToVercelBlob(buktiFile, 'confirmations');
+          } catch (uploadError) {
+            console.error('Bukti upload error:', uploadError);
+            toast({ title: 'Amaran', description: 'Gagal memuat naik Bukti Confirmation. Order tetap disimpan.', variant: 'destructive' });
+          }
+        }
+
         // Proof type for the Order Cash report: uploaded image/PDF vs pasted link.
         const receiptType = !receiptUrl ? null : (receiptMethod === 'link' ? 'link' : 'image');
 
@@ -1283,6 +1334,7 @@ const OrderForm: React.FC = () => {
               bank_payment: showPaymentDetails ? formData.pilihBank : null, // NEW: bank_payment
               jenis_bayaran: showPaymentDetails ? formData.jenisBayaran || null : null, // Jenis Bayaran (Online Transfer / CDM / …)
               receipt_payment_url: receiptUrl || null, // NEW: receipt_payment_url
+              confirmation_url: confirmationUrl || null, // optional Bukti Confirmation image
               receipt_payment_type: receiptType, // 'image' | 'link' | null
               commission_amount: commissionAmount, // snapshot bundle commission
               pd_order_id: pdOrderId || null, // ParcelDaily orderId for cancel/refund
@@ -1331,6 +1383,7 @@ const OrderForm: React.FC = () => {
             jenisBayaran: showPaymentDetails ? formData.jenisBayaran : '',
             bank: showPaymentDetails ? formData.pilihBank : '',
             receiptImageUrl: receiptUrl,
+            confirmationUrl,
             receiptType: receiptType,
             commission: commissionAmount,
             pdOrderId: pdOrderId,
@@ -1428,6 +1481,9 @@ const OrderForm: React.FC = () => {
         }));
         setReceiptFile(null);
         setReceiptPreview('');
+        setBuktiFile(null);
+        setBuktiPreview('');
+        setBuktiRemoved(false);
         setReceiptLink('');
         setReceiptMethod('manual');
         setTarikhBayaran(undefined);
@@ -1987,6 +2043,40 @@ const OrderForm: React.FC = () => {
             className="bg-background resize-none"
             rows={3}
           />
+        </FormSection>
+
+        {/* Bukti Confirmation — optional image proof the customer confirmed the order */}
+        <FormSection icon={BadgeCheck} tone="green" title="Bukti Confirmation" description="(optional · imej sahaja)">
+          {(() => {
+            const shown = buktiPreview || (!buktiRemoved && isEditMode ? editOrder?.confirmationUrl : '') || '';
+            return (
+              <div className="space-y-3">
+                <input type="file" accept="image/*" onChange={handleBuktiChange} className="hidden" id="bukti-upload" />
+                <label
+                  htmlFor="bukti-upload"
+                  className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-2 transition-colors hover:bg-muted/50"
+                >
+                  <Upload className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate text-sm text-muted-foreground">
+                    {buktiFile ? buktiFile.name : shown ? 'Tukar gambar' : 'Upload Bukti Confirmation (imej)'}
+                  </span>
+                </label>
+                {shown && (
+                  <div className="relative w-full max-w-sm">
+                    <img src={shown} alt="Bukti Confirmation" className="max-h-64 w-full rounded-lg border border-border bg-muted object-contain" />
+                    <button
+                      type="button"
+                      onClick={clearBukti}
+                      title="Buang gambar"
+                      className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground shadow ring-1 ring-border hover:bg-red-50 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </FormSection>
 
         {/* Submit area */}

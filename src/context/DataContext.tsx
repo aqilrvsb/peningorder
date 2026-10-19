@@ -18,6 +18,7 @@ interface CustomerOrder {
   deliveryStatus: string; dateOrder: string; dateProcessed: string; dateReturn: string;
   jenisPlatform: string; jenisCustomer: string; jenisClosing: string; caraBayaran: string;
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
+  confirmationUrl?: string; // optional "Bukti Confirmation" image
   seo: string; seos: string; bundleId: string;
   receiptType?: string | null; commission?: number; pdOrderId?: string;
   pospadaDate?: string | null; // booking dispatch date; set = held as Pospada booking
@@ -107,6 +108,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     tarikhBayaran: d.date_payment || '', // NEW: date_payment
     jenisBayaran: d.jenis_bayaran || '', // Jenis Bayaran (Online Transfer / CDM / …); Cara Bayaran is type_payment
     bank: d.bank_payment || '', // NEW: bank_payment
+    confirmationUrl: d.confirmation_url || '',
     receiptImageUrl: d.receipt_payment_url || '', // NEW: receipt_payment_url
     receiptType: d.receipt_payment_type || null,
     commission: parseFloat(d.commission_amount) || 0,
@@ -198,6 +200,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       bank_payment: order.bank || null, // NEW: bank_payment
       jenis_bayaran: order.jenisBayaran || null, // Jenis Bayaran (not stored Jan–Oct 2026)
       receipt_payment_url: order.receiptImageUrl || null, // NEW: receipt_payment_url
+      confirmation_url: order.confirmationUrl || null, // optional Bukti Confirmation image
       receipt_payment_type: order.receiptType ?? null,
       commission_amount: order.commission ?? 0, // snapshot bundle commission
       pd_order_id: order.pdOrderId || null, // ParcelDaily orderId for cancel/refund

@@ -191,6 +191,7 @@ const Orders: React.FC = () => {
 
   // Payment details modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [buktiView, setBuktiView] = useState<string | null>(null); // Bukti Confirmation lightbox
   const [selectedOrderPayment, setSelectedOrderPayment] = useState<typeof orders[0] | null>(null);
   const [isConfirmingCollection, setIsConfirmingCollection] = useState(false);
 
@@ -1268,6 +1269,7 @@ ${trackingUrl}`;
                 <th className="px-4 py-3 text-left whitespace-nowrap text-emerald-600 dark:text-emerald-400">Collection</th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">WhatsApp</th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">Nota Staff</th>
+                <th className="px-4 py-3 text-left whitespace-nowrap">Bukti</th>
                 <th className="px-4 py-3 text-left whitespace-nowrap">Action</th>
               </tr>
             </thead>
@@ -1458,6 +1460,20 @@ ${trackingUrl}`;
                       />
                     </td>
                     <td className="px-4 py-3">
+                      {order.confirmationUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setBuktiView(order.confirmationUrl || null)}
+                          title="Lihat Bukti Confirmation"
+                          className="block h-10 w-10 overflow-hidden rounded-md border border-border transition hover:ring-2 hover:ring-primary/40"
+                        >
+                          <img src={order.confirmationUrl} alt="Bukti" loading="lazy" className="h-full w-full object-cover" />
+                        </button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {/* Invoice Icon - always visible */}
                         <a
@@ -1497,7 +1513,7 @@ ${trackingUrl}`;
                 ))
               ) : (
                 <tr>
-                  <td colSpan={(isMarketer ? 25 : 26) - (pospadaEnabled ? 0 : 1)} className="p-0">
+                  <td colSpan={(isMarketer ? 26 : 27) - (pospadaEnabled ? 0 : 1)} className="p-0">
                     <EmptyState icon={History} title="No orders found." />
                   </td>
                 </tr>
@@ -1607,6 +1623,23 @@ ${trackingUrl}`;
               {isRegenerating ? 'Menjana...' : 'Jana Tracking'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bukti Confirmation lightbox */}
+      <Dialog open={!!buktiView} onOpenChange={(open) => { if (!open) setBuktiView(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bukti Confirmation</DialogTitle>
+          </DialogHeader>
+          {buktiView && (
+            <div className="space-y-3">
+              <img src={buktiView} alt="Bukti Confirmation" className="max-h-[70vh] w-full rounded-lg border border-border bg-muted object-contain" />
+              <Button variant="outline" size="sm" className="w-full" onClick={() => window.open(buktiView, '_blank')}>
+                Buka saiz penuh
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
