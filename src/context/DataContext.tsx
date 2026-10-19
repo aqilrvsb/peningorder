@@ -20,6 +20,7 @@ interface CustomerOrder {
   tarikhBayaran: string; jenisBayaran: string; bank: string; receiptImageUrl: string; waybillUrl: string;
   confirmationUrl?: string; // optional "Bukti Confirmation" image
   seo: string; seos: string; bundleId: string;
+  skipCourier?: boolean; // bundle is 'Tanpa tracking ParcelDaily' (brand ships it, e.g. MOMMYHANA)
   receiptType?: string | null; commission?: number; pdOrderId?: string;
   pospadaDate?: string | null; // booking dispatch date; set = held as Pospada booking
 }
@@ -117,6 +118,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     seo: d.seo || '',
     seos: d.seos || '',
     bundleId: d.bundle_id || '',
+    skipCourier: !!d.bundle?.skip_courier,
   });
 
   const mapProspect = (d: any): Prospect => ({
@@ -145,7 +147,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const buildOrdersQuery = () => {
         let q = queryTable('customer_purchases')
-          .select('*, bundle:logistic_bundles(name)')
+          .select('*, bundle:logistic_bundles(name, skip_courier)')
           .gte('date_order', ordersFrom)
           .order('created_at', { ascending: false });
         if (shouldFilterByIdStaff && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);

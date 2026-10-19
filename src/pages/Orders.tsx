@@ -1485,8 +1485,9 @@ ${trackingUrl}`;
                         >
                           <Receipt className="w-4 h-4" />
                         </a>
-                        {/* Edit & Delete - only for Pending orders */}
-                        {order.deliveryStatus === 'Pending' && (
+                        {/* Edit: Pending orders, plus no-ParcelDaily bundles (brand-shipped, e.g. MOMMYHANA) at any status.
+                            Delete stays Pending-only (below). */}
+                        {(order.deliveryStatus === 'Pending' || order.skipCourier) && (
                           <>
                             <button
                               onClick={() => handleEditClick(order)}
