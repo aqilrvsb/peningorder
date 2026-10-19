@@ -776,7 +776,7 @@ const LogisticBundleManagement = () => {
                 <span>
                   <span className="block text-sm font-medium">Tanpa tracking ParcelDaily</span>
                   <span className="block text-xs text-muted-foreground">
-                    Order bundle ini TIDAK dihantar ke ParcelDaily — tiada no. tracking dijana (contoh: MOMMYHANA, brand hantar sendiri).
+                    Order bundle ini TIDAK dihantar ke ParcelDaily — tiada no. tracking dijana, dan terus masuk Shipped bila key-in (contoh: MOMMYHANA, brand hantar sendiri).
                   </span>
                 </span>
                 <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />
