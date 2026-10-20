@@ -796,8 +796,15 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       // Step 1: If has existing PD tracking, cancel it first (refunds credit)
       if (hasExistingTracking && isPdOrder) {
         toast.info("Cancelling existing shipment...");
+        // keepStatus: release the old ParcelDaily booking only. Without it the cancel
+        // function marks the order Cancelled, and the edited order vanished from this tab.
         const cancelResponse = await supabase.functions.invoke("parceldaily-cancel", {
-          body: { purchaseId: editingOrder.id, trackingNumber: editingOrder.tracking_number },
+          body: {
+            purchaseId: editingOrder.id,
+            orderId: editingOrder.pd_order_id || undefined,
+            trackingNumber: editingOrder.tracking_number,
+            keepStatus: true,
+          },
         });
 
         if (cancelResponse.error || cancelResponse.data?.error) {
@@ -820,6 +827,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         phone_customer: editForm.phone,
         name_customer: editForm.customerName,
         kurier: editForm.kurier,
+        // This tab only lists Pending orders; keep it Pending after an edit / re-book.
+        delivery_status: "Pending",
         updated_at: new Date().toISOString(),
       };
 
@@ -845,6 +854,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       // Clear tracking number if it was cancelled
       if (hasExistingTracking && isPdOrder) {
         updateData.tracking_number = null;
+        updateData.pd_order_id = null;
       }
 
       const { error: updateError } = await supabase
@@ -857,7 +867,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       // Step 3: Generate new tracking based on selected courier (via Parcel Daily)
       const selectedKurier = editForm.kurier || '';
       const PD_COURIER_CODES: Record<string, string> = {
-        Poslaju: 'poslaju', Ninjavan: 'ninjavan', JNT: 'jnt', DHL: 'dhl',
+        Poslaju: 'poslaju', Ninjavan: 'ninjavan', JNT: 'jnt', DHL: 'dhl', SPX: 'spx',
       };
       const matchedCourier = Object.keys(PD_COURIER_CODES).find((c) => selectedKurier.includes(c));
 
@@ -877,6 +887,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
           price: editForm.totalPrice,
           paymentMethod: editForm.paymentMethod,
           productName: bundle?.name || "Product",
+          productSku: bundle?.sku || "",
           quantity: editForm.quantity,
           marketerIdStaff: editingOrder.marketer_id_staff || user?.username || '',
           idSale: editingOrder.id_sale || '',
