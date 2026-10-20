@@ -1530,16 +1530,16 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                   <SelectValue placeholder="Select kurier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Poslaju COD">Poslaju COD</SelectItem>
-                  <SelectItem value="Poslaju CASH">Poslaju CASH</SelectItem>
-                  <SelectItem value="Ninjavan COD">Ninjavan COD</SelectItem>
-                  <SelectItem value="Ninjavan CASH">Ninjavan CASH</SelectItem>
-                  <SelectItem value="JNT COD">JNT COD</SelectItem>
-                  <SelectItem value="JNT CASH">JNT CASH</SelectItem>
-                  <SelectItem value="DHL COD">DHL COD</SelectItem>
-                  <SelectItem value="DHL CASH">DHL CASH</SelectItem>
-                  <SelectItem value="SPX COD">SPX COD</SelectItem>
-                  <SelectItem value="SPX CASH">SPX CASH</SelectItem>
+                  {/* Only the tenant's Kurier Tersedia (Courier Settings); the current value stays
+                      listed even if no longer allowed, so it can be switched away from. */}
+                  {(() => {
+                    const allowed = allowedCouriers.length
+                      ? PD_COURIER_LABELS.filter((c) => allowedCouriers.some((a: string) => a.toLowerCase() === c.toLowerCase()))
+                      : PD_COURIER_LABELS;
+                    const opts = allowed.flatMap((c) => [`${c} COD`, `${c} CASH`]);
+                    if (editForm.kurier && !opts.includes(editForm.kurier)) opts.unshift(editForm.kurier);
+                    return opts.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>);
+                  })()}
                 </SelectContent>
               </Select>
             </div>
