@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CourierError, loadOwnCourierConfig, ownCancel, parseOwnRef, providerOf } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +77,39 @@ serve(async (req) => {
       return fail("orderId, trackingNumber, or purchaseId required");
     }
 
+    // Mark the DB row as cancelled (service-scoped) — UNLESS this is a re-book (edit changing
+    // courier), where the caller keeps ownership of the status.
+    const markCancelled = async () => {
+      if (keepStatus) return;
+      if (body.purchaseId) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("id", body.purchaseId);
+      } else if (trackingNumber) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("tracking_number", trackingNumber).eq("owner_user_id", ownerUuid);
+      } else if (orderId) {
+        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("pd_order_id", orderId).eq("owner_user_id", ownerUuid);
+      }
+    };
+
+    // Bring Your Courier booking (pd_order_id "own:<courier>:<tracking>") → cancel at the tenant's
+    // own courier account, never ParcelDaily.
+    const own = parseOwnRef(orderId);
+    if (own) {
+      const cfg = await loadOwnCourierConfig(service, ownerUuid, own.courier);
+      if (!cfg) return fail("Akaun kurier tidak dijumpai di Courier Settings → Kurier Sendiri.", { orderId });
+      try {
+        await ownCancel(service, cfg, own.tracking);
+      } catch (e) {
+        const msg = e instanceof CourierError ? e.message : String((e as Error).message || e);
+        return fail(msg, { orderId, trackingNumber: own.tracking, details: e instanceof CourierError ? e.details : undefined });
+      }
+      await markCancelled();
+      return ok({ success: true, orderId, trackingNumber: own.tracking, message: "Order dibatalkan di kurier." });
+    }
+    // A BYOC tenant with no ParcelDaily booking on this order: nothing to cancel at ParcelDaily.
+    if ((await providerOf(service, ownerUuid)) === "own" && !orderId) {
+      return fail("Tiada tempahan kurier untuk dibatalkan bagi order ini.");
+    }
+
     const { data: config, error: configError } = await service
       .from("parceldaily_config")
       .select("*")
@@ -119,17 +153,7 @@ serve(async (req) => {
       return fail(`Parcel Daily cancel: ${msg}`, { details: result, orderId, trackingNumber });
     }
 
-    // Mark the DB row as cancelled (service-scoped) — UNLESS this is a re-book
-    // (edit changing courier), where the caller keeps ownership of the status.
-    if (!keepStatus) {
-      if (body.purchaseId) {
-        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("id", body.purchaseId);
-      } else if (trackingNumber) {
-        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("tracking_number", trackingNumber).eq("owner_user_id", ownerUuid);
-      } else if (orderId) {
-        await service.from("customer_purchases").update({ delivery_status: "Cancelled" }).eq("pd_order_id", orderId).eq("owner_user_id", ownerUuid);
-      }
-    }
+    await markCancelled();
 
     return ok({
       success: true,

@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadOwnCourierConfig, ownWaybillUrl, parseOwnRef } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,11 +64,30 @@ serve(async (req) => {
       }
       let query = supabase
         .from("customer_purchases")
-        .select("id, tracking_number, waybill_url, kurier, name_customer, delivery_status");
+        .select("id, tracking_number, waybill_url, kurier, name_customer, delivery_status, pd_order_id");
       if (ids.length) query = query.in("id", ids);
       else query = query.in("tracking_number", tns);
       const { data: rows, error } = await query;
       if (error) return fail(`DB lookup failed: ${error.message}`);
+      // Bring Your Courier orders whose label wasn't stored at booking (WooCommerce / Integration, or
+      // the courier wasn't ready yet): fetch it from the tenant's own courier now and save it.
+      const ownMissing = (rows || []).filter((r: any) => !r.waybill_url && parseOwnRef(r.pd_order_id));
+      if (ownMissing.length) {
+        const { data: owner } = await supabase.rpc("tenant_owner");
+        const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        const cfgs = new Map<string, any>();
+        for (const r of ownMissing as any[]) {
+          const ref = parseOwnRef(r.pd_order_id)!;
+          try {
+            if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, owner, ref.courier));
+            const cfg = cfgs.get(ref.courier);
+            if (!cfg) continue;
+            const url = await ownWaybillUrl(service, cfg, ref.tracking);
+            await service.from("customer_purchases").update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", owner);
+            r.waybill_url = url;
+          } catch (_) { /* courier label not ready yet — stays in "missing" */ }
+        }
+      }
       const withUrl = (rows || []).filter((r) => !!r.waybill_url);
       const missing = (rows || []).filter((r) => !r.waybill_url);
       return ok({

@@ -90,6 +90,8 @@ serve(async (req) => {
       .neq("tracking_number", "")
       .or(`last_webhook_at.is.null,last_webhook_at.lt.${startISO}`)
       .or(`tracking_last_checked_at.is.null,tracking_last_checked_at.lt.${startISO}`)
+      // Bring Your Courier bookings ("own:…") get status from their own courier, never ParcelDaily.
+      .or("pd_order_id.is.null,pd_order_id.not.like.own:*")
       .order("tracking_last_checked_at", { ascending: true, nullsFirst: true })
       .limit(slice);
     if (poolErr) return json(500, { error: poolErr.message });

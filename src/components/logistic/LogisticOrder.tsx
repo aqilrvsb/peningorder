@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCourierProvider } from "@/hooks/useCourierProvider";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
@@ -93,6 +94,7 @@ const CodCashSplit = ({ cod, cash }: { cod: number; cash: number }) => (
 const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { provider: courierProvider } = useCourierProvider();
   const today = getMalaysiaDate();
   const firstDayOfMonth = getMalaysiaStartOfMonth();
 
@@ -665,6 +667,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         productSku: order.bundle?.sku || "",
         quantity: order.unit || 1,
         nota: order.nota_staff || "",
+        idSale: order.id_sale || "",
+        marketerIdStaff: order.marketer_id_staff || "",
       };
 
       // Re-book with the order's OWN courier (from kurier, e.g. "JNT COD" → jnt),
@@ -695,6 +699,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         .update({
           tracking_number: trackingPlaceholder,
           pd_order_id: result.orderId,
+          ...(result.pdfLink && { waybill_url: result.pdfLink }),
           ...(result.shippingPrice != null && { cost_postage: Number(result.shippingPrice) }),
         })
         .eq("id", order.id);
@@ -709,7 +714,9 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
           .eq("id", order.id);
       }
 
-      toast.success(`Order dihantar ke courier. Tracking akan tiba melalui webhook.`);
+      toast.success(result.trackingNumber
+        ? `Tracking dijana: ${result.trackingNumber}`
+        : `Order dihantar ke courier. Tracking akan tiba melalui webhook.`);
       queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
     } catch (error: any) {
       console.error("Generate tracking error:", error);
@@ -809,6 +816,11 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
 
         if (cancelResponse.error || cancelResponse.data?.error) {
           console.error("Cancel tracking error:", cancelResponse.error || cancelResponse.data?.error);
+          // Own courier account (Bring Your Courier): the old parcel is still live at the courier
+          // (e.g. already picked up). Stop here, or a second shipment would be booked.
+          if (String(editingOrder.pd_order_id || "").startsWith("own:")) {
+            throw new Error(`Tracking lama tidak dapat dibatalkan, jadi order tidak ditempah semula. ${cancelResponse.data?.error || ""}`.trim());
+          }
         } else {
           toast.success("Existing shipment cancelled");
         }
@@ -855,6 +867,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       if (hasExistingTracking && isPdOrder) {
         updateData.tracking_number = null;
         updateData.pd_order_id = null;
+        updateData.waybill_url = null; // the old label belongs to the cancelled booking
       }
 
       const { error: updateError } = await supabase
@@ -912,12 +925,15 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
           pd_order_id: result.orderId,
         };
         if (result.shippingPrice != null) trackingUpdate.cost_postage = Number(result.shippingPrice);
+        if (result.pdfLink) trackingUpdate.waybill_url = result.pdfLink;
         await supabase
           .from("customer_purchases")
           .update(trackingUpdate)
           .eq("id", editingOrder.id);
 
-        toast.success("Order updated! Tracking akan tiba melalui webhook.");
+        toast.success(result.trackingNumber
+          ? `Order dikemaskini. Tracking baru: ${result.trackingNumber}`
+          : "Order updated! Tracking akan tiba melalui webhook.");
       } else {
         toast.success("Order updated successfully");
       }
@@ -1302,7 +1318,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-amber-600">
                             RM {Number(order.cost_postage || 0).toFixed(2)}
-                            {order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
+                            {courierProvider !== "own" && order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
                               <div className="text-[10px] text-muted-foreground" title="Harga sebenar ParcelDaily (rujukan HQ)">PD RM {Number(order.cost_postage_pd).toFixed(2)}</div>
                             )}
                           </td>

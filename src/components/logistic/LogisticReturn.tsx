@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCourierProvider } from "@/hooks/useCourierProvider";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
@@ -36,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { courierWaybillUrls, openMergedWaybills } from "@/lib/courierWaybills";
 import { ReceiptViewer } from "@/components/ReceiptViewer";
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 import DateApplyButton from '@/components/DateApplyButton';
@@ -60,6 +62,7 @@ const baseCourier = (kurier?: string): string => {
 const LogisticReturn = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { provider: courierProvider } = useCourierProvider();
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
 
   // View a waybill INLINE (ParcelDaily's connoteURL is octet-stream → downloads);
@@ -272,22 +275,17 @@ const LogisticReturn = () => {
     setIsPrinting(true);
 
     try {
-      // Handle NinjaVan orders
+      // Courier orders (every courier, ParcelDaily or own account): stored label, fetched if missing.
       if (ninjavanOrdersForPrint.length > 0) {
-        const trackingNumbers = ninjavanOrdersForPrint.map((o: any) => o.tracking_number);
-
-        const response = await supabase.functions.invoke("ninjavan-waybill", {
-          body: { trackingNumbers },
-        });
-
-        if (response.error) {
-          console.error("NinjaVan waybill error:", response.error);
-          toast.error("Failed to fetch NinjaVan waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
+        const { urls, updated } = await courierWaybillUrls(ninjavanOrdersForPrint);
+        if (updated) queryClient.invalidateQueries({ queryKey: ["logistic-return"] });
+        if (!urls.length) {
+          toast.error("Tiada waybill untuk order dipilih.");
+        } else if (await openMergedWaybills(urls)) {
+          const skipped = ninjavanOrdersForPrint.length - urls.length;
+          toast.success(`Waybill untuk ${urls.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ""}`);
+        } else {
+          toast.error("Gagal gabungkan waybill");
         }
       }
 
@@ -606,7 +604,7 @@ const LogisticReturn = () => {
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-amber-600">
                             RM {Number(order.cost_postage || 0).toFixed(2)}
-                            {order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
+                            {courierProvider !== "own" && order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
                               <div className="text-[10px] text-muted-foreground" title="Harga sebenar ParcelDaily (rujukan HQ)">PD RM {Number(order.cost_postage_pd).toFixed(2)}</div>
                             )}
                           </td>

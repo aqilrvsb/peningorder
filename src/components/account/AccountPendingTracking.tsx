@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { courierWaybillUrls, openMergedWaybills } from "@/lib/courierWaybills";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
@@ -232,12 +233,6 @@ const AccountPendingTracking = () => {
 
   const isAllSelected = paginatedOrders.length > 0 && paginatedOrders.every((o: any) => selectedOrders.has(o.id));
 
-  // Helper to check if an order is JNT
-  const isJntPlatform = (order: any) => {
-    const kurier = (order.kurier || "").toUpperCase();
-    return kurier.startsWith("JNT");
-  };
-
   // Bulk Print action
   const handleBulkPrint = async () => {
     if (selectedOrders.size === 0) {
@@ -253,17 +248,11 @@ const AccountPendingTracking = () => {
       return null;
     };
 
-    // Separate NinjaVan, JNT, and Tiktok orders
-    const ninjavanOrders = selectedOrdersList.filter(
+    // Courier orders (every courier, ParcelDaily or own account) and Tiktok orders
+    const courierOrders = selectedOrdersList.filter(
       (o: any) => {
         const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "tiktok" && !isJntPlatform(o) && o.tracking_number;
-      }
-    );
-    const jntOrders = selectedOrdersList.filter(
-      (o: any) => {
-        const platform = getOrderPlatform(o)?.toLowerCase() || "";
-        return platform !== "tiktok" && isJntPlatform(o) && o.tracking_number;
+        return platform !== "tiktok" && o.tracking_number;
       }
     );
     const marketplaceOrders = selectedOrdersList.filter(
@@ -273,7 +262,7 @@ const AccountPendingTracking = () => {
       }
     );
 
-    if (ninjavanOrders.length === 0 && jntOrders.length === 0 && marketplaceOrders.length === 0) {
+    if (courierOrders.length === 0 && marketplaceOrders.length === 0) {
       toast.error("Selected orders do not have waybills to print");
       return;
     }
@@ -283,43 +272,17 @@ const AccountPendingTracking = () => {
     try {
       const { data: session } = await supabase.auth.getSession();
 
-      // Handle NinjaVan orders
-      if (ninjavanOrders.length > 0) {
-        const trackingNumbers = ninjavanOrders.map((o: any) => o.tracking_number);
-
-        const response = await supabase.functions.invoke("ninjavan-waybill", {
-          body: { trackingNumbers, profileId: user?.id },
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
-        });
-
-        if (response.error) {
-          console.error("NinjaVan waybill error:", response.error);
-          toast.error("Failed to fetch NinjaVan waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          toast.success(`NinjaVan waybill for ${trackingNumbers.length} order(s) opened`);
-        }
-      }
-
-      // Handle JNT orders
-      if (jntOrders.length > 0) {
-        const trackingNumbers = jntOrders.map((o: any) => o.tracking_number);
-
-        const response = await supabase.functions.invoke("jnt-waybill", {
-          body: { trackingNumbers, profileId: user?.id },
-          headers: { Authorization: `Bearer ${session?.session?.access_token}` },
-        });
-
-        if (response.error) {
-          console.error("JNT waybill error:", response.error);
-          toast.error("Failed to fetch JNT waybills");
-        } else if (response.data) {
-          const blob = new Blob([response.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank");
-          toast.success(`JNT waybill for ${trackingNumbers.length} order(s) opened`);
+      // Courier orders: stored label, fetched from the courier if missing.
+      if (courierOrders.length > 0) {
+        const { urls, updated } = await courierWaybillUrls(courierOrders);
+        if (updated) queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
+        if (!urls.length) {
+          toast.error("Tiada waybill untuk order dipilih.");
+        } else if (await openMergedWaybills(urls)) {
+          const skipped = courierOrders.length - urls.length;
+          toast.success(`Waybill untuk ${urls.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ""}`);
+        } else {
+          toast.error("Gagal gabungkan waybill");
         }
       }
 

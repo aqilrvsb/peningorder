@@ -1,6 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  CourierError, loadOwnCourierConfig, ownBook, OWN_COURIER_READY, OWN_COURIERS, providerOf, type OwnCourier,
+} from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +79,68 @@ const normalizeLocalPhone = (raw: string): string => {
 
 const SUPPORTED_COURIERS: Courier[] = ["ninjavan", "poslaju", "jnt", "dhl", "spx"];
 
+const OWN_LABEL: Record<OwnCourier, string> = { ninjavan: "Ninja Van", poslaju: "Pos Laju", jnt: "J&T" };
+
+// Bring Your Courier (plan 'byoc'): book with the tenant's OWN courier account — ParcelDaily is
+// never used (nor named) for them. Same response shape as the ParcelDaily path, plus pdfLink, so
+// every caller (key-in, edit, Logistic, History, WooCommerce, Integration) works unchanged.
+async function bookOwnCourier(service: any, ownerUuid: string, courier: string, orderData: OrderData): Promise<Response> {
+  if (!(OWN_COURIERS as string[]).includes(courier)) {
+    return fail(`Kurier ${courier.toUpperCase()} tiada dalam Kurier Sendiri. Pilih Ninja Van, Pos Laju atau J&T.`, { code: "courier_not_supported", courier });
+  }
+  const c = courier as OwnCourier;
+  const cfg = await loadOwnCourierConfig(service, ownerUuid, c);
+  if (!cfg || !cfg.enabled || !OWN_COURIER_READY[c]) {
+    return fail(`${OWN_LABEL[c]} belum disetup / belum aktif di Courier Settings → Kurier Sendiri.`, { code: "courier_not_configured", courier });
+  }
+  const { data: pc } = await service.from("parceldaily_config")
+    .select("sender_name, sender_phone, sender_email, sender_line1, sender_line2, sender_city, sender_postcode, sender_state, is_dropoff")
+    .eq("owner_user_id", ownerUuid).maybeSingle();
+  if (!clean(pc?.sender_line1) || !clean(pc?.sender_postcode)) {
+    return fail("Alamat pickup belum diisi. Lengkapkan di Courier Settings.", { code: "sender_missing", courier });
+  }
+  const isCOD = clean(orderData.paymentMethod || orderData.caraBayaran).toUpperCase() === "COD";
+  const contentValue = Number(orderData.price) || 0;
+  if (contentValue <= 0) {
+    return fail("Harga order RM0 — sila set harga order dahulu sebelum jana tracking.", { code: "zero_price", courier });
+  }
+  const product = clean((orderData as any).productSku) || clean(orderData.productName || orderData.produk) || "Parcel";
+  const qty = Number((orderData as any).quantity) || 1;
+  try {
+    const r = await ownBook(service, cfg, {
+      name: clean(pc.sender_name), phone: clean(pc.sender_phone), email: clean(pc.sender_email),
+      line1: clean(pc.sender_line1), line2: clean(pc.sender_line2), city: clean(pc.sender_city),
+      postcode: clean(pc.sender_postcode), state: clean(pc.sender_state), isDropoff: !!pc.is_dropoff,
+    }, {
+      idSale: clean(orderData.idSale),
+      customerName: clean(orderData.customerName, "Customer"),
+      phone: clean(orderData.phone),
+      email: clean(orderData.email) || clean(pc.sender_email) || "noreply@peningorder.local",
+      address: clean(orderData.address), postcode: clean(orderData.postcode), city: clean(orderData.city), state: clean(orderData.state),
+      isCOD, codAmount: isCOD ? contentValue : 0, contentValue,
+      description: [`${product} - ${qty}`, clean(orderData.marketerIdStaff)].filter(Boolean).join(", "),
+      weightKg: Number(orderData.weight) || 0.5,
+    });
+    return ok({
+      success: true,
+      provider: "own",
+      orderId: r.orderRef, // own:<courier>:<tracking> → stored in pd_order_id (cancel/print know it's own)
+      trackingNumber: r.trackingNumber,
+      courier,
+      // Own couriers have no price API in Malaysia: cost postage comes from the bundle's Postage Bundle
+      // (trigger apply_bundle_postage). null = no courier price recorded (no "PD" reference price).
+      shippingPrice: null,
+      waybillUrl: r.waybillUrl,
+      pdfLink: r.waybillUrl, // callers already save pdfLink as waybill_url
+      status: "checked_out",
+      message: `Order dihantar ke ${OWN_LABEL[c]}. Tracking: ${r.trackingNumber}.`,
+    });
+  } catch (e) {
+    const msg = e instanceof CourierError ? e.message : `${OWN_LABEL[c]}: ${(e as Error).message || e}`;
+    return fail(msg, { code: "courier_error", courier, details: e instanceof CourierError ? e.details : undefined });
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -129,8 +194,12 @@ serve(async (req) => {
         return !!data?.length;
       };
       if ((await isSkipped("sku", sku)) || (await isSkipped("name", name))) {
-        return fail("Bundle ini ditetapkan 'Tanpa tracking ParcelDaily' — tiada no. tracking dijana. (Tukar di Logistic → Bundle jika perlu.)", { skipped: true });
+        return fail("Bundle ini ditetapkan 'Tanpa tracking' — tiada no. tracking dijana. (Tukar di Logistic → Bundle jika perlu.)", { skipped: true });
       }
+    }
+
+    if (ownerUuid && (await providerOf(service, ownerUuid)) === "own") {
+      return await bookOwnCourier(service, ownerUuid, courier, orderData);
     }
 
     const { data: config, error: configError } = await service

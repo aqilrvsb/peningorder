@@ -126,6 +126,164 @@ export async function poslajuToken(service: any, cfg: OwnCourierConfig, forceNew
   return token;
 }
 
+// ---------------------------------------------------------------- Booking (shared shape)
+/** Where the parcel ships from — the tenant's Courier Settings (parceldaily_config sender_* + is_dropoff). */
+export interface OwnSender {
+  name: string; phone: string; email: string;
+  line1: string; line2: string; city: string; postcode: string; state: string;
+  isDropoff: boolean;
+}
+export interface OwnBookingInput {
+  idSale: string;
+  customerName: string; phone: string; email: string;
+  address: string; postcode: string; city: string; state: string;
+  isCOD: boolean; codAmount: number; contentValue: number;
+  description: string; // delivery instructions / item description
+  weightKg: number;
+}
+export interface OwnBookingResult {
+  trackingNumber: string;
+  /** Stored in customer_purchases.pd_order_id so cancel/print know it is an own-courier booking. */
+  orderRef: string;
+  waybillUrl: string | null;
+}
+
+/** pd_order_id format for own-courier bookings: "own:<courier>:<tracking>". */
+export const ownRef = (courier: OwnCourier, tracking: string) => `own:${courier}:${tracking}`;
+export function parseOwnRef(ref?: string | null): { courier: OwnCourier; tracking: string } | null {
+  const m = /^own:(ninjavan|poslaju|jnt):(.+)$/.exec(String(ref || ""));
+  return m ? { courier: m[1] as OwnCourier, tracking: m[2] } : null;
+}
+
+/** Malaysian phone → +60… (couriers want the international form). */
+export const intlPhoneMY = (raw: string): string => {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("60")) return `+${d}`;
+  if (d.startsWith("0")) return `+6${d}`;
+  return `+60${d}`;
+};
+/** Today (+offset days) in Malaysia time, yyyy-MM-dd. */
+const myDate = (offsetDays = 0) =>
+  new Date(Date.now() + 8 * 3600 * 1000 + offsetDays * 86400 * 1000).toISOString().slice(0, 10);
+/** 9-char unique id (Ninja Van requested_tracking_number limit: 1–9 alphanumeric, no prefix). */
+const shortId = () => (Date.now().toString(36).slice(-6) + Math.random().toString(36).slice(2, 5)).toUpperCase();
+const cut = (s: string, n: number) => String(s || "").slice(0, n);
+
+/** Store a label PDF in the public courier-waybills bucket (unguessable path) and return its URL. */
+export async function storeWaybillPdf(service: any, ownerId: string, courier: OwnCourier, tracking: string, pdf: Uint8Array): Promise<string> {
+  const path = `${ownerId}/${courier}/${tracking}-${crypto.randomUUID().slice(0, 12)}.pdf`;
+  const { error } = await service.storage.from("courier-waybills").upload(path, pdf, { contentType: "application/pdf", upsert: true });
+  if (error) throw new CourierError(`Gagal simpan waybill: ${error.message}`);
+  return service.storage.from("courier-waybills").getPublicUrl(path).data.publicUrl as string;
+}
+
+const isPdf = (b: Uint8Array) => b.length > 4 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46; // %PDF
+
+// ---------------------------------------------------------------- Ninja Van booking
+const nvErr = (j: any, status: number) =>
+  j?.error?.message || j?.message || (Array.isArray(j?.error?.details) ? j.error.details.map((d: any) => d.message || d.reason).join("; ") : "") || `HTTP ${status}`;
+
+async function nvFetch(service: any, cfg: OwnCourierConfig, path: string, init: RequestInit): Promise<Response> {
+  const go = async (token: string) =>
+    fetch(`${ninjavanBase(cfg)}${path}`, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${token}` } });
+  let res = await go(await ninjavanToken(service, cfg));
+  if (res.status === 401) res = await go(await ninjavanToken(service, cfg, true)); // token revoked/expired early
+  return res;
+}
+
+export async function ninjavanWaybillPdf(service: any, cfg: OwnCourierConfig, tracking: string): Promise<Uint8Array> {
+  // Documented params first (tid + hide_shipper_details), then the params DFR / Olive Jardin
+  // ran in production (tids + h=0) — whichever returns a real PDF.
+  const t = encodeURIComponent(tracking);
+  let status = 0;
+  for (const qs of [`tid=${t}&hide_shipper_details=false`, `tids=${t}&h=0`]) {
+    const res = await nvFetch(service, cfg, `/2.0/reports/waybill?${qs}`, { method: "GET", headers: { Accept: "application/pdf" } });
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    status = res.status;
+    if (res.ok && isPdf(bytes)) return bytes;
+  }
+  throw new CourierError(`Ninja Van waybill belum tersedia (HTTP ${status}).`);
+}
+
+export async function ninjavanBook(service: any, cfg: OwnCourierConfig, s: OwnSender, o: OwnBookingInput): Promise<OwnBookingResult> {
+  const tz = "Asia/Kuala_Lumpur";
+  const addr = (line1: string, line2: string, postcode: string, city: string, state: string) => ({
+    address1: cut(line1, 100), address2: cut(line2, 100), country: "MY", postcode: String(postcode || "").trim(), city, state,
+  });
+  const full = String(o.address || "").trim();
+  const parcel_job: Record<string, unknown> = {
+    is_pickup_required: !s.isDropoff,
+    delivery_start_date: myDate(1),
+    delivery_timeslot: { start_time: "09:00", end_time: "22:00", timezone: tz },
+    delivery_instructions: cut(o.description, 250),
+    dimensions: { weight: Math.max(0.1, Number(o.weightKg) || 0.5) },
+  };
+  if (!s.isDropoff) {
+    Object.assign(parcel_job, {
+      pickup_service_type: "Scheduled",
+      pickup_service_level: "Standard",
+      pickup_date: myDate(0),
+      pickup_timeslot: { start_time: "09:00", end_time: "18:00", timezone: tz },
+    });
+  }
+  if (o.isCOD && o.codAmount > 0) {
+    parcel_job.cash_on_delivery = Number(o.codAmount.toFixed(2));
+    parcel_job.cash_on_delivery_currency = "MYR";
+  }
+  const body = {
+    service_type: "Parcel",
+    service_level: "Standard",
+    requested_tracking_number: shortId(),
+    reference: { merchant_order_number: cut(o.idSale || shortId(), 60) },
+    from: { name: s.name, phone_number: intlPhoneMY(s.phone), email: s.email, address: addr(s.line1, s.line2, s.postcode, s.city, s.state) },
+    to: {
+      name: o.customerName, phone_number: intlPhoneMY(o.phone), email: o.email,
+      address: addr(full.slice(0, 100), full.slice(100, 200), o.postcode, o.city, o.state),
+    },
+    parcel_job,
+  };
+  const res = await nvFetch(service, cfg, "/4.2/orders", {
+    method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body),
+  });
+  const json: any = await res.json().catch(() => ({}));
+  const tracking = json?.tracking_number;
+  if (!res.ok || !tracking) throw new CourierError(`Ninja Van: ${nvErr(json, res.status)}`, json);
+
+  // Label right away so print/merge work like ParcelDaily. If Ninja Van isn't ready yet, print fetches it later.
+  let waybillUrl: string | null = null;
+  try {
+    waybillUrl = await storeWaybillPdf(service, cfg.owner_user_id, "ninjavan", tracking, await ninjavanWaybillPdf(service, cfg, tracking));
+  } catch (_) { /* backfilled on print */ }
+  return { trackingNumber: tracking, orderRef: ownRef("ninjavan", tracking), waybillUrl };
+}
+
+export async function ninjavanCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
+  const res = await nvFetch(service, cfg, `/2.2/orders/${encodeURIComponent(tracking)}`, { method: "DELETE", headers: { Accept: "application/json" } });
+  if (res.ok) return;
+  const json: any = await res.json().catch(() => ({}));
+  const msg = String(json?.error?.message || json?.message || json?.description || "");
+  if (/already.*cancel/i.test(msg) || json?.description === "ORDER_ALREADY_CANCELLED") return;
+  throw new CourierError(`Ninja Van cancel: ${msg || `HTTP ${res.status}`} (hanya order "Pending Pickup" boleh dibatalkan).`, json);
+}
+
+// ---------------------------------------------------------------- Dispatch (by courier)
+export async function ownBook(service: any, cfg: OwnCourierConfig, s: OwnSender, o: OwnBookingInput): Promise<OwnBookingResult> {
+  if (cfg.courier === "ninjavan") return ninjavanBook(service, cfg, s, o);
+  throw new CourierError(`Kurier ${cfg.courier} belum disokong untuk tempahan.`);
+}
+export async function ownCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
+  if (cfg.courier === "ninjavan") return ninjavanCancel(service, cfg, tracking);
+  throw new CourierError(`Batal ${cfg.courier} belum disokong.`);
+}
+/** Fetch + store the label for an existing booking (print-time backfill). */
+export async function ownWaybillUrl(service: any, cfg: OwnCourierConfig, tracking: string): Promise<string> {
+  if (cfg.courier === "ninjavan") {
+    return storeWaybillPdf(service, cfg.owner_user_id, "ninjavan", tracking, await ninjavanWaybillPdf(service, cfg, tracking));
+  }
+  throw new CourierError(`Waybill ${cfg.courier} belum disokong.`);
+}
+
 // ---------------------------------------------------------------- Test connection
 /** Proves the credentials work without creating a shipment (OAuth login only). */
 export async function testConnection(service: any, cfg: OwnCourierConfig): Promise<string> {

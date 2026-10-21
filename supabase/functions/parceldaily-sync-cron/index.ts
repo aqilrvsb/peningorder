@@ -57,8 +57,10 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(PER_OWNER_LIMIT);
 
+      // Bring Your Courier bookings (pd_order_id "own:…") are never ParcelDaily's — skip them.
       const candidates = (rows || []).filter((r: any) =>
-        PD_COURIERS.test(r.kurier || "") && r.delivery_status !== "Return" && r.delivery_status !== "Failed");
+        PD_COURIERS.test(r.kurier || "") && r.delivery_status !== "Return" && r.delivery_status !== "Failed" &&
+        !String(r.pd_order_id || "").startsWith("own:"));
       if (!candidates.length) continue;
       ownersProcessed++;
 

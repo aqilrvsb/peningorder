@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCourierProvider } from "@/hooks/useCourierProvider";
 import { AUDIT_MODE } from "@/lib/audit";
 import { TablePagination } from "@/components/TablePagination";
 import { useAuth } from "@/context/AuthContext";
@@ -91,6 +92,7 @@ const CourierSplit = ({ cod, cash, success, returned }: { cod: number; cash: num
 const LogisticProcessed = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { provider: courierProvider } = useCourierProvider();
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
 
   // View a waybill INLINE (ParcelDaily's connoteURL is octet-stream → downloads);
@@ -517,6 +519,8 @@ const LogisticProcessed = () => {
           productSku: order.bundle?.sku || "",
           quantity: order.unit || 1,
           nota: order.nota_staff || "",
+          idSale: order.id_sale || "",
+          marketerIdStaff: order.marketer_id_staff || "",
           courier: courierCode,
         },
       });
@@ -530,6 +534,7 @@ const LogisticProcessed = () => {
         .update({
           tracking_number: result.trackingNumber || result.orderId,
           pd_order_id: result.orderId,
+          ...(result.pdfLink && { waybill_url: result.pdfLink }),
           ...(result.shippingPrice != null && { cost_postage: Number(result.shippingPrice) }),
           ...(postcode !== order.postcode_customer && { postcode_customer: postcode.trim() }),
         })
@@ -1007,7 +1012,7 @@ const LogisticProcessed = () => {
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-amber-600">
                             RM {Number(order.cost_postage || 0).toFixed(2)}
-                            {order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
+                            {courierProvider !== "own" && order.cost_postage_pd != null && Number(order.cost_postage_pd) !== Number(order.cost_postage || 0) && (
                               <div className="text-[10px] text-muted-foreground" title="Harga sebenar ParcelDaily (rujukan HQ)">PD RM {Number(order.cost_postage_pd).toFixed(2)}</div>
                             )}
                           </td>

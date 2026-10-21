@@ -13,6 +13,7 @@
 //                                 tenant's stuck orders (Sync Tracking button).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadOwnCourierConfig, ownWaybillUrl, parseOwnRef, providerOf } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,16 +45,6 @@ serve(async (req) => {
     // Tenant owner (client id even when a staff calls) + config via service role.
     const { data: ownerUuid } = await supabase.rpc("tenant_owner");
     const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-    const { data: config } = await service
-      .from("parceldaily_config").select("*").eq("owner_user_id", ownerUuid).maybeSingle();
-    if (!config?.token || !config?.merchant_id) {
-      return fail("Parcel Daily configuration not found. Please configure in Settings.");
-    }
-    const apiBase = (config.environment || "sandbox") === "production"
-      ? "https://api.parceldaily.com"
-      : "https://api.sandbox.parceldaily.com";
-    const headers = { "Content-Type": "application/json", token: config.token, merchantid: config.merchant_id };
-
     const body = await req.json().catch(() => ({}));
     const purchaseIds: string[] = Array.isArray(body?.purchaseIds)
       ? body.purchaseIds.map((v: unknown) => String(v)).filter(Boolean) : [];
@@ -77,10 +68,49 @@ serve(async (req) => {
 
     if (!candidates.length) return ok({ success: true, checked: 0, updated: 0, results: [] });
 
+    // Bring Your Courier bookings (pd_order_id "own:<courier>:<tracking>"): fetch the label from the
+    // tenant's own courier account and store it — ParcelDaily is never asked about these.
+    let updated = 0;
+    const results: any[] = [];
+    const ownCands = candidates.filter((r: any) => parseOwnRef(r.pd_order_id));
+    const cfgs = new Map<string, any>();
+    for (const r of ownCands as any[]) {
+      const ref = parseOwnRef(r.pd_order_id)!;
+      if (r.waybill_url) { results.push({ id: r.id, resolved: true, tracking_number: r.tracking_number, waybill_url: r.waybill_url }); continue; }
+      try {
+        if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, ownerUuid, ref.courier));
+        const cfg = cfgs.get(ref.courier);
+        if (!cfg) { results.push({ id: r.id, resolved: false }); continue; }
+        const url = await ownWaybillUrl(service, cfg, ref.tracking);
+        const { error: upErr } = await service.from("customer_purchases")
+          .update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", ownerUuid);
+        if (!upErr) updated++;
+        results.push({ id: r.id, resolved: true, tracking_number: r.tracking_number, waybill_url: url });
+      } catch (_) {
+        results.push({ id: r.id, resolved: false });
+      }
+    }
+    const pdCands = candidates.filter((r: any) => !parseOwnRef(r.pd_order_id));
+    if (!pdCands.length) return ok({ success: true, checked: candidates.length, updated, results });
+
+    // ParcelDaily orders (incl. a BYOC tenant's older ParcelDaily orders, if it still has credentials).
+    const { data: config } = await service
+      .from("parceldaily_config").select("*").eq("owner_user_id", ownerUuid).maybeSingle();
+    if (!config?.token || !config?.merchant_id) {
+      if ((await providerOf(service, ownerUuid)) === "own") {
+        return ok({ success: true, checked: candidates.length, updated, results });
+      }
+      return fail("Parcel Daily configuration not found. Please configure in Settings.");
+    }
+    const apiBase = (config.environment || "sandbox") === "production"
+      ? "https://api.parceldaily.com"
+      : "https://api.sandbox.parceldaily.com";
+    const headers = { "Content-Type": "application/json", token: config.token, merchantid: config.merchant_id };
+
     // The ParcelDaily orderId to query with = pd_order_id, else the placeholder
     // tracking_number (un-reconciled orders store the orderId there).
     const idOf = (r: any) => r.pd_order_id || r.tracking_number;
-    const orderIds = [...new Set(candidates.map(idOf).filter(Boolean))];
+    const orderIds = [...new Set(pdCands.map(idOf).filter(Boolean))];
 
     // 1) Query Get Checkout Status by orderIds (chunked).
     const statusItems: any[] = [];
@@ -101,9 +131,7 @@ serve(async (req) => {
       if (it?.consign_no) byConsign.set(String(it.consign_no), it);
     }
 
-    let updated = 0;
-    const results: any[] = [];
-    for (const r of candidates) {
+    for (const r of pdCands) {
       const match = byOrderId.get(String(idOf(r))) || byConsign.get(String(r.tracking_number));
       if (!match) { results.push({ id: r.id, resolved: false }); continue; }
       // No consign_no = the shipment was never actually created (e.g. Refunded /
