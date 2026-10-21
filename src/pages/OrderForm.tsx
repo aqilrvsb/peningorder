@@ -1773,7 +1773,7 @@ const OrderForm: React.FC = () => {
               </Select>
               {activeBundles.find((b) => b.name === formData.produk)?.skipCourier && (
                 <p className="mt-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-                  Bundle ini tanpa tracking ParcelDaily — order disimpan tanpa no. tracking.
+                  Bundle ini tanpa tracking kurier — order disimpan tanpa no. tracking.
                 </p>
               )}
             </div>

@@ -605,7 +605,7 @@ const LogisticProcessed = () => {
             toast.success(`Waybill untuk ${urls.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ""}`);
           }
         } else {
-          toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses ParcelDaily (atau tiada tracking).");
+          toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses kurier (atau tiada tracking).");
         }
       }
 

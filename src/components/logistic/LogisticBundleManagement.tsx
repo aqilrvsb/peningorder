@@ -44,6 +44,7 @@ import {
 import { Package, Plus, Pencil, Trash2, Loader2, X, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, IconTile, TableSkeleton, EmptyState, MissingHint } from "@/components/common/SoftUI";
+import { useCourierProvider } from "@/hooks/useCourierProvider";
 
 interface BundleItem {
   productId: string;
@@ -87,6 +88,8 @@ const LogisticBundleManagement = () => {
   const [customPickup, setCustomPickup] = useState("");
   // "Tanpa tracking ParcelDaily" — orders for this bundle are never booked with PD (e.g. MOMMYHANA).
   const [skipCourier, setSkipCourier] = useState(false);
+  // Wording follows the package: BYOC tenants book their own couriers, not ParcelDaily.
+  const isOwnCourier = useCourierProvider().provider === "own";
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -505,7 +508,9 @@ const LogisticBundleManagement = () => {
                     </TableCell>
                     <TableCell className="text-center text-xs whitespace-nowrap">
                       {bundle.custom_postage == null && bundle.custom_pickup == null ? (
-                        <span className="text-muted-foreground">Auto (PD)</span>
+                        isOwnCourier
+                          ? <span className="font-medium text-amber-600">Belum set</span>
+                          : <span className="text-muted-foreground">Auto (PD)</span>
                       ) : (
                         <div className="space-y-0.5">
                           {bundle.custom_postage != null && (
@@ -740,15 +745,16 @@ const LogisticBundleManagement = () => {
                 <div>
                   <h4 className="font-medium text-sm">Postage Bundle <span className="text-xs font-normal text-muted-foreground">(optional)</span></h4>
                   <p className="text-xs text-muted-foreground">
-                    Kosongkan untuk guna harga ParcelDaily (macam sekarang). Jika diisi, kos ini jadi postage utama
-                    dalam profit & salary. Harga ParcelDaily tetap disimpan sebagai rujukan HQ.
+                    {isOwnCourier
+                      ? "Isi kos pos ikut kontrak kurier anda — kos ini jadi postage dalam profit & salary (kurier sendiri tiada harga auto)."
+                      : "Kosongkan untuk guna harga ParcelDaily (macam sekarang). Jika diisi, kos ini jadi postage utama dalam profit & salary. Harga ParcelDaily tetap disimpan sebagai rujukan HQ."}
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="customPostage" className="text-amber-600 font-medium">Cost Postage (RM)</Label>
                     <Input id="customPostage" type="number" min="0" step="0.01" value={customPostage}
-                      onChange={(e) => setCustomPostage(e.target.value)} placeholder="Auto (ParcelDaily)"
+                      onChange={(e) => setCustomPostage(e.target.value)} placeholder={isOwnCourier ? "0.00" : "Auto (ParcelDaily)"}
                       className="border-amber-300 focus:border-amber-500" />
                   </div>
                   <div className="space-y-2">
@@ -774,9 +780,9 @@ const LogisticBundleManagement = () => {
 
               <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
                 <span>
-                  <span className="block text-sm font-medium">Tanpa tracking ParcelDaily</span>
+                  <span className="block text-sm font-medium">{isOwnCourier ? "Tanpa tracking kurier (brand hantar sendiri)" : "Tanpa tracking ParcelDaily"}</span>
                   <span className="block text-xs text-muted-foreground">
-                    Order bundle ini TIDAK dihantar ke ParcelDaily — tiada no. tracking dijana, dan terus masuk Shipped bila key-in (contoh: MOMMYHANA, brand hantar sendiri).
+                    Order bundle ini TIDAK dihantar ke {isOwnCourier ? "kurier (Ninja Van / Pos Laju / J&T)" : "ParcelDaily"} — tiada no. tracking dijana, dan terus masuk Shipped bila key-in (contoh: MOMMYHANA, brand hantar sendiri).
                   </span>
                 </span>
                 <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />

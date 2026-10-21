@@ -492,7 +492,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
 
       const printable = selectedOrdersList.filter((o: any) => waybillOf(o));
       if (!printable.length) {
-        toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses ParcelDaily (atau telah refund).");
+        toast.error("Tiada waybill untuk order dipilih. Order mungkin belum diproses kurier (atau telah refund).");
         return;
       }
 

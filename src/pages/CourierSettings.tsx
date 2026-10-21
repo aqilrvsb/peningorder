@@ -636,8 +636,9 @@ const CourierSettings: React.FC = () => {
               })}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Harga pos sama. Terpakai untuk order baru yang dihantar ke ParcelDaily (key-in, WooCommerce, Integration,
-              Generate Tracking).
+              {isOwn
+                ? 'Terpakai untuk order baru yang dihantar ke kurier anda (key-in, WooCommerce, Integration, Generate Tracking).'
+                : 'Harga pos sama. Terpakai untuk order baru yang dihantar ke ParcelDaily (key-in, WooCommerce, Integration, Generate Tracking).'}
               {!formData.is_dropoff && ' Ninjavan & DHL perlukan minimum 5 parcel setiap pickup.'}
             </p>
           </div>

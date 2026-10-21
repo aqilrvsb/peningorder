@@ -17,6 +17,7 @@ import * as XLSX from "xlsx";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
+import { useCourierProvider } from '@/hooks/useCourierProvider';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Normalise a stored kurier to its base courier for grouping + filtering.
@@ -119,6 +120,7 @@ const AccountSuccessCollection = () => {
 
   const handleFilterChange = () => setCurrentPage(1);
   const applyDateFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); handleFilterChange(); };
+  const isOwnCourier = useCourierProvider().provider === "own";
   const handleSync = async () => { setIsSyncing(true); try { await refetch(); toast.success("Synced"); } finally { setIsSyncing(false); } };
 
   const handleExport = () => {
@@ -150,7 +152,7 @@ const AccountSuccessCollection = () => {
     <div className="space-y-6">
       <PageHeader
         title="Success COD Collection"
-        description="COD delivered and remitted to your account by ParcelDaily"
+        description={isOwnCourier ? "COD delivered and remitted to your account by your courier" : "COD delivered and remitted to your account by ParcelDaily"}
         icon={Wallet}
         tone="brand"
         actions={
