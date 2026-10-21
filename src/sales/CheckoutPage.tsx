@@ -12,9 +12,9 @@ import { usePlans } from './usePlans';
 // We then sign the user in client-side (so they're always logged in, even if
 // they abandon payment) and forward to CHIP. On CHIP success they land back on
 // /dashboard/billing with their plan upgraded by the billing-webhook.
-type PlanKey = 'starter' | 'growth' | 'scale';
+type PlanKey = 'starter' | 'growth' | 'scale' | 'byoc';
 type PlanCfg = { price: number; original_price?: number; days: number; label: string; max_orders_per_month: number; active?: boolean };
-const VALID: PlanKey[] = ['starter', 'growth', 'scale'];
+const VALID: PlanKey[] = ['starter', 'growth', 'scale', 'byoc'];
 
 function friendlyError(err: string): string {
   if (err === 'email_exists') return 'Email ni dah ada akaun. Sila log masuk.';

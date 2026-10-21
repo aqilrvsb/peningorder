@@ -85,13 +85,17 @@ const RoleGate = ({ need, allowExpired, marketerOk, logisticOk, hrOk, children }
   const { profile, isLoading } = useAuth();
   const location = useLocation();
   const isClientTenant = profile?.role === "client";
-  // Has this client filled in their ParcelDaily Merchant ID + Token? Cached so
-  // navigation doesn't refetch constantly; invalidated after they save the config.
+  // Has this client set up their courier? ParcelDaily: Merchant ID + Token filled.
+  // BYOC (plan 'byoc'): at least one own courier (Ninja Van / Pos Laju / J&T) switched on —
+  // ParcelDaily is not available to them. Cached so navigation doesn't refetch constantly;
+  // invalidated after they save the config.
   const { data: courierConfigured } = useQuery({
     queryKey: ["courier-configured", profile?.id],
     enabled: isClientTenant,
     staleTime: 60_000,
     queryFn: async () => {
+      const { data: cp } = await (supabase as any).rpc("my_courier_provider");
+      if (cp?.provider === "own") return Array.isArray(cp.own_couriers) && cp.own_couriers.length > 0;
       const { data } = await supabase
         .from("parceldaily_config")
         .select("merchant_id, token")
@@ -128,7 +132,7 @@ const RoleGate = ({ need, allowExpired, marketerOk, logisticOk, hrOk, children }
     const frozen = profile?.isActive === false || (exp !== null && exp.getTime() < Date.now());
     if (frozen) return <Navigate to="/dashboard/billing" replace />;
 
-    // Not expired but ParcelDaily not set up yet → force Courier Settings first.
+    // Not expired but courier (ParcelDaily, or own couriers on BYOC) not set up yet → force Courier Settings first.
     // (Profile has no gate and Billing uses allowExpired, so both stay reachable.)
     const onCourier = location.pathname.includes("courier");
     if (isClientTenant && !onCourier) {

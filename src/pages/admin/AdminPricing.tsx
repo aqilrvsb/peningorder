@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Receipt, Loader2, Save, Clock, Zap, Rocket, Crown } from 'lucide-react';
+import { Receipt, Loader2, Save, Clock, Zap, Rocket, Crown, Truck } from 'lucide-react';
 import { PageHeader, CardsSkeleton, MissingHint } from '@/components/common/SoftUI';
 
 interface PlanCfg {
@@ -18,12 +18,13 @@ interface PlanCfg {
   active?: boolean; // undefined => treated as active
 }
 
-const PLAN_KEYS = ['trial', 'starter', 'growth', 'scale'] as const;
+const PLAN_KEYS = ['trial', 'starter', 'growth', 'scale', 'byoc'] as const;
 const PLAN_ICONS: Record<string, React.ReactNode> = {
   trial: <Clock className="w-5 h-5" />,
   starter: <Zap className="w-5 h-5" />,
   growth: <Rocket className="w-5 h-5" />,
   scale: <Crown className="w-5 h-5" />,
+  byoc: <Truck className="w-5 h-5" />,
 };
 
 const AdminPricing: React.FC = () => {

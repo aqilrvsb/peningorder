@@ -28,7 +28,7 @@ const corsHeaders = {
 };
 
 const CHIP_BASE = "https://gate.chip-in.asia/api/v1";
-const VALID_PLANS = ["starter", "growth", "scale"];
+const VALID_PLANS = ["starter", "growth", "scale", "byoc"];
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",

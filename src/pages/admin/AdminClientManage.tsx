@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 
-const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale'];
+const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale', 'byoc'];
 
 interface ClientRow {
   id: string;

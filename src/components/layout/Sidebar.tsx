@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { useCourierProvider } from '@/hooks/useCourierProvider';
 import { useTeam } from '@/hooks/useTeam';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -214,7 +215,8 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     ? roleGroupsRaw
     : roleGroupsRaw.map((g) => ({ ...g, items: g.items.filter((i) => !i.path.endsWith('/order-pospada')) }));
 
-  // ParcelDaily credit balance (clients only).
+  // ParcelDaily credit balance (ParcelDaily clients only — BYOC tenants don't use ParcelDaily).
+  const { provider: courierProvider } = useCourierProvider();
   const [pdCredit, setPdCredit] = useState<{ loading: boolean; credit: string | null; configured: boolean }>(
     { loading: false, credit: null, configured: false },
   );
@@ -228,9 +230,9 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
     }
   };
   useEffect(() => {
-    if (!isAdmin && !isHr && profile?.id) fetchPdCredit();
+    if (!isAdmin && !isHr && profile?.id && courierProvider !== 'own') fetchPdCredit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, isAdmin]);
+  }, [profile?.id, isAdmin, courierProvider]);
 
   // Groups expand/collapse independently. Start with the group whose child
   // page is active (plus Marketer as the default when on the dashboard).
@@ -494,7 +496,7 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
               {profile?.idstaff && (
                 <p className="text-xs text-muted-foreground truncate">ID: {profile.idstaff}</p>
               )}
-              {!isAdmin && pdCredit.configured && (
+              {!isAdmin && courierProvider !== 'own' && pdCredit.configured && (
                 <p className="text-xs mt-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <span className="truncate">
                     PD Credit: <span className="font-semibold">{pdCredit.credit != null ? `RM ${Number(pdCredit.credit).toFixed(2)}` : '—'}</span>

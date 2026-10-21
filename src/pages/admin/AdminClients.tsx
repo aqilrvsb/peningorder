@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
-const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale'];
+const PLAN_OPTIONS = ['trial', 'starter', 'growth', 'scale', 'byoc'];
 
 const AdminClients: React.FC = () => {
   const { profile } = useAuth();

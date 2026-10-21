@@ -1,20 +1,22 @@
 import { Link } from 'react-router-dom';
-import { Check, Zap, Rocket, Crown, Sparkles, ShieldCheck } from 'lucide-react';
+import { Check, Zap, Rocket, Crown, Sparkles, ShieldCheck, Truck } from 'lucide-react';
 import { usePlans, type PlanKey } from '../usePlans';
 
 // Pricing pulls live plan config from app_settings (plan_starter/growth/scale)
 // so whatever the superadmin sets in /dashboard/admin/pricing shows here on the
 // next visitor refresh. Each plan value = { price, days, label, max_orders_per_month }.
-const ORDER: PlanKey[] = ['starter', 'growth', 'scale'];
+const ORDER: PlanKey[] = ['starter', 'growth', 'scale', 'byoc'];
 const ICONS: Record<PlanKey, React.ReactNode> = {
   starter: <Zap className="h-5 w-5" />,
   growth: <Rocket className="h-5 w-5" />,
   scale: <Crown className="h-5 w-5" />,
+  byoc: <Truck className="h-5 w-5" />,
 };
 const BLURB: Record<PlanKey, string> = {
   starter: 'Untuk usahawan solo yang baru nak kemaskan order.',
   growth: 'Untuk bisnes membesar dengan volume order tinggi.',
   scale: 'Untuk brand established & team yang perlukan skala penuh.',
+  byoc: 'Untuk bisnes yang dah ada kontrak kurier sendiri (Ninja Van, Pos Laju, J&T).',
 };
 const EXTRAS: Record<PlanKey, string[]> = {
   starter: ['Semua kurier (Poslaju, NinjaVan, J&T, DHL)', 'Print waybill pukal', 'Report untung asas'],
@@ -23,6 +25,10 @@ const EXTRAS: Record<PlanKey, string[]> = {
     'Report Profit & PNL ikut platform', 'Gaji & komisyen auto + slip gaji', 'Tally COD & SOA kurier', 'Top Ranking team',
   ],
   scale: ['Semua dalam Growth', 'Order tanpa had', 'Priority support', 'Webhook & API access'],
+  byoc: [
+    'Semua dalam Growth', 'Sambung terus akaun kurier sendiri (Ninja Van, Pos Laju, J&T)',
+    'Tracking, waybill & status auto dari kurier anda', 'Kadar pos ikut kontrak kurier anda (tanpa ParcelDaily)',
+  ],
 };
 
 // A plan's ticks; "Semua dalam X" only when X is actually on sale, else X's ticks are listed.
@@ -32,6 +38,10 @@ function extrasFor(key: PlanKey, isActive: (k: PlanKey) => boolean): string[] {
     return isActive('starter') ? EXTRAS.growth : [...EXTRAS.starter.filter((f) => f !== 'Report untung asas'), ...own];
   }
   if (key === 'scale') return isActive('growth') ? EXTRAS.scale : [...extrasFor('growth', isActive), ...own];
+  // BYOC never uses ParcelDaily, so drop the ParcelDaily courier line when Growth's ticks are spelled out.
+  if (key === 'byoc') {
+    return isActive('growth') ? EXTRAS.byoc : [...extrasFor('growth', isActive).filter((f) => !f.startsWith('Semua kurier')), ...own];
+  }
   return EXTRAS[key];
 }
 
@@ -40,7 +50,7 @@ export default function Pricing() {
   const isActive = (k: PlanKey) => active.some(([key]) => key === k);
   const visible = ORDER.filter(isActive);
   // One or two plans on sale → centre them instead of leaving empty columns.
-  const grid = visible.length >= 3 ? 'md:grid-cols-3' : visible.length === 2 ? 'mx-auto max-w-3xl md:grid-cols-2' : 'mx-auto max-w-md';
+  const grid = visible.length >= 4 ? 'md:grid-cols-2 xl:grid-cols-4' : visible.length === 3 ? 'md:grid-cols-3' : visible.length === 2 ? 'mx-auto max-w-3xl md:grid-cols-2' : 'mx-auto max-w-md';
 
   return (
     <section id="pricing" className="bg-po-surface py-20 sm:py-24">

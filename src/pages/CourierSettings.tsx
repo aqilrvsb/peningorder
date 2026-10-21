@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { PageHeader, IconTile, TableSkeleton, MissingHint } from '@/components/common/SoftUI';
 import { NEGERI_OPTIONS } from '@/types';
+import OwnCourierSettings from '@/components/courier/OwnCourierSettings';
+import { useCourierProvider, OWN_COURIER_LABEL, OWN_COURIERS } from '@/hooks/useCourierProvider';
 import {
   Select,
   SelectContent,
@@ -78,7 +80,9 @@ interface ParcelDailyConfig {
 }
 
 // Couriers a client can offer at order key-in (must match OrderForm's list).
-const COURIER_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
+const PD_COURIER_OPTIONS = ['Poslaju', 'Ninjavan', 'JNT', 'DHL', 'SPX'];
+// BYOC (own courier accounts): only the couriers PeningOrder can book directly.
+const OWN_COURIER_OPTIONS = OWN_COURIERS.map((c) => OWN_COURIER_LABEL[c]);
 
 const emptyConfig: ParcelDailyConfig = {
   merchant_id: '',
@@ -142,6 +146,10 @@ const CourierSettings: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  // BYOC plan → own courier accounts (Ninja Van / Pos Laju / J&T); ParcelDaily is not used.
+  const { provider } = useCourierProvider();
+  const isOwn = provider === 'own';
+  const COURIER_OPTIONS = isOwn ? OWN_COURIER_OPTIONS : PD_COURIER_OPTIONS;
   const [isSaving, setIsSaving] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [formData, setFormData] = useState<ParcelDailyConfig>(emptyConfig);
@@ -300,8 +308,8 @@ const CourierSettings: React.FC = () => {
   const handleSave = async () => {
     // Validation
     const requiredFields: Array<[keyof ParcelDailyConfig, string]> = [
-      ['merchant_id', 'Merchant ID'],
-      ['token', 'API Token'],
+      // BYOC tenants don't use ParcelDaily — their couriers are saved in the Kurier Sendiri cards.
+      ...(isOwn ? [] : [['merchant_id', 'Merchant ID'], ['token', 'API Token']] as Array<[keyof ParcelDailyConfig, string]>),
       ['sender_name', 'Sender Name'],
       ['sender_phone', 'Sender Phone'],
       ['sender_email', 'Sender Email'],
@@ -318,7 +326,7 @@ const CourierSettings: React.FC = () => {
     }
     // Force clients to set up the ParcelDaily webhook (too many skip it, so
     // status/tracking/waybill/COD never flow back).
-    if (!formData.webhook_confirmed) {
+    if (!isOwn && !formData.webhook_confirmed) {
       toast({ title: 'Webhook belum disahkan', description: 'Sila setup webhook di portal ParcelDaily dan tick kotak pengesahan sebelum simpan.', variant: 'destructive' });
       return;
     }
@@ -486,12 +494,32 @@ const CourierSettings: React.FC = () => {
       <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
         <IconTile icon={Info} tone="blue" size="sm" />
         <div className="text-sm text-blue-900 dark:text-blue-100">
-          <p className="font-medium">Every order ships via Ninjavan, Poslaju, JNT, or DHL.</p>
-          <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">Enter your courier API credentials and pickup address below.</p>
+          {isOwn ? (
+            <>
+              <p className="font-medium">Pakej Bring Your Courier — order dihantar terus guna akaun kurier anda sendiri.</p>
+              <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">Setup Ninja Van / Pos Laju / J&amp;T di bawah (ParcelDaily tidak digunakan), kemudian isi alamat pickup.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">Every order ships via Ninjavan, Poslaju, JNT, or DHL.</p>
+              <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">Enter your courier API credentials and pickup address below.</p>
+            </>
+          )}
         </div>
       </div>
 
       <Card className="space-y-6 p-4 sm:p-6">
+        {isOwn ? (
+          <div>
+            <SectionHeader
+              icon={Truck}
+              tone="blue"
+              title="Kurier Sendiri"
+              hint="Setiap kurier disimpan berasingan — isi, Simpan, kemudian Test Connection."
+            />
+            <OwnCourierSettings />
+          </div>
+        ) : (
         <div>
           <SectionHeader icon={KeyRound} tone="blue" title="API Credentials" />
 
@@ -573,6 +601,7 @@ const CourierSettings: React.FC = () => {
             </label>
           </div>
         </div>
+        )}
 
         <div className="border-t border-border pt-6">
           <SectionHeader icon={MapPin} tone="purple" title="Pickup / Sender Address" />
@@ -692,6 +721,7 @@ const CourierSettings: React.FC = () => {
         <div className="border-t border-border pt-6">
           <SectionHeader icon={SlidersHorizontal} tone="slate" title="Preferences" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {!isOwn && (
             <div>
               <FormLabel>COD Payout Schedule</FormLabel>
               <Select
@@ -705,6 +735,7 @@ const CourierSettings: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div>
               <FormLabel>Default Courier (auto orders)</FormLabel>
               <Select
@@ -716,7 +747,7 @@ const CourierSettings: React.FC = () => {
                   <SelectItem value="poslaju">Poslaju</SelectItem>
                   <SelectItem value="ninjavan">Ninjavan</SelectItem>
                   <SelectItem value="jnt">JNT</SelectItem>
-                  <SelectItem value="dhl">DHL</SelectItem>
+                  {!isOwn && <SelectItem value="dhl">DHL</SelectItem>}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Used for WooCommerce / Shoppego auto orders</p>
@@ -814,8 +845,10 @@ const CourierSettings: React.FC = () => {
           <MissingHint
             className="sm:mr-auto sm:max-w-md"
             items={[
-              ...HINT_FIELDS.map(([key, label]) => ({ label, done: !!String(formData[key] || '').trim() })),
-              { label: 'Webhook disahkan', done: formData.webhook_confirmed },
+              ...HINT_FIELDS
+                .filter(([key]) => !isOwn || (key !== 'merchant_id' && key !== 'token'))
+                .map(([key, label]) => ({ label, done: !!String(formData[key] || '').trim() })),
+              ...(isOwn ? [] : [{ label: 'Webhook disahkan', done: formData.webhook_confirmed }]),
             ]}
           />
           <Button onClick={handleSave} disabled={isSaving} size="lg" className="w-full sm:w-auto">

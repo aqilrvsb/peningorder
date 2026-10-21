@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-// Live plan config from app_settings (plan_starter/growth/scale), shared by every landing
+// Live plan config from app_settings (plan_starter/growth/scale/byoc), shared by every landing
 // section that mentions a price — so the hero, calculator CTA and pricing cards always show
 // what the superadmin set in /dashboard/admin/pricing (never a hard-coded price).
-export type PlanKey = 'starter' | 'growth' | 'scale';
+export type PlanKey = 'starter' | 'growth' | 'scale' | 'byoc';
 export type PlanCfg = {
   price: number; days: number; label: string; max_orders_per_month: number;
   original_price?: number; active?: boolean;
@@ -18,7 +18,7 @@ function loadPlans(): Promise<Record<string, PlanCfg>> {
     const { data } = await (supabase as any)
       .from('app_settings')
       .select('key, value')
-      .in('key', ['plan_starter', 'plan_growth', 'plan_scale']);
+      .in('key', ['plan_starter', 'plan_growth', 'plan_scale', 'plan_byoc']);
     const map: Record<string, PlanCfg> = {};
     (data ?? []).forEach((r: { key: string; value: unknown }) => {
       map[r.key.replace('plan_', '')] = r.value as PlanCfg;

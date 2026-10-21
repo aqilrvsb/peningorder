@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, CreditCard, Check, Crown, Zap, Rocket, Clock } from 'lucide-react';
+import { Loader2, CreditCard, Check, Crown, Zap, Rocket, Clock, Truck } from 'lucide-react';
 import { PageHeader, CardsSkeleton, TableSkeleton } from '@/components/common/SoftUI';
 
 interface PlanCfg {
@@ -23,11 +23,12 @@ interface PaymentRow {
   created_at: string;
 }
 
-const PLAN_ORDER = ['starter', 'growth', 'scale'] as const;
+const PLAN_ORDER = ['starter', 'growth', 'scale', 'byoc'] as const;
 const PLAN_ICONS: Record<string, React.ReactNode> = {
   starter: <Zap className="w-6 h-6" />,
   growth: <Rocket className="w-6 h-6" />,
   scale: <Crown className="w-6 h-6" />,
+  byoc: <Truck className="w-6 h-6" />,
 };
 
 const Billing: React.FC = () => {
@@ -57,7 +58,7 @@ const Billing: React.FC = () => {
     setIsLoading(true);
     try {
       const [settingsRes, profileRes, paymentsRes] = await Promise.all([
-        supabase.from('app_settings').select('key, value').in('key', ['plan_starter', 'plan_growth', 'plan_scale']),
+        supabase.from('app_settings').select('key, value').in('key', ['plan_starter', 'plan_growth', 'plan_scale', 'plan_byoc']),
         supabase.from('profiles').select('plan, plan_expires_at').maybeSingle(),
         supabase.from('payments').select('id, plan, amount, status, paid_at, created_at').order('created_at', { ascending: false }).limit(20),
       ]);
@@ -173,7 +174,9 @@ const Billing: React.FC = () => {
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />
                   {cfg.max_orders_per_month >= 999999 ? 'Unlimited orders' : `${cfg.max_orders_per_month.toLocaleString()} orders / month`}
                 </li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />All 4 couriers (PD)</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />
+                  {key === 'byoc' ? 'Your own courier accounts (Ninja Van, Pos Laju, J&T)' : 'All 4 couriers (PD)'}
+                </li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Waybill bulk print</li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Auto tracking updates</li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Profit & expense reports</li>

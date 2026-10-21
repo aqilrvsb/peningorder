@@ -15,7 +15,7 @@ const fail = (error: string, status = 400) =>
 
 const CHIP_BASE = "https://gate.chip-in.asia/api/v1";
 
-const VALID_PLANS = ["starter", "growth", "scale"];
+const VALID_PLANS = ["starter", "growth", "scale", "byoc"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -57,7 +57,9 @@ serve(async (req) => {
       .eq("key", `plan_${plan}`)
       .maybeSingle();
     if (!settingRow) return fail(`Plan config missing: plan_${plan}`, 500);
-    const cfg = settingRow.value as { price: number; days: number; label: string };
+    const cfg = settingRow.value as { price: number; days: number; label: string; active?: boolean };
+    // A switched-off plan (Admin → Pricing) can't be bought, even by calling this API directly.
+    if (cfg.active === false) return fail("plan_inactive");
 
     // Load profile for name / whatsapp
     const { data: profile } = await admin
