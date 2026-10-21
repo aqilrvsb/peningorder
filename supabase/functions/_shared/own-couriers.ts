@@ -28,7 +28,7 @@ export interface OwnCourierConfig {
 }
 
 /** Couriers whose booking adapter is live. The settings UI marks the rest "Akan datang". */
-export const OWN_COURIER_READY: Record<OwnCourier, boolean> = { ninjavan: true, poslaju: false, jnt: false };
+export const OWN_COURIER_READY: Record<OwnCourier, boolean> = { ninjavan: true, poslaju: true, jnt: false };
 
 export class CourierError extends Error {
   constructor(message: string, public details?: unknown) {
@@ -267,21 +267,140 @@ export async function ninjavanCancel(service: any, cfg: OwnCourierConfig, tracki
   throw new CourierError(`Ninja Van cancel: ${msg || `HTTP ${res.status}`} (hanya order "Pending Pickup" boleh dibatalkan).`, json);
 }
 
+// ---------------------------------------------------------------- Pos Laju booking
+// Order API v2.1 (api-doc.pos.com.my). Same field set DFR booked with in production; address
+// lines follow the v2.3 limits (address1 5–80, address2/3 ≤ 80, area ≤ 20).
+const posErr = (j: any, status: number) => {
+  if (Array.isArray(j?.reason) && j.reason.length) return j.reason.join("; ");
+  return j?.error?.description || j?.error?.code || (typeof j?.error === "string" ? j.error : "") ||
+    (j?.message && j.message !== "error" ? j.message : "") || `HTTP ${status}`;
+};
+
+async function posFetch(service: any, cfg: OwnCourierConfig, path: string, body: unknown): Promise<{ res: Response; json: any }> {
+  const go = async (token: string) => fetch(`${poslajuBase(cfg)}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  let res = await go(await poslajuToken(service, cfg));
+  if (res.status === 401) res = await go(await poslajuToken(service, cfg, true)); // token re-issued early
+  const json: any = await res.json().catch(() => ({}));
+  return { res, json };
+}
+
+/** Split a long address over Pos's 80-char lines. */
+const posLines = (full: string) => {
+  const s = String(full || "").replace(/\s+/g, " ").trim();
+  return [s.slice(0, 80), s.slice(80, 160), s.slice(160, 240)];
+};
+
+export async function poslajuBook(service: any, cfg: OwnCourierConfig, s: OwnSender, o: OwnBookingInput): Promise<OwnBookingResult> {
+  if (!clean(cfg.account_number) || !clean(cfg.subscription_code)) {
+    throw new CourierError("Account Number / Subscription Code Pos Laju belum diisi.");
+  }
+  const [r1, r2, r3] = posLines(o.address);
+  const desc = cut(o.description || "Parcel", 100);
+  const body: Record<string, unknown> = {
+    account_number: clean(cfg.account_number),
+    product_code: "80000000", // Pos Laju domestic
+    item_type: "2",           // Parcel
+    parcel: "domestic",
+    webhook: true,
+    service_level: "Standard",
+    subscription_code: clean(cfg.subscription_code),
+    platform: "API",
+    mps: false,
+    reference: {
+      // 5–50 chars, unique per merchant: a re-book of the same ID Sale needs a new one.
+      merchant_order_number: cut(`${o.idSale || "PO"}-${shortId().slice(-5)}`, 50),
+      merchant_reference_number: cut(o.idSale || "", 50),
+    },
+    // Pickup date left out on purpose: Pos assigns the next valid slot from the submission time.
+    pickup: s.isDropoff ? { required: false } : { required: true, timeslot: { start_time: "09:00", end_time: "18:00" } },
+    sender: {
+      display_address: "",
+      hide_sender_address: false,
+      name: cut(s.name, 100),
+      phone_number: intlPhoneMY(s.phone),
+      email: s.email,
+      address: {
+        address1: cut(s.line1, 80), address2: cut(s.line2, 80), area: cut(s.city, 20),
+        city: cut(s.city, 35), state: cut(s.state, 50), country: "MY", postcode: String(s.postcode || "").trim(),
+      },
+    },
+    receiver: {
+      name: cut(o.customerName, 100),
+      phone_number: intlPhoneMY(o.phone),
+      email: o.email,
+      address: {
+        address1: r1, address2: r2, address3: r3, area: cut(o.city, 20),
+        city: cut(o.city, 35), state: cut(o.state, 50), country: "MY", postcode: String(o.postcode || "").trim(),
+      },
+    },
+    parcel_details: [{
+      weight: Math.min(30, Math.max(0.01, Number(o.weightKg) || 0.5)),
+      length: 0.65, width: 0.5, height: 0.75, // DFR production values (domestic dimensions are optional)
+      item_count: 1,
+      parcel_notes: cut(o.description, 200),
+      details: [{ item_description: desc.length >= 3 ? desc : "Parcel", quantity: 1, hscode: "", value: Number(o.contentValue.toFixed(2)) }],
+    }],
+  };
+  if (o.isCOD && o.codAmount > 0) body.added_services = [{ added_code: "COD", amount: o.codAmount.toFixed(2) }];
+
+  const { res, json } = await posFetch(service, cfg, "/api/order/v2.1/create", body);
+  const tracking = json?.data?.tracking_no;
+  if (!res.ok || !tracking) throw new CourierError(`Pos Laju: ${posErr(json, res.status)}`, json);
+
+  // Pos returns a public label URL. Keep our own copy (stays valid), else use Pos's link.
+  const posPdf: string | null = json?.data?.consignment?.pdf || null;
+  let waybillUrl: string | null = posPdf;
+  if (posPdf) {
+    try {
+      const r = await fetch(posPdf);
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      if (r.ok && isPdf(bytes)) waybillUrl = await storeWaybillPdf(service, cfg.owner_user_id, "poslaju", tracking, bytes);
+    } catch (_) { /* Pos link is still usable */ }
+  }
+  return { trackingNumber: tracking, orderRef: ownRef("poslaju", tracking), waybillUrl };
+}
+
+export async function poslajuCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
+  const { res, json } = await posFetch(service, cfg, "/api/order/v2.1/cancel", {
+    tracking_number: tracking, account_number: clean(cfg.account_number),
+  });
+  if (res.ok && json?.message !== "error") return;
+  const msg = posErr(json, res.status);
+  if (/already\s+cancel/i.test(msg)) return;
+  throw new CourierError(`Pos Laju cancel: ${msg} (hanya order sebelum pickup boleh dibatalkan).`, json);
+}
+
 // ---------------------------------------------------------------- Dispatch (by courier)
 export async function ownBook(service: any, cfg: OwnCourierConfig, s: OwnSender, o: OwnBookingInput): Promise<OwnBookingResult> {
   if (cfg.courier === "ninjavan") return ninjavanBook(service, cfg, s, o);
+  if (cfg.courier === "poslaju") return poslajuBook(service, cfg, s, o);
   throw new CourierError(`Kurier ${cfg.courier} belum disokong untuk tempahan.`);
 }
 export async function ownCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
   if (cfg.courier === "ninjavan") return ninjavanCancel(service, cfg, tracking);
+  if (cfg.courier === "poslaju") return poslajuCancel(service, cfg, tracking);
   throw new CourierError(`Batal ${cfg.courier} belum disokong.`);
 }
-/** Fetch + store the label for an existing booking (print-time backfill). */
+/**
+ * Label for an existing booking (print-time backfill): the copy saved at booking if there is one
+ * (callers like WooCommerce / Integration don't keep the link), else fetched from the courier.
+ */
 export async function ownWaybillUrl(service: any, cfg: OwnCourierConfig, tracking: string): Promise<string> {
+  const folder = `${cfg.owner_user_id}/${cfg.courier}`;
+  const { data: saved } = await service.storage.from("courier-waybills")
+    .list(folder, { search: `${tracking}-`, limit: 1, sortBy: { column: "created_at", order: "desc" } });
+  if (saved?.length && saved[0]?.name) {
+    return service.storage.from("courier-waybills").getPublicUrl(`${folder}/${saved[0].name}`).data.publicUrl as string;
+  }
   if (cfg.courier === "ninjavan") {
     return storeWaybillPdf(service, cfg.owner_user_id, "ninjavan", tracking, await ninjavanWaybillPdf(service, cfg, tracking));
   }
-  throw new CourierError(`Waybill ${cfg.courier} belum disokong.`);
+  // Pos Laju only hands out the label at booking; there is no label endpoint to re-fetch.
+  throw new CourierError(`Waybill ${cfg.courier} tidak dapat dimuat semula.`);
 }
 
 // ---------------------------------------------------------------- Test connection

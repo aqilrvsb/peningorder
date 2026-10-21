@@ -13,7 +13,7 @@ import { OWN_COURIERS, type OwnCourier } from '@/hooks/useCourierProvider';
 
 // Couriers whose booking is live (keep in sync with OWN_COURIER_READY in
 // supabase/functions/_shared/own-couriers.ts). Others can be filled in but not switched on yet.
-const READY: Record<OwnCourier, boolean> = { ninjavan: true, poslaju: false, jnt: false };
+const READY: Record<OwnCourier, boolean> = { ninjavan: true, poslaju: true, jnt: false };
 
 type Field = { key: keyof Row; label: string; secret?: boolean; placeholder?: string };
 const META: Record<OwnCourier, {
@@ -38,9 +38,8 @@ const META: Record<OwnCourier, {
       { key: 'subscription_code', label: 'Subscription Code' },
     ],
     sandboxLabel: 'Staging (test)',
-    soon: 'Akan datang — sambungan Pos Laju sedang disiapkan. Boleh isi maklumat dahulu.',
-    credHelp: 'Production: dapatkan di SendParcel Pro → Store Integration. Staging: dari pasukan integrasi Pos.',
-    webhookHelp: 'Daftar URL ini di SendParcel Pro (tracking subscription) — status order akan masuk automatik.',
+    credHelp: 'Production: dapatkan di SendParcel Pro → Store Integration. Staging: dari pasukan integrasi Pos. Subscription Code = kod tracking subscription yang anda buat di SendParcel Pro.',
+    webhookHelp: 'Masukkan URL ini dalam tracking subscription di SendParcel Pro — status order dan COD (Remittance) akan masuk automatik.',
   },
   jnt: {
     name: 'J&T Express', tone: 'orange',

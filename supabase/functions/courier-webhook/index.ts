@@ -3,15 +3,18 @@
 //
 // URL (shown in Courier Settings → Kurier Sendiri):
 //   /functions/v1/courier-webhook?c=<courier>&t=<own_courier_config.webhook_token>
-// The token picks the tenant; every Ninja Van call is also verified with its HMAC header
-// (X-Ninjavan-Hmac-Sha256 = base64(HMAC-SHA256(raw body, Client Secret))).
+// The token picks the tenant. Ninja Van calls are also verified with their HMAC header
+// (X-Ninjavan-Hmac-Sha256 = base64(HMAC-SHA256(raw body, Client Secret))). Pos Laju doesn't sign,
+// so its account_no must match the tenant's Account Number.
 //
 // Applies statuses exactly like parceldaily-webhook (the same per-status Track / Notify settings,
 // keyed by the ParcelDaily status groups in src/lib/trackingStatuses.ts):
 //   • only the final states change delivery_status: delivered → Success, returning → Return
 //   • every other status only refreshes the raw label (seos); it never moves Pending → Shipped
 //   • "Cancelled" is confirm-only (an edit re-book cancels the old parcel; the order must not vanish)
-// Ninja Van sends no COD remittance event, so COD collection stays manual for these orders.
+//   • events can arrive out of order, so a late scan never undoes Success / Return
+// COD: Pos Laju's REMMIT ("Remittance Done By Rider") marks the COD collected (date_payment).
+// Ninja Van sends no remittance event, so its COD collection stays manual.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -21,6 +24,7 @@ const corsHeaders = {
 };
 const reply = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const clean = (v: unknown) => String(v ?? "").trim();
 
 // ---------------------------------------------------------------- WhatsApp (same as parceldaily-webhook)
 const waPhone = (raw: string): string => {
@@ -149,9 +153,24 @@ function ninjavanGroup(status: string, rts: boolean): string {
   return "Processing";
 }
 
+// ---------------------------------------------------------------- Pos Laju
+/** Pos Laju event_code (Webhook Event List, api-doc.pos.com.my) → ParcelDaily status group. */
+function poslajuGroup(code: string): string {
+  if (code === "O_CAN") return "Cancelled";
+  if (code === "O_CRE") return "Shipment Data Received";
+  if (code === "LM_SUCCESS" || code === "WD_SUCCESS") return "Delivered";
+  if (code === "RTO_SUCCESS" || code === "RTS_WD_SUCCESS") return "Returned";
+  if (code.startsWith("RTO_")) return "Return in transit"; // RTO_INI / ASSIGN / OFR / FAIL
+  if (code === "P_SUCCESS" || code.startsWith("DRP_OFF")) return "Picked up";
+  if (code.startsWith("P_") || code === "PICKUP_CANCELLED") return "Waiting Pickup";
+  if (["LM_ASSIGN", "LM_OFD", "WD_ASSIGNED", "WD_REATTEMPT"].includes(code)) return "On Delivery";
+  if (code.startsWith("LM_FAIL") || code.endsWith("_EXC") || code === "SSE") return "Problematic Processing";
+  return "In transit"; // hub / linehaul / inbound / international scans
+}
+
 // ---------------------------------------------------------------- Handler
 const ORDER_COLS =
-  "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, date_return, bundle:logistic_bundles(name)";
+  "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, date_return, type_payment, date_payment, bundle:logistic_bundles(name)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -188,56 +207,89 @@ serve(async (req) => {
 
     if (!/^[0-9a-f]{32}$/i.test(token)) return await finish(401, { error: "unauthorized" }, { error_message: "missing or bad token" });
     const { data: cfg } = await supabase.from("own_courier_config")
-      .select("owner_user_id, courier, client_secret").eq("courier", courier).eq("webhook_token", token).maybeSingle();
+      .select("owner_user_id, courier, client_secret, account_number").eq("courier", courier).eq("webhook_token", token).maybeSingle();
     if (!cfg) return await finish(401, { error: "unauthorized" }, { error_message: "unknown token" });
     const ownerId: string = cfg.owner_user_id;
 
-    if (courier !== "ninjavan") {
+    // Normalise each courier's event to: tracking, status group, display text.
+    let tracking = "", group = "", detail = "", status = "", remit = false;
+    if (courier === "ninjavan") {
+      // Ninja Van signs every call with the tenant's Client Secret.
+      const given = req.headers.get("x-ninjavan-hmac-sha256") || "";
+      const expected = cfg.client_secret ? await hmacBase64(String(cfg.client_secret).trim(), raw) : "";
+      if (!given || !expected || !safeEqual(given.trim(), expected)) {
+        return await finish(401, { error: "invalid signature" }, { error_message: "bad X-Ninjavan-Hmac-Sha256", parsed_data: { owner: ownerId } });
+      }
+      tracking = String(payload.tracking_id || payload.tracking_number || "").trim();
+      status = String(payload.status || "").trim();
+      detail = String(payload.event || payload.status || "").trim(); // e.g. "Delivered, Received by Customer"
+      const rts = payload.is_parcel_on_rts_leg === true || String(payload.is_parcel_on_rts_leg) === "true";
+      // Re-weigh notices aren't delivery progress (BYOC postage comes from the bundle).
+      if (/measurement/i.test(status)) {
+        return await finish(200, { ok: true, action: "measurement_ignored" }, { parsed_data: { owner: ownerId, tracking, status } });
+      }
+      group = status ? ninjavanGroup(status, rts) : "";
+    } else if (courier === "poslaju") {
+      // Pos doesn't sign calls: the secret URL token picks the tenant, and the account must be theirs.
+      const acct = String(payload.account_no || "").trim();
+      if (acct && clean(cfg.account_number) && acct !== clean(cfg.account_number)) {
+        return await finish(401, { error: "unauthorized" }, { error_message: "account_no mismatch", parsed_data: { owner: ownerId } });
+      }
+      tracking = String(payload.tracking_number || "").trim();
+      status = String(payload.event_code || "").trim().toUpperCase();
+      detail = [payload.event_name, payload.reason_description].map((v) => String(v || "").trim()).filter(Boolean).join(" - ");
+      remit = status === "REMMIT"; // "Remittance Done By Rider" = COD collected
+      group = status ? (remit ? "COD Remitted" : poslajuGroup(status)) : "";
+    } else {
       return await finish(200, { ok: true, action: "courier_not_supported_yet" }, { parsed_data: { owner: ownerId } });
     }
-
-    // Ninja Van signs every call with the tenant's Client Secret.
-    const given = req.headers.get("x-ninjavan-hmac-sha256") || "";
-    const expected = cfg.client_secret ? await hmacBase64(String(cfg.client_secret).trim(), raw) : "";
-    if (!given || !expected || !safeEqual(given.trim(), expected)) {
-      return await finish(401, { error: "invalid signature" }, { error_message: "bad X-Ninjavan-Hmac-Sha256", parsed_data: { owner: ownerId } });
-    }
-
-    const tracking = String(payload.tracking_id || payload.tracking_number || "").trim();
-    const status = String(payload.status || "").trim();
-    const detail = String(payload.event || payload.status || "").trim(); // e.g. "Delivered, Received by Customer"
-    const rts = payload.is_parcel_on_rts_leg === true || String(payload.is_parcel_on_rts_leg) === "true";
-    if (!tracking || !status) return await finish(200, { ok: true, action: "no_tracking_or_status" }, { parsed_data: { owner: ownerId } });
-
-    // Re-weigh notices aren't delivery progress (BYOC postage comes from the bundle).
-    if (/measurement/i.test(status)) {
-      return await finish(200, { ok: true, action: "measurement_ignored" }, { parsed_data: { owner: ownerId, tracking, status } });
-    }
+    if (!tracking || !group) return await finish(200, { ok: true, action: "no_tracking_or_status" }, { parsed_data: { owner: ownerId } });
 
     const findRow = async () => {
       const a = await supabase.from("customer_purchases").select(ORDER_COLS)
         .eq("owner_user_id", ownerId).eq("tracking_number", tracking).order("created_at", { ascending: false }).limit(1);
       if (a.data?.length) return a.data[0];
       const b = await supabase.from("customer_purchases").select(ORDER_COLS)
-        .eq("owner_user_id", ownerId).eq("pd_order_id", `own:ninjavan:${tracking}`).order("created_at", { ascending: false }).limit(1);
+        .eq("owner_user_id", ownerId).eq("pd_order_id", `own:${courier}:${tracking}`).order("created_at", { ascending: false }).limit(1);
       return b.data?.[0] || null;
     };
     let m: any = await findRow();
-    // "Pending Pickup" can land a moment before the key-in has saved the order row.
-    if (!m) {
+    // Ninja Van's "Pending Pickup" can land a moment before the key-in has saved the order row.
+    // (Pos wants an answer within 5 seconds, so no wait there.)
+    if (!m && courier === "ninjavan") {
       await new Promise((r) => setTimeout(r, 5000));
       m = await findRow();
     }
-    const group = ninjavanGroup(status, rts);
-    const parsed = { owner: ownerId, tracking, status, detail, rts, group, matched_id: m?.id || null };
+    const parsed = { owner: ownerId, tracking, status, detail, group, matched_id: m?.id || null };
     if (!m) return await finish(200, { ok: true, action: "order_not_found" }, { parsed_data: parsed });
+
+    const mYmd = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+    // Pos Laju COD remittance: the rider has handed the COD cash to Pos → mark it collected.
+    if (remit) {
+      let action = "remit_ignored";
+      if (String(m.type_payment || "").toUpperCase() === "COD" && !m.date_payment) {
+        const at = String(payload.date_time || "").slice(0, 10);
+        await supabase.from("customer_purchases")
+          .update({ date_payment: /^\d{4}-\d{2}-\d{2}$/.test(at) ? at : mYmd }).eq("id", m.id);
+        action = "cod_remitted";
+      }
+      await supabase.from("customer_purchases").update({ last_webhook_at: new Date().toISOString() }).eq("id", m.id);
+      return await finish(200, { ok: true, action }, { parsed_data: { ...parsed, action } });
+    }
 
     let action = "none";
     const isCancel = group === "Cancelled";
     const isDelivered = group === "Delivered";
     const isReturn = group === "Returned" || group === "Return in transit";
+    // Events can arrive out of order (Pos says so): a late scan must not undo Success / Return.
+    const stale = (m.delivery_status === "Success" && !isDelivered && !isReturn) ||
+      (m.delivery_status === "Return" && !isReturn && !isDelivered);
+    if (stale && !isCancel) {
+      await supabase.from("customer_purchases").update({ last_webhook_at: new Date().toISOString() }).eq("id", m.id);
+      return await finish(200, { ok: true, action: "stale_event_skip" }, { parsed_data: { ...parsed, action: "stale_event_skip" } });
+    }
     const pref = await getTrackPref(supabase, ownerId, group);
-    const mYmd = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 
     if (isCancel) {
       // Confirm-only: a cancel we made (Cancel / delete) already set Cancelled. An active order
