@@ -1,6 +1,7 @@
 import { useMemo, useState, type ElementType, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from "@/lib/utils";
@@ -27,6 +28,7 @@ const LogisticSummary = () => {
         supabase
           .from("customer_purchases")
           .select("marketer_id_staff, delivery_status, jenis_platform, type_payment, kurier, total_sale, seos")
+          .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
           .gte("date_order", startDate)
           .lte("date_order", endDate)
           .order("date_order", { ascending: false })

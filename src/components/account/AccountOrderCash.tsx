@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,6 +80,7 @@ const AccountOrderCash: React.FC = () => {
         (supabase as any)
           .from('customer_purchases')
           .select('id, id_sale, date_order, name_customer, phone_customer, total_sale, bank_payment, tracking_number, type_payment, kurier, marketer_id_staff, receipt_payment_url, receipt_payment_type, bundle:logistic_bundles(name)')
+          .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
           .in('type_payment', ['CASH', 'Pickup'])
           .gte('date_order', startDate)
           .lte('date_order', endDate)

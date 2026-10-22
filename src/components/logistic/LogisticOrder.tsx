@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { getMalaysiaDate, getMalaysiaStartOfMonth, formatDMY, fetchAllRows } from "@/lib/utils";
 import { AUDIT_MODE } from "@/lib/audit";
+import { processPospada } from "@/lib/pospada";
 import { TablePagination } from "@/components/TablePagination";
 import {
   Clock,
@@ -413,6 +414,33 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
     }
   };
 
+  // Order Pospada → Process: the booking becomes a normal order dated today, leaves this tab
+  // and shows in the Order tab (Generate Tracking / Shipped there). Only then it counts as a sale.
+  const [isProcessing, setIsProcessing] = useState(false);
+  const handleProcess = async (ids: string[]) => {
+    if (!ids.length) return;
+    const { isConfirmed } = await Swal.fire({
+      title: `Process ${ids.length} booking?`,
+      text: "Order jadi order biasa (tarikh order = hari ini) dan pindah ke tab Order untuk Generate Tracking / Shipped. Mula dikira sebagai jualan.",
+      showCancelButton: true,
+      confirmButtonText: "Process",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#059669",
+    });
+    if (!isConfirmed) return;
+    setIsProcessing(true);
+    try {
+      const n = await processPospada(ids);
+      toast.success(`${n} booking diproses — kini di tab Order.`);
+      setSelectedOrders(new Set());
+      queryClient.invalidateQueries({ queryKey: ["logistic-order"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Gagal process booking");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Reject selected orders (e.g. fake receipt / fishy order). Moves them out of
   // the Order tab into the Rejected tab. Cancels the PD booking if one exists.
   const handleBulkReject = async () => {
@@ -796,7 +824,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
     setIsSavingEdit(true);
 
     try {
-      const hasExistingTracking = !!editingOrder.tracking_number;
+      // Order Pospada: a booking is only edited — no courier cancel / booking until it is Processed.
+      const hasExistingTracking = !!editingOrder.tracking_number && !pospada;
       const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];
       const isPdOrder = PD_COURIERS.some((c) => editingOrder?.kurier?.includes(c));
 
@@ -882,7 +911,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       const PD_COURIER_CODES: Record<string, string> = {
         Poslaju: 'poslaju', Ninjavan: 'ninjavan', JNT: 'jnt', DHL: 'dhl', SPX: 'spx',
       };
-      const matchedCourier = Object.keys(PD_COURIER_CODES).find((c) => selectedKurier.includes(c));
+      const matchedCourier = pospada ? undefined : Object.keys(PD_COURIER_CODES).find((c) => selectedKurier.includes(c));
 
       if (matchedCourier) {
         toast.info("Generating new tracking...");
@@ -966,7 +995,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
     <div className="space-y-6">
       <PageHeader
         title={pospada ? "Order Pospada" : "Order Management"}
-        description={pospada ? "Booking order — proses pada tarikh pospada" : "Manage pending orders ready for shipment"}
+        description={pospada ? "Booking order — tekan Process pada tarikh pospada, order akan pindah ke tab Order" : "Manage pending orders ready for shipment"}
         icon={pospada ? CalendarClock : ShoppingCart}
         tone="brand"
       />
@@ -1158,13 +1187,25 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                   {isRejecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Ban className="w-4 h-4 mr-2" />}
                   Reject ({selectedOrders.size})
                 </Button>
-                <Button
-                  onClick={handleBulkShipped}
-                  disabled={selectedOrders.size === 0 || isShipping}
-                >
-                  {isShipping ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                  Shipped ({selectedOrders.size})
-                </Button>
+                {pospada ? (
+                  // Bookings are never shipped from here: Process first, then ship from the Order tab.
+                  <Button
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => handleProcess(Array.from(selectedOrders))}
+                    disabled={selectedOrders.size === 0 || isProcessing}
+                  >
+                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                    Process ({selectedOrders.size})
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleBulkShipped}
+                    disabled={selectedOrders.size === 0 || isShipping}
+                  >
+                    {isShipping ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                    Shipped ({selectedOrders.size})
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -1296,7 +1337,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
                               <span className="font-mono text-xs">{order.tracking_number}</span>
-                            ) : needsTrackingGeneration(order) ? (
+                            ) : needsTrackingGeneration(order) && !pospada ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1392,14 +1433,27 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                             ) : "-"}
                           </td>
                           <td className="p-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenEdit(order)}
-                              className="h-7 w-7 p-0"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {pospada && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 bg-emerald-600 px-2 text-xs text-white hover:bg-emerald-700"
+                                  onClick={() => handleProcess([order.id])}
+                                  disabled={isProcessing}
+                                  title="Jadikan order biasa (tarikh order = hari ini) — pindah ke tab Order"
+                                >
+                                  Process
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEdit(order)}
+                                className="h-7 w-7 p-0"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))

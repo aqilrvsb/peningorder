@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar, Loader2, Filter, TrendingUp, TrendingDown, DollarSign, Package, Truck, Globe, Video, ShoppingBag, Facebook, Database, RotateCcw, Users, Wallet, Megaphone, Receipt, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows } from '@/lib/utils';
 import { isOrderCollected } from '@/lib/utils';
 import { TeamFilter } from '@/components/TeamFilter';
@@ -196,6 +197,7 @@ const AccountReportProfit: React.FC = () => {
         (supabase as any)
           .from('customer_purchases')
           .select('*, bundle:logistic_bundles(name, sku)')
+          .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
           .gte('date_order', startDate)
           .lte('date_order', endDate)
           .order('created_at', { ascending: false })

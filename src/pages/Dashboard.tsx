@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { isPospadaBooking } from '@/lib/pospada';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -236,6 +237,7 @@ const Dashboard: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (!order.dateOrder) return false;
+      if (isPospadaBooking(order)) return false; // Pospada booking ≠ sale until Processed
       if (teamFilter && ((order as any).marketerIdStaff || '') !== teamFilter) return false;
       try {
         const orderDate = parseISO(order.dateOrder);
@@ -290,8 +292,11 @@ const Dashboard: React.FC = () => {
 
     // Total Sales
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
-    // Total Sales from Pospada bookings (orders with a pospada date).
-    const totalSalesPospada = filteredOrders.filter((o: any) => o.pospadaDate).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
+    // Booking value (open Pospada bookings keyed in this range) — its own card, not in Total Sales.
+    const totalSalesPospada = orders
+      .filter((o: any) => isPospadaBooking(o) && o.dateOrder >= startDate && o.dateOrder <= endDate
+        && (!teamFilter || (o.marketerIdStaff || '') === teamFilter))
+      .reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     // Collection = money in hand. CASH = paid upfront; COD = only after remittance
     // (date_payment stamped by the COD_REMITTED webhook). Returns = no money.
@@ -494,12 +499,13 @@ const Dashboard: React.FC = () => {
       averageKPK,
       closingRate,
     };
-  }, [filteredOrders, filteredSpends, filteredProspects]);
+  }, [filteredOrders, filteredSpends, filteredProspects, orders, startDate, endDate, teamFilter]);
 
   // Filter all orders by date range for logistic
   const filteredAllOrders = useMemo(() => {
     return allOrders.filter(order => {
       if (!order.date_order) return false;
+      if (isPospadaBooking(order)) return false; // Pospada booking ≠ sale / not yet for logistic
       try {
         const orderDate = parseISO(order.date_order);
         return isWithinInterval(orderDate, {
@@ -588,8 +594,10 @@ const Dashboard: React.FC = () => {
   const bodStats = useMemo(() => {
     // Total Sales
     const totalSales = filteredAllOrders.reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
-    // Total Sales from Pospada bookings (orders with a pospada date).
-    const totalSalesPospada = filteredAllOrders.filter((o: any) => o.pospada_date).reduce((sum, o) => sum + (Number(o.harga_jualan_sebenar) || 0), 0);
+    // Booking value (open Pospada bookings keyed in this range) — not in Total Sales.
+    const totalSalesPospada = allOrders
+      .filter((o: any) => isPospadaBooking(o) && o.date_order >= startDate && o.date_order <= endDate)
+      .reduce((sum, o) => sum + (Number(o.total_sale) || 0), 0);
 
     // Total Collection (orders with seo === 'Successful Delivery')
     const collectionOrders = filteredAllOrders.filter(o => o.seo === 'Successful Delivery');
@@ -756,7 +764,7 @@ const Dashboard: React.FC = () => {
       averageKPK,
       closingRate,
     };
-  }, [filteredAllOrders, filteredAllSpends, filteredAllProspects]);
+  }, [filteredAllOrders, filteredAllSpends, filteredAllProspects, allOrders, startDate, endDate]);
 
   // Chart data for BOD - Sales by date (Chart.js format)
   const bodChartData = useMemo(() => {
@@ -996,7 +1004,7 @@ const Dashboard: React.FC = () => {
           <StatCard className={KPI} icon={Package} tone="blue" label="TOTAL PARCEL" value={marketerStats.totalParcel} hint="Orders in period" />
           <StatCard className={KPI} icon={DollarSign} tone="green" label="TOTAL SALES" value={formatCurrency(marketerStats.totalSales)} hint="100%" />
           {pospadaEnabled && (
-            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(marketerStats.totalSalesPospada)} hint="Booking orders" />
+            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(marketerStats.totalSalesPospada)} hint="Booking — tak dikira dalam jualan" />
           )}
           <StatCard className={KPI} icon={DollarSign} tone="cyan" label="TOTAL COLLECTION" value={formatCurrency(marketerStats.totalCollection)} hint={formatPercent(marketerStats.collectionPercent)} />
           {/* Remaining = Total Sales - Collection - Return (outstanding COD) */}
@@ -1138,7 +1146,7 @@ const Dashboard: React.FC = () => {
         <div className={KPI_GRID}>
           <StatCard className={KPI} icon={DollarSign} tone="green" label="TOTAL SALES" value={formatCurrency(bodStats.totalSales)} hint="100%" />
           {pospadaEnabled && (
-            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(bodStats.totalSalesPospada)} hint="Booking orders" />
+            <StatCard className={KPI} icon={Calendar} tone="purple" label="TOTAL SALES POSPADA" value={formatCurrency(bodStats.totalSalesPospada)} hint="Booking — tak dikira dalam jualan" />
           )}
           <StatCard className={KPI} icon={CheckCircle} tone="cyan" label="TOTAL COLLECTION" value={formatCurrency(bodStats.totalCollection)} hint="Successful Delivery" />
           <StatCard className={KPI} icon={RotateCcw} tone="red" label="RETURN" value={formatCurrency(bodStats.totalReturn)} hint={formatPercent(bodStats.returnPercent)} />

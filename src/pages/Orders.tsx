@@ -10,11 +10,12 @@ import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { isPospadaBooking, processPospada } from '@/lib/pospada';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban, History, CalendarClock
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban, History, CalendarClock, Send
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { PageHeader, StatCard, EmptyState, MissingHint } from '@/components/common/SoftUI';
@@ -136,8 +137,11 @@ const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
   const isMarketer = profile?.role === 'marketer';
   const pospadaEnabled = usePospadaEnabled();
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState(getMalaysiaStartOfMonth());
-  const [endDate, setEndDate] = useState(getMalaysiaDate());
+  // History Pospada lists every open booking (they can be keyed in long before their date),
+  // so it starts with no date range.
+  const [startDate, setStartDate] = useState(pospada ? '' : getMalaysiaStartOfMonth());
+  const [endDate, setEndDate] = useState(pospada ? '' : getMalaysiaDate());
+  const [processingId, setProcessingId] = useState<string | null>(null);
   // Picked dates; the data follows startDate/endDate, which only change on Filter.
   const [pendingStart, setPendingStart] = useState(startDate);
   const [pendingEnd, setPendingEnd] = useState(endDate);
@@ -202,14 +206,38 @@ const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   // Widen the server-side fetch window if the user filters earlier than loaded
-  React.useEffect(() => { ensureOrdersFrom(startDate); }, [startDate]);
+  // (Open bookings are always loaded, so History Pospada's empty range doesn't need the full history.)
+  React.useEffect(() => { if (!pospada || startDate) ensureOrdersFrom(startDate); }, [startDate]);
+
+  // Process a booking: it becomes a normal order dated today → leaves History Pospada and
+  // Logistic → Order Pospada, shows in History and Logistic → Order, and counts as a sale.
+  const handleProcess = async (order: any) => {
+    const ok = window.confirm(
+      `Process booking ${order.idSale || ''}?\n\n` +
+      `Order ini akan jadi order biasa dengan tarikh order hari ini (${formatDMY(getMalaysiaDate())}), ` +
+      `masuk tab History dan Logistic → Order, dan mula dikira sebagai jualan.`,
+    );
+    if (!ok) return;
+    setProcessingId(order.id);
+    try {
+      const n = await processPospada([order.id]);
+      if (!n) throw new Error('Order ini bukan lagi booking Pending.');
+      toast({ title: 'Berjaya diproses', description: `${order.idSale || 'Order'} kini order biasa — ada di History & Logistic → Order.` });
+      await refreshData();
+    } catch (e: any) {
+      toast({ title: 'Gagal process', description: e?.message || 'Cuba lagi.', variant: 'destructive' });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // baseOrders = team + search + date only. The summary boxes are computed from
   // THIS set, so their totals stay stable and clicking a box narrows the table
   // (payment / delivery / collection) without changing the box numbers.
   const baseOrders = useMemo(() => {
     return orders.filter((order) => {
-      if (pospada && !order.pospadaDate) return false;
+      // History = real orders only; History Pospada = open bookings only (bookings aren't sales).
+      if (pospada !== isPospadaBooking(order)) return false;
       if (teamFilter && (order.marketerIdStaff || '') !== teamFilter) return false;
       const matchesSearch =
         order.noTempahan.toLowerCase().includes(search.toLowerCase()) ||
@@ -331,16 +359,24 @@ const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
       costPostage: { cash: sumCost(filteredOrders, false, o => o.kosPos || 0),    cod: sumCost(filteredOrders, true, o => o.kosPos || 0) },
     };
 
-    // Pospada = booking orders (have a pospada date).
-    const totalSalesPospada = filteredOrders.filter((o: any) => o.pospadaDate).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
 
     return {
       totalCustomer, totalSales, totalReturn, totalUnit, totalPending, totalShipped, totalCash, totalCOD,
       totalPickup, totalRejected, totalRemainingShip,
       totalRemaining, totalSalesRemaining, totalSuccess, totalSalesSuccess, totalSalesReturn,
-      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, totalSalesPospada, split
+      totalCollection, totalSalesCollection, totalCostProduct, totalCostPostage, split
     };
   }, [baseOrders]);
+
+  // Booking value (open Pospada bookings, same team/date filter). Shown on its own card —
+  // never part of Total Sales until the booking is Processed.
+  const bookingSales = useMemo(() => orders
+    .filter((o) => isPospadaBooking(o)
+      && (!teamFilter || (o.marketerIdStaff || '') === teamFilter)
+      && (!startDate || (o.dateOrder || o.tarikhTempahan) >= startDate)
+      && (!endDate || (o.dateOrder || o.tarikhTempahan) <= endDate))
+    .reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0),
+  [orders, teamFilter, startDate, endDate]);
 
   const resetFilters = () => {
     setSearch('');
@@ -997,7 +1033,8 @@ ${trackingUrl}`;
             icon={Calendar}
             tone="purple"
             label="Sales Pospada"
-            value={`RM ${formatRM(stats.totalSalesPospada)}`}
+            value={`RM ${formatRM(bookingSales)}`}
+            hint={pospada ? undefined : 'Booking — tak dikira dalam jualan'}
           />
         )}
 
@@ -1372,7 +1409,8 @@ ${trackingUrl}`;
                         >
                           {order.noTracking}
                         </a>
-                      ) : order.jenisPlatform !== 'Tiktok' ? (
+                      ) : order.jenisPlatform !== 'Tiktok' && !pospada ? (
+                        // A booking gets its tracking only after Process (from Logistic → Order).
                         <button
                           onClick={() => handleRegenerateClick(order)}
                           className="p-1.5 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
@@ -1477,6 +1515,19 @@ ${trackingUrl}`;
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {/* History Pospada: turn the booking into a normal order dated today. */}
+                        {pospada && (
+                          <Button
+                            size="sm"
+                            className="h-7 bg-emerald-600 px-2.5 text-xs text-white hover:bg-emerald-700"
+                            onClick={() => handleProcess(order)}
+                            disabled={processingId === order.id}
+                            title="Jadikan order biasa (tarikh order = hari ini)"
+                          >
+                            {processingId === order.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />}
+                            Process
+                          </Button>
+                        )}
                         {/* Invoice Icon - always visible */}
                         <a
                           href={`/invoice?order=${order.id}&type=customer`}

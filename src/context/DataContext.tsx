@@ -146,9 +146,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const buildOrdersQuery = () => {
+        // Orders from the window start, plus every open Pospada booking whatever its order
+        // date (History Pospada lists all of them; bookings are never counted as sales).
         let q = queryTable('customer_purchases')
           .select('*, bundle:logistic_bundles(name, skip_courier)')
-          .gte('date_order', ordersFrom)
+          .or(`date_order.gte.${ordersFrom},and(pospada_date.not.is.null,delivery_status.eq.Pending)`)
           .order('created_at', { ascending: false });
         if (shouldFilterByIdStaff && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);
         return q;
@@ -235,6 +237,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (data.kosPos !== undefined) upd.cost_postage = data.kosPos;
     if (data.notaStaff !== undefined) upd.nota_staff = data.notaStaff;
     if (data.pospadaDate !== undefined) upd.pospada_date = data.pospadaDate || null;
+    if (data.dateOrder !== undefined && data.dateOrder) upd.date_order = data.dateOrder;
     upd.updated_at = new Date().toISOString();
     const { error } = await queryTable('customer_purchases').update(upd).eq('id', id);
     if (error) throw error;

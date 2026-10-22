@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
 import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { useProductFilter } from '@/hooks/useProductFilter';
@@ -199,6 +200,7 @@ const AccountSalary: React.FC = () => {
         (supabase as any)
           .from('customer_purchases')
           .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount, bundle_id')
+          .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
           .gte('date_order', startDate)
           .lte('date_order', endDate)
       );
@@ -465,6 +467,7 @@ const AccountSalary: React.FC = () => {
       orderRows = await fetchAllRows(() => (supabase as any)
         .from('customer_purchases')
         .select('id_sale, date_order, name_customer, phone_customer, tracking_number, commission_amount, delivery_status, type_payment, date_payment, kurier, nota_staff, bundle:logistic_bundles(name, sku)')
+        .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
         .eq('marketer_id_staff', idStaff)
         .gte('date_order', startDate)
         .lte('date_order', endDate));

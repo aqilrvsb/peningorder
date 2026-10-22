@@ -6,6 +6,7 @@ import { useData } from '@/context/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
+import { isPospadaBooking } from '@/lib/pospada';
 import { useHidePickup } from '@/hooks/useHidePickup';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -191,6 +192,8 @@ const OrderForm: React.FC = () => {
   // Edit mode state
   const editOrder = location.state?.editOrder;
   const isEditMode = !!editOrder;
+  // Where Back / Save returns to: History Pospada when editing an open booking, else History.
+  const historyPath = editOrder && isPospadaBooking(editOrder) ? '/dashboard/orders/pospada' : '/dashboard/orders';
 
   // Admin lead order data (from Admin Leads page)
   const [adminLeadData, setAdminLeadData] = useState<{
@@ -931,11 +934,15 @@ const OrderForm: React.FC = () => {
       if (isEditMode) {
         const wasKurierOrder = editOrder.kurier !== 'PICKUP';
         const isNowKurierOrder = !isPickup;
+        // An open Pospada booking is only edited: no courier cancel / booking until it is Processed
+        // (its tracking and label, if any, stay as they are).
+        const editIsBooking = isPospadaBooking(editOrder);
+        if (editIsBooking) trackingNumber = editOrder.noTracking || '';
 
         // If it was a PD courier order, cancel the old shipment first (refunds credit)
         const PD_COURIERS = ['Ninjavan', 'Poslaju', 'JNT', 'DHL', 'SPX'];
         const wasPdOrder = PD_COURIERS.some((c) => editOrder.kurier?.includes(c));
-        if (wasKurierOrder && wasPdOrder && editOrder.noTracking) {
+        if (wasKurierOrder && wasPdOrder && editOrder.noTracking && !editIsBooking) {
           console.log('Cancelling old shipment:', editOrder.noTracking);
           const cancelled = await cancelCourierOrder(editOrder.noTracking);
           if (cancelled) {
@@ -950,7 +957,7 @@ const OrderForm: React.FC = () => {
 
         // Bundles set to "Tanpa tracking ParcelDaily" (e.g. MOMMYHANA) are saved without tracking.
         const editSkipsCourier = !!activeBundles.find(b => b.name === formData.produk)?.skipCourier;
-        if (isNowKurierOrder && !editSkipsCourier) {
+        if (isNowKurierOrder && !editSkipsCourier && !editIsBooking) {
           // Generate new sale ID for edit mode
           idSale = await generateSaleId();
           console.log('Generated new Sale ID for edit:', idSale);
@@ -1088,7 +1095,7 @@ const OrderForm: React.FC = () => {
         }
 
         // Waybill URL - use Poslaju PDF link if available
-        let newWaybillUrl = editWaybillPdfUrl || '';
+        let newWaybillUrl = editWaybillPdfUrl || (editIsBooking ? editOrder.waybillUrl || '' : '');
 
         // Use quantity from form (always 1 for edit mode)
         const editQuantity = formData.quantity || 1;
@@ -1488,7 +1495,7 @@ const OrderForm: React.FC = () => {
       // After EDIT, go back. After CREATE, STAY on the form and reset for the
       // next order so the user can key in another immediately (no page jump).
       if (isEditMode) {
-        navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders');
+        navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : historyPath);
       } else {
         // Reset per-order fields; keep platform/closing/customer type + payment
         // method + courier so repeat entry is fast.
@@ -1565,7 +1572,7 @@ const OrderForm: React.FC = () => {
           variant="ghost"
           size="icon"
           className="-ml-2 shrink-0"
-          onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
+          onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : historyPath)}
           aria-label="Kembali"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -2106,7 +2113,7 @@ const OrderForm: React.FC = () => {
               variant="outline"
               size="lg"
               className="w-full px-6 sm:w-auto"
-              onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : '/dashboard/orders')}
+              onClick={() => navigate(isAdminLeadOrder ? '/dashboard/admin/leads' : historyPath)}
             >
               Batal
             </Button>
