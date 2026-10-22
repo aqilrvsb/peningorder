@@ -199,8 +199,8 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
               ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking')),
             ],
           },
-          // No Finance group for marketers — Salary is a standalone top-level tab
-          // (rendered below), Report Profit is hidden.
+          // No Finance group for marketers — Salary and their own Report Profit are
+          // standalone top-level tabs (rendered below).
         ]
       : isLogistic
         ? baseRoleGroups.filter((g) => g.key === 'logistic').map((g) => ({
@@ -414,6 +414,19 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           >
             <Wallet className="w-5 h-5" />
             {!collapsed && <span className="text-sm">Salary</span>}
+          </Link>
+        )}
+
+        {/* Marketers: their own Report Profit (only their orders + spend). */}
+        {isMarketer && (
+          <Link
+            to="/dashboard/account/report-profit"
+            title={collapsed ? 'Report Profit' : undefined}
+            onClick={handleNavClick}
+            className={navLink(isItemActive('/dashboard/account/report-profit'), collapsed)}
+          >
+            <TrendingUp className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Report Profit</span>}
           </Link>
         )}
 

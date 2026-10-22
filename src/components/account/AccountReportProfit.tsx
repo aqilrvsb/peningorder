@@ -490,7 +490,7 @@ const AccountReportProfit: React.FC = () => {
       {/* Header */}
       <PageHeader
         title="Report Profit"
-        description="Profit analysis by marketer (including Return orders)"
+        description={isMarketer ? "Profit anda sahaja — order & spend anda (termasuk Return)" : "Profit analysis by marketer (including Return orders)"}
         icon={TrendingUp}
         tone="brand"
       />
@@ -552,7 +552,8 @@ const AccountReportProfit: React.FC = () => {
         <StatCard icon={Package} tone="purple" label="Cost Product" value={wrapVal(`RM ${formatNumber(totals.totalCostProduct)}`)} className={MONEY_CARD} />
         <StatCard icon={Truck} tone="orange" label="Postage" value={wrapVal(`RM ${formatNumber(totals.totalPostage)}`)} className={MONEY_CARD} />
         <StatCard icon={TrendingUp} tone="amber" label="ROAS" value={`${totals.roas.toFixed(2)}x`} className={MONEY_CARD} />
-        <StatCard icon={Receipt} tone="slate" label="Expenses" value={wrapVal(`RM ${formatNumber(expenseStats.total)}`)} className={MONEY_CARD} />
+        {/* Company Expenses are HQ overhead — not part of a staff member's own report. */}
+        {!isMarketer && <StatCard icon={Receipt} tone="slate" label="Expenses" value={wrapVal(`RM ${formatNumber(expenseStats.total)}`)} className={MONEY_CARD} />}
         <StatCard
           icon={totals.profitBySales >= 0 ? TrendingUp : TrendingDown}
           tone={totals.profitBySales >= 0 ? 'green' : 'red'}
@@ -608,10 +609,12 @@ const AccountReportProfit: React.FC = () => {
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.facebook.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.facebook.expense)}</span>
-              </div>
+              {!isMarketer && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Expenses:</span>
+                  <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.facebook.expense)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-2 pt-2 border-t border-blue-200 dark:border-blue-800">
                 <span className="font-semibold">Profit By Sales:</span>
                 <span className={`font-bold whitespace-nowrap ${platformTotals.facebook.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -662,10 +665,12 @@ const AccountReportProfit: React.FC = () => {
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.tiktok.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.tiktok.expense)}</span>
-              </div>
+              {!isMarketer && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Expenses:</span>
+                  <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.tiktok.expense)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-2 pt-2 border-t border-pink-200 dark:border-pink-800">
                 <span className="font-semibold">Profit By Sales:</span>
                 <span className={`font-bold whitespace-nowrap ${platformTotals.tiktok.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -716,10 +721,12 @@ const AccountReportProfit: React.FC = () => {
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.threads.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.threads.expense)}</span>
-              </div>
+              {!isMarketer && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Expenses:</span>
+                  <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.threads.expense)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <span className="font-semibold">Profit By Sales:</span>
                 <span className={`font-bold whitespace-nowrap ${platformTotals.threads.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -770,10 +777,12 @@ const AccountReportProfit: React.FC = () => {
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.database.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.database.expense)}</span>
-              </div>
+              {!isMarketer && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Expenses:</span>
+                  <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.database.expense)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-2 pt-2 border-t border-purple-200 dark:border-purple-800">
                 <span className="font-semibold">Profit By Sales:</span>
                 <span className={`font-bold whitespace-nowrap ${platformTotals.database.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -824,10 +833,12 @@ const AccountReportProfit: React.FC = () => {
                 <span className="text-muted-foreground">ROAS:</span>
                 <span className="font-semibold whitespace-nowrap text-amber-600">{platformTotals.google.roas.toFixed(2)}x</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">Expenses:</span>
-                <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.google.expense)}</span>
-              </div>
+              {!isMarketer && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Expenses:</span>
+                  <span className="font-semibold whitespace-nowrap text-slate-600">RM {formatNumber(platformTotals.google.expense)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-2 pt-2 border-t border-red-200 dark:border-red-800">
                 <span className="font-semibold">Profit By Sales:</span>
                 <span className={`font-bold whitespace-nowrap ${platformTotals.google.profitBySales >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -849,7 +860,7 @@ const AccountReportProfit: React.FC = () => {
           Profit figures here exclude company Expenses (not attributable per staff). */}
       <div className="bg-card border border-border/80 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><IconTile icon={Users} tone="purple" size="sm" /> Profit Team</h2>
+          <h2 className="font-semibold flex items-center gap-2"><IconTile icon={Users} tone="purple" size="sm" /> {isMarketer ? 'Profit Anda' : 'Profit Team'}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
