@@ -782,7 +782,7 @@ const LogisticBundleManagement = () => {
                 <span>
                   <span className="block text-sm font-medium">{isOwnCourier ? "Tanpa tracking kurier (brand hantar sendiri)" : "Tanpa tracking ParcelDaily"}</span>
                   <span className="block text-xs text-muted-foreground">
-                    Order bundle ini TIDAK dihantar ke {isOwnCourier ? "kurier (Ninja Van / Pos Laju / J&T)" : "ParcelDaily"} — tiada no. tracking dijana, dan terus masuk Shipped bila key-in (contoh: MOMMYHANA, brand hantar sendiri).
+                    Order bundle ini TIDAK dihantar ke {isOwnCourier ? "kurier (Ninja Van / Pos Laju / J&T)" : "ParcelDaily"} — tiada no. tracking dijana. Order tetap masuk Pending → Logistic → Order dulu, dan logistic tekan Shipped (contoh: MOMMYHANA, brand hantar sendiri).
                   </span>
                 </span>
                 <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />

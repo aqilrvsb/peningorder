@@ -237,7 +237,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
           .from("customer_purchases")
           .select(`
             *,
-            bundle:logistic_bundles(name, sku, base_cost, kos_postage_sm, kos_postage_ss)
+            bundle:logistic_bundles(name, sku, base_cost, kos_postage_sm, kos_postage_ss, skip_courier)
           `)
           .eq("delivery_status", "Pending");
         // Order: pospada_date IS NULL · Order Pospada: pospada_date IS NOT NULL (soonest first)
@@ -764,8 +764,9 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   };
 
   // Check if order needs tracking generation (courier orders without tracking)
+  // ("Tanpa tracking" bundles, e.g. MOMMYHANA, never get one — logistic just marks them Shipped.)
   const needsTrackingGeneration = (order: any) =>
-    !order.tracking_number && PD_COURIER_LABELS.includes(baseCourier(order.kurier));
+    !order.tracking_number && !order.bundle?.skip_courier && PD_COURIER_LABELS.includes(baseCourier(order.kurier));
 
   // An order not yet booked with ParcelDaily (no tracking) can switch courier;
   // Generate Tracking then books it with the new one.

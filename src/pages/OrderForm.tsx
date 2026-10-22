@@ -1107,13 +1107,12 @@ const OrderForm: React.FC = () => {
         // Determine final customer type to save for edit mode
         const editFinalCustomerType = formData.jenisCustomer === 'Prospect' ? determinedCustomerType : formData.jenisCustomer;
 
-        // Brand-shipped bundles (no tracking) are Shipped, not Pending, after an edit; an order
-        // already past Shipped (Success / Return …) keeps its status.
-        const editBrandShipped = editSkipsCourier && !isPickup && !isMarketplaceCourier && !editOrder.pospadaDate;
-        const editIsCashLike = formData.caraBayaran === 'CASH' || formData.caraBayaran === 'Pickup';
-        const editStatus = !editBrandShipped
-          ? 'Pending'
-          : (editOrder.deliveryStatus && editOrder.deliveryStatus !== 'Pending' ? editOrder.deliveryStatus : 'Shipped');
+        // Every order goes through Pending → Logistic Order (incl. "Tanpa tracking" bundles, no
+        // auto-Shipped). A "Tanpa tracking" order logistic already shipped keeps its status when
+        // edited, so editing it doesn't throw it back into the Order queue.
+        const editStatus = editSkipsCourier && editOrder.deliveryStatus && editOrder.deliveryStatus !== 'Pending'
+          ? editOrder.deliveryStatus
+          : 'Pending';
 
         // Update existing order in database - using new schema field names
         // IMPORTANT: Include delivery_status: 'Pending' because cancelling old NinjaVan tracking
@@ -1131,9 +1130,7 @@ const OrderForm: React.FC = () => {
             total_sale: formData.hargaJualan, // NEW: total_sale
             kurier,
             tracking_number: trackingNumber,
-            delivery_status: editStatus, // Pending after edit (webhook may set Return on cancel); brand-shipped = Shipped
-            ...(editBrandShipped && !editOrder.dateProcessed && { date_processed: dateOrder }),
-            ...(editBrandShipped && !editIsCashLike && !editOrder.seo && { seo: 'Shipped' }),
+            delivery_status: editStatus, // Pending after edit (webhook may set Return on cancel)
             jenis_platform: formData.jenisPlatform,
             jenis_customer: editFinalCustomerType,
             jenis_closing: formData.jenisClosing,
@@ -1182,14 +1179,12 @@ const OrderForm: React.FC = () => {
         // couriers, Pospada bookings (tracking is generated later by logistic) and
         // bundles set to "Tanpa tracking ParcelDaily" (e.g. MOMMYHANA — no tracking at all).
         const shouldCallKurier = !isPickup && !isMarketplaceCourier && !isPospada && !selectedBundle?.skipCourier;
-        // Bundles shipped by the brand ("Tanpa tracking ParcelDaily", e.g. MOMMYHANA) have no
-        // courier booking for logistic to do, so they skip the Order queue and go straight to
-        // Shipped — exactly like Logistic's "Shipped" action (COD seo = 'Shipped'; CASH keeps
-        // 'Successful Delivery'). Pospada bookings still wait for their date.
-        const brandShipped = !!selectedBundle?.skipCourier && !isPickup && !isMarketplaceCourier && !isPospada;
-        const keyinShipped = isMarketplaceCourier || brandShipped;
+        // Owner rule (2026-10-22): every courier order starts Pending and goes through Logistic →
+        // Order, including "Tanpa tracking" bundles (e.g. MOMMYHANA) — logistic marks them Shipped.
+        // Only marketplace couriers (Tiktok / Shopee) are Shipped at key-in.
+        const keyinShipped = isMarketplaceCourier;
         const isCashLike = formData.caraBayaran === 'CASH' || formData.caraBayaran === 'Pickup';
-        const keyinSeo = isCashLike ? 'Successful Delivery' : (brandShipped ? 'Shipped' : '');
+        const keyinSeo = isCashLike ? 'Successful Delivery' : '';
         let waybillPdfUrl = ''; // For Poslaju PDF link
 
         if (shouldCallKurier) {
@@ -1365,7 +1360,7 @@ const OrderForm: React.FC = () => {
               pd_order_id: pdOrderId || null, // ParcelDaily orderId for cancel/refund
               waybill_url: waybillUrl || null,
               bundle_id: selectedBundle?.id || null, // NEW: bundle_id
-              seo: keyinSeo || null, // CASH + Pickup auto-collected; brand-shipped COD = 'Shipped'
+              seo: keyinSeo || null, // CASH + Pickup auto-collected
             });
 
           if (insertError) throw insertError;
@@ -1413,7 +1408,7 @@ const OrderForm: React.FC = () => {
             commission: commissionAmount,
             pdOrderId: pdOrderId,
             waybillUrl: waybillUrl,
-            seo: keyinSeo, // CASH + Pickup auto-collected; brand-shipped COD = 'Shipped'
+            seo: keyinSeo, // CASH + Pickup auto-collected
             bundleId: selectedBundle?.id || '',
             pospadaDate: isPospada ? pospadaDate : null, // booking held for logistic to process on this date
           });
