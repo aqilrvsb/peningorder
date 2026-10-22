@@ -69,6 +69,7 @@ interface NavItem {
 const marketerItems: NavItem[] = [
   { label: 'Order', path: '/dashboard/orders/new', icon: <ClipboardList className="w-5 h-5" /> },
   { label: 'History', path: '/dashboard/orders', icon: <History className="w-5 h-5" /> },
+  { label: 'History Pospada', path: '/dashboard/orders/pospada', icon: <CalendarClock className="w-5 h-5" /> },
   { label: 'Leads', path: '/dashboard/prospects', icon: <Users className="w-5 h-5" /> },
   { label: 'Spend', path: '/dashboard/spend', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Reporting Spend', path: '/dashboard/reporting-spend', icon: <BarChart3 className="w-5 h-5" /> },
@@ -209,11 +210,14 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
           }))
         : baseRoleGroups;
 
-  // Pospada feature flag (Courier Settings). When off, hide the Order Pospada tab.
+  // Pospada feature flag (Courier Settings). When off, hide the Order Pospada + History Pospada tabs.
   const pospadaEnabled = usePospadaEnabled();
   const roleGroups: RoleGroup[] = pospadaEnabled
     ? roleGroupsRaw
-    : roleGroupsRaw.map((g) => ({ ...g, items: g.items.filter((i) => !i.path.endsWith('/order-pospada')) }));
+    : roleGroupsRaw.map((g) => ({
+        ...g,
+        items: g.items.filter((i) => !i.path.endsWith('/order-pospada') && !i.path.endsWith('/orders/pospada')),
+      }));
 
   // ParcelDaily credit balance (ParcelDaily clients only — BYOC tenants don't use ParcelDaily).
   const { provider: courierProvider } = useCourierProvider();

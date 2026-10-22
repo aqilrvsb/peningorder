@@ -23,6 +23,7 @@ import CheckoutPage from "./sales/CheckoutPage";
 const DashboardLayout = lazy(() => import("./components/layout/DashboardLayout"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Orders = lazy(() => import("./pages/Orders"));
+const OrdersPospada = lazy(() => import("./pages/OrdersPospada"));
 const OrderForm = lazy(() => import("./pages/OrderForm"));
 const Prospects = lazy(() => import("./pages/Prospects"));
 const Spend = lazy(() => import("./pages/Spend"));
@@ -196,6 +197,7 @@ const App = () => (
                     <Route index element={<DashboardHome />} />
                     {/* Marketer Role — client + their marketer staff */}
                     <Route path="orders" element={marketerAllowed(<Orders />)} />
+                    <Route path="orders/pospada" element={marketerAllowed(<OrdersPospada />)} />
                     <Route path="orders/new" element={marketerAllowed(<OrderForm />)} />
                     <Route path="prospects" element={marketerAllowed(<Prospects />)} />
                     <Route path="spend" element={marketerAllowed(<Spend />)} />

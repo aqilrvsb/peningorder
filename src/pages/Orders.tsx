@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
   Search, RotateCcw, Download, Users, DollarSign, Package,
-  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban, History
+  Truck, RotateCw, Clock, Calendar, Pencil, Trash2, Car, FileText, MessageCircle, Receipt, Upload, Loader2, Printer, Ban, History, CalendarClock
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { PageHeader, StatCard, EmptyState, MissingHint } from '@/components/common/SoftUI';
@@ -127,7 +127,8 @@ const waLink = (phone: string): string | null => {
   return `https://wa.me/${d}`;
 };
 
-const Orders: React.FC = () => {
+// pospada = "History Pospada": the same page, listing only booking orders (with a pospada date).
+const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
   const navigate = useNavigate();
   const { orders, updateOrder, deleteOrder, refreshData, ensureOrdersFrom } = useData();
   const { bundles, products } = useBundles();
@@ -208,6 +209,7 @@ const Orders: React.FC = () => {
   // (payment / delivery / collection) without changing the box numbers.
   const baseOrders = useMemo(() => {
     return orders.filter((order) => {
+      if (pospada && !order.pospadaDate) return false;
       if (teamFilter && (order.marketerIdStaff || '') !== teamFilter) return false;
       const matchesSearch =
         order.noTempahan.toLowerCase().includes(search.toLowerCase()) ||
@@ -220,7 +222,7 @@ const Orders: React.FC = () => {
       const matchesEndDate = !endDate || orderDate <= endDate;
       return matchesSearch && matchesStartDate && matchesEndDate;
     });
-  }, [orders, search, startDate, endDate, teamFilter]);
+  }, [orders, search, startDate, endDate, teamFilter, pospada]);
 
   const filteredOrders = useMemo(() => {
     return baseOrders.filter((order) => {
@@ -429,7 +431,7 @@ ${trackingUrl}`;
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'order_history.csv';
+    a.download = pospada ? 'order_history_pospada.csv' : 'order_history.csv';
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -902,9 +904,9 @@ ${trackingUrl}`;
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Order History"
-        description="Monitor and manage your order history"
-        icon={History}
+        title={pospada ? "History Pospada" : "Order History"}
+        description={pospada ? "Order booking (Pospada) — sama seperti History, hanya order yang ada tarikh pospada" : "Monitor and manage your order history"}
+        icon={pospada ? CalendarClock : History}
         tone="brand"
       />
 
