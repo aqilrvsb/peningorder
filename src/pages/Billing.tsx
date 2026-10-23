@@ -149,7 +149,14 @@ const Billing: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         {PLAN_ORDER.map((key) => {
           const cfg = plans[key];
-          if (!cfg || (cfg as any).active === false) return null;
+          if (!cfg) return null;
+          // Bring Your Courier is a custom package the owner sets up: a client on it sees (and
+          // renews) only that plan, even while it's hidden from new sign-ups (active: false).
+          if (profilePlan === 'byoc') {
+            if (key !== 'byoc') return null;
+          } else if ((cfg as any).active === false) {
+            return null;
+          }
           const isCurrent = profilePlan === key && !isExpired;
           const isBest = key === 'growth';
           return (

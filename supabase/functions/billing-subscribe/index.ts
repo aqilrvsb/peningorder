@@ -58,15 +58,19 @@ serve(async (req) => {
       .maybeSingle();
     if (!settingRow) return fail(`Plan config missing: plan_${plan}`, 500);
     const cfg = settingRow.value as { price: number; days: number; label: string; active?: boolean };
-    // A switched-off plan (Admin → Pricing) can't be bought, even by calling this API directly.
-    if (cfg.active === false) return fail("plan_inactive");
 
-    // Load profile for name / whatsapp
+    // Load profile for name / whatsapp (+ current plan for the BYOC renewal rule below)
     const { data: profile } = await admin
       .from("profiles")
-      .select("full_name, business_name, whatsapp")
+      .select("full_name, business_name, whatsapp, plan")
       .eq("id", user.id)
       .maybeSingle();
+
+    // A switched-off plan (Admin → Pricing) can't be bought, even by calling this API directly —
+    // except Bring Your Courier (custom, set up by the owner): a client already on it may renew it
+    // while it stays hidden from new sign-ups.
+    const byocRenewal = plan === "byoc" && profile?.plan === "byoc";
+    if (cfg.active === false && !byocRenewal) return fail("plan_inactive");
     const fullName = profile?.full_name || user.email?.split("@")[0] || "User";
 
     // Create payment record in pending state
