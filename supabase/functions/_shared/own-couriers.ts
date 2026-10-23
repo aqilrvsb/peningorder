@@ -25,6 +25,7 @@ export interface OwnCourierConfig {
   customer_code: string | null;
   password: string | null;
   webhook_token: string;
+  merchant_ref_prefix?: string | null; // Ninja Van "Bisnes Owner" commission tag, e.g. "BISNESOWNER-Lavella"
 }
 
 /** Couriers whose booking adapter is live. The settings UI marks the rest "Akan datang". */
@@ -235,9 +236,10 @@ export async function ninjavanBook(service: any, cfg: OwnCourierConfig, s: OwnSe
     service_type: "Parcel",
     service_level: "Standard",
     requested_tracking_number: shortId(),
-    // Owner's Ninja Van "Bisnes Owner" commission tag — exactly the format DFR / Olive Jardin
-    // book with ("BISNESOWNER-DFR" + ID Sale). Don't change it, or the commission stops tracking.
-    reference: { merchant_order_number: cut(`BISNESOWNER-DFR${o.idSale || shortId()}`, 60) },
+    // Owner's Ninja Van "Bisnes Owner" commission tag: per-client prefix + ID Sale, the format DFR /
+    // Olive Jardin book with ("BISNESOWNER-DFR" + ID Sale). Set per client in
+    // own_courier_config.merchant_ref_prefix (e.g. "BISNESOWNER-Lavella"); empty = "BISNESOWNER-".
+    reference: { merchant_order_number: cut(`${clean(cfg.merchant_ref_prefix) || "BISNESOWNER-"}${o.idSale || shortId()}`, 60) },
     from: { name: s.name, phone_number: intlPhoneMY(s.phone), email: s.email, address: addr(s.line1, s.line2, s.postcode, s.city, s.state) },
     to: {
       name: o.customerName, phone_number: intlPhoneMY(o.phone), email: o.email,
