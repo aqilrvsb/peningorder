@@ -129,7 +129,7 @@ const Billing: React.FC = () => {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <p className="section-label">Current plan</p>
-            <p className="text-xl font-bold capitalize">{profilePlan}</p>
+            <p className="text-xl font-bold capitalize">{plans[profilePlan]?.label || profilePlan}</p>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Clock className="w-4 h-4" />
@@ -150,13 +150,8 @@ const Billing: React.FC = () => {
         {PLAN_ORDER.map((key) => {
           const cfg = plans[key];
           if (!cfg) return null;
-          // Bring Your Courier is a custom package the owner sets up: a client on it sees (and
-          // renews) only that plan, even while it's hidden from new sign-ups (active: false).
-          if (profilePlan === 'byoc') {
-            if (key !== 'byoc') return null;
-          } else if ((cfg as any).active === false) {
-            return null;
-          }
+          // Plans on sale, plus the client's own plan even if it was switched off later (so they can renew it).
+          if ((cfg as any).active === false && profilePlan !== key) return null;
           const isCurrent = profilePlan === key && !isExpired;
           const isBest = key === 'growth';
           return (
@@ -182,7 +177,7 @@ const Billing: React.FC = () => {
                   {cfg.max_orders_per_month >= 999999 ? 'Unlimited orders' : `${cfg.max_orders_per_month.toLocaleString()} orders / month`}
                 </li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />
-                  {key === 'byoc' ? 'Your own courier accounts (Ninja Van, Pos Laju, J&T)' : 'All 4 couriers (PD)'}
+                  {key === 'byoc' ? 'Akaun kurier sendiri (Ninja Van, Pos Laju) — tanpa ParcelDaily' : 'All 4 couriers (PD)'}
                 </li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Waybill bulk print</li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Auto tracking updates</li>

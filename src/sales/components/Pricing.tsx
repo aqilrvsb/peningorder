@@ -16,7 +16,7 @@ const BLURB: Record<PlanKey, string> = {
   starter: 'Untuk usahawan solo yang baru nak kemaskan order.',
   growth: 'Untuk bisnes membesar dengan volume order tinggi.',
   scale: 'Untuk brand established & team yang perlukan skala penuh.',
-  byoc: 'Untuk bisnes yang dah ada kontrak kurier sendiri (Ninja Van, Pos Laju, J&T).',
+  byoc: 'Untuk bisnes yang dah ada akaun / kontrak kurier sendiri — guna kurier anda, bukan ParcelDaily.',
 };
 const EXTRAS: Record<PlanKey, string[]> = {
   starter: ['Semua kurier (Poslaju, NinjaVan, J&T, DHL)', 'Print waybill pukal', 'Report untung asas'],
@@ -26,7 +26,7 @@ const EXTRAS: Record<PlanKey, string[]> = {
   ],
   scale: ['Semua dalam Growth', 'Order tanpa had', 'Priority support', 'Webhook & API access'],
   byoc: [
-    'Semua dalam Growth', 'Sambung terus akaun kurier sendiri (Ninja Van, Pos Laju, J&T)',
+    'Semua dalam Growth', 'Sambung terus akaun kurier sendiri (Ninja Van, Pos Laju · J&T akan datang)',
     'Tracking, waybill & status auto dari kurier anda', 'Kadar pos ikut kontrak kurier anda (tanpa ParcelDaily)',
   ],
 };
