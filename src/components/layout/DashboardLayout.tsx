@@ -1,8 +1,33 @@
 import React, { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Menu, UserCheck, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getImpersonation, stopImpersonation } from '@/lib/impersonation';
 import Sidebar from './Sidebar';
+
+// Superadmin viewing as a client (Admin → Clients → click email): a bar on every page says so and
+// switches back. Logout does the same (see AuthContext.signOut).
+const ImpersonationBar: React.FC = () => {
+  const imp = getImpersonation();
+  const [busy, setBusy] = useState(false);
+  if (!imp) return null;
+  return (
+    <div className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-sm font-medium text-amber-950">
+      <span className="inline-flex items-center gap-1.5">
+        <UserCheck className="h-4 w-4 shrink-0" />
+        Mod Admin — anda sedang lihat sebagai <b className="break-all">{imp.targetEmail || 'client'}</b>
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => { setBusy(true); await stopImpersonation(); }}
+        className="inline-flex items-center gap-1 rounded-md bg-amber-950 px-2.5 py-1 text-xs font-semibold text-amber-50 hover:bg-amber-900 disabled:opacity-60"
+      >
+        <LogOut className="h-3.5 w-3.5" /> {busy ? 'Kembali…' : 'Kembali ke Admin'}
+      </button>
+    </div>
+  );
+};
 
 // Soft-UI shell: grey frame (sidebar + gutters) around a white centre panel. The sidebar
 // stays put on desktop; on phones a sticky top bar opens it as a drawer.
@@ -36,6 +61,8 @@ const DashboardLayout: React.FC = () => {
   }
 
   return (
+    <>
+    <ImpersonationBar />
     <div className="flex min-h-screen bg-canvas">
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col md:py-3 md:pr-3">
@@ -58,6 +85,7 @@ const DashboardLayout: React.FC = () => {
         </main>
       </div>
     </div>
+    </>
   );
 };
 

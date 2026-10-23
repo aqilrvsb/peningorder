@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getImpersonation, stopImpersonation } from '@/lib/impersonation';
 import { UserRole } from '@/types';
 
 interface UserProfile {
@@ -130,6 +131,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
+    // Superadmin viewing as a client: go back to the admin instead — a normal (global) sign-out
+    // here would log the real client out of all their devices.
+    if (getImpersonation()) {
+      await stopImpersonation();
+      return;
+    }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

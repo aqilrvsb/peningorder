@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllRows } from '@/lib/utils';
+import { startImpersonation } from '@/lib/impersonation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,19 @@ const AdminClients: React.FC = () => {
       };
     },
   });
+
+  // ---- log in as client (impersonation) ----
+  const [loggingInAs, setLoggingInAs] = useState<string | null>(null);
+  const loginAs = async (p: any) => {
+    if (!window.confirm(`Log masuk sebagai ${p.email}?\n\nAnda akan lihat dashboard client ini. Tekan "Kembali ke Admin" (bar kuning di atas) untuk keluar.`)) return;
+    setLoggingInAs(p.id);
+    try {
+      await startImpersonation(p.id);
+    } catch (e: any) {
+      setLoggingInAs(null);
+      toast({ title: 'Gagal log masuk sebagai client', description: e?.message || String(e), variant: 'destructive' });
+    }
+  };
 
   // ---- edit dialog ----
   const [editing, setEditing] = useState<any>(null);
@@ -172,7 +186,16 @@ const AdminClients: React.FC = () => {
                     <tr key={p.id} className="border-t border-border hover:bg-muted/40">
                       <td className="p-3 font-mono whitespace-nowrap">{p.idstaff}</td>
                       <td className="p-3">
-                        <p className="font-medium">{p.email}</p>
+                        {/* Click → log in as this client (superadmin view; "Kembali ke Admin" switches back). */}
+                        <button
+                          type="button"
+                          onClick={() => loginAs(p)}
+                          disabled={!!loggingInAs}
+                          title="Log masuk sebagai client ini"
+                          className="text-left font-medium text-primary hover:underline disabled:opacity-60"
+                        >
+                          {loggingInAs === p.id ? 'Log masuk…' : p.email}
+                        </button>
                         <p className="text-xs text-muted-foreground">{p.business_name || p.full_name || '-'}{p.whatsapp ? ` · ${p.whatsapp}` : ''}</p>
                       </td>
                       <td className="p-3 capitalize">{p.plan || '-'}</td>
