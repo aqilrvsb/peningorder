@@ -46,6 +46,8 @@ import { courierWaybillUrls, openMergedWaybills } from "@/lib/courierWaybills";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
+import { useCourierProvider } from "@/hooks/useCourierProvider";
+import CodRemitImport from "./CodRemitImport";
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 // Stat cards: stack the icon above the value on phones so labels / RM hints aren't cut off.
 const STACK_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
@@ -65,6 +67,7 @@ const baseCourier = (kurier?: string | null): string => {
 const AccountPendingTracking = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isOwnCourier = useCourierProvider().provider === "own";
 
   const firstDay = getMalaysiaStartOfMonth();
   const lastDay = getMalaysiaEndOfMonth();
@@ -440,10 +443,21 @@ const AccountPendingTracking = () => {
         icon={DollarSign}
         tone="brand"
         actions={
-          <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-            Sync
-          </Button>
+          <>
+            {/* Own courier (Custom): no remittance API/webhook for Ninja Van, so Finance imports the paid list. */}
+            {isOwnCourier && (
+              <CodRemitImport
+                onDone={() => {
+                  queryClient.invalidateQueries({ queryKey: ["account-pending-tracking"] });
+                  queryClient.invalidateQueries({ queryKey: ["account-success-collection"] });
+                }}
+              />
+            )}
+            <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+              Sync
+            </Button>
+          </>
         }
       />
 

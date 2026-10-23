@@ -46,6 +46,11 @@ import { toast } from "sonner";
 import { PageHeader, IconTile, TableSkeleton, EmptyState, MissingHint } from "@/components/common/SoftUI";
 import { useCourierProvider } from "@/hooks/useCourierProvider";
 
+// Clients (owner account id) allowed to use the "Tanpa tracking" bundle switch.
+const SKIP_COURIER_OWNERS = [
+  "95f2d1be-6608-4456-a721-9c0b6807bc63", // akhirulnaim@gmail.com (MOMMYHANA — brand ships it)
+];
+
 interface BundleItem {
   productId: string;
   productName: string;
@@ -90,6 +95,8 @@ const LogisticBundleManagement = () => {
   const [skipCourier, setSkipCourier] = useState(false);
   // Wording follows the package: BYOC tenants book their own couriers, not ParcelDaily.
   const isOwnCourier = useCourierProvider().provider === "own";
+  // "Tanpa tracking" is only for clients the owner picked (owner + their staff); hidden for Custom.
+  const canSkipCourier = !isOwnCourier && SKIP_COURIER_OWNERS.includes(user?.parentUserId || user?.id || "");
 
   // Add item form
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -292,8 +299,8 @@ const LogisticBundleManagement = () => {
       custom_pickup: num(customPickup),
     };
     // Saved with the postage overrides (column isn't in the generated types yet).
-    // Own courier (Custom plan) has no "tanpa tracking" option — every order is booked with the courier.
-    const courierFlags = { skip_courier: isOwnCourier ? false : skipCourier };
+    // Only allowed clients can switch "tanpa tracking" on; for everyone else every order is booked with the courier.
+    const courierFlags = { skip_courier: canSkipCourier ? skipCourier : false };
     if (Object.values(postageOverrides).some((v) => v !== null && (isNaN(v) || v < 0))) {
       toast.error("Kos postage / COD / pickup mesti nombor 0 atau lebih");
       return;
@@ -791,8 +798,8 @@ const LogisticBundleManagement = () => {
                 </p>
               </div>
 
-              {/* ParcelDaily plans only — Custom (own courier) books every order with its courier. */}
-              {!isOwnCourier && (
+              {/* Only allowed clients (SKIP_COURIER_OWNERS), never Custom (own courier). */}
+              {canSkipCourier && (
                 <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
                   <span>
                     <span className="block text-sm font-medium">Tanpa tracking ParcelDaily</span>
