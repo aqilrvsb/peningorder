@@ -255,8 +255,9 @@ serve(async (req) => {
     };
     let m: any = await findRow();
     // Ninja Van's "Pending Pickup" can land a moment before the key-in has saved the order row.
-    // (Pos wants an answer within 5 seconds, so no wait there.)
-    if (!m && courier === "ninjavan") {
+    // Only that first event waits (the account may also ship from other apps, e.g. Bizapp, whose
+    // events never match here). Pos wants an answer within 5 seconds, so no wait there.
+    if (!m && courier === "ninjavan" && /^pending pickup$/i.test(status)) {
       await new Promise((r) => setTimeout(r, 5000));
       m = await findRow();
     }

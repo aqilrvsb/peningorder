@@ -235,7 +235,9 @@ export async function ninjavanBook(service: any, cfg: OwnCourierConfig, s: OwnSe
     service_type: "Parcel",
     service_level: "Standard",
     requested_tracking_number: shortId(),
-    reference: { merchant_order_number: cut(o.idSale || shortId(), 60) },
+    // Owner's Ninja Van "Bisnes Owner" commission tag — exactly the format DFR / Olive Jardin
+    // book with ("BISNESOWNER-DFR" + ID Sale). Don't change it, or the commission stops tracking.
+    reference: { merchant_order_number: cut(`BISNESOWNER-DFR${o.idSale || shortId()}`, 60) },
     from: { name: s.name, phone_number: intlPhoneMY(s.phone), email: s.email, address: addr(s.line1, s.line2, s.postcode, s.city, s.state) },
     to: {
       name: o.customerName, phone_number: intlPhoneMY(o.phone), email: o.email,
