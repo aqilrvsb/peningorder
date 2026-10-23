@@ -292,9 +292,15 @@ const LogisticBundleManagement = () => {
       custom_pickup: num(customPickup),
     };
     // Saved with the postage overrides (column isn't in the generated types yet).
-    const courierFlags = { skip_courier: skipCourier };
+    // Own courier (Custom plan) has no "tanpa tracking" option — every order is booked with the courier.
+    const courierFlags = { skip_courier: isOwnCourier ? false : skipCourier };
     if (Object.values(postageOverrides).some((v) => v !== null && (isNaN(v) || v < 0))) {
       toast.error("Kos postage / COD / pickup mesti nombor 0 atau lebih");
+      return;
+    }
+    // Own courier has no auto price, so the bundle's postage is the only postage in profit & salary.
+    if (isOwnCourier && !(Number(postageOverrides.custom_postage) > 0)) {
+      toast.error("Sila isi Cost Postage (kos pos ikut kontrak kurier anda)");
       return;
     }
     if (postageOverrides.custom_postage !== null && customCodCharge.trim() === "") {
@@ -507,10 +513,10 @@ const LogisticBundleManagement = () => {
                       RM {Number(bundle.commission_rm || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-center text-xs whitespace-nowrap">
-                      {bundle.custom_postage == null && bundle.custom_pickup == null ? (
-                        isOwnCourier
-                          ? <span className="font-medium text-amber-600">Belum set</span>
-                          : <span className="text-muted-foreground">Auto (PD)</span>
+                      {isOwnCourier && !(Number(bundle.custom_postage) > 0) ? (
+                        <span className="font-medium text-red-600">Belum set</span>
+                      ) : bundle.custom_postage == null && bundle.custom_pickup == null ? (
+                        <span className="text-muted-foreground">Auto (PD)</span>
                       ) : (
                         <div className="space-y-0.5">
                           {bundle.custom_postage != null && (
@@ -743,18 +749,25 @@ const LogisticBundleManagement = () => {
 
               <div className="border-t pt-4 space-y-3">
                 <div>
-                  <h4 className="font-medium text-sm">Postage Bundle <span className="text-xs font-normal text-muted-foreground">(optional)</span></h4>
+                  <h4 className="font-medium text-sm">
+                    Postage Bundle{" "}
+                    {isOwnCourier
+                      ? <span className="text-xs font-semibold text-red-500">(wajib)</span>
+                      : <span className="text-xs font-normal text-muted-foreground">(optional)</span>}
+                  </h4>
                   <p className="text-xs text-muted-foreground">
                     {isOwnCourier
-                      ? "Isi kos pos ikut kontrak kurier anda — kos ini jadi postage dalam profit & salary (kurier sendiri tiada harga auto)."
+                      ? "Wajib isi kos pos ikut kontrak kurier anda — kos ini jadi postage dalam profit & salary (kurier sendiri tiada harga auto)."
                       : "Kosongkan untuk guna harga ParcelDaily (macam sekarang). Jika diisi, kos ini jadi postage utama dalam profit & salary. Harga ParcelDaily tetap disimpan sebagai rujukan HQ."}
                   </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="customPostage" className="text-amber-600 font-medium">Cost Postage (RM)</Label>
+                    <Label htmlFor="customPostage" className="text-amber-600 font-medium">
+                      Cost Postage (RM){isOwnCourier && <span className="text-red-500"> *</span>}
+                    </Label>
                     <Input id="customPostage" type="number" min="0" step="0.01" value={customPostage}
-                      onChange={(e) => setCustomPostage(e.target.value)} placeholder={isOwnCourier ? "0.00" : "Auto (ParcelDaily)"}
+                      onChange={(e) => setCustomPostage(e.target.value)} placeholder={isOwnCourier ? "cth: 8.00" : "Auto (ParcelDaily)"}
                       className="border-amber-300 focus:border-amber-500" />
                   </div>
                   <div className="space-y-2">
@@ -778,15 +791,18 @@ const LogisticBundleManagement = () => {
                 </p>
               </div>
 
-              <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-                <span>
-                  <span className="block text-sm font-medium">{isOwnCourier ? "Tanpa tracking kurier (brand hantar sendiri)" : "Tanpa tracking ParcelDaily"}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Order bundle ini TIDAK dihantar ke {isOwnCourier ? "kurier (Ninja Van / Pos Laju / J&T)" : "ParcelDaily"} — tiada no. tracking dijana. Order tetap masuk Pending → Logistic → Order dulu, dan logistic tekan Shipped (contoh: MOMMYHANA, brand hantar sendiri).
+              {/* ParcelDaily plans only — Custom (own courier) books every order with its courier. */}
+              {!isOwnCourier && (
+                <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <span>
+                    <span className="block text-sm font-medium">Tanpa tracking ParcelDaily</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Order bundle ini TIDAK dihantar ke ParcelDaily — tiada no. tracking dijana. Order tetap masuk Pending → Logistic → Order dulu, dan logistic tekan Shipped (contoh: MOMMYHANA, brand hantar sendiri).
+                    </span>
                   </span>
-                </span>
-                <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />
-              </label>
+                  <Switch checked={skipCourier} onCheckedChange={setSkipCourier} />
+                </label>
+              )}
             </div>
 
             {/* Summary */}
@@ -811,6 +827,7 @@ const LogisticBundleManagement = () => {
             items={[
               { label: "Bundle Name", done: !!bundleName.trim() },
               { label: "Bundle Products", done: bundleItems.length > 0 },
+              ...(isOwnCourier ? [{ label: "Cost Postage", done: Number(customPostage) > 0 }] : []),
               ...(customPostage.trim() !== ""
                 ? [{ label: "COD Charges", done: customCodCharge.trim() !== "" }]
                 : []),
