@@ -31,6 +31,45 @@ const PLAN_ICONS: Record<string, React.ReactNode> = {
   byoc: <Truck className="w-6 h-6" />,
 };
 
+// Each package's look + its courier difference. Growth = brand blue (ParcelDaily), Custom (byoc) =
+// green (own courier accounts) so the two are told apart at a glance.
+interface PlanTheme {
+  bar: string; border: string; ring: string; tile: string; check: string; button: string;
+  box: string; boxTitle: string; tag?: string; tagClass?: string; tagline: string;
+  courierTitle: string; courierLines: string[];
+}
+const PLAN_THEME: Record<string, PlanTheme> = {
+  growth: {
+    bar: 'bg-brand', border: 'border-primary/40', ring: 'ring-primary/20', tile: 'icon-tile-brand', check: 'text-primary',
+    button: '', box: 'border-blue-200 bg-blue-50/70 dark:border-blue-500/30 dark:bg-blue-500/10', boxTitle: 'text-blue-700 dark:text-blue-300',
+    tag: 'Paling Popular', tagClass: 'bg-brand text-white', tagline: 'Sedia guna — tak perlu akaun kurier',
+    courierTitle: 'Kurier melalui ParcelDaily',
+    courierLines: ['Poslaju, Ninja Van, J&T, DHL — sedia guna', 'Bayar pos guna kredit ParcelDaily'],
+  },
+  byoc: {
+    bar: 'bg-gradient-to-r from-emerald-500 to-teal-500', border: 'border-emerald-300/70 dark:border-emerald-500/30', ring: 'ring-emerald-500/20',
+    tile: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm', check: 'text-emerald-600',
+    button: 'border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700',
+    box: 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-500/10', boxTitle: 'text-emerald-700 dark:text-emerald-300',
+    tag: 'Kurier Sendiri', tagClass: 'bg-emerald-600 text-white', tagline: 'Untuk bisnes yang ada akaun kurier sendiri',
+    courierTitle: 'Akaun kurier anda sendiri',
+    courierLines: ['Ninja Van, Pos Laju · J&T akan datang', 'Kadar pos ikut kontrak anda — tanpa ParcelDaily'],
+  },
+  default: {
+    bar: 'bg-slate-300', border: 'border-border/80', ring: 'ring-primary/20', tile: 'icon-tile-slate', check: 'text-emerald-600', button: '',
+    box: 'border-border bg-muted/40', boxTitle: 'text-foreground', tagline: '',
+    courierTitle: 'Kurier melalui ParcelDaily', courierLines: ['Poslaju, Ninja Van, J&T, DHL'],
+  },
+};
+// Same in every package.
+const COMMON_FEATURES = [
+  'Print waybill pukal',
+  'Tracking auto + notifikasi WhatsApp',
+  'Report Profit & PNL ikut platform',
+  'Gaji & komisyen auto',
+  'Tambah team percuma',
+];
+
 const Billing: React.FC = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -145,64 +184,91 @@ const Billing: React.FC = () => {
         </div>
       </div>
 
-      {/* Plan grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-        {PLAN_ORDER.map((key) => {
-          const cfg = plans[key];
-          if (!cfg) return null;
-          // Plans on sale, plus the client's own plan even if it was switched off later (so they can renew it).
-          if ((cfg as any).active === false && profilePlan !== key) return null;
-          const isCurrent = profilePlan === key && !isExpired;
-          const isBest = key === 'growth';
-          return (
-            <div
-              key={key}
-              className={`relative rounded-xl border bg-card p-6 flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isBest ? 'border-primary/60 shadow-md ring-2 ring-primary/10' : 'border-border/80 shadow-sm'}`}
-            >
-              {isBest && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded-full shadow-sm">
-                  Popular
-                </span>
-              )}
-              <div className="flex items-center gap-3 mb-3"><span className="icon-tile icon-tile-brand">{PLAN_ICONS[key]}</span><span className="font-semibold text-lg">{cfg.label}</span></div>
-              <div className="mb-4 flex flex-wrap items-baseline gap-1.5">
-                {Number((cfg as any).original_price) > cfg.price && (
-                  <span className="text-lg font-semibold text-muted-foreground line-through decoration-red-500/70">RM {(cfg as any).original_price}</span>
-                )}
-                <span className="text-3xl font-bold">RM {cfg.price}</span>
-                <span className="text-muted-foreground text-sm"> / {cfg.days} days</span>
-              </div>
-              <ul className="text-sm space-y-2 mb-6 flex-1">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />
-                  {cfg.max_orders_per_month >= 999999 ? 'Unlimited orders' : `${cfg.max_orders_per_month.toLocaleString()} orders / month`}
-                </li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />
-                  {key === 'byoc' ? 'Akaun kurier sendiri (Ninja Van, Pos Laju) — tanpa ParcelDaily' : 'All 4 couriers (PD)'}
-                </li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Waybill bulk print</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Auto tracking updates</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600" />Profit & expense reports</li>
-              </ul>
-              <Button
-                className="w-full"
-                variant={isCurrent ? 'outline' : 'default'}
-                disabled={!!subscribing || isCurrent}
-                onClick={() => handleSubscribe(key)}
-              >
-                {subscribing === key ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting...</>
-                ) : isCurrent ? (
-                  'Current Plan'
-                ) : profilePlan === key ? (
-                  'Renew'
-                ) : (
-                  `Get ${cfg.label}`
-                )}
-              </Button>
-            </div>
-          );
-        })}
-      </div>
+      {/* Plan grid — each package has its own colour, and the one thing that really differs
+          (how parcels are sent) sits in a highlighted box near the top. */}
+      {(() => {
+        // Plans on sale, plus the client's own plan even if it was switched off later (so they can renew it).
+        const visible = PLAN_ORDER.filter((key) => plans[key] && ((plans[key] as any).active !== false || profilePlan === key));
+        const grid = visible.length >= 3 ? 'md:grid-cols-3' : visible.length === 2 ? 'mx-auto max-w-4xl md:grid-cols-2' : 'mx-auto max-w-md';
+        return (
+          <div className={`grid grid-cols-1 gap-5 mb-10 ${grid}`}>
+            {visible.map((key) => {
+              const cfg = plans[key];
+              const t = PLAN_THEME[key] || PLAN_THEME.default;
+              const isCurrent = profilePlan === key && !isExpired;
+              const isOwnPlan = profilePlan === key;
+              return (
+                <div
+                  key={key}
+                  className={`relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.border} ${isCurrent ? 'ring-2 ' + t.ring : ''}`}
+                >
+                  <div className={`h-1.5 w-full ${t.bar}`} />
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`icon-tile ${t.tile}`}>{PLAN_ICONS[key]}</span>
+                        <div>
+                          <p className="text-lg font-bold leading-tight">{cfg.label}</p>
+                          <p className="text-xs text-muted-foreground">{t.tagline}</p>
+                        </div>
+                      </div>
+                      {isCurrent ? (
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">Plan Semasa</span>
+                      ) : t.tag ? (
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${t.tagClass}`}>{t.tag}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-baseline gap-1.5">
+                      {Number((cfg as any).original_price) > cfg.price && (
+                        <span className="text-lg font-semibold text-muted-foreground line-through decoration-red-500/70">RM{(cfg as any).original_price}</span>
+                      )}
+                      <span className="text-4xl font-extrabold tracking-tight">RM{cfg.price}</span>
+                      <span className="text-sm text-muted-foreground">/ {cfg.days} hari</span>
+                    </div>
+
+                    {/* The real difference between the packages */}
+                    <div className={`mt-5 rounded-xl border p-3.5 ${t.box}`}>
+                      <p className={`flex items-center gap-2 text-sm font-semibold ${t.boxTitle}`}>
+                        <Truck className="h-4 w-4 shrink-0" /> {t.courierTitle}
+                      </p>
+                      <ul className="mt-1.5 space-y-1 pl-6 text-xs text-muted-foreground">
+                        {t.courierLines.map((l) => <li key={l} className="list-disc">{l}</li>)}
+                      </ul>
+                    </div>
+
+                    <ul className="mt-5 mb-6 flex-1 space-y-2.5 text-sm">
+                      <li className="flex items-start gap-2"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${t.check}`} />
+                        {cfg.max_orders_per_month >= 999999 ? 'Order tanpa had' : `${cfg.max_orders_per_month.toLocaleString()} order / bulan`}
+                      </li>
+                      {COMMON_FEATURES.map((f) => (
+                        <li key={f} className="flex items-start gap-2"><Check className={`mt-0.5 h-4 w-4 shrink-0 ${t.check}`} />{f}</li>
+                      ))}
+                    </ul>
+
+                    <Button
+                      className={`w-full ${!isCurrent ? t.button : ''}`}
+                      variant={isCurrent ? 'outline' : 'default'}
+                      disabled={!!subscribing || isCurrent}
+                      onClick={() => handleSubscribe(key)}
+                    >
+                      {subscribing === key ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Membuka pembayaran…</>
+                      ) : isCurrent ? (
+                        'Plan Semasa'
+                      ) : isOwnPlan ? (
+                        `Sambung ${cfg.label}`
+                      ) : (
+                        `Pilih ${cfg.label}`
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Payment history */}
       <h2 className="font-semibold text-lg mb-3">Payment History</h2>
