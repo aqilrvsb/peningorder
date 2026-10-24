@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText, ClipboardCheck } from 'lucide-react';
+import { Users, Loader2, UserPlus, KeyRound, ShieldCheck, ShieldOff, Trash2, Copy, Check, Percent, Truck, Package, LayoutGrid, FileText, ClipboardCheck, Pencil } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { PageHeader, IconTile, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
@@ -25,6 +25,16 @@ const LOGISTIC_TABS: { key: string; label: string }[] = [
   { key: 'pending-tracking', label: 'Pending Tracking' },
 ];
 type BundleMin = { id: string; name: string };
+
+// Malaysian phone → "60…": accepts 0123456789, 123456789, +60…, 60… (and "60" + "012…").
+const normPhone = (v: string) => {
+  let d = (v || '').replace(/\D/g, '');
+  if (d.startsWith('600')) d = '60' + d.slice(3);
+  else if (d.startsWith('0')) d = '6' + d;
+  else if (d.startsWith('1') && d.length >= 9 && d.length <= 10) d = '60' + d;
+  return d;
+};
+const validPhone = (v: string) => /^60\d{8,11}$/.test(normPhone(v));
 
 const call = async (action: string, extra: Record<string, unknown> = {}) => {
   const { data, error } = await supabase.functions.invoke('team-staff', { body: { action, ...extra } });
@@ -69,6 +79,11 @@ const TeamManagement: React.FC = () => {
   const [invDialogFor, setInvDialogFor] = useState<Staff | null>(null);
   const [invDraft, setInvDraft] = useState({ full_name: '', address: '', phone: '' });
   const [savingInv, setSavingInv] = useState(false);
+  // Edit a staff's name + WhatsApp.
+  const [editFor, setEditFor] = useState<Staff | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['team-staff'],
@@ -89,12 +104,12 @@ const TeamManagement: React.FC = () => {
 
   const createStaff = async () => {
     if (name.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
-    if (!/^60\d{8,11}$/.test(whatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
+    if (!validPhone(whatsapp)) { toast({ title: 'No. WhatsApp tak sah', description: 'Contoh: 0123456789 atau 60123456789', variant: 'destructive' }); return; }
     // Password optional: blank → server uses the generated ID staff as password.
     if (password && password.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreating(true);
     try {
-      const res = await call('create', { name: name.trim(), whatsapp: whatsapp.replace(/\D/g, ''), password });
+      const res = await call('create', { name: name.trim(), whatsapp: normPhone(whatsapp), password });
       setLastCreated({ idstaff: res.idstaff, password: res.password || password });
       toast({ title: 'Staff dicipta', description: `ID Staff: ${res.idstaff}` });
       setName(''); setWhatsapp('60'); setPassword('');
@@ -108,12 +123,12 @@ const TeamManagement: React.FC = () => {
 
   const createLogistic = async () => {
     if (logName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
-    if (!/^60\d{8,11}$/.test(logWhatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
+    if (!validPhone(logWhatsapp)) { toast({ title: 'No. WhatsApp tak sah', description: 'Contoh: 0123456789 atau 60123456789', variant: 'destructive' }); return; }
     // Password optional: blank → server uses the generated ID staff as password.
     if (logPassword && logPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreatingLog(true);
     try {
-      const res = await call('create', { name: logName.trim(), whatsapp: logWhatsapp.replace(/\D/g, ''), password: logPassword, staff_role: 'logistic', product_scope: logScope });
+      const res = await call('create', { name: logName.trim(), whatsapp: normPhone(logWhatsapp), password: logPassword, staff_role: 'logistic', product_scope: logScope });
       setLastCreated({ idstaff: res.idstaff, password: res.password || logPassword });
       toast({ title: 'Akaun Logistic dicipta', description: `ID: ${res.idstaff}` });
       setLogName(''); setLogWhatsapp('60'); setLogPassword(''); setLogScope([]);
@@ -127,11 +142,11 @@ const TeamManagement: React.FC = () => {
 
   const createHr = async () => {
     if (hrName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
-    if (!/^60\d{8,11}$/.test(hrWhatsapp.replace(/\D/g, ''))) { toast({ title: 'No. WhatsApp tak sah', description: 'Format: 60123456789', variant: 'destructive' }); return; }
+    if (!validPhone(hrWhatsapp)) { toast({ title: 'No. WhatsApp tak sah', description: 'Contoh: 0123456789 atau 60123456789', variant: 'destructive' }); return; }
     if (hrPassword && hrPassword.length < 6) { toast({ title: 'Password minimum 6 aksara', variant: 'destructive' }); return; }
     setCreatingHr(true);
     try {
-      const res = await call('create', { name: hrName.trim(), whatsapp: hrWhatsapp.replace(/\D/g, ''), password: hrPassword, staff_role: 'hr' });
+      const res = await call('create', { name: hrName.trim(), whatsapp: normPhone(hrWhatsapp), password: hrPassword, staff_role: 'hr' });
       setLastCreated({ idstaff: res.idstaff, password: res.password || hrPassword });
       toast({ title: 'Akaun HR dicipta', description: `ID: ${res.idstaff}` });
       setHrName(''); setHrWhatsapp('60'); setHrPassword('');
@@ -220,6 +235,29 @@ const TeamManagement: React.FC = () => {
       toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
     } finally {
       setSavingInv(false);
+    }
+  };
+
+  const openEdit = (s: Staff) => {
+    setEditName(s.full_name || '');
+    setEditPhone(s.whatsapp || s.whatsapp_number || '');
+    setEditFor(s);
+  };
+  const saveEdit = async () => {
+    if (!editFor) return;
+    if (editName.trim().length < 2) { toast({ title: 'Nama diperlukan', variant: 'destructive' }); return; }
+    if (!validPhone(editPhone)) { toast({ title: 'No. WhatsApp tak sah', description: 'Contoh: 0123456789 atau 60123456789', variant: 'destructive' }); return; }
+    setSavingEdit(true);
+    try {
+      await call('set_profile', { user_id: editFor.id, name: editName.trim(), whatsapp: normPhone(editPhone) });
+      toast({ title: 'Staff dikemaskini', description: `${editFor.idstaff} · ${editName.trim()} · ${normPhone(editPhone)}` });
+      setEditFor(null);
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ['team-roster'] }); // names elsewhere in the app
+    } catch (e: any) {
+      toast({ title: 'Gagal', description: e.message === 'invalid_whatsapp' ? 'No. WhatsApp tak sah' : e.message, variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -335,7 +373,7 @@ const TeamManagement: React.FC = () => {
           </div>
           <div>
             <Label>No. WhatsApp</Label>
-            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" />
+            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0123456789" className="mt-1" />
           </div>
           <div>
             <Label>Password</Label>
@@ -346,7 +384,7 @@ const TeamManagement: React.FC = () => {
           className="mt-4"
           items={[
             { label: 'Nama Staff', done: name.trim().length >= 2 },
-            { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(whatsapp.replace(/\D/g, '')) },
+            { label: 'No. WhatsApp', done: validPhone(whatsapp) },
           ]}
         />
         <Button onClick={createStaff} disabled={creating} className="mt-4 w-full sm:w-auto">
@@ -381,6 +419,7 @@ const TeamManagement: React.FC = () => {
               <p className="text-xs mt-0.5 flex items-center gap-1 text-muted-foreground"><LayoutGrid className="w-3 h-3" /> Tab: <span className="font-medium text-foreground">{logisticAccount.hidden_tabs?.length ? `${logisticAccount.hidden_tabs.length} disembunyi` : 'Semua dipapar'}</span></p>
             </div>
             <div className="flex flex-wrap gap-1">
+              <Button size="sm" variant="ghost" title="Edit nama & no. WhatsApp" onClick={() => openEdit(logisticAccount)}><Pencil className="w-4 h-4 text-blue-600" /></Button>
               <Button size="sm" variant="ghost" title="Akses tab" onClick={() => openTabDialog(logisticAccount)}><LayoutGrid className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" title="Akses produk" onClick={() => openScopeDialog(logisticAccount)}><Package className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === logisticAccount.id} title="Reset password" onClick={() => resetPassword(logisticAccount)}><KeyRound className="w-4 h-4" /></Button>
@@ -392,7 +431,7 @@ const TeamManagement: React.FC = () => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label>Nama</Label><Input value={logName} onChange={(e) => setLogName(e.target.value)} placeholder="cth: Logistik" className="mt-1" /></div>
-              <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
+              <div><Label>No. WhatsApp</Label><Input value={logWhatsapp} onChange={(e) => setLogWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0123456789" className="mt-1" /></div>
               <div><Label>Password</Label><Input type="text" value={logPassword} onChange={(e) => setLogPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
             <div className="mt-4">
@@ -404,7 +443,7 @@ const TeamManagement: React.FC = () => {
               className="mt-4"
               items={[
                 { label: 'Nama', done: logName.trim().length >= 2 },
-                { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(logWhatsapp.replace(/\D/g, '')) },
+                { label: 'No. WhatsApp', done: validPhone(logWhatsapp) },
               ]}
             />
             <Button onClick={createLogistic} disabled={creatingLog} className="mt-4 w-full sm:w-auto">
@@ -426,6 +465,7 @@ const TeamManagement: React.FC = () => {
               <p className="text-xs text-muted-foreground">{hrAccount.full_name || '-'} · {hrAccount.whatsapp || hrAccount.whatsapp_number || '-'} · <span className={hrAccount.is_active ? 'text-green-600' : 'text-red-500'}>{hrAccount.is_active ? 'Aktif' : 'Nonaktif'}</span></p>
             </div>
             <div className="flex flex-wrap gap-1">
+              <Button size="sm" variant="ghost" title="Edit nama & no. WhatsApp" onClick={() => openEdit(hrAccount)}><Pencil className="w-4 h-4 text-blue-600" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Reset password" onClick={() => resetPassword(hrAccount)}><KeyRound className="w-4 h-4" /></Button>
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title={hrAccount.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(hrAccount)}>{hrAccount.is_active ? <ShieldOff className="w-4 h-4 text-red-500" /> : <ShieldCheck className="w-4 h-4 text-green-600" />}</Button>
               <Button size="sm" variant="ghost" disabled={busyId === hrAccount.id} title="Padam" onClick={() => removeStaff(hrAccount)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -435,14 +475,14 @@ const TeamManagement: React.FC = () => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><Label>Nama</Label><Input value={hrName} onChange={(e) => setHrName(e.target.value)} placeholder="cth: HR" className="mt-1" /></div>
-              <div><Label>No. WhatsApp</Label><Input value={hrWhatsapp} onChange={(e) => setHrWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="60123456789" className="mt-1" /></div>
+              <div><Label>No. WhatsApp</Label><Input value={hrWhatsapp} onChange={(e) => setHrWhatsapp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0123456789" className="mt-1" /></div>
               <div><Label>Password</Label><Input type="text" value={hrPassword} onChange={(e) => setHrPassword(e.target.value)} placeholder="Kosong = guna ID staff" className="mt-1" /></div>
             </div>
             <MissingHint
               className="mt-4"
               items={[
                 { label: 'Nama', done: hrName.trim().length >= 2 },
-                { label: 'No. WhatsApp (60…)', done: /^60\d{8,11}$/.test(hrWhatsapp.replace(/\D/g, '')) },
+                { label: 'No. WhatsApp', done: validPhone(hrWhatsapp) },
               ]}
             />
             <Button onClick={createHr} disabled={creatingHr} className="mt-4 w-full sm:w-auto">
@@ -529,6 +569,9 @@ const TeamManagement: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" title="Edit nama & no. WhatsApp" onClick={() => openEdit(s)}>
+                          <Pencil className="w-4 h-4 text-blue-600" />
+                        </Button>
                         <Button size="sm" variant="ghost" disabled={busyId === s.id} title="Reset password" onClick={() => resetPassword(s)}>
                           <KeyRound className="w-4 h-4" />
                         </Button>
@@ -553,6 +596,34 @@ const TeamManagement: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Edit a staff's name + WhatsApp */}
+      <Dialog open={!!editFor} onOpenChange={(o) => { if (!o && !savingEdit) setEditFor(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><IconTile icon={Pencil} tone="blue" size="sm" /> Edit Staff — {editFor?.idstaff}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nama</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nama staff" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>No. WhatsApp</Label>
+              <Input value={editPhone} inputMode="numeric" onChange={(e) => setEditPhone(e.target.value.replace(/[^0-9+]/g, ''))} placeholder="0123456789" />
+              <p className="text-xs text-muted-foreground">
+                Boleh taip 012… atau 6012… — disimpan sebagai <b className="font-mono text-foreground">{validPhone(editPhone) ? normPhone(editPhone) : '60…'}</b>
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditFor(null)} disabled={savingEdit}>Batal</Button>
+            <Button onClick={saveEdit} disabled={savingEdit || editName.trim().length < 2 || !validPhone(editPhone)}>
+              {savingEdit && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Per-staff invoice / salary-slip details */}
       <Dialog open={!!invDialogFor} onOpenChange={(o) => { if (!o) setInvDialogFor(null); }}>

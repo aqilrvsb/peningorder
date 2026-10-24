@@ -7,6 +7,7 @@
  *   list                                    -> the client's staff (the client's HR account may
  *                                              also list them, read-only, for the HR pages)
  *   reset_password { user_id, password }
+ *   set_profile { user_id, name, whatsapp }  -> edit name + WhatsApp (0… is turned into 60…)
  *   set_active { user_id, active }
  *   delete   { user_id }
  *
@@ -29,6 +30,16 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // "log in by ID staff" without us storing a real email.
 const STAFF_EMAIL_DOMAIN = "staff.peningorder.local";
 const staffEmail = (idstaff: string) => `${idstaff.toLowerCase().replace(/[^a-z0-9-]/g, "")}@${STAFF_EMAIL_DOMAIN}`;
+
+// Malaysian phone → "60…" (accepts 0123456789, 123456789, +60…, 60…).
+function normPhone(v: unknown): string {
+  let d = String(v ?? "").replace(/\D/g, "");
+  if (d.startsWith("600")) d = "60" + d.slice(3); // "60" prefilled + "012…" typed
+  else if (d.startsWith("0")) d = "6" + d;
+  else if (d.startsWith("1") && d.length >= 9 && d.length <= 10) d = "60" + d;
+  return d;
+}
+const validPhone = (d: string) => /^60\d{8,11}$/.test(d);
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -97,7 +108,7 @@ serve(async (req) => {
 
     if (action === "create") {
       const name = String(body?.name || "").trim();
-      const whatsapp = String(body?.whatsapp || "").replace(/\D/g, "");
+      const whatsapp = normPhone(body?.whatsapp);
       const password = String(body?.password || "");
       const staffRole = body?.staff_role === "logistic" ? "logistic" : body?.staff_role === "hr" ? "hr" : "marketer";
       if (name.length < 2) return json(400, { error: "invalid_name" });
@@ -167,6 +178,17 @@ serve(async (req) => {
       const { error } = await admin.auth.admin.updateUserById(targetId, { password });
       if (error) return json(500, { error: error.message });
       return json(200, { success: true });
+    }
+
+    if (action === "set_profile") {
+      // Edit a staff's name + WhatsApp (both phone columns kept the same).
+      const name = String(body?.name || "").trim().slice(0, 120);
+      const whatsapp = normPhone(body?.whatsapp);
+      if (name.length < 2) return json(400, { error: "invalid_name" });
+      if (!validPhone(whatsapp)) return json(400, { error: "invalid_whatsapp" });
+      const { error } = await admin.from("profiles").update({ full_name: name, whatsapp, whatsapp_number: whatsapp }).eq("id", targetId);
+      if (error) return json(500, { error: error.message });
+      return json(200, { success: true, full_name: name, whatsapp });
     }
 
     if (action === "set_active") {
