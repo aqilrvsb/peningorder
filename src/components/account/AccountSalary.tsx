@@ -483,8 +483,6 @@ const AccountSalary: React.FC = () => {
     const commissionCol: Col = { key: 'commission', label: 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
     // Effective commission cost (payout ÷ the revenue basis) — the CEO's "how expensive" lens.
     const komPctCol: Col = { key: 'kompct', label: 'Komisyen %', align: 'right', headClass: 'text-muted-foreground', cell: (r) => pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales), total: pctOf(totals.commission, totalBasis) };
-    // What the company keeps after paying the staff (profit sharing only) — PNL part only.
-    const bakiCol: Col = { key: 'baki', label: 'Baki Profit', align: 'right', headClass: 'text-green-700 dark:text-green-400', cell: (r) => <span className="text-green-700 dark:text-green-400">{fmtRM(r.base - (r.mainCommission ?? r.commission))}</span>, total: <span className="text-green-700 dark:text-green-400">{fmtRM(totals.base - totals.mainCommission)}</span> };
     // Bundles with their own Profit Sharing % (e.g. Ajwa 30% × Collection) — one column per %.
     const ruleCols: Col[] = productRules.map((rule, i) => ({
       key: `rule${i}`,
@@ -526,8 +524,8 @@ const AccountSalary: React.FC = () => {
     cols.push(pctCol);
     cols.push(...ruleCols);
     cols.push(commissionCol);
-    if (isProfitSharing) cols.push(bakiCol);
-    else cols.push(komPctCol);
+    // Profit sharing: no "Baki Profit" column (owner hid it 2026-10-24).
+    if (!isProfitSharing) cols.push(komPctCol);
     return cols;
   }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, productRules]);
 
@@ -548,9 +546,8 @@ const AccountSalary: React.FC = () => {
     if (isProfitSharing) out.push({ label: 'Total Gross Profit', value: fmtRM(totals.base), color: 'blue' });
     out.push(...ruleCards);
     out.push({ label: 'Total Commission', value: fmtRM(totals.commission), color: 'amber' });
-    // CEO lens: effective commission cost, and (profit sharing) what the company keeps.
-    if (isProfitSharing) out.push({ label: 'Baki Profit', value: fmtRM(totals.base - totals.mainCommission), color: 'green' });
-    else out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
+    // CEO lens: effective commission cost (percent direct). Profit sharing: no Baki Profit card (owner hid it).
+    if (!isProfitSharing) out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
     return out;
   }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules]);
 
