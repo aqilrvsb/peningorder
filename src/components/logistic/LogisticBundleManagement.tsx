@@ -91,6 +91,10 @@ const LogisticBundleManagement = () => {
   const [customPostage, setCustomPostage] = useState("");
   const [customCodCharge, setCustomCodCharge] = useState("");
   const [customPickup, setCustomPickup] = useState("");
+  // Optional Profit Sharing % for this bundle ("" = follow PNL Config). hadProfitShare: the
+  // bundle already had one, so clearing it must save null (and the field is only sent then).
+  const [profitShare, setProfitShare] = useState("");
+  const [hadProfitShare, setHadProfitShare] = useState(false);
   // "Tanpa tracking ParcelDaily" — orders for this bundle are never booked with PD (e.g. MOMMYHANA).
   const [skipCourier, setSkipCourier] = useState(false);
   // Wording follows the package: BYOC tenants book their own couriers, not ParcelDaily.
@@ -161,6 +165,8 @@ const LogisticBundleManagement = () => {
     setCustomPostage("");
     setCustomCodCharge("");
     setCustomPickup("");
+    setProfitShare("");
+    setHadProfitShare(false);
     setSkipCourier(false);
     setSelectedProductId("");
     setItemQuantity(1);
@@ -196,6 +202,8 @@ const LogisticBundleManagement = () => {
     setCustomPostage(opt(bundle.custom_postage));
     setCustomCodCharge(opt(bundle.custom_cod_charge));
     setCustomPickup(opt(bundle.custom_pickup));
+    setProfitShare(opt(bundle.profit_share_percent));
+    setHadProfitShare(bundle.profit_share_percent != null);
     setSkipCourier(!!bundle.skip_courier);
     // Parse SKU to reconstruct bundle items for editing
     const skuParts = (bundle.sku || "").split(" + ");
@@ -300,7 +308,16 @@ const LogisticBundleManagement = () => {
     };
     // Saved with the postage overrides (column isn't in the generated types yet).
     // Only allowed clients can switch "tanpa tracking" on; for everyone else every order is booked with the courier.
-    const courierFlags = { skip_courier: canSkipCourier ? skipCourier : false };
+    const ps = num(profitShare);
+    if (ps !== null && (isNaN(ps) || ps < 0 || ps > 100)) {
+      toast.error("Profit Sharing mesti 0 hingga 100 (%)");
+      return;
+    }
+    const courierFlags = {
+      skip_courier: canSkipCourier ? skipCourier : false,
+      // Only sent when set (or being cleared), so saving still works where the column is missing.
+      ...(ps !== null || hadProfitShare ? { profit_share_percent: ps } : {}),
+    };
     if (Object.values(postageOverrides).some((v) => v !== null && (isNaN(v) || v < 0))) {
       toast.error("Kos postage / COD / pickup mesti nombor 0 atau lebih");
       return;
@@ -498,8 +515,13 @@ const LogisticBundleManagement = () => {
                     <TableCell>
                       <p className="font-medium">{bundle.name}</p>
                       {bundle.skip_courier && (
-                        <span className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                        <span className="mt-0.5 mr-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
                           Tanpa tracking
+                        </span>
+                      )}
+                      {bundle.profit_share_percent != null && (
+                        <span className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                          Profit Sharing {Number(bundle.profit_share_percent)}%
                         </span>
                       )}
                     </TableCell>
@@ -751,6 +773,25 @@ const LogisticBundleManagement = () => {
                     className="border-blue-300 focus:border-blue-500"
                   />
                   <p className="text-xs text-muted-foreground">Commission paid per order for commission-order staff</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profitShare" className="text-emerald-600 font-medium">
+                    Profit Sharing (%) <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="profitShare"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={profitShare}
+                    onChange={(e) => setProfitShare(e.target.value)}
+                    placeholder="Ikut PNL Config"
+                    className="border-emerald-300 focus:border-emerald-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Bila PNL Config = Profit Sharing: komisyen order bundle ini = % × Collection (Cash + COD Collected). Kosong = ikut PNL Config.
+                  </p>
                 </div>
               </div>
 
