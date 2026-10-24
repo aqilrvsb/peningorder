@@ -88,6 +88,9 @@ interface SalaryRow {
   commission: number; // total = mainCommission + every bundle Profit Sharing commission
   qualifyOrders: number;
   mainCommission?: number; // PNL Config part only (older lock snapshots don't have it)
+  allSales?: number; // every order incl. bundle-% ones (Total Sales keseluruhan)
+  allReturn?: number;
+  pendingCod?: number; // COD delivered (Success) but not yet Collected
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
 }
 
@@ -100,6 +103,9 @@ interface ExtraCommission {
   orders: number;
   commission: number;
 }
+
+// Roles that don't earn sales commission — not listed on the Salary page.
+const NON_SALES_ROLES = new Set(['logistic', 'hr']);
 
 const AccountSalary: React.FC = () => {
   const { members, nameByIdstaff, invoiceByIdstaff } = useTeam();
@@ -315,9 +321,18 @@ const AccountSalary: React.FC = () => {
     const ruleAgg: Record<string, RuleAgg[]> = {};
     const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, coll: 0, cnt: 0 })));
 
+    // Whole-picture numbers per staff, every order (PNL + bundle %): Total Sales, Return,
+    // and COD delivered but not yet collected (same as Finance → Pending COD Collection).
+    const overall: Record<string, { sales: number; ret: number; pcod: number }> = {};
+
     productOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
+      const ov = (overall[id] ||= { sales: 0, ret: 0, pcod: 0 });
+      const s = Number(o.total_sale) || 0;
+      ov.sales += s;
+      if (o.delivery_status === 'Return') ov.ret += s;
+      if (o.type_payment === 'COD' && o.delivery_status === 'Success' && !o.date_payment) ov.pcod += s;
       const ri = ruleOfOrder(o);
       if (ri >= 0) {
         const ra = ensureRule(id)[ri];
@@ -343,7 +358,8 @@ const AccountSalary: React.FC = () => {
       ensure(id).spend += Number(s.total_spend) || 0;
     });
 
-    const staff = members.filter((m) => !m.is_client && m.is_active !== false && (!isMarketer || m.idstaff === ownIdStaff));
+    // Sales staff only — Logistic and HR don't earn sales commission.
+    const staff = members.filter((m) => !m.is_client && m.is_active !== false && !NON_SALES_ROLES.has(m.role || '') && (!isMarketer || m.idstaff === ownIdStaff));
 
     const matchTier = (kpi: number): Tier | null =>
       config.tiers.find((t) => kpi >= t.start && (t.end == null || kpi <= t.end)) || null;
@@ -361,11 +377,14 @@ const AccountSalary: React.FC = () => {
         return { label: rule.label, percent: rule.percent, sales: ra.sales, basis: ra.coll, orders: ra.cnt, commission: (ra.coll * rule.percent) / 100 };
       });
       const extraCommission = extras.reduce((s, e) => s + e.commission, 0);
+      const ov = overall[m.idstaff] || { sales: 0, ret: 0, pcod: 0 };
+      const whole = { allSales: ov.sales, allReturn: ov.ret, pendingCod: ov.pcod };
 
       // Komisyen Order: commission = sum of per-bundle komisyen for qualifying orders.
       if (komOrder) {
         const mainCommission = config.komisyen_basis === 'collection' ? a.komColl : a.komNett;
         return {
+          ...whole,
           idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
           totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
           collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
@@ -386,6 +405,7 @@ const AccountSalary: React.FC = () => {
             - (config.deduct_spend ? a.spend : 0);
       const mainCommission = tier ? (base * commissionPercent) / 100 : 0;
       return {
+        ...whole,
         idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
         totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
         collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
@@ -411,9 +431,13 @@ const AccountSalary: React.FC = () => {
       qualifyOrders: acc.qualifyOrders + r.qualifyOrders,
       extras: acc.extras.map((v, i) => v + (r.extras?.[i]?.commission || 0)),
       extrasBasis: acc.extrasBasis.map((v, i) => v + (r.extras?.[i]?.basis || 0)),
+      allSales: acc.allSales + (r.allSales ?? r.totalSales),
+      allReturn: acc.allReturn + (r.allReturn ?? r.returnSales),
+      pendingCod: acc.pendingCod + (r.pendingCod ?? 0),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
+      allSales: 0, allReturn: 0, pendingCod: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
@@ -431,10 +455,25 @@ const AccountSalary: React.FC = () => {
       { key: 'id', label: 'ID Staff', align: 'left', cell: (r) => <span className="font-mono">{r.idStaff}</span> },
       { key: 'name', label: 'Nama', align: 'left', cell: (r) => r.name },
     ];
-    const totalSalesCol: Col = { key: 'total', label: 'Total Sales', align: 'right', cell: (r) => fmtRM(r.totalSales), total: fmtRM(totals.totalSales) };
-    const nettCol: Col = { key: 'nett', label: 'Nett Sales', align: 'right', cell: (r) => fmtRM(r.nettSales), total: fmtRM(totals.nettSales) };
+    // Whole picture (every order, bundle-% ones included): Total Sales, Return (+ % of sales), Pending COD.
+    const retPct = (ret: number, sales: number) => (sales > 0 ? `${((ret / sales) * 100).toFixed(1)}%` : '0%');
+    const allSalesCol: Col = { key: 'all', label: 'Total Sales', align: 'right', headClass: 'text-foreground', cell: (r) => <span className="font-semibold">{fmtRM(r.allSales ?? r.totalSales)}</span>, total: fmtRM(totals.allSales) };
+    const allReturnCol: Col = {
+      key: 'allret', label: 'Return', align: 'right', headClass: 'text-red-600 dark:text-red-400',
+      cell: (r) => {
+        const ret = r.allReturn ?? r.returnSales;
+        return <span className="text-red-600 dark:text-red-400">{fmtRM(ret)}<span className="block text-[11px] text-muted-foreground">{retPct(ret, r.allSales ?? r.totalSales)} dari sales</span></span>;
+      },
+      total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.allReturn)}<span className="block text-[11px] font-normal text-muted-foreground">{retPct(totals.allReturn, totals.allSales)} dari sales</span></span>,
+    };
+    const pendingCodCol: Col = {
+      key: 'pcod', label: 'Pending COD', align: 'right', headClass: 'text-amber-600 dark:text-amber-400',
+      cell: (r) => <span className="text-amber-600 dark:text-amber-400">{fmtRM(r.pendingCod ?? 0)}</span>,
+      total: <span className="text-amber-600 dark:text-amber-400">{fmtRM(totals.pendingCod)}</span>,
+    };
+    cols.push(allSalesCol, allReturnCol, pendingCodCol);
+    const nettCol: Col = { key: 'nett', label: productRules.length ? 'Nett Sales (PNL)' : 'Nett Sales', align: 'right', cell: (r) => fmtRM(r.nettSales), total: fmtRM(totals.nettSales) };
     const collCol: Col = { key: 'coll', label: 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400', cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.collection)}</span>, total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.collection)}</span> };
-    const returnCol: Col = { key: 'return', label: 'Return', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.returnSales)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.returnSales)}</span> };
     const spendCol: Col = { key: 'spend', label: 'Spend', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.spend)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.spend)}</span> };
     const productCol: Col = { key: 'product', label: 'Cost Product', align: 'right', cell: (r) => fmtRM(r.costProduct), total: fmtRM(totals.costProduct) };
     const postageCol: Col = { key: 'postage', label: 'Postage', align: 'right', cell: (r) => fmtRM(r.postage), total: fmtRM(totals.postage) };
@@ -469,9 +508,7 @@ const AccountSalary: React.FC = () => {
     if (isKomisyenOrder) {
       // CEO view for a flat bundle-komisyen team: Total Sales, leakage (Return),
       // the collected figure when that's the basis, the payout and its effective
-      // rate. No Bil. Order, no Baki Profit (there's no cost side here).
-      cols.push(totalSalesCol);
-      cols.push(returnCol);
+      // rate. No Bil. Order, no Baki Profit (there's no cost side here). Total Sales + Return are above.
       if (basisIsCollection) cols.push(collCol);
       cols.push(...ruleCols);
       cols.push(commissionCol);
@@ -523,6 +560,13 @@ const AccountSalary: React.FC = () => {
       columns.forEach((c) => {
         if (c.key === 'id') row['ID Staff'] = r.idStaff;
         else if (c.key === 'name') row['Nama'] = r.name;
+        else if (c.key === 'all') row['Total Sales'] = (r.allSales ?? r.totalSales).toFixed(2);
+        else if (c.key === 'allret') {
+          const ret = r.allReturn ?? r.returnSales; const sales = r.allSales ?? r.totalSales;
+          row['Return'] = ret.toFixed(2);
+          row['Return %'] = sales > 0 ? `${((ret / sales) * 100).toFixed(1)}%` : '0%';
+        }
+        else if (c.key === 'pcod') row['Pending COD'] = (r.pendingCod ?? 0).toFixed(2);
         else if (c.key === 'total') row['Total Sales'] = r.totalSales.toFixed(2);
         else if (c.key === 'nett') row['Nett Sales'] = r.nettSales.toFixed(2);
         else if (c.key === 'coll') row['Collection'] = r.collection.toFixed(2);
