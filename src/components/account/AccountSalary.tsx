@@ -90,7 +90,8 @@ interface SalaryRow {
   mainCommission?: number; // PNL Config part only (older lock snapshots don't have it)
   allSales?: number; // every order incl. bundle-% ones (Total Sales keseluruhan)
   allReturn?: number;
-  pendingCod?: number; // COD delivered (Success) but not yet Collected
+  pendingCod?: number; // COD not yet Collected and not returned (Pending / Shipped / Success)
+  allCollection?: number; // Collection of every order (PNL + bundle %)
   commissionNett?: number; // Collection basis only: the same commission worked out on Nett Sales
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
 }
@@ -335,16 +336,19 @@ const AccountSalary: React.FC = () => {
 
     // Whole-picture numbers per staff, every order (PNL + bundle %): Total Sales, Return,
     // and COD delivered but not yet collected (same as Finance → Pending COD Collection).
-    const overall: Record<string, { sales: number; ret: number; pcod: number }> = {};
+    const overall: Record<string, { sales: number; ret: number; pcod: number; coll: number }> = {};
 
     productOrders.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
-      const ov = (overall[id] ||= { sales: 0, ret: 0, pcod: 0 });
+      const ov = (overall[id] ||= { sales: 0, ret: 0, pcod: 0, coll: 0 });
       const s = Number(o.total_sale) || 0;
       ov.sales += s;
       if (o.delivery_status === 'Return') ov.ret += s;
-      if (o.type_payment === 'COD' && o.delivery_status === 'Success' && !o.date_payment) ov.pcod += s;
+      // Collection (all products) + Pending COD = every COD not yet Collected and not returned
+      // (Pending / Shipped / Success) — so Total Sales − Return − Collection = Pending COD.
+      if (isSalaryCollected(o)) ov.coll += s;
+      else if (o.delivery_status !== 'Return' && o.delivery_status !== 'Failed') ov.pcod += s;
       const ri = ruleOfOrder(o);
       if (ri >= 0) {
         const ra = ensureRule(id)[ri];
@@ -396,8 +400,8 @@ const AccountSalary: React.FC = () => {
         return { label: rule.label, percent: rule.percent, sales: ra.sales, basis: ra.coll, orders: ra.cnt, commission: (ra.coll * rule.percent) / 100 };
       });
       const extraCommission = extras.reduce((s, e) => s + e.commission, 0);
-      const ov = overall[m.idstaff] || { sales: 0, ret: 0, pcod: 0 };
-      const whole = { allSales: ov.sales, allReturn: ov.ret, pendingCod: ov.pcod };
+      const ov = overall[m.idstaff] || { sales: 0, ret: 0, pcod: 0, coll: 0 };
+      const whole = { allSales: ov.sales, allReturn: ov.ret, pendingCod: ov.pcod, allCollection: ov.coll };
 
       // Komisyen Order: commission = sum of per-bundle komisyen for qualifying orders.
       if (komOrder) {
@@ -476,11 +480,12 @@ const AccountSalary: React.FC = () => {
       allSales: acc.allSales + (r.allSales ?? r.totalSales),
       allReturn: acc.allReturn + (r.allReturn ?? r.returnSales),
       pendingCod: acc.pendingCod + (r.pendingCod ?? 0),
+      allCollection: acc.allCollection + (r.allCollection ?? r.collection),
       commissionNett: acc.commissionNett + (r.commissionNett ?? 0),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
-      allSales: 0, allReturn: 0, pendingCod: 0, commissionNett: 0,
+      allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
@@ -515,8 +520,16 @@ const AccountSalary: React.FC = () => {
       total: <span className="text-amber-600 dark:text-amber-400">{fmtRM(totals.pendingCod)}</span>,
     };
     cols.push(allSalesCol, allReturnCol, pendingCodCol);
+    // Collection of every order, so Total Sales − Return − Collection = Pending COD. Skipped when it
+    // would repeat the PNL Collection column (Collection basis, no bundle %).
+    const showAllColl = productRules.length > 0 || !basisIsCollection || isKomisyenOrder;
+    if (showAllColl) cols.push({
+      key: 'allcoll', label: 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400',
+      cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.allCollection ?? r.collection)}</span>,
+      total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.allCollection)}</span>,
+    });
     const nettCol: Col = { key: 'nett', label: productRules.length ? 'Nett Sales (PNL)' : 'Nett Sales', align: 'right', cell: (r) => fmtRM(r.nettSales), total: fmtRM(totals.nettSales) };
-    const collCol: Col = { key: 'coll', label: 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400', cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.collection)}</span>, total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.collection)}</span> };
+    const collCol: Col = { key: 'coll', label: showAllColl ? 'Collection (PNL)' : 'Collection', align: 'right', headClass: 'text-green-600 dark:text-green-400', cell: (r) => <span className="text-green-600 dark:text-green-400">{fmtRM(r.collection)}</span>, total: <span className="text-green-600 dark:text-green-400">{fmtRM(totals.collection)}</span> };
     const spendCol: Col = { key: 'spend', label: 'Spend', align: 'right', headClass: 'text-red-600 dark:text-red-400', cell: (r) => <span className="text-red-600 dark:text-red-400">{fmtRM(r.spend)}</span>, total: <span className="text-red-600 dark:text-red-400">{fmtRM(totals.spend)}</span> };
     const productCol: Col = { key: 'product', label: 'Cost Product', align: 'right', cell: (r) => fmtRM(r.costProduct), total: fmtRM(totals.costProduct) };
     const postageCol: Col = { key: 'postage', label: 'Postage', align: 'right', cell: (r) => fmtRM(r.postage), total: fmtRM(totals.postage) };
@@ -611,9 +624,10 @@ const AccountSalary: React.FC = () => {
           row['Return %'] = sales > 0 ? `${((ret / sales) * 100).toFixed(1)}%` : '0%';
         }
         else if (c.key === 'pcod') row['Pending COD'] = (r.pendingCod ?? 0).toFixed(2);
+        else if (c.key === 'allcoll') row['Collection'] = (r.allCollection ?? r.collection).toFixed(2);
         else if (c.key === 'total') row['Total Sales'] = r.totalSales.toFixed(2);
         else if (c.key === 'nett') row['Nett Sales'] = r.nettSales.toFixed(2);
-        else if (c.key === 'coll') row['Collection'] = r.collection.toFixed(2);
+        else if (c.key === 'coll') row[c.label] = r.collection.toFixed(2);
         else if (c.key === 'return') row['Return'] = r.returnSales.toFixed(2);
         else if (c.key === 'spend') row['Spend'] = r.spend.toFixed(2);
         else if (c.key === 'product') row['Cost Product'] = r.costProduct.toFixed(2);
