@@ -91,6 +91,7 @@ interface SalaryRow {
   allSales?: number; // every order incl. bundle-% ones (Total Sales keseluruhan)
   allReturn?: number;
   pendingCod?: number; // COD delivered (Success) but not yet Collected
+  commissionNett?: number; // Collection basis only: the same commission worked out on Nett Sales
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
 }
 
@@ -298,6 +299,8 @@ const AccountSalary: React.FC = () => {
   // PNL Config = Profit Sharing → a bundle with its own % is paid on that instead:
   // % × Collection of its orders (Cash, even if returned, + COD Collected). Other bundles follow PNL Config.
   // One group per % (e.g. every Ajwa bundle at 30% → "Bundle 30%").
+  // Collection basis: also show the commission worked out on Nett Sales (owner 2026-10-25).
+  const showNettComm = !!config && config.revenue_basis === 'collection';
   const bundleShareOn = config?.commission_mode === 'profit_sharing' && config?.revenue_basis !== 'komisyen_order';
   const productRules = useMemo(() => {
     if (!bundleShareOn) return [] as { label: string; percent: number }[];
@@ -326,9 +329,9 @@ const AccountSalary: React.FC = () => {
     const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, costProductColl: 0, postageColl: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
     // Orders of a product paid on its own rule skip the PNL calc entirely.
-    type RuleAgg = { sales: number; coll: number; cnt: number };
+    type RuleAgg = { sales: number; ret: number; coll: number; cnt: number };
     const ruleAgg: Record<string, RuleAgg[]> = {};
-    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, coll: 0, cnt: 0 })));
+    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, ret: 0, coll: 0, cnt: 0 })));
 
     // Whole-picture numbers per staff, every order (PNL + bundle %): Total Sales, Return,
     // and COD delivered but not yet collected (same as Finance → Pending COD Collection).
@@ -347,6 +350,7 @@ const AccountSalary: React.FC = () => {
         const ra = ensureRule(id)[ri];
         const sale = Number(o.total_sale) || 0;
         ra.sales += sale;
+        if (o.delivery_status === 'Return') ra.ret += sale;
         if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; } // Cash (even if returned) + COD Collected
         return;
       }
@@ -388,7 +392,7 @@ const AccountSalary: React.FC = () => {
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
       const qualifyOrders = collBasis ? a.cntColl : a.cntNett;
       const extras: ExtraCommission[] = productRules.map((rule, i) => {
-        const ra = ruleAgg[m.idstaff]?.[i] || { sales: 0, coll: 0, cnt: 0 };
+        const ra = ruleAgg[m.idstaff]?.[i] || { sales: 0, ret: 0, coll: 0, cnt: 0 };
         return { label: rule.label, percent: rule.percent, sales: ra.sales, basis: ra.coll, orders: ra.cnt, commission: (ra.coll * rule.percent) / 100 };
       });
       const extraCommission = extras.reduce((s, e) => s + e.commission, 0);
@@ -422,6 +426,25 @@ const AccountSalary: React.FC = () => {
             - (config.deduct_product ? costProduct : 0)
             - (config.deduct_spend ? a.spend : 0);
       const mainCommission = tier ? (base * commissionPercent) / 100 : 0;
+
+      // Side-by-side figure when the basis is Collection (owner 2026-10-25): the same commission
+      // on Nett Sales (Sales − Return) — PNL part with every order's costs, plus bundle % × (sales − return).
+      let commissionNett: number | undefined;
+      if (config.revenue_basis === 'collection') {
+        const tierN = matchTier(config.kpi_type === 'roas' ? roas : nettSales);
+        const baseN = config.commission_mode === 'percent_direct'
+          ? nettSales
+          : nettSales
+              - (config.deduct_postage ? a.postage : 0)
+              - (config.deduct_product ? a.costProduct : 0)
+              - (config.deduct_spend ? a.spend : 0);
+        const mainN = tierN ? (baseN * tierN.value) / 100 : 0;
+        const extraN = productRules.reduce((s, rule, i) => {
+          const ra = ruleAgg[m.idstaff]?.[i];
+          return s + (ra ? ((ra.sales - ra.ret) * rule.percent) / 100 : 0);
+        }, 0);
+        commissionNett = mainN + extraN;
+      }
       return {
         ...whole,
         idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
@@ -429,6 +452,7 @@ const AccountSalary: React.FC = () => {
         collection: a.collection, spend: a.spend, costProduct, postage,
         revenue, base, roas, kpiValue, commissionPercent,
         commission: mainCommission + extraCommission, mainCommission, extras, qualifyOrders,
+        commissionNett,
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
@@ -452,10 +476,11 @@ const AccountSalary: React.FC = () => {
       allSales: acc.allSales + (r.allSales ?? r.totalSales),
       allReturn: acc.allReturn + (r.allReturn ?? r.returnSales),
       pendingCod: acc.pendingCod + (r.pendingCod ?? 0),
+      commissionNett: acc.commissionNett + (r.commissionNett ?? 0),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
-      allSales: 0, allReturn: 0, pendingCod: 0,
+      allSales: 0, allReturn: 0, pendingCod: 0, commissionNett: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
@@ -498,7 +523,9 @@ const AccountSalary: React.FC = () => {
     const grossCol: Col = { key: 'gross', label: 'Gross Profit', align: 'right', headClass: 'text-blue-600 dark:text-blue-400', cell: (r) => <span className="text-blue-600 dark:text-blue-400">{fmtRM(r.base)}</span>, total: <span className="text-blue-600 dark:text-blue-400">{fmtRM(totals.base)}</span> };
     const roasCol: Col = { key: 'roas', label: 'ROAS', align: 'right', headClass: 'text-amber-600 dark:text-amber-400', cell: (r) => <span className="text-amber-600 dark:text-amber-400">{r.roas.toFixed(2)}x</span> };
     const pctCol: Col = { key: 'pct', label: 'Comm %', align: 'right', cell: (r) => `${r.commissionPercent}%` };
-    const commissionCol: Col = { key: 'commission', label: 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
+    // Collection basis: the same commission on Nett Sales, shown next to it (owner 2026-10-25).
+    const commNettCol: Col = { key: 'commnett', label: 'Commission Nett Sales', align: 'right', headClass: 'text-purple-600 dark:text-purple-400 font-semibold', cell: (r) => <span className="font-bold text-purple-600 dark:text-purple-400">{fmtRM(r.commissionNett ?? 0)}</span>, total: <span className="font-bold text-purple-600 dark:text-purple-400">{fmtRM(totals.commissionNett)}</span> };
+    const commissionCol: Col = { key: 'commission', label: showNettComm ? 'Commission Collection' : 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
     // Effective commission cost (payout ÷ the revenue basis) — the CEO's "how expensive" lens.
     const komPctCol: Col = { key: 'kompct', label: 'Komisyen %', align: 'right', headClass: 'text-muted-foreground', cell: (r) => pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales), total: pctOf(totals.commission, totalBasis) };
     // Bundles with their own Profit Sharing % (e.g. Ajwa 30% × Collection) — one column per %.
@@ -542,10 +569,11 @@ const AccountSalary: React.FC = () => {
     cols.push(pctCol);
     cols.push(...ruleCols);
     cols.push(commissionCol);
+    if (showNettComm) cols.push(commNettCol);
     // Profit sharing: no "Baki Profit" column (owner hid it 2026-10-24).
     if (!isProfitSharing) cols.push(komPctCol);
     return cols;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, productRules]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, productRules, showNettComm]);
 
   // Summary cards, also config-driven.
   const cards = useMemo(() => {
@@ -563,11 +591,12 @@ const AccountSalary: React.FC = () => {
     out.push({ label: basisIsCollection ? 'Total Collection' : 'Total Nett Sales', value: fmtRM(basisIsCollection ? totals.collection : totals.nettSales), color: basisIsCollection ? 'green' : 'blue' });
     if (isProfitSharing) out.push({ label: 'Total Gross Profit', value: fmtRM(totals.base), color: 'blue' });
     out.push(...ruleCards);
-    out.push({ label: 'Total Commission', value: fmtRM(totals.commission), color: 'amber' });
+    out.push({ label: showNettComm ? 'Total Commission Collection' : 'Total Commission', value: fmtRM(totals.commission), color: 'amber' });
+    if (showNettComm) out.push({ label: 'Total Commission Nett Sales', value: fmtRM(totals.commissionNett), color: 'purple' });
     // CEO lens: effective commission cost (percent direct). Profit sharing: no Baki Profit card (owner hid it).
     if (!isProfitSharing) out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
     return out;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm]);
 
   const exportToXLSX = () => {
     const data = salaryRows.map((r, i) => {
@@ -593,7 +622,8 @@ const AccountSalary: React.FC = () => {
         else if (c.key === 'roas') row['ROAS'] = r.roas.toFixed(2);
         else if (c.key === 'pct') row['Comm %'] = r.commissionPercent;
         else if (c.key === 'orders') row['Bil. Order'] = r.qualifyOrders;
-        else if (c.key === 'commission') row['Commission'] = r.commission.toFixed(2);
+        else if (c.key === 'commission') row[showNettComm ? 'Commission Collection' : 'Commission'] = r.commission.toFixed(2);
+        else if (c.key === 'commnett') row['Commission Nett Sales'] = (r.commissionNett ?? 0).toFixed(2);
         else if (c.key === 'kompct') row['Komisyen %'] = pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales);
         else if (c.key === 'baki') row['Baki Profit'] = (r.base - (r.mainCommission ?? r.commission)).toFixed(2);
         else if (c.key.startsWith('rule')) {
@@ -942,7 +972,7 @@ const AccountSalary: React.FC = () => {
           {cards.map((c) => (
             <StatCard
               key={c.label}
-              icon={CARD_ICON[c.label] || (c.label.startsWith('Komisyen ') ? Coins : Wallet)}
+              icon={CARD_ICON[c.label] || (c.label.startsWith('Komisyen ') || c.label.includes('Commission') ? Coins : Wallet)}
               tone={(c.color as Tone) || 'slate'}
               label={c.label}
               value={wrapVal(c.value)}
