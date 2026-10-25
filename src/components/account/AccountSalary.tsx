@@ -313,8 +313,8 @@ const AccountSalary: React.FC = () => {
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
-    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; komNett: number; komColl: number; cntNett: number; cntColl: number }> = {};
-    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
+    const agg: Record<string, { totalSales: number; returnSales: number; collection: number; spend: number; costProduct: number; postage: number; costProductColl: number; postageColl: number; komNett: number; komColl: number; cntNett: number; cntColl: number }> = {};
+    const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, costProductColl: 0, postageColl: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
     // Orders of a product paid on its own rule skip the PNL calc entirely.
     type RuleAgg = { sales: number; coll: number; cnt: number };
@@ -350,6 +350,12 @@ const AccountSalary: React.FC = () => {
       if (isOrderCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
+      // Collection basis: costs follow the same orders as the sales counted (collected only);
+      // an order's cost comes in once it's collected.
+      if (isOrderCollected(o)) {
+        a.costProductColl += Number(o.cost_baseproduct) || 0;
+        a.postageColl += Number(o.cost_postage) || 0;
+      }
     });
     productSpends.forEach((s) => {
       const id = s.marketer_id_staff || '';
@@ -368,7 +374,7 @@ const AccountSalary: React.FC = () => {
     const collBasis = komOrder ? config.komisyen_basis === 'collection' : config.revenue_basis === 'collection';
 
     const rows = staff.map((m) => {
-      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 };
+      const a = agg[m.idstaff] || { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, costProductColl: 0, postageColl: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 };
       const nettSales = a.totalSales - a.returnSales;
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
       const qualifyOrders = collBasis ? a.cntColl : a.cntNett;
@@ -394,21 +400,24 @@ const AccountSalary: React.FC = () => {
       }
 
       const revenue = config.revenue_basis === 'collection' ? a.collection : nettSales;
+      // Collection basis → product cost & postage of the collected orders only (owner 2026-10-25).
+      const costProduct = config.revenue_basis === 'collection' ? a.costProductColl : a.costProduct;
+      const postage = config.revenue_basis === 'collection' ? a.postageColl : a.postage;
       const kpiValue = config.kpi_type === 'roas' ? roas : revenue;
       const tier = matchTier(kpiValue);
       const commissionPercent = tier?.value || 0;
       const base = config.commission_mode === 'percent_direct'
         ? revenue
         : revenue
-            - (config.deduct_postage ? a.postage : 0)
-            - (config.deduct_product ? a.costProduct : 0)
+            - (config.deduct_postage ? postage : 0)
+            - (config.deduct_product ? costProduct : 0)
             - (config.deduct_spend ? a.spend : 0);
       const mainCommission = tier ? (base * commissionPercent) / 100 : 0;
       return {
         ...whole,
         idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
         totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
-        collection: a.collection, spend: a.spend, costProduct: a.costProduct, postage: a.postage,
+        collection: a.collection, spend: a.spend, costProduct, postage,
         revenue, base, roas, kpiValue, commissionPercent,
         commission: mainCommission + extraCommission, mainCommission, extras, qualifyOrders,
       };
