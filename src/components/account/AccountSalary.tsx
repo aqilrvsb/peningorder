@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
-import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, isOrderCollected, formatDMY } from '@/lib/utils';
+import { getMalaysiaStartOfMonth, getMalaysiaEndOfMonth, fetchAllRows, formatDMY } from '@/lib/utils';
 import { useTeam } from '@/hooks/useTeam';
 import { useProductFilter } from '@/hooks/useProductFilter';
 import ProductFilter from '@/components/ProductFilter';
@@ -103,6 +103,15 @@ interface ExtraCommission {
   orders: number;
   commission: number;
 }
+
+// Salary "Collection" (owner 2026-10-25): Cash / Pickup = money already in, so it counts even when the
+// parcel is returned; COD counts only once marked Collected (date_payment), and a returned COD never does.
+const isSalaryCollected = (o: { type_payment?: string | null; kurier?: string | null; delivery_status?: string | null; date_payment?: string | null }) => {
+  const isCod = o.type_payment === 'COD' || (o.kurier || '').includes('COD');
+  if (!isCod) return true;
+  if (o.delivery_status === 'Return' || o.delivery_status === 'Failed') return false;
+  return !!o.date_payment;
+};
 
 // Roles that don't earn sales commission — not listed on the Salary page.
 const NON_SALES_ROLES = new Set(['logistic', 'hr']);
@@ -287,7 +296,7 @@ const AccountSalary: React.FC = () => {
     : config?.revenue_basis === 'collection';
 
   // PNL Config = Profit Sharing → a bundle with its own % is paid on that instead:
-  // % × Collection of its orders (Cash + COD Collected; Return never). Other bundles follow PNL Config.
+  // % × Collection of its orders (Cash, even if returned, + COD Collected). Other bundles follow PNL Config.
   // One group per % (e.g. every Ajwa bundle at 30% → "Bundle 30%").
   const bundleShareOn = config?.commission_mode === 'profit_sharing' && config?.revenue_basis !== 'komisyen_order';
   const productRules = useMemo(() => {
@@ -338,7 +347,7 @@ const AccountSalary: React.FC = () => {
         const ra = ensureRule(id)[ri];
         const sale = Number(o.total_sale) || 0;
         ra.sales += sale;
-        if (isOrderCollected(o)) { ra.coll += sale; ra.cnt += 1; } // Cash + COD Collected; Return never
+        if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; } // Cash (even if returned) + COD Collected
         return;
       }
       const a = ensure(id);
@@ -347,12 +356,12 @@ const AccountSalary: React.FC = () => {
       a.totalSales += sale;
       if (o.delivery_status === 'Return') a.returnSales += sale;
       else { a.komNett += comm; a.cntNett += 1; }            // basis "Total Sales − Return": all except Return
-      if (isOrderCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
+      if (isSalaryCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
       a.costProduct += Number(o.cost_baseproduct) || 0;
       a.postage += Number(o.cost_postage) || 0; // includes return-order postage
       // Collection basis: costs follow the same orders as the sales counted (collected only);
       // an order's cost comes in once it's collected.
-      if (isOrderCollected(o)) {
+      if (isSalaryCollected(o)) {
         a.costProductColl += Number(o.cost_baseproduct) || 0;
         a.postageColl += Number(o.cost_postage) || 0;
       }
@@ -626,7 +635,7 @@ const AccountSalary: React.FC = () => {
         .gte('date_order', startDate)
         .lte('date_order', endDate));
     } catch (_e) { orderRows = []; }
-    const qualifies = (o: any) => basisIsCollection ? isOrderCollected(o) : o.delivery_status !== 'Return';
+    const qualifies = (o: any) => basisIsCollection ? isSalaryCollected(o) : o.delivery_status !== 'Return';
     const map = new Map<string, BundleGroup>();
     // Products paid on their own rule are not bundle komisyen — they get their own slip line.
     orderRows.filter((o: any) => qualifies(o) && matchOrder(o) && ruleOfOrder(o) < 0).forEach((o: any) => {
@@ -842,7 +851,7 @@ const AccountSalary: React.FC = () => {
             <span>Asas: <b className="text-foreground">Komisyen Order</b> — komisyen bundle (setup Logistic), dikira untuk order <b className="text-foreground">{basisIsCollection ? 'yang dah Collect' : 'Total Sales − Return'}</b>.</span>
           ) : (
             <>
-              <span>Asas: <b className="text-foreground">{basisIsCollection ? 'Collection' : 'Nett Sales'}</b></span>
+              <span>Asas: <b className="text-foreground">{basisIsCollection ? 'Collection' : 'Nett Sales'}</b>{basisIsCollection && ' (Cash termasuk yang return + COD yang dah Collected)'}</span>
               <span>Komisyen: <b className="text-foreground">{isProfitSharing ? 'Profit Sharing (Gross)' : 'Percent Direct'}</b></span>
               {isProfitSharing && (
                 <span>Tolak: <b className="text-foreground">{[config.deduct_postage && 'Postage', config.deduct_product && 'Product', config.deduct_spend && 'Spend'].filter(Boolean).join(', ') || '—'}</b></span>
@@ -853,7 +862,7 @@ const AccountSalary: React.FC = () => {
           )}
           {productRules.length > 0 && (
             <span className="basis-full text-emerald-700 dark:text-emerald-400">
-              Bundle dengan Profit Sharing sendiri (<b>{productRules.map((r) => `${r.percent}%`).join(', ')}</b>): komisyen = <b>% × Collection</b> order bundle itu (Cash + COD yang dah Collected; Return tak dikira). Sales, kos & spend bundle ini tak masuk kiraan PNL di atas.
+              Bundle dengan Profit Sharing sendiri (<b>{productRules.map((r) => `${r.percent}%`).join(', ')}</b>): komisyen = <b>% × Collection</b> order bundle itu (Cash — termasuk yang return — + COD yang dah Collected; COD return tak dikira). Sales, kos & spend bundle ini tak masuk kiraan PNL di atas.
             </span>
           )}
         </div>
