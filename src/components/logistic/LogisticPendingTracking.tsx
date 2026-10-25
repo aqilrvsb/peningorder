@@ -139,7 +139,7 @@ const LogisticPendingTracking = () => {
           .from("customer_purchases")
           .select(`
             *,
-            bundle:logistic_bundles(name, sku)
+            bundle:logistic_bundles(name, sku, skip_courier)
           `)
           .eq("delivery_status", "Shipped")
           .order("date_order", { ascending: false });
@@ -161,7 +161,9 @@ const LogisticPendingTracking = () => {
     if ((order.kurier || '').toUpperCase().includes('PICKUP')) return false;
     // Exclude "Awaiting Handover" — courier hasn't collected the parcel yet, so
     // it isn't in transit. It still shows in the Shipped tab, just not here.
-    if (isAwaitingHandover(order)) return false;
+    // "Tanpa tracking" bundles (brand ships, e.g. MOMMYHANA/Ajwa) never get courier
+    // scans, so their status stays "Pending": once Shipped they ARE in transit.
+    if (!order.bundle?.skip_courier && isAwaitingHandover(order)) return false;
     // Platform filter
     if (platformFilter !== "all" && (order.jenis_platform || "Manual") !== platformFilter) return false;
 
