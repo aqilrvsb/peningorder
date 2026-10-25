@@ -193,10 +193,10 @@ const Sidebar: React.FC<{ mobileOpen?: boolean; onClose?: () => void }> = ({ mob
       ? [
           {
             ...baseRoleGroups[0],
-            // Marketer group minus Team, plus Pending Tracking (own orders only).
+            // Marketer group minus Team, plus Pending Tracking + Return (own orders only, view).
             items: [
               ...baseRoleGroups[0].items.filter((i) => i.path !== '/dashboard/team'),
-              ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking')),
+              ...logisticItems.filter((i) => i.path.endsWith('/pending-tracking') || i.path.endsWith('/logistics/return')),
             ],
           },
           // No Finance group for marketers — Salary and their own Report Profit are

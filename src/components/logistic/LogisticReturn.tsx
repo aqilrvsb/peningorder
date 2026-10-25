@@ -61,6 +61,9 @@ const baseCourier = (kurier?: string): string => {
 
 const LogisticReturn = () => {
   const { user } = useAuth();
+  // Marketer staff (Marketer Role → Return): their own returned orders only, view-only.
+  const isMarketer = user?.role === 'marketer';
+  const ownIdStaff = user?.idstaff || '';
   const queryClient = useQueryClient();
   const { provider: courierProvider } = useCourierProvider();
   const [viewingWaybillId, setViewingWaybillId] = useState<string | null>(null);
@@ -164,7 +167,8 @@ const LogisticReturn = () => {
 
   // Filter orders - using new schema field names
   const filteredOrders = orders.filter((order: any) => {
-    if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
+    const staffFilter = isMarketer ? ownIdStaff : teamFilter;
+    if (staffFilter && (order.marketer_id_staff || '') !== staffFilter) return false;
     // Search filter
     if (search.trim()) {
       const searchTerms = search.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
@@ -441,7 +445,7 @@ const LogisticReturn = () => {
                   className="pl-10"
                 />
               </div>
-              <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
+              {!isMarketer && <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />}
               <Button
                 onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}
                 className="h-10 w-full shrink-0 sm:w-auto"
@@ -675,7 +679,10 @@ const LogisticReturn = () => {
                             )}
                           </td>
                           <td className="p-2">
-                            {successOrderId === order.id ? (
+                            {/* Marketer can VIEW returns but not change them — only HQ / logistic. */}
+                            {isMarketer ? (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            ) : successOrderId === order.id ? (
                               <div className="flex items-center gap-1">
                                 <input
                                   type="date"

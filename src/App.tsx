@@ -220,7 +220,7 @@ const App = () => (
                     <Route path="logistics/order" element={logisticAllowed(<LogisticOrder />)} />
                     <Route path="logistics/order-pospada" element={logisticAllowed(<LogisticOrderPospada />)} />
                     <Route path="logistics/processed" element={logisticAllowed(<LogisticProcessed />)} />
-                    <Route path="logistics/return" element={logisticAllowed(<LogisticReturn />)} />
+                    <Route path="logistics/return" element={<RoleGate need="client" marketerOk logisticOk><LogisticReturn /></RoleGate>} />
                     <Route path="logistics/success" element={logisticAllowed(<LogisticSuccess />)} />
                     <Route path="logistics/rejected" element={logisticAllowed(<LogisticRejected />)} />
                     <Route path="logistics/pending-tracking" element={<RoleGate need="client" marketerOk logisticOk><LogisticPendingTracking /></RoleGate>} />
