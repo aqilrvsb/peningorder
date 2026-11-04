@@ -790,7 +790,7 @@ const LogisticBundleManagement = () => {
                     className="border-emerald-300 focus:border-emerald-500"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Bila PNL Config = Profit Sharing: komisyen order bundle ini = % × Collection (Cash + COD Collected). Kosong = ikut PNL Config.
+                    Bila PNL Config = Profit Sharing: komisyen order bundle ini = % × (Collection − Postage), Collection = Cash + COD Collected. Kosong = ikut PNL Config.
                   </p>
                 </div>
               </div>

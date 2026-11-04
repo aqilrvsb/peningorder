@@ -96,12 +96,13 @@ interface SalaryRow {
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
 }
 
-// Bundles with the same Profit Sharing %: percent × Collection (Cash + COD Collected).
+// Bundles with the same Profit Sharing %: percent × (Collection − postage of those orders).
 interface ExtraCommission {
   label: string;
   percent: number;
   sales: number;
   basis: number; // Collection of that product's orders
+  postage?: number; // postage of those collected orders (deducted before the %)
   orders: number;
   commission: number;
 }
@@ -298,7 +299,7 @@ const AccountSalary: React.FC = () => {
     : config?.revenue_basis === 'collection';
 
   // PNL Config = Profit Sharing → a bundle with its own % is paid on that instead:
-  // % × Collection of its orders (Cash, even if returned, + COD Collected). Other bundles follow PNL Config.
+  // % × (Collection − postage) of its orders (Cash, even if returned, + COD Collected). Other bundles follow PNL Config.
   // One group per % (e.g. every Ajwa bundle at 30% → "Bundle 30%").
   // Collection basis: also show the commission worked out on Nett Sales (owner 2026-10-25).
   const showNettComm = !!config && config.revenue_basis === 'collection';
@@ -330,9 +331,9 @@ const AccountSalary: React.FC = () => {
     const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, costProductColl: 0, postageColl: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
     // Orders of a product paid on its own rule skip the PNL calc entirely.
-    type RuleAgg = { sales: number; ret: number; coll: number; cnt: number };
+    type RuleAgg = { sales: number; ret: number; coll: number; cnt: number; post: number; postAll: number };
     const ruleAgg: Record<string, RuleAgg[]> = {};
-    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, ret: 0, coll: 0, cnt: 0 })));
+    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, ret: 0, coll: 0, cnt: 0, post: 0, postAll: 0 })));
 
     // Whole-picture numbers per staff, every order (PNL + bundle %): Total Sales, Return,
     // and COD delivered but not yet collected (same as Finance → Pending COD Collection).
@@ -355,7 +356,9 @@ const AccountSalary: React.FC = () => {
         const sale = Number(o.total_sale) || 0;
         ra.sales += sale;
         if (o.delivery_status === 'Return') ra.ret += sale;
-        if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; } // Cash (even if returned) + COD Collected
+        const pos = Number(o.cost_postage) || 0;
+        ra.postAll += pos;
+        if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; } // Cash (even if returned) + COD Collected
         return;
       }
       const a = ensure(id);
@@ -396,8 +399,9 @@ const AccountSalary: React.FC = () => {
       const roas = a.spend > 0 ? a.totalSales / a.spend : 0;
       const qualifyOrders = collBasis ? a.cntColl : a.cntNett;
       const extras: ExtraCommission[] = productRules.map((rule, i) => {
-        const ra = ruleAgg[m.idstaff]?.[i] || { sales: 0, ret: 0, coll: 0, cnt: 0 };
-        return { label: rule.label, percent: rule.percent, sales: ra.sales, basis: ra.coll, orders: ra.cnt, commission: (ra.coll * rule.percent) / 100 };
+        const ra = ruleAgg[m.idstaff]?.[i] || { sales: 0, ret: 0, coll: 0, cnt: 0, post: 0, postAll: 0 };
+        // Owner 2026-11-04: % × (Collection − postage of those collected orders).
+        return { label: rule.label, percent: rule.percent, sales: ra.sales, basis: ra.coll, postage: ra.post, orders: ra.cnt, commission: ((ra.coll - ra.post) * rule.percent) / 100 };
       });
       const extraCommission = extras.reduce((s, e) => s + e.commission, 0);
       const ov = overall[m.idstaff] || { sales: 0, ret: 0, pcod: 0, coll: 0 };
@@ -445,7 +449,7 @@ const AccountSalary: React.FC = () => {
         const mainN = tierN ? (baseN * tierN.value) / 100 : 0;
         const extraN = productRules.reduce((s, rule, i) => {
           const ra = ruleAgg[m.idstaff]?.[i];
-          return s + (ra ? ((ra.sales - ra.ret) * rule.percent) / 100 : 0);
+          return s + (ra ? ((ra.sales - ra.ret - ra.postAll) * rule.percent) / 100 : 0);
         }, 0);
         commissionNett = mainN + extraN;
       }
@@ -477,6 +481,7 @@ const AccountSalary: React.FC = () => {
       qualifyOrders: acc.qualifyOrders + r.qualifyOrders,
       extras: acc.extras.map((v, i) => v + (r.extras?.[i]?.commission || 0)),
       extrasBasis: acc.extrasBasis.map((v, i) => v + (r.extras?.[i]?.basis || 0)),
+      extrasPostage: acc.extrasPostage.map((v, i) => v + (r.extras?.[i]?.postage || 0)),
       allSales: acc.allSales + (r.allSales ?? r.totalSales),
       allReturn: acc.allReturn + (r.allReturn ?? r.returnSales),
       pendingCod: acc.pendingCod + (r.pendingCod ?? 0),
@@ -486,7 +491,7 @@ const AccountSalary: React.FC = () => {
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
       allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0,
-      extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0),
+      extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0), extrasPostage: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
 
@@ -541,7 +546,7 @@ const AccountSalary: React.FC = () => {
     const commissionCol: Col = { key: 'commission', label: showNettComm ? 'Commission Collection' : 'Commission', align: 'right', headClass: 'text-primary font-semibold', cell: (r) => <span className="font-bold text-primary">{fmtRM(r.commission)}</span>, total: <span className="font-bold text-primary">{fmtRM(totals.commission)}</span> };
     // Effective commission cost (payout ÷ the revenue basis) — the CEO's "how expensive" lens.
     const komPctCol: Col = { key: 'kompct', label: 'Komisyen %', align: 'right', headClass: 'text-muted-foreground', cell: (r) => pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales), total: pctOf(totals.commission, totalBasis) };
-    // Bundles with their own Profit Sharing % (e.g. Ajwa 30% × Collection) — one column per %.
+    // Bundles with their own Profit Sharing % (e.g. Ajwa 30% × (Collection − Postage)) — one column per %.
     const ruleCols: Col[] = productRules.map((rule, i) => ({
       key: `rule${i}`,
       label: rule.label,
@@ -550,13 +555,13 @@ const AccountSalary: React.FC = () => {
       cell: (r) => (
         <span className="text-emerald-600 dark:text-emerald-400">
           {fmtRM(r.extras?.[i]?.commission || 0)}
-          <span className="block text-[11px] text-muted-foreground">dari {fmtRM(r.extras?.[i]?.basis || 0)}</span>
+          <span className="block text-[11px] text-muted-foreground">dari {fmtRM(r.extras?.[i]?.basis || 0)} − pos {fmtRM(r.extras?.[i]?.postage || 0)}</span>
         </span>
       ),
       total: (
         <span className="text-emerald-600 dark:text-emerald-400">
           {fmtRM(totals.extras[i] || 0)}
-          <span className="block text-[11px] font-normal text-muted-foreground">dari {fmtRM(totals.extrasBasis[i] || 0)}</span>
+          <span className="block text-[11px] font-normal text-muted-foreground">dari {fmtRM(totals.extrasBasis[i] || 0)} − pos {fmtRM(totals.extrasPostage[i] || 0)}</span>
         </span>
       ),
     }));
@@ -728,7 +733,7 @@ const AccountSalary: React.FC = () => {
       const totalOrders = groups.reduce((s, g) => s + g.orders.length, 0);
       tableHead = `<tr><th class="desc">Bundle</th><th class="amt">Kuantiti</th><th class="amt">Komisyen</th></tr>`;
       rowsHtml = (groups.map((g, i) => `<tr class="clickable" onclick="showG(${i})"><td class="desc"><b>${esc(g.name)}</b>${g.sku ? ` <span style="color:#111827">(${esc(g.sku)})</span>` : ''} <span class="hint">— klik untuk lihat order</span></td><td class="amt">${g.orders.length}</td><td class="amt">${money(g.sum)}</td></tr>`).join('')
-        + extras.map((e) => `<tr class="strong"><td class="desc"><b>${esc(e.label)}</b> — ${e.percent}% × Collection ${money(e.basis)} <span class="hint">(Cash + COD Collected)</span></td><td class="amt">${e.orders}</td><td class="amt">${money(e.commission)}</td></tr>`).join(''))
+        + extras.map((e) => `<tr class="strong"><td class="desc"><b>${esc(e.label)}</b> — ${e.percent}% × (Collection ${money(e.basis)} − Postage ${money(e.postage || 0)}) <span class="hint">(Cash + COD Collected)</span></td><td class="amt">${e.orders}</td><td class="amt">${money(e.commission)}</td></tr>`).join(''))
         || `<tr><td class="desc" colspan="3" style="color:#9ca3af">Tiada order layak untuk tempoh ini.</td></tr>`;
       summaryRightHtml = `<div class="party" style="text-align:right"><div class="lbl">Ringkasan</div><div>Bil. Order: <b>${totalOrders}</b></div><div>Jumlah Bundle: <b>${groups.length}</b></div></div>`;
       modalHtml = `<div id="ov" class="ov" onclick="if(event.target===this)hideG()"><div class="mdl"><div class="mhead"><span id="mt"></span><button onclick="hideG()">&#10005;</button></div><div class="mbody"><table class="mtab"><thead><tr><th>ID Order</th><th>Tarikh</th><th>Produk</th><th>Nama</th><th>Telefon</th><th>Tracking</th><th class="amt">Komisyen</th></tr></thead><tbody id="mb"></tbody></table></div></div></div>`;
@@ -750,7 +755,8 @@ const AccountSalary: React.FC = () => {
       }
       extras.forEach((e) => {
         lines.push({ label: `${e.label} — Collection (Cash + COD Collected)`, amount: e.basis, sub: true });
-        lines.push({ label: `Komisyen ${e.label} — ${e.percent}% × Collection`, amount: e.commission, strong: true });
+        lines.push({ label: `${e.label} — (−) Kos Postage`, amount: -(e.postage || 0), muted: true });
+        lines.push({ label: `Komisyen ${e.label} — ${e.percent}% × (Collection − Postage)`, amount: e.commission, strong: true });
       });
       tableHead = `<tr><th class="desc">Keterangan</th><th class="amt">Jumlah</th></tr>`;
       rowsHtml = lines.map((l) => `<tr class="${l.strong ? 'strong' : ''} ${l.sub ? 'sub' : ''} ${l.muted ? 'muted' : ''}"><td class="desc">${esc(l.label)}</td><td class="amt">${l.amount < 0 ? '−' : ''}RM ${formatNumber(Math.abs(l.amount))}</td></tr>`).join('');
@@ -906,7 +912,7 @@ const AccountSalary: React.FC = () => {
           )}
           {productRules.length > 0 && (
             <span className="basis-full text-emerald-700 dark:text-emerald-400">
-              Bundle dengan Profit Sharing sendiri (<b>{productRules.map((r) => `${r.percent}%`).join(', ')}</b>): komisyen = <b>% × Collection</b> order bundle itu (Cash — termasuk yang return — + COD yang dah Collected; COD return tak dikira). Sales, kos & spend bundle ini tak masuk kiraan PNL di atas.
+              Bundle dengan Profit Sharing sendiri (<b>{productRules.map((r) => `${r.percent}%`).join(', ')}</b>): komisyen = <b>% × (Collection − Postage)</b> order bundle itu (Cash — termasuk yang return — + COD yang dah Collected; COD return tak dikira). Sales, kos & spend bundle ini tak masuk kiraan PNL di atas.
             </span>
           )}
         </div>
