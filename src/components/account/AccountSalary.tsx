@@ -116,6 +116,11 @@ const isSalaryCollected = (o: { type_payment?: string | null; kurier?: string | 
   return !!o.date_payment;
 };
 
+// Salary "Return" (owner 2026-11-04): only a returned COD. A Cash order is paid, so even when the
+// parcel comes back it stays a sale (counted in Nett Sales and Collection) and is not a Return.
+const isSalaryReturn = (o: { type_payment?: string | null; kurier?: string | null; delivery_status?: string | null }) =>
+  o.delivery_status === 'Return' && (o.type_payment === 'COD' || (o.kurier || '').includes('COD'));
+
 // Roles that don't earn sales commission — not listed on the Salary page.
 const NON_SALES_ROLES = new Set(['logistic', 'hr']);
 
@@ -345,7 +350,7 @@ const AccountSalary: React.FC = () => {
       const ov = (overall[id] ||= { sales: 0, ret: 0, pcod: 0, coll: 0 });
       const s = Number(o.total_sale) || 0;
       ov.sales += s;
-      if (o.delivery_status === 'Return') ov.ret += s;
+      if (isSalaryReturn(o)) ov.ret += s;
       // Collection (all products) + Pending COD = every COD not yet Collected and not returned
       // (Pending / Shipped / Success) — so Total Sales − Return − Collection = Pending COD.
       if (isSalaryCollected(o)) ov.coll += s;
@@ -355,9 +360,9 @@ const AccountSalary: React.FC = () => {
         const ra = ensureRule(id)[ri];
         const sale = Number(o.total_sale) || 0;
         ra.sales += sale;
-        if (o.delivery_status === 'Return') ra.ret += sale;
+        if (isSalaryReturn(o)) ra.ret += sale;
         const pos = Number(o.cost_postage) || 0;
-        ra.postAll += pos;
+        if (!isSalaryReturn(o)) ra.postAll += pos; // Nett: postage of the orders counted as sales only
         if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; } // Cash (even if returned) + COD Collected
         return;
       }
@@ -365,11 +370,15 @@ const AccountSalary: React.FC = () => {
       const sale = Number(o.total_sale) || 0;
       const comm = Number(o.commission_amount) || 0;
       a.totalSales += sale;
-      if (o.delivery_status === 'Return') a.returnSales += sale;
+      if (isSalaryReturn(o)) a.returnSales += sale;
       else { a.komNett += comm; a.cntNett += 1; }            // basis "Total Sales − Return": all except Return
       if (isSalaryCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
-      a.costProduct += Number(o.cost_baseproduct) || 0;
-      a.postage += Number(o.cost_postage) || 0; // includes return-order postage
+      // Nett Sales basis: costs follow the orders counted as sales (owner 2026-11-04) — a returned COD's
+      // product cost / postage aren't deducted, same as Collection only deducts collected orders.
+      if (!isSalaryReturn(o)) {
+        a.costProduct += Number(o.cost_baseproduct) || 0;
+        a.postage += Number(o.cost_postage) || 0;
+      }
       // Collection basis: costs follow the same orders as the sales counted (collected only);
       // an order's cost comes in once it's collected.
       if (isSalaryCollected(o)) {
@@ -684,7 +693,7 @@ const AccountSalary: React.FC = () => {
         .gte('date_order', startDate)
         .lte('date_order', endDate));
     } catch (_e) { orderRows = []; }
-    const qualifies = (o: any) => basisIsCollection ? isSalaryCollected(o) : o.delivery_status !== 'Return';
+    const qualifies = (o: any) => basisIsCollection ? isSalaryCollected(o) : !isSalaryReturn(o);
     const map = new Map<string, BundleGroup>();
     // Products paid on their own rule are not bundle komisyen — they get their own slip line.
     orderRows.filter((o: any) => qualifies(o) && matchOrder(o) && ruleOfOrder(o) < 0).forEach((o: any) => {
