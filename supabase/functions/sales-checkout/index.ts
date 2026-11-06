@@ -12,7 +12,8 @@
  *   2. Create the auth user with email_confirm=true, then mark the profile
  *      expired-until-paid (no free ride) and stash the temp password on the
  *      pending payment row.
- *   3. Alert admins of the new pending subscriber.
+ *   3. No admin alert yet for a paid plan — admins are WhatsApp'd only when the payment
+ *      succeeds (billing-webhook). A free (RM0) plan still alerts admins to approve it.
  *   4. Create a CHIP purchase; on payment the billing-webhook activates the
  *      plan and WhatsApps the client their login. If CHIP can't auto-confirm,
  *      the admin approves in Transactions (admin-payment-action) which does the
@@ -220,22 +221,23 @@ serve(async (req) => {
       return json(200, { success: true, account_created: true, chip_url: null, email: intent.email, warning: "payment_init_failed" });
     }
 
-    // Alert admins a new subscriber is waiting (they may need manual approval
-    // if CHIP can't auto-confirm via webhook).
-    await notifyAdmins(
-      `🆕 *PeningOrder — Pendaftaran Baru (Pending)*\n\n` +
-      `Name    : ${intent.full_name}\n` +
-      `Bisnes  : ${intent.business_name}\n` +
-      `Email   : ${intent.email}\n` +
-      `WhatsApp: ${intent.phone}\n` +
-      `Plan    : ${cfg.label} (RM${Number(cfg.price).toFixed(2)})\n\n` +
-      `Semak di Admin → Transactions.`,
-    ).catch(() => {});
+    // No "Pendaftaran Baru (Pending)" WhatsApp for paid plans (owner 2026-11-06): admins hear
+    // about a signup only once the payment succeeds (billing-webhook "Langganan Berjaya").
+    // Free promo (price 0) is the exception — there's no payment, so an admin must approve it.
 
     // Free promo (price 0): no CHIP. The account + pending payment already exist;
     // an admin activates it manually in Admin → Transactions (Approve), which
     // sends the WhatsApp login. Nothing is charged.
     if (Number(cfg.price) <= 0) {
+      await notifyAdmins(
+        `🆕 *PeningOrder — Pendaftaran Baru (Percuma, perlu Approve)*\n\n` +
+        `Name    : ${intent.full_name}\n` +
+        `Bisnes  : ${intent.business_name}\n` +
+        `Email   : ${intent.email}\n` +
+        `WhatsApp: ${intent.phone}\n` +
+        `Plan    : ${cfg.label} (RM0.00)\n\n` +
+        `Approve di Admin → Transactions.`,
+      ).catch(() => {});
       return json(200, { success: true, account_created: true, chip_url: null, free: true, email: intent.email });
     }
 
