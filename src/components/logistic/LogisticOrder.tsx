@@ -823,6 +823,10 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
   const handleSaveEdit = async () => {
     if (!editingOrder) return;
 
+    // Pickup = customer collects it: no courier, no tracking (the old booking is cancelled below).
+    const isPickup = editForm.paymentMethod === "Pickup";
+    if (!isPickup && !editForm.kurier) { toast.error("Pilih kurier"); return; }
+
     setIsSavingEdit(true);
 
     try {
@@ -869,7 +873,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         city_customer: editForm.city,
         phone_customer: editForm.phone,
         name_customer: editForm.customerName,
-        kurier: editForm.kurier,
+        kurier: isPickup ? "PICKUP" : editForm.kurier,
         // This tab only lists Pending orders; keep it Pending after an edit / re-book.
         delivery_status: "Pending",
         updated_at: new Date().toISOString(),
@@ -888,7 +892,8 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
 
           updateData.cost_baseproduct = (Number(bundle.base_cost) || 0) * qty;
           updateData.cost_hq = (Number(bundle.hq_cost) || 0) * qty;
-          updateData.cost_postage = basePostage + codFee;
+          // Pickup has no courier postage (the bundle's Cost Pickup, if set, is applied by the DB trigger).
+          updateData.cost_postage = isPickup ? 0 : basePostage + codFee;
           // Commission is the bundle's flat Komisyen Order (not multiplied by qty).
           updateData.commission_amount = Number(bundle.commission_rm) || 0;
         }
@@ -909,7 +914,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
       if (updateError) throw updateError;
 
       // Step 3: Generate new tracking based on selected courier (via Parcel Daily)
-      const selectedKurier = editForm.kurier || '';
+      const selectedKurier = isPickup ? '' : (editForm.kurier || ''); // Pickup never books a courier
       const PD_COURIER_CODES: Record<string, string> = {
         Poslaju: 'poslaju', Ninjavan: 'ninjavan', JNT: 'jnt', DHL: 'dhl', SPX: 'spx',
       };
@@ -965,6 +970,10 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         toast.success(result.trackingNumber
           ? `Order dikemaskini. Tracking baru: ${result.trackingNumber}`
           : "Order updated! Tracking akan tiba melalui webhook.");
+      } else if (isPickup) {
+        toast.success(hasExistingTracking && isPdOrder
+          ? "Order ditukar ke Self Pickup — tracking lama dibatalkan & dikosongkan"
+          : "Order ditukar ke Self Pickup");
       } else {
         toast.success("Order updated successfully");
       }
@@ -1579,14 +1588,23 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                 <Label htmlFor="paymentMethod">Payment Method</Label>
                 <Select
                   value={editForm.paymentMethod}
-                  onValueChange={(v) => setEditForm({ ...editForm, paymentMethod: v })}
+                  onValueChange={(v) => setEditForm((f: any) => {
+                    // Pickup = customer collects: no courier. Back to CASH/COD: courier keeps its name,
+                    // suffix follows the payment (e.g. "Ninjavan CASH" → "Ninjavan COD").
+                    if (v === "Pickup") return { ...f, paymentMethod: v, kurier: "PICKUP" };
+                    const base = f.kurier && f.kurier !== "PICKUP"
+                      ? String(f.kurier).replace(/\s+(COD|CASH)$/i, "")
+                      : (editingOrder ? courierChoices(editingOrder)[0] : "") || "";
+                    return { ...f, paymentMethod: v, kurier: base ? `${base} ${v}` : "" };
+                  })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Pilih" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CASH">CASH</SelectItem>
                     <SelectItem value="COD">COD</SelectItem>
+                    <SelectItem value="Pickup">Pickup (ambil sendiri)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1594,6 +1612,11 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
 
             <div className="space-y-2">
               <Label htmlFor="kurier">Kurier</Label>
+              {editForm.paymentMethod === "Pickup" ? (
+                <div className="flex h-10 items-center rounded-lg border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                  Self Pickup — tiada kurier
+                </div>
+              ) : (
               <Select
                 value={editForm.kurier}
                 onValueChange={(v) => setEditForm({ ...editForm, kurier: v })}
@@ -1609,11 +1632,12 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                       ? PD_COURIER_LABELS.filter((c) => allowedCouriers.some((a: string) => a.toLowerCase() === c.toLowerCase()))
                       : PD_COURIER_LABELS;
                     const opts = allowed.flatMap((c) => [`${c} COD`, `${c} CASH`]);
-                    if (editForm.kurier && !opts.includes(editForm.kurier)) opts.unshift(editForm.kurier);
+                    if (editForm.kurier && editForm.kurier !== "PICKUP" && !opts.includes(editForm.kurier)) opts.unshift(editForm.kurier);
                     return opts.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>);
                   })()}
                 </SelectContent>
               </Select>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1645,7 +1669,18 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
               />
             </div>
 
-            {editingOrder && (editForm.kurier?.includes('Poslaju') || editForm.kurier?.includes('Ninjavan')) && (
+            {editingOrder && editForm.paymentMethod === "Pickup" && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  <strong>Self Pickup:</strong> pelanggan ambil sendiri, tiada kurier.
+                  {editingOrder.tracking_number ? (
+                    <> Tracking <span className="font-mono">{editingOrder.tracking_number}</span> akan <b>dibatalkan</b> di kurier (kredit dipulangkan) dan dikosongkan. Buang waybill lama.</>
+                  ) : null}
+                </p>
+              </div>
+            )}
+
+            {editingOrder && editForm.paymentMethod !== "Pickup" && (editForm.kurier?.includes('Poslaju') || editForm.kurier?.includes('Ninjavan')) && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
                   <strong>Note:</strong> This is a {editForm.kurier?.includes('Poslaju') ? 'Poslaju' : 'NinjaVan'} order ({getOrderPlatform(editingOrder)}).
