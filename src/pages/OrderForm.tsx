@@ -1151,6 +1151,12 @@ const OrderForm: React.FC = () => {
             bundle_id: editBundleId, // Save selected product/bundle
             // Real shipping cost from the fresh PD quote (only when a new shipment was created)
             ...(pdShippingPrice != null && { cost_postage: pdShippingPrice }),
+            // Booking reference follows the tracking: a re-book saves the NEW reference; a cancelled
+            // booking with no re-book clears it. Keeping the old one let the old (cancelled) parcel's
+            // courier events land on this order, and a later edit/delete cancelled the wrong booking.
+            ...(pdOrderId
+              ? { pd_order_id: pdOrderId }
+              : (wasKurierOrder && wasPdOrder && editOrder.noTracking && !editIsBooking ? { pd_order_id: null } : {})),
             updated_at: new Date().toISOString(),
           })
           .eq('id', editOrder.id);

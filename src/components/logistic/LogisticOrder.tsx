@@ -55,6 +55,7 @@ import { ReceiptViewer } from "@/components/ReceiptViewer";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState, type Tone } from "@/components/common/SoftUI";
+import { TrackingLink } from '@/components/common/TrackingLink';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -1337,7 +1338,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
-                              <span className="font-mono text-xs">{order.tracking_number}</span>
+                              <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
                             ) : needsTrackingGeneration(order) && !pospada ? (
                               <Button
                                 variant="outline"

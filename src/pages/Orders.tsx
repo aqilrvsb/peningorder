@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/dialog';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { courierTrackUrl } from '@/components/common/TrackingLink';
 
 interface OrderForTracking {
   id: string;
@@ -104,19 +105,6 @@ const getMalaysiaStartOfMonth = () => {
   const year = malaysiaTime.getUTCFullYear();
   const month = String(malaysiaTime.getUTCMonth() + 1).padStart(2, '0');
   return `${year}-${month}-01`;
-};
-
-// Deep-link a tracking number to the courier's own tracking page. Unknown
-// couriers fall back to parcelsapp (auto-detects the courier from the number).
-const courierTrackUrl = (kurier: string, tn: string): string => {
-  const k = (kurier || '').toLowerCase();
-  const t = encodeURIComponent(tn || '');
-  if (k.includes('jnt') || k.includes('j&t')) return `https://www.jtexpress.my/tracking?billcode=${t}`;
-  if (k.includes('ninja')) return `https://www.ninjavan.co/en-my/tracking?id=${t}`;
-  if (k.includes('poslaju') || k.includes('pos ')) return `https://track.pos.com.my/postal-services/quick-access?track-trace=${t}`;
-  if (k.includes('dhl')) return `https://ecommerceportal.dhl.com/track/?ref=${t}`;
-  if (k.includes('spx')) return `https://spx.com.my/${t}`;
-  return `https://parcelsapp.com/en/tracking/${t}`;
 };
 
 // Open a WhatsApp chat with the customer (normalise to Malaysian 60… format).

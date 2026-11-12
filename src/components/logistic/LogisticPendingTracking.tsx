@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { PageHeader, StatCard, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { TrackingLink } from '@/components/common/TrackingLink';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Problematic = Shipped order whose live parcel status hints a delivery problem.
@@ -560,7 +561,7 @@ const LogisticPendingTracking = () => {
                           </td>
                           <td className="p-2 whitespace-nowrap">{order.kurier || "-"}</td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                            <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2">

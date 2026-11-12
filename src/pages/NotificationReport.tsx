@@ -18,10 +18,11 @@ import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { fetchAllRows, formatDMY, getMalaysiaStartOfMonth, getMalaysiaEndOfMonth } from '@/lib/utils';
 import { TRACKING_STATUSES, KEYIN_STATUS } from '@/lib/trackingStatuses';
 import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
+import { TrackingLink } from '@/components/common/TrackingLink';
 
 type Order = {
   id: string; date_order: string; marketer_id_staff: string | null; name_customer: string | null;
-  phone_customer: string | null; tracking_number: string | null; delivery_status: string | null; seos: string | null;
+  phone_customer: string | null; tracking_number: string | null; kurier?: string | null; delivery_status: string | null; seos: string | null;
 };
 type Log = { order_id: string; status_key: string; success: boolean; error: string | null; source: string; created_at: string };
 type Cell = { last: Log; attempts: number };
@@ -78,7 +79,7 @@ const NotificationReport: React.FC = () => {
     queryFn: () => fetchAllRows<Order>(() =>
       (supabase as any)
         .from('customer_purchases')
-        .select('id, date_order, marketer_id_staff, name_customer, phone_customer, tracking_number, delivery_status, seos')
+        .select('id, date_order, marketer_id_staff, name_customer, phone_customer, tracking_number, kurier, delivery_status, seos')
         // Only orders with a tracking number — notifications follow the shipment.
         .not('tracking_number', 'is', null)
         .neq('tracking_number', '')
@@ -295,7 +296,7 @@ const NotificationReport: React.FC = () => {
                     </td>
                     <td className="p-3">{o.name_customer || '-'}</td>
                     <td className="p-3 whitespace-nowrap">{o.phone_customer || '-'}</td>
-                    <td className="p-3 whitespace-nowrap font-mono text-xs">{o.tracking_number || '-'}</td>
+                    <td className="p-3 whitespace-nowrap"><TrackingLink kurier={o.kurier} tracking={o.tracking_number} /></td>
                     <td className="p-3">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${deliveryTone(o.delivery_status)}`}>{o.delivery_status || '-'}</span>
                     </td>

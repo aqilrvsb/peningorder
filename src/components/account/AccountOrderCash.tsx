@@ -15,6 +15,7 @@ import { ReceiptViewer } from '@/components/ReceiptViewer';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
+import { TrackingLink } from '@/components/common/TrackingLink';
 
 type CashOrder = {
   id: string;
@@ -281,7 +282,7 @@ const AccountOrderCash: React.FC = () => {
                       <td className="p-2 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap">{o.marketer_id_staff || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{nameByIdstaff.get(o.marketer_id_staff || '') || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{o.id_sale || '-'}</td>
-                      <td className="p-2 whitespace-nowrap font-mono text-xs">{o.tracking_number || '-'}</td>
+                      <td className="p-2 whitespace-nowrap"><TrackingLink kurier={o.kurier} tracking={o.tracking_number} /></td>
                       <td className="p-2 whitespace-nowrap">{formatDMY(o.date_order)}</td>
                       <td className="p-2">{o.name_customer || '-'}</td>
                       <td className="p-2">{o.bundle?.name || '-'}</td>

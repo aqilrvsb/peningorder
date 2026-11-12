@@ -40,6 +40,7 @@ import { ReceiptViewer } from "@/components/ReceiptViewer";
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
+import { TrackingLink } from '@/components/common/TrackingLink';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -592,7 +593,7 @@ const LogisticSuccess = () => {
                             <span className="text-xs">{order.kurier || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                            <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>

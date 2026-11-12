@@ -48,6 +48,7 @@ import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, TableSkeleton, EmptyState, MissingHint } from '@/components/common/SoftUI';
 import { useCourierProvider } from "@/hooks/useCourierProvider";
 import CodRemitImport from "./CodRemitImport";
+import { TrackingLink } from '@/components/common/TrackingLink';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 // Stat cards: stack the icon above the value on phones so labels / RM hints aren't cut off.
 const STACK_CARD = 'flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3';
@@ -717,7 +718,7 @@ const AccountPendingTracking = () => {
                           <td className="p-3">{order.unit || 1}</td>
                           <td className="p-3 whitespace-nowrap">{order.kurier || "-"}</td>
                           <td className="p-3 whitespace-nowrap">
-                            <span className="font-mono text-xs">{order.tracking_number || "-"}</span>
+                            <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
                           </td>
                           <td className="p-3 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-3">
