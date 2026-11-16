@@ -142,7 +142,21 @@ const AccountSalary: React.FC = () => {
   const [lockMonth, setLockMonth] = useState<string>(getMalaysiaStartOfMonth().slice(5, 7));
   const [lockYear, setLockYear] = useState<string>(getMalaysiaStartOfMonth().slice(0, 4));
 
-  const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); };
+  // Optional collection-date range (owner 2026-11-16). The sales (order date) range always applies;
+  // when this is set too, an order only counts as Collection if it was collected inside it
+  // (COD: date_payment; Cash: its payment date, else the order date).
+  const [pendingCollStart, setPendingCollStart] = useState('');
+  const [pendingCollEnd, setPendingCollEnd] = useState('');
+  const [collStart, setCollStart] = useState('');
+  const [collEnd, setCollEnd] = useState('');
+  const applyFilter = () => { setStartDate(pendingStart); setEndDate(pendingEnd); setCollStart(pendingCollStart); setCollEnd(pendingCollEnd); };
+  const collFilterOn = !!(collStart || collEnd);
+  const isCollected = (o: any) => {
+    if (!isSalaryCollected(o)) return false;
+    if (!collFilterOn) return true;
+    const d = String(o.date_payment || o.date_order || '').slice(0, 10);
+    return !!d && (!collStart || d >= collStart) && (!collEnd || d <= collEnd);
+  };
   // Main product ('' = all). Orders match by their bundle's products, spends by product name.
   const [productFilter, setProductFilter] = useState('');
   const { products: mainProducts, product: selectedProduct, matchOrder, matchSpend } = useProductFilter(productFilter);
@@ -211,6 +225,7 @@ const AccountSalary: React.FC = () => {
       const snapshot = {
         row: r, groups, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, config,
         product: selectedProduct ? { id: selectedProduct.id, name: selectedProduct.name } : null,
+        collection_range: collFilterOn ? { from: collStart || null, to: collEnd || null } : null,
       };
       const { error } = await (supabase as any).from('salary_lock').insert({
         idstaff: r.idStaff, period: lockPeriod, start_date: startDate, end_date: endDate, commission: r.commission, snapshot,
@@ -247,7 +262,7 @@ const AccountSalary: React.FC = () => {
       const data = await fetchAllRows(() =>
         (supabase as any)
           .from('customer_purchases')
-          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount, bundle_id')
+          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_order, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount, bundle_id')
           .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
           .gte('date_order', startDate)
           .lte('date_order', endDate)
@@ -365,7 +380,7 @@ const AccountSalary: React.FC = () => {
       if (isSalaryReturn(o)) ov.ret += s;
       // Collection (all products) + Pending COD = every COD not yet Collected and not returned
       // (Pending / Shipped / Success) — so Total Sales − Return − Collection = Pending COD.
-      if (isSalaryCollected(o)) ov.coll += s;
+      if (isCollected(o)) ov.coll += s;
       else if (o.delivery_status !== 'Return' && o.delivery_status !== 'Failed') ov.pcod += s;
       const ri = ruleOfOrder(o);
       if (ri >= 0) {
@@ -375,7 +390,7 @@ const AccountSalary: React.FC = () => {
         if (isSalaryReturn(o)) ra.ret += sale;
         const pos = Number(o.cost_postage) || 0;
         if (!isSalaryReturn(o)) ra.postAll += pos; // Nett: postage of the orders counted as sales only
-        if (isSalaryCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; } // Cash (even if returned) + COD Collected
+        if (isCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; } // Cash (even if returned) + COD Collected
         return;
       }
       const a = ensure(id);
@@ -384,7 +399,7 @@ const AccountSalary: React.FC = () => {
       a.totalSales += sale;
       if (isSalaryReturn(o)) a.returnSales += sale;
       else { a.komNett += comm; a.cntNett += 1; }            // basis "Total Sales − Return": all except Return
-      if (isSalaryCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
+      if (isCollected(o)) { a.collection += sale; a.komColl += comm; a.cntColl += 1; } // basis "Collection": collected only
       // Nett Sales basis: costs follow the orders counted as sales (owner 2026-11-04) — a returned COD's
       // product cost / postage aren't deducted, same as Collection only deducts collected orders.
       if (!isSalaryReturn(o)) {
@@ -393,7 +408,7 @@ const AccountSalary: React.FC = () => {
       }
       // Collection basis: costs follow the same orders as the sales counted (collected only);
       // an order's cost comes in once it's collected.
-      if (isSalaryCollected(o)) {
+      if (isCollected(o)) {
         a.costProductColl += Number(o.cost_baseproduct) || 0;
         a.postageColl += Number(o.cost_postage) || 0;
       }
@@ -485,7 +500,7 @@ const AccountSalary: React.FC = () => {
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
-  }, [productOrders, productSpends, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames]);
+  }, [productOrders, productSpends, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames, collStart, collEnd]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
@@ -705,7 +720,7 @@ const AccountSalary: React.FC = () => {
         .gte('date_order', startDate)
         .lte('date_order', endDate));
     } catch (_e) { orderRows = []; }
-    const qualifies = (o: any) => basisIsCollection ? isSalaryCollected(o) : !isSalaryReturn(o);
+    const qualifies = (o: any) => basisIsCollection ? isCollected(o) : !isSalaryReturn(o);
     const map = new Map<string, BundleGroup>();
     // Products paid on their own rule are not bundle komisyen — they get their own slip line.
     orderRows.filter((o: any) => qualifies(o) && matchOrder(o) && ruleOfOrder(o) < 0).forEach((o: any) => {
@@ -955,13 +970,33 @@ const AccountSalary: React.FC = () => {
               <Label className="text-xs text-muted-foreground">To</Label>
               <Input type="date" value={pendingEnd} onChange={(e) => setPendingEnd(e.target.value)} className="w-full sm:w-40" />
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-emerald-600 dark:text-emerald-400">Collection From <span className="text-muted-foreground">(optional)</span></Label>
+              <Input type="date" value={pendingCollStart} onChange={(e) => setPendingCollStart(e.target.value)} className="w-full sm:w-40 border-emerald-200 dark:border-emerald-500/30" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-emerald-600 dark:text-emerald-400">Collection To <span className="text-muted-foreground">(optional)</span></Label>
+              <Input type="date" value={pendingCollEnd} onChange={(e) => setPendingCollEnd(e.target.value)} className="w-full sm:w-40 border-emerald-200 dark:border-emerald-500/30" />
+            </div>
+            {(pendingCollStart || pendingCollEnd) && (
+              <Button variant="ghost" size="sm" className="h-10 text-xs text-muted-foreground" onClick={() => { setPendingCollStart(''); setPendingCollEnd(''); }}>Kosongkan</Button>
+            )}
             <Button onClick={applyFilter} className="h-10">
               <Filter className="w-4 h-4 mr-1" />Filter
             </Button>
             <UnappliedDateNote pendingStart={pendingStart} pendingEnd={pendingEnd} startDate={startDate} endDate={endDate} />
+            {(pendingCollStart !== collStart || pendingCollEnd !== collEnd) && (
+              <span className="text-xs text-amber-600 dark:text-amber-400">Tarikh collection belum diguna — tekan Filter</span>
+            )}
             <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
           </div>
         </div>
+        {collFilterOn && (
+          <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-3">
+            Tarikh order: <b>{formatDMY(startDate)} – {formatDMY(endDate)}</b> · Tarikh collection: <b>{collStart ? formatDMY(collStart) : '…'} – {collEnd ? formatDMY(collEnd) : '…'}</b>.
+            {' '}Collection & Commission Collection hanya kira order dalam tarikh order ini yang collect dalam tarikh collection ini; yang collect di luar tarikh ini dikira belum collect (masuk Pending COD).
+          </p>
+        )}
         {selectedProduct && (
           <p className="text-xs text-muted-foreground mt-3">
             Produk: <b className="text-foreground">{selectedProduct.name}</b> — komisyen dikira dari order bundle yang mengandungi produk ini & spend produk ini sahaja.
