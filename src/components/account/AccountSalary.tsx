@@ -175,13 +175,18 @@ const AccountSalary: React.FC = () => {
   const curYear = Number(getMalaysiaStartOfMonth().slice(0, 4));
   const YEAR_OPTS = [curYear - 2, curYear - 1, curYear, curYear + 1].map(String);
   interface SalaryLock { idstaff: string; period: string; commission: number; snapshot: any; locked_at: string; }
+  // Locks are per product too (owner 2026-11-16): the product filter picks which locks you see
+  // and take — "Semua Produk" = product_id null.
+  const lockProductId = productFilter || null;
   const { data: locks = [] } = useQuery<SalaryLock[]>({
-    queryKey: ['salary-locks', lockPeriod, isMarketer],
+    queryKey: ['salary-locks', lockPeriod, isMarketer, lockProductId],
     queryFn: async () => {
       try {
-        const { data, error } = await (supabase as any).from('salary_lock')
+        let q = (supabase as any).from('salary_lock')
           .select('idstaff, period, commission, snapshot, locked_at')
           .eq('period', lockPeriod);
+        q = lockProductId ? q.eq('product_id', lockProductId) : q.is('product_id', null);
+        const { data, error } = await q;
         if (error) throw error;
         return (data || []) as SalaryLock[];
       } catch (_e) { return []; } // table may not exist yet → no locks
@@ -199,19 +204,24 @@ const AccountSalary: React.FC = () => {
   // Freeze a staff's commission for the current period, snapshotting everything
   // the frozen Bundle/Slip views need (row, config flags, bundle groups).
   const lockRow = async (r: SalaryRow) => {
-    // A lock freezes the staff's full commission, so it can't be taken from a single-product view.
-    if (selectedProduct) { toast({ title: 'Pilih "Semua Produk" dulu', description: 'Lock mengunci komisyen penuh, bukan satu produk.', variant: 'destructive' }); return; }
     if (!config) return;
     setLockBusy(r.idStaff);
     try {
       const groups = isKomisyenOrder ? await loadBundleGroups(r.idStaff) : null;
-      const snapshot = { row: r, groups, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, config };
+      const snapshot = {
+        row: r, groups, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, config,
+        product: selectedProduct ? { id: selectedProduct.id, name: selectedProduct.name } : null,
+      };
       const { error } = await (supabase as any).from('salary_lock').insert({
         idstaff: r.idStaff, period: lockPeriod, start_date: startDate, end_date: endDate, commission: r.commission, snapshot,
+        product_id: lockProductId,
       });
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer] });
-      toast({ title: `Komisyen dikunci (${lockMonthLabel})`, description: `${r.name} — RM ${formatNumber(r.commission)}` });
+      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer, lockProductId] });
+      toast({
+        title: `Komisyen dikunci (${lockMonthLabel}${selectedProduct ? ` · ${selectedProduct.name}` : ''})`,
+        description: `${r.name} — RM ${formatNumber(r.commission)}`,
+      });
     } catch (e: any) {
       toast({ title: 'Gagal lock', description: (e?.message || 'ralat') + ' (jadual salary_lock belum wujud?)', variant: 'destructive' });
     } finally { setLockBusy(null); }
@@ -219,10 +229,12 @@ const AccountSalary: React.FC = () => {
   const unlockRow = async (r: SalaryRow) => {
     setLockBusy(r.idStaff);
     try {
-      const { error } = await (supabase as any).from('salary_lock').delete()
+      let q = (supabase as any).from('salary_lock').delete()
         .eq('idstaff', r.idStaff).eq('period', lockPeriod);
+      q = lockProductId ? q.eq('product_id', lockProductId) : q.is('product_id', null);
+      const { error } = await q;
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer] });
+      await queryClient.invalidateQueries({ queryKey: ['salary-locks', lockPeriod, isMarketer, lockProductId] });
       toast({ title: 'Kunci dibuka', description: `${r.name} — ikut nilai semasa semula` });
     } catch (e: any) {
       toast({ title: 'Gagal buka kunci', description: e?.message || 'ralat', variant: 'destructive' });
@@ -953,7 +965,7 @@ const AccountSalary: React.FC = () => {
         {selectedProduct && (
           <p className="text-xs text-muted-foreground mt-3">
             Produk: <b className="text-foreground">{selectedProduct.name}</b> — komisyen dikira dari order bundle yang mengandungi produk ini & spend produk ini sahaja.
-            {!isMarketer && ' Lock dimatikan — pilih "Semua Produk" untuk lock.'}
+            {' '}Lock di sini mengunci komisyen <b className="text-foreground">produk ini sahaja</b> — berasingan dari lock "Semua Produk".
           </p>
         )}
       </div>
@@ -985,11 +997,11 @@ const AccountSalary: React.FC = () => {
           </div>
           {staffLocked ? (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5" /> Komisyen {lockMonthLabel} telah dikunci HQ — lihat lajur <b>Commission Lock</b> di bawah.
+              <Lock className="w-3.5 h-3.5" /> Komisyen {lockMonthLabel}{selectedProduct ? ` (${selectedProduct.name})` : ''} telah dikunci HQ — lihat lajur <b>Commission Lock</b> di bawah.
             </p>
           ) : (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
-              <Info className="w-3.5 h-3.5" /> HQ belum kunci komisyen untuk <b>{lockMonthLabel}</b>. Komisyen semasa masih boleh berubah (return, dll).
+              <Info className="w-3.5 h-3.5" /> HQ belum kunci komisyen untuk <b>{lockMonthLabel}{selectedProduct ? ` · ${selectedProduct.name}` : ''}</b>. Komisyen semasa masih boleh berubah (return, dll).
             </p>
           )}
         </div>
@@ -1026,7 +1038,7 @@ const AccountSalary: React.FC = () => {
                 {isKomisyenOrder && <th className="p-3 text-center">Bundle</th>}
                 <th className="p-3 text-center">Slip</th>
                 {!isMarketer && <th className="p-3 text-center">Lock</th>}
-                {showLockCols && <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Commission Lock</th>}
+                {showLockCols && <th className="p-3 text-right text-emerald-600 dark:text-emerald-400">Commission Lock{selectedProduct ? ` (${selectedProduct.name})` : ''}</th>}
                 {showLockCols && isKomisyenOrder && <th className="p-3 text-center">Bundle Lock</th>}
                 {showLockCols && <th className="p-3 text-center">Slip Lock</th>}
               </tr>
@@ -1058,7 +1070,7 @@ const AccountSalary: React.FC = () => {
                             {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Locked
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-8 gap-1" disabled={lockBusy === r.idStaff || !!selectedProduct} onClick={() => lockRow(r)} title={selectedProduct ? 'Pilih "Semua Produk" untuk lock' : 'Kunci komisyen untuk tempoh ini'}>
+                          <Button size="sm" variant="outline" className="h-8 gap-1" disabled={lockBusy === r.idStaff} onClick={() => lockRow(r)} title={selectedProduct ? `Kunci komisyen ${selectedProduct.name} untuk bulan ini` : 'Kunci komisyen untuk tempoh ini'}>
                             {lockBusy === r.idStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LockOpen className="w-3.5 h-3.5" />} Lock
                           </Button>
                         )}
