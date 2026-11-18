@@ -645,15 +645,13 @@ const AccountSalary: React.FC = () => {
     const hqPct = !isMarketer ? NETT_TAX_HQ_PERCENT[profile?.id || ''] : undefined;
     const nettTaxCard = hqPct != null && productRules.length > 0
       ? (() => {
-          let amount = 0; let coll = 0; let pos = 0;
+          let amount = 0;
           productRules.forEach((rule, i) => {
             const c = totals.extrasBasis[i] || 0;
             const p = totals.extrasPostage[i] || 0;
             amount += (c * Math.max(0, hqPct - rule.percent)) / 100 + p;
-            coll += c; pos += p;
           });
-          const keep = Math.max(0, hqPct - (productRules[0]?.percent ?? 0));
-          return { label: 'NETT TAX', value: fmtRM(amount), color: 'indigo', hint: `${keep}% × ${fmtRM(coll)} + pos ${fmtRM(pos)}` };
+          return { label: 'NETT TAX', value: fmtRM(amount), color: 'indigo' }; // owner asked: no working line
         })()
       : null;
     if (isKomisyenOrder) {
