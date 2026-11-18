@@ -124,6 +124,13 @@ const isSalaryReturn = (o: { type_payment?: string | null; kurier?: string | nul
 // Roles that don't earn sales commission — not listed on the Salary page.
 const NON_SALES_ROLES = new Set(['logistic', 'hr']);
 
+// "NETT TAX" card = the owner's own income from bundles with a Profit Sharing % (owner account id →
+// % the brand HQ pays the owner). Owner keeps (HQ % − team %) × Collection + the postage of those
+// orders. akhirulnaim: Ajwa HQ pays 35%, team 30% → 5% + postage (owner 2026-11-18). Owner only.
+const NETT_TAX_HQ_PERCENT: Record<string, number> = {
+  '95f2d1be-6608-4456-a721-9c0b6807bc63': 35, // akhirulnaim@gmail.com — Susu Ajwa
+};
+
 const AccountSalary: React.FC = () => {
   const { members, nameByIdstaff, invoiceByIdstaff } = useTeam();
   const { profile } = useAuth();
@@ -632,8 +639,23 @@ const AccountSalary: React.FC = () => {
   // Summary cards, also config-driven.
   const cards = useMemo(() => {
     if (!config) return [];
-    const out: { label: string; value: string; color: string }[] = [];
+    const out: { label: string; value: string; color: string; hint?: string }[] = [];
     const ruleCards = productRules.map((rule, i) => ({ label: `Komisyen ${rule.label}`, value: fmtRM(totals.extras[i] || 0), color: 'green' }));
+    // NETT TAX — owner's income (owner's own login only, never staff).
+    const hqPct = !isMarketer ? NETT_TAX_HQ_PERCENT[profile?.id || ''] : undefined;
+    const nettTaxCard = hqPct != null && productRules.length > 0
+      ? (() => {
+          let amount = 0; let coll = 0; let pos = 0;
+          productRules.forEach((rule, i) => {
+            const c = totals.extrasBasis[i] || 0;
+            const p = totals.extrasPostage[i] || 0;
+            amount += (c * Math.max(0, hqPct - rule.percent)) / 100 + p;
+            coll += c; pos += p;
+          });
+          const keep = Math.max(0, hqPct - (productRules[0]?.percent ?? 0));
+          return { label: 'NETT TAX', value: fmtRM(amount), color: 'indigo', hint: `${keep}% × ${fmtRM(coll)} + pos ${fmtRM(pos)}` };
+        })()
+      : null;
     if (isKomisyenOrder) {
       out.push({ label: 'Total Sales', value: fmtRM(totals.totalSales), color: 'blue' });
       out.push({ label: 'Total Return', value: fmtRM(totals.returnSales), color: 'red' });
@@ -649,8 +671,9 @@ const AccountSalary: React.FC = () => {
     if (showNettComm) out.push({ label: 'Total Commission Nett Sales', value: fmtRM(totals.commissionNett), color: 'purple' });
     // CEO lens: effective commission cost (percent direct). Profit sharing: no Baki Profit card (owner hid it).
     if (!isProfitSharing) out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
+    if (nettTaxCard) out.push(nettTaxCard); // last card
     return out;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm, isMarketer, profile?.id]);
 
   const exportToXLSX = () => {
     const data = salaryRows.map((r, i) => {
@@ -1044,15 +1067,16 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
-        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : cards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
           {cards.map((c) => (
             <StatCard
               key={c.label}
-              icon={CARD_ICON[c.label] || (c.label.startsWith('Komisyen ') || c.label.includes('Commission') ? Coins : Wallet)}
+              icon={CARD_ICON[c.label] || (c.label === 'NETT TAX' ? PiggyBank : c.label.startsWith('Komisyen ') || c.label.includes('Commission') ? Coins : Wallet)}
               tone={(c.color as Tone) || 'slate'}
               label={c.label}
               value={wrapVal(c.value)}
-              className={MONEY_CARD}
+              hint={c.hint}
+              className={c.label === 'NETT TAX' ? `${MONEY_CARD} border-indigo-300 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/10` : MONEY_CARD}
             />
           ))}
         </div>
