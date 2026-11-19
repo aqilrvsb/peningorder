@@ -33,3 +33,6 @@ dfr-backup.sql
 
 # screenshots
 peningorder-*.jpeg
+
+# Claude Code conversation history copy (private: customer data, keys). Never commit — public repo.
+.claude-history/
