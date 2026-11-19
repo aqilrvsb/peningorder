@@ -91,36 +91,12 @@ Commit `.claude/hooks/sync-history.cjs`, `.claude/settings.json` and `.gitignore
 
 The new hooks start running from the next reply. If they don't, the user opens `/hooks` once or restarts Claude Code.
 
-## Optional: git on a portable drive
+## Git on a portable drive
 
-Use this when the project lives on a portable NTFS drive that is plugged into several computers.
-
-**The problem:** on any computer other than the one that created the files, git refuses the repo with `detected dubious ownership`. The repo only works once the folder is in that computer's global `safe.directory` list. Git reads that list only from global config, so the setting can't travel with the drive.
-
-**Steps**
-
-1. Add the second script, <https://raw.githubusercontent.com/aqilrvsb/peningorder/main/.claude/hooks/laptop-setup.cjs>, as `.claude/hooks/laptop-setup.cjs`.
-2. Add it to the `SessionStart` hooks array, after the history restore:
-   ```json
-   { "type": "command", "command": "node -e \"require(process.env.CLAUDE_PROJECT_DIR + '/.claude/hooks/laptop-setup.cjs')\"", "timeout": 60 }
-   ```
-   When a computer runs into the dubious-ownership error, this hook adds the folder to `safe.directory`, using the exact path git prints. If git isn't on `PATH`, the hook falls back to `<drive>\Software\Git\cmd\git.exe`.
-3. Keep identity and line endings in the repo's own `.git/config`, which travels with the drive:
-   ```
-   git config --local user.name "<name>"
-   git config --local user.email "<email>"
-   git config --local core.autocrlf true
-   ```
-4. Add a fallback for computers that have no Git or Node, where Claude Code hooks can't run. Copy these two files, which you can see in the peningorder repo:
-   - `.claude/hooks/setup-laptop.ps1`
-   - `SETUP-LAPTOP-BARU.cmd` in the project root.
-
-   Double-clicking the `.cmd` once does three things:
-   - adds the drive's `Software\Git\cmd` and `Software\NODE JS` folders to that computer's user `PATH`, if they're missing;
-   - trusts the folder in git;
-   - restores the conversation history.
-
-Credentials stay on each computer. On a new computer, the first `git push` asks for a GitHub sign-in once. Never store a token on the drive.
+If the project lives on a portable drive used on several laptops, also set up git as described in [GIT_SETUP.md](GIT_SETUP.md):
+- the safe.directory hook;
+- repo-local identity;
+- the SETUP-LAPTOP-BARU.cmd fallback.
 
 ## Requirements
 
