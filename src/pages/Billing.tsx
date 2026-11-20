@@ -61,6 +61,8 @@ const PLAN_THEME: Record<string, PlanTheme> = {
     courierTitle: 'Kurier melalui ParcelDaily', courierLines: ['Poslaju, Ninja Van, J&T, DHL'],
   },
 };
+// Short name for the buttons when the plan label is long ("Guna Akaun Kurier Sendiri").
+const BUTTON_NAME: Record<string, string> = { byoc: 'Kurier Sendiri' };
 // Same in every package.
 const COMMON_FEATURES = [
   'Print waybill pukal',
@@ -92,6 +94,14 @@ const Billing: React.FC = () => {
   useEffect(() => {
     if (user) loadAll();
   }, [user]);
+
+  // ?plan=byoc (e.g. from Courier Settings "Tekan Sini"): scroll to that package and highlight it.
+  const focusPlan = searchParams.get('plan');
+  useEffect(() => {
+    if (isLoading || !focusPlan) return;
+    const el = document.getElementById(`plan-${focusPlan}`);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  }, [isLoading, focusPlan]);
 
   const loadAll = async () => {
     setIsLoading(true);
@@ -197,10 +207,13 @@ const Billing: React.FC = () => {
               const t = PLAN_THEME[key] || PLAN_THEME.default;
               const isCurrent = profilePlan === key && !isExpired;
               const isOwnPlan = profilePlan === key;
+              const isFocused = focusPlan === key && !isCurrent;
+              const buttonName = BUTTON_NAME[key] || cfg.label;
               return (
                 <div
                   key={key}
-                  className={`relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.border} ${isCurrent ? 'ring-2 ' + t.ring : ''}`}
+                  id={`plan-${key}`}
+                  className={`relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.border} ${isCurrent ? 'ring-2 ' + t.ring : ''} ${isFocused ? `ring-2 ring-offset-2 ring-offset-background ${key === 'byoc' ? 'ring-emerald-500' : 'ring-primary'}` : ''}`}
                 >
                   <div className={`h-1.5 w-full ${t.bar}`} />
                   <div className="flex flex-1 flex-col p-6">
@@ -257,9 +270,9 @@ const Billing: React.FC = () => {
                       ) : isCurrent ? (
                         'Plan Semasa'
                       ) : isOwnPlan ? (
-                        `Sambung ${cfg.label}`
+                        `Sambung ${buttonName}`
                       ) : (
-                        `Pilih ${cfg.label}`
+                        `Pilih ${buttonName}`
                       )}
                     </Button>
                   </div>

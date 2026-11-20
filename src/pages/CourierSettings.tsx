@@ -508,6 +508,25 @@ const CourierSettings: React.FC = () => {
         </div>
       </div>
 
+      {/* ParcelDaily clients who already have a direct courier account → the own-courier package. */}
+      {!isOwn && (
+        <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-500/30 dark:bg-emerald-500/10">
+          <div className="flex items-start gap-3">
+            <IconTile icon={Truck} tone="green" size="sm" />
+            <div className="text-sm">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-100">Anda ada akaun direct kurier Ninja Van? Pos Laju? J&amp;T?</p>
+              <p className="mt-0.5 text-emerald-800/80 dark:text-emerald-200/80">Guna akaun kurier sendiri — kadar pos ikut kontrak anda, tanpa ParcelDaily.</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => navigate('/dashboard/billing?plan=byoc')}
+            className="w-full shrink-0 border-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 sm:w-auto"
+          >
+            Tekan Sini
+          </Button>
+        </div>
+      )}
+
       <Card className="space-y-6 p-4 sm:p-6">
         {isOwn ? (
           <div>

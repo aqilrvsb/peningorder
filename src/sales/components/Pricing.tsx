@@ -118,7 +118,7 @@ export default function Pricing() {
                     to={`/checkout?plan=${key}`}
                     className={`mt-6 block rounded-full px-5 py-3 text-center text-sm font-bold transition-colors ${featured ? 'bg-po-blue text-white hover:bg-po-blue-hover' : 'border border-po-border-strong bg-white text-po-ink hover:bg-po-surface'}`}
                   >
-                    Mula dengan {p.label}
+                    Mula dengan {key === 'byoc' ? 'Kurier Sendiri' : p.label}
                   </Link>
                 </div>
               );
