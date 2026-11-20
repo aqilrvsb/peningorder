@@ -662,10 +662,18 @@ const LogisticReturn = () => {
                               </button>
                             ) : "-"}
                           </td>
-                          <td className="p-2">
-                            <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
-                              {order.seos || "-"}
-                            </span>
+                          <td className="p-2 min-w-[170px]">
+                            {(() => {
+                              // Own-courier webhooks save "status — reason" (e.g. "Returned to Sender — Customer reject/cancel").
+                              const [parcelStatus, ...rest] = String(order.seos || "").split(" — ");
+                              const reason = rest.join(" — ");
+                              return (
+                                <div className="text-xs">
+                                  <span className={order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}>{parcelStatus || "-"}</span>
+                                  {reason && <span className="block mt-0.5 font-medium text-red-600 dark:text-red-400">Sebab: {reason}</span>}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="p-2">
                             {whatsappMap.get(order.marketer_id_staff) && (

@@ -153,6 +153,22 @@ function ninjavanGroup(status: string, rts: boolean): string {
   return "Processing";
 }
 
+/**
+ * Why a Ninja Van parcel failed / went back: rts_reason (return events) or the delivery /
+ * pickup exception's failure_reason, without Ninja Van's generic prefixes.
+ * e.g. "Automated Failed Delivery Management - Customer reject/cancel" → "Customer reject/cancel".
+ */
+function ninjavanReason(p: any): string {
+  const raw = clean(p?.rts_reason) || clean(p?.delivery_exception?.failure_reason) || clean(p?.pickup_exception?.failure_reason);
+  return raw
+    .replace(/^automated failed delivery management\s*-\s*/i, "")
+    .replace(/^cancellation reason\s*:\s*/i, "")
+    .trim();
+}
+
+// The reason is kept in seos after an em dash: "Returned to Sender — Customer reject/cancel".
+const REASON_SEP = " — ";
+
 // ---------------------------------------------------------------- Pos Laju
 /** Pos Laju event_code (Webhook Event List, api-doc.pos.com.my) → ParcelDaily status group. */
 function poslajuGroup(code: string): string {
@@ -170,7 +186,7 @@ function poslajuGroup(code: string): string {
 
 // ---------------------------------------------------------------- Handler
 const ORDER_COLS =
-  "id, tracking_number, delivery_status, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, date_return, type_payment, date_payment, bundle:logistic_bundles(name)";
+  "id, tracking_number, delivery_status, seos, kurier, name_customer, phone_customer, marketer_id_staff, id_sale, pd_order_id, owner_user_id, address_customer, city_customer, postcode_customer, state_customer, total_sale, nota_staff, date_return, type_payment, date_payment, bundle:logistic_bundles(name)";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -212,7 +228,7 @@ serve(async (req) => {
     const ownerId: string = cfg.owner_user_id;
 
     // Normalise each courier's event to: tracking, status group, display text.
-    let tracking = "", group = "", detail = "", status = "", remit = false;
+    let tracking = "", group = "", detail = "", status = "", remit = false, nvRts = false;
     if (courier === "ninjavan") {
       // Ninja Van signs every call with the tenant's Client Secret.
       const given = req.headers.get("x-ninjavan-hmac-sha256") || "";
@@ -223,7 +239,11 @@ serve(async (req) => {
       tracking = String(payload.tracking_id || payload.tracking_number || "").trim();
       status = String(payload.status || "").trim();
       detail = String(payload.event || payload.status || "").trim(); // e.g. "Delivered, Received by Customer"
+      // Add why it failed / is coming back, so the Return tab shows the reason.
+      const reason = ninjavanReason(payload);
+      if (reason && !detail.toLowerCase().includes(reason.toLowerCase())) detail = `${detail}${REASON_SEP}${reason}`;
       const rts = payload.is_parcel_on_rts_leg === true || String(payload.is_parcel_on_rts_leg) === "true";
+      nvRts = rts;
       // Re-weigh notices aren't delivery progress (BYOC postage comes from the bundle).
       if (/measurement/i.test(status)) {
         return await finish(200, { ok: true, action: "measurement_ignored" }, { parsed_data: { owner: ownerId, tracking, status } });
@@ -260,6 +280,13 @@ serve(async (req) => {
     if (!m && courier === "ninjavan" && /^pending pickup$/i.test(status)) {
       await new Promise((r) => setTimeout(r, 5000));
       m = await findRow();
+    }
+    // Events on the way back (e.g. "On Vehicle for Delivery" on the RTS leg) carry no reason:
+    // keep the one already saved so the Return tab doesn't lose it.
+    if (m && courier === "ninjavan" && nvRts && !detail.includes(REASON_SEP)) {
+      const prev = String(m.seos || "");
+      const i = prev.indexOf(REASON_SEP);
+      if (i >= 0) detail = `${detail}${prev.slice(i)}`;
     }
     const parsed = { owner: ownerId, tracking, status, detail, group, matched_id: m?.id || null };
     if (!m) return await finish(200, { ok: true, action: "order_not_found" }, { parsed_data: parsed });
