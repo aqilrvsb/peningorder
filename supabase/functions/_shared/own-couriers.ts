@@ -416,7 +416,7 @@ export async function ownBookTwoBoxes(service: any, cfg: OwnCourierConfig, s: Ow
   }
   const trackings = [r1.trackingNumber, r2.trackingNumber];
   let waybillUrl: string | null = null;
-  try { waybillUrl = await ownWaybillUrlFor(service, cfg, trackings); } catch (_) { /* merged on print */ }
+  try { waybillUrl = await ownWaybillUrlFor(service, cfg, trackings, o.idSale); } catch (_) { /* merged on print */ }
   return { trackingNumber: r1.trackingNumber, orderRef: ownRef(cfg.courier, trackings), waybillUrl, trackings };
 }
 export async function ownCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
@@ -456,11 +456,12 @@ async function ownLabelBytes(service: any, cfg: OwnCourierConfig, tracking: stri
  * labels in one go and can't miss the second box. Ninja Van's A6 label leaves its bottom third
  * empty — the stamp sits there, clear of the barcode, QR and address.
  */
-async function mergeBoxLabels(labels: Uint8Array[], trackings: string[]): Promise<Uint8Array> {
+async function mergeBoxLabels(labels: Uint8Array[], trackings: string[], idSale = ""): Promise<Uint8Array> {
   const out = await PDFDocument.create();
   const bold = await out.embedFont(StandardFonts.HelveticaBold);
   const font = await out.embedFont(StandardFonts.Helvetica);
   const n = labels.length;
+  const black = rgb(0, 0, 0);
   for (let i = 0; i < n; i++) {
     const src = await PDFDocument.load(labels[i]);
     const pages = await out.copyPages(src, src.getPageIndices());
@@ -468,13 +469,19 @@ async function mergeBoxLabels(labels: Uint8Array[], trackings: string[]): Promis
       out.addPage(page);
       const { width } = page.getSize();
       const boxW = Math.min(width - 32, 264);
-      const x = (width - boxW) / 2, y = 14, h = 62;
-      page.drawRectangle({ x, y, width: boxW, height: h, color: rgb(1, 1, 1), borderColor: rgb(0, 0, 0), borderWidth: 2.5 });
-      page.drawText(`KOTAK ${i + 1} / ${n}`, { x: x + 10, y: y + 30, size: 26, font: bold, color: rgb(0, 0, 0) });
+      const x = (width - boxW) / 2, y = 12, h = idSale ? 84 : 62;
+      page.drawRectangle({ x, y, width: boxW, height: h, color: rgb(1, 1, 1), borderColor: black, borderWidth: 2.5 });
+      page.drawText(`KOTAK ${i + 1} / ${n}`, { x: x + 10, y: y + h - 32, size: 26, font: bold, color: black });
+      // The order ID lets Logistic sort many boxes of the same package and pair box 1 with box 2.
+      if (idSale) {
+        const order = `ORDER: ${idSale}`;
+        const size = Math.min(16, ((boxW - 20) / bold.widthOfTextAtSize(order, 16)) * 16);
+        page.drawText(order, { x: x + 10, y: y + 26, size, font: bold, color: black });
+      }
       const note = i === 0
         ? `${n} kotak untuk 1 order - COD penuh pada kotak ini`
         : `Hantar bersama ${trackings[0]} (kotak 1, COD)`;
-      page.drawText(note, { x: x + 10, y: y + 12, size: 8.5, font, color: rgb(0, 0, 0) });
+      page.drawText(note, { x: x + 10, y: y + 10, size: 8.5, font, color: black });
     }
   }
   return await out.save();
@@ -484,7 +491,7 @@ async function mergeBoxLabels(labels: Uint8Array[], trackings: string[]): Promis
  * Label link for a booking. One tracking → its label. Several (a "2 Tracking" bundle) → one PDF
  * with every box's label, each stamped "KOTAK i / N" (saved once, reused on later prints).
  */
-export async function ownWaybillUrlFor(service: any, cfg: OwnCourierConfig, trackings: string[]): Promise<string> {
+export async function ownWaybillUrlFor(service: any, cfg: OwnCourierConfig, trackings: string[], idSale = ""): Promise<string> {
   if (trackings.length <= 1) return ownWaybillUrl(service, cfg, trackings[0]);
   // "<t1>_<t2>_KOTAK-…pdf": never matches a single label's "<tracking>-" lookup.
   const key = `${trackings.join("_")}_KOTAK`;
@@ -496,7 +503,7 @@ export async function ownWaybillUrlFor(service: any, cfg: OwnCourierConfig, trac
   }
   const labels: Uint8Array[] = [];
   for (const t of trackings) labels.push(await ownLabelBytes(service, cfg, t));
-  return storeWaybillPdf(service, cfg.owner_user_id, cfg.courier, key, await mergeBoxLabels(labels, trackings));
+  return storeWaybillPdf(service, cfg.owner_user_id, cfg.courier, key, await mergeBoxLabels(labels, trackings, clean(idSale)));
 }
 
 // ---------------------------------------------------------------- Test connection

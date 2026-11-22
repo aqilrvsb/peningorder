@@ -51,7 +51,7 @@ serve(async (req) => {
 
     // Candidate stuck orders: PD courier, no waybill yet, not a final failed state.
     let q = service.from("customer_purchases")
-      .select("id, tracking_number, pd_order_id, waybill_url, kurier, delivery_status, date_order")
+      .select("id, id_sale, tracking_number, pd_order_id, waybill_url, kurier, delivery_status, date_order")
       .eq("owner_user_id", ownerUuid);
     if (purchaseIds.length) {
       q = q.in("id", purchaseIds);
@@ -81,7 +81,7 @@ serve(async (req) => {
         if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, ownerUuid, ref.courier));
         const cfg = cfgs.get(ref.courier);
         if (!cfg) { results.push({ id: r.id, resolved: false }); continue; }
-        const url = await ownWaybillUrlFor(service, cfg, ref.trackings);
+        const url = await ownWaybillUrlFor(service, cfg, ref.trackings, r.id_sale || "");
         const { error: upErr } = await service.from("customer_purchases")
           .update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", ownerUuid);
         if (!upErr) updated++;

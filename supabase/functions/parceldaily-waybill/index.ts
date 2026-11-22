@@ -64,7 +64,7 @@ serve(async (req) => {
       }
       let query = supabase
         .from("customer_purchases")
-        .select("id, tracking_number, waybill_url, kurier, name_customer, delivery_status, pd_order_id");
+        .select("id, id_sale, tracking_number, waybill_url, kurier, name_customer, delivery_status, pd_order_id");
       if (ids.length) query = query.in("id", ids);
       else query = query.in("tracking_number", tns);
       const { data: rows, error } = await query;
@@ -82,7 +82,7 @@ serve(async (req) => {
             if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, owner, ref.courier));
             const cfg = cfgs.get(ref.courier);
             if (!cfg) continue;
-            const url = await ownWaybillUrlFor(service, cfg, ref.trackings);
+            const url = await ownWaybillUrlFor(service, cfg, ref.trackings, r.id_sale || "");
             await service.from("customer_purchases").update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", owner);
             r.waybill_url = url;
           } catch (_) { /* courier label not ready yet — stays in "missing" */ }
