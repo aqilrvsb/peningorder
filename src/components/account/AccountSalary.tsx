@@ -97,6 +97,9 @@ interface SalaryRow {
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
   pospadaSales?: number; // "Campur Pospada": open bookings (Pospada date in the range, not processed yet)
   commissionCombined?: number; // the Nett Sales commission with those bookings counted as sales
+  // Per bundle-% rule, with those bookings counted as sales: Nett Sales + Pospada and their postage
+  // (feeds the owner's "NETT TAX Combine" card).
+  combinedRule?: { basis: number; postage: number }[];
 }
 
 // Bundles with the same Profit Sharing %: percent × (Collection − postage of those orders).
@@ -546,7 +549,18 @@ const AccountSalary: React.FC = () => {
       // "Campur Pospada": the same Nett Sales commission with the open bookings counted as sales.
       const p = pos[m.idstaff];
       const pospada = withPospada
-        ? { pospadaSales: p?.sales || 0, commissionCombined: nettCommission(p) }
+        ? {
+            pospadaSales: p?.sales || 0,
+            commissionCombined: nettCommission(p),
+            combinedRule: productRules.map((_, i) => {
+              const ra = ruleAgg[m.idstaff]?.[i];
+              const ad = p?.rule[i];
+              return {
+                basis: (ra ? ra.sales - ra.ret : 0) + (ad?.sales || 0),
+                postage: (ra?.postAll || 0) + (ad?.post || 0),
+              };
+            }),
+          }
         : {};
       return {
         ...pospada,
@@ -585,11 +599,14 @@ const AccountSalary: React.FC = () => {
       commissionNett: acc.commissionNett + (r.commissionNett ?? 0),
       pospadaSales: acc.pospadaSales + (r.pospadaSales ?? 0),
       commissionCombined: acc.commissionCombined + (r.commissionCombined ?? 0),
+      combinedBasis: acc.combinedBasis.map((v, i) => v + (r.combinedRule?.[i]?.basis || 0)),
+      combinedPostage: acc.combinedPostage.map((v, i) => v + (r.combinedRule?.[i]?.postage || 0)),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
       allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0, pospadaSales: 0, commissionCombined: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0), extrasPostage: productRules.map(() => 0),
+      combinedBasis: productRules.map(() => 0), combinedPostage: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
 
@@ -707,16 +724,15 @@ const AccountSalary: React.FC = () => {
     const ruleCards = productRules.map((rule, i) => ({ label: `Komisyen ${rule.label}`, value: fmtRM(totals.extras[i] || 0), color: 'green' }));
     // NETT TAX — owner's income (owner's own login only, never staff).
     const hqPct = !isMarketer ? NETT_TAX_HQ_PERCENT[profile?.id || ''] : undefined;
-    const nettTaxCard = hqPct != null && productRules.length > 0
-      ? (() => {
-          let amount = 0;
-          productRules.forEach((rule, i) => {
-            const c = totals.extrasBasis[i] || 0;
-            const p = totals.extrasPostage[i] || 0;
-            amount += (c * Math.max(0, hqPct - rule.percent)) / 100 + p;
-          });
-          return { label: 'NETT TAX', value: fmtRM(amount), color: 'indigo' }; // owner asked: no working line
-        })()
+    const ownerIncome = (basis: number[], postage: number[]) =>
+      productRules.reduce((sum, rule, i) => sum + ((basis[i] || 0) * Math.max(0, (hqPct || 0) - rule.percent)) / 100 + (postage[i] || 0), 0);
+    const showNettTax = hqPct != null && productRules.length > 0;
+    // owner asked: no working line
+    const nettTaxCard = showNettTax ? { label: 'NETT TAX', value: fmtRM(ownerIncome(totals.extrasBasis, totals.extrasPostage)), color: 'indigo' } : null;
+    // "Campur Pospada": the same income if every Nett Sales order + open booking became collection
+    // (pairs with the "Commission Combine Nett Sales" column).
+    const nettTaxCombinedCard = showNettTax && withPospada
+      ? { label: 'NETT TAX Combine', value: fmtRM(ownerIncome(totals.combinedBasis, totals.combinedPostage)), color: 'cyan' }
       : null;
     if (isKomisyenOrder) {
       out.push({ label: 'Total Sales', value: fmtRM(totals.totalSales), color: 'blue' });
@@ -733,9 +749,10 @@ const AccountSalary: React.FC = () => {
     if (showNettComm) out.push({ label: 'Total Commission Nett Sales', value: fmtRM(totals.commissionNett), color: 'purple' });
     // CEO lens: effective commission cost (percent direct). Profit sharing: no Baki Profit card (owner hid it).
     if (!isProfitSharing) out.push({ label: 'Komisyen %', value: pctOf(totals.commission, totalBasis), color: 'slate' });
-    if (nettTaxCard) out.push(nettTaxCard); // last card
+    if (nettTaxCard) out.push(nettTaxCard); // last cards
+    if (nettTaxCombinedCard) out.push(nettTaxCombinedCard);
     return out;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm, isMarketer, profile?.id]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm, isMarketer, profile?.id, withPospada]);
 
   const exportToXLSX = () => {
     const data = salaryRows.map((r, i) => {
@@ -1088,7 +1105,9 @@ const AccountSalary: React.FC = () => {
         {withPospada && !isKomisyenOrder && (
           <p className="text-xs text-cyan-700 dark:text-cyan-400 mt-3">
             Pospada = booking belum di-Process (status Pending) dengan tarikh Pospada <b>{formatDMY(startDate)} – {formatDMY(endDate)}</b>. Belum dikira sales —
-            {' '}<b>Commission Combine Nett Sales</b> = Commission Nett Sales kalau semua booking ni jadi sales (Pospada tolak pos). Commission Collection, Lock &amp; Slip tak berubah.
+            {' '}<b>Commission Combine Nett Sales</b> = Commission Nett Sales kalau semua booking ni jadi sales (Pospada tolak pos).
+            {cards.some((c) => c.label === 'NETT TAX Combine') && <>{' '}<b>NETT TAX Combine</b> = NETT TAX kalau semua Nett Sales + booking ni jadi collection.</>}
+            {' '}Commission Collection, Lock &amp; Slip tak berubah.
           </p>
         )}
         {collFilterOn && (
@@ -1144,16 +1163,16 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
-        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : cards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 7 ? 'lg:grid-cols-4' : cards.length >= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : cards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
           {cards.map((c) => (
             <StatCard
               key={c.label}
-              icon={CARD_ICON[c.label] || (c.label === 'NETT TAX' ? PiggyBank : c.label.startsWith('Komisyen ') || c.label.includes('Commission') ? Coins : Wallet)}
+              icon={CARD_ICON[c.label] || (c.label.startsWith('NETT TAX') ? PiggyBank : c.label.startsWith('Komisyen ') || c.label.includes('Commission') ? Coins : Wallet)}
               tone={(c.color as Tone) || 'slate'}
               label={c.label}
               value={wrapVal(c.value)}
               hint={c.hint}
-              className={c.label === 'NETT TAX' ? `${MONEY_CARD} border-indigo-300 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/10` : MONEY_CARD}
+              className={c.label === 'NETT TAX' ? `${MONEY_CARD} border-indigo-300 bg-indigo-50/50 dark:border-indigo-500/30 dark:bg-indigo-500/10` : c.label === 'NETT TAX Combine' ? `${MONEY_CARD} border-cyan-300 bg-cyan-50/50 dark:border-cyan-500/30 dark:bg-cyan-500/10` : MONEY_CARD}
             />
           ))}
         </div>
