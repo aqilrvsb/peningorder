@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Loader2, Filter, Wallet, Download, Users, Info, ChevronRight, ChevronDown, Package, Lock, LockOpen, DollarSign, RotateCcw, Coins, Percent, TrendingUp, PiggyBank } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
@@ -94,6 +95,8 @@ interface SalaryRow {
   allCollection?: number; // Collection of every order (PNL + bundle %)
   commissionNett?: number; // Collection basis only: the same commission worked out on Nett Sales
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
+  pospadaSales?: number; // "Campur Pospada": open bookings (Pospada date in the range, not processed yet)
+  commissionCombined?: number; // the Nett Sales commission with those bookings counted as sales
 }
 
 // Bundles with the same Profit Sharing %: percent × (Collection − postage of those orders).
@@ -278,6 +281,26 @@ const AccountSalary: React.FC = () => {
     },
   });
 
+  // "Campur Pospada" (owner 2026-11-22): open Pospada bookings whose Pospada date falls in the range.
+  // They aren't sales yet (src/lib/pospada.ts) — shown only in their own columns, never in the paid commission.
+  const [withPospada, setWithPospada] = useState(false);
+  const { data: pospadaOrders = [] } = useQuery<Order[]>({
+    queryKey: ['salary-pospada', startDate, endDate],
+    enabled: withPospada,
+    queryFn: async () => {
+      const data = await fetchAllRows(() =>
+        (supabase as any)
+          .from('customer_purchases')
+          .select('marketer_id_staff, total_sale, delivery_status, type_payment, date_order, date_payment, kurier, cost_baseproduct, cost_postage, commission_amount, bundle_id, pospada_date')
+          .not('pospada_date', 'is', null)
+          .eq('delivery_status', 'Pending')
+          .gte('pospada_date', startDate)
+          .lte('pospada_date', endDate)
+      );
+      return data as Order[];
+    },
+  });
+
   const { data: spends = [], isLoading: spendsLoading } = useQuery<Spend[]>({
     queryKey: ['salary-spends', startDate, endDate],
     queryFn: async () => {
@@ -363,6 +386,10 @@ const AccountSalary: React.FC = () => {
 
   const productOrders = useMemo(() => allOrders.filter((o: any) => matchOrder(o)), [allOrders, productFilter, selectedProduct, matchOrder]);
   const productSpends = useMemo(() => spends.filter((s: any) => matchSpend(s)), [spends, productFilter, selectedProduct]);
+  const productPospada = useMemo(
+    () => (withPospada ? pospadaOrders.filter((o: any) => matchOrder(o)) : []),
+    [withPospada, pospadaOrders, productFilter, selectedProduct, matchOrder],
+  );
 
   const salaryRows = useMemo<SalaryRow[]>(() => {
     if (!config) return [];
@@ -427,6 +454,21 @@ const AccountSalary: React.FC = () => {
       ensure(id).spend += Number(s.total_spend) || 0;
     });
 
+    // Open Pospada bookings ("Campur Pospada"), split like the orders: bundle-% ones vs the PNL part.
+    type PosAgg = { sales: number; pnlSales: number; pnlPost: number; pnlProduct: number; rule: { sales: number; post: number }[] };
+    const pos: Record<string, PosAgg> = {};
+    productPospada.forEach((o) => {
+      const id = o.marketer_id_staff || '';
+      if (!id) return;
+      const p = (pos[id] ||= { sales: 0, pnlSales: 0, pnlPost: 0, pnlProduct: 0, rule: productRules.map(() => ({ sales: 0, post: 0 })) });
+      const sale = Number(o.total_sale) || 0;
+      const post = Number(o.cost_postage) || 0;
+      p.sales += sale;
+      const ri = ruleOfOrder(o);
+      if (ri >= 0) { p.rule[ri].sales += sale; p.rule[ri].post += post; }
+      else { p.pnlSales += sale; p.pnlPost += post; p.pnlProduct += Number(o.cost_baseproduct) || 0; }
+    });
+
     // Sales staff only — Logistic and HR don't earn sales commission.
     const staff = members.filter((m) => !m.is_client && m.is_active !== false && !NON_SALES_ROLES.has(m.role || '') && (!isMarketer || m.idstaff === ownIdStaff));
 
@@ -478,25 +520,36 @@ const AccountSalary: React.FC = () => {
             - (config.deduct_spend ? a.spend : 0);
       const mainCommission = tier ? (base * commissionPercent) / 100 : 0;
 
-      // Side-by-side figure when the basis is Collection (owner 2026-10-25): the same commission
-      // on Nett Sales (Sales − Return) — PNL part with every order's costs, plus bundle % × (sales − return).
-      let commissionNett: number | undefined;
-      if (config.revenue_basis === 'collection') {
-        const tierN = matchTier(config.kpi_type === 'roas' ? roas : nettSales);
+      // The commission on Nett Sales (Sales − Return) — PNL part with the costs of the orders counted as
+      // sales, plus bundle % × (sales − return − postage). `add` = extra not-yet-sales (open Pospada bookings).
+      const nettCommission = (add?: PosAgg) => {
+        const ns = nettSales + (add?.pnlSales || 0);
+        const roasN = a.spend > 0 ? (a.totalSales + (add?.pnlSales || 0)) / a.spend : 0;
+        const tierN = matchTier(config.kpi_type === 'roas' ? roasN : ns);
         const baseN = config.commission_mode === 'percent_direct'
-          ? nettSales
-          : nettSales
-              - (config.deduct_postage ? a.postage : 0)
-              - (config.deduct_product ? a.costProduct : 0)
+          ? ns
+          : ns
+              - (config.deduct_postage ? a.postage + (add?.pnlPost || 0) : 0)
+              - (config.deduct_product ? a.costProduct + (add?.pnlProduct || 0) : 0)
               - (config.deduct_spend ? a.spend : 0);
         const mainN = tierN ? (baseN * tierN.value) / 100 : 0;
         const extraN = productRules.reduce((s, rule, i) => {
           const ra = ruleAgg[m.idstaff]?.[i];
-          return s + (ra ? ((ra.sales - ra.ret - ra.postAll) * rule.percent) / 100 : 0);
+          const ad = add?.rule[i];
+          const basis = (ra ? ra.sales - ra.ret - ra.postAll : 0) + (ad ? ad.sales - ad.post : 0);
+          return s + (basis * rule.percent) / 100;
         }, 0);
-        commissionNett = mainN + extraN;
-      }
+        return mainN + extraN;
+      };
+      // Side-by-side figure when the basis is Collection (owner 2026-10-25).
+      const commissionNett = config.revenue_basis === 'collection' ? nettCommission() : undefined;
+      // "Campur Pospada": the same Nett Sales commission with the open bookings counted as sales.
+      const p = pos[m.idstaff];
+      const pospada = withPospada
+        ? { pospadaSales: p?.sales || 0, commissionCombined: nettCommission(p) }
+        : {};
       return {
+        ...pospada,
         ...whole,
         idStaff: m.idstaff, name: nameByIdstaff.get(m.idstaff) || m.name || m.idstaff,
         totalSales: a.totalSales, returnSales: a.returnSales, nettSales,
@@ -507,7 +560,7 @@ const AccountSalary: React.FC = () => {
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
-  }, [productOrders, productSpends, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames, collStart, collEnd]);
+  }, [productOrders, productSpends, productPospada, withPospada, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames, collStart, collEnd]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
@@ -530,10 +583,12 @@ const AccountSalary: React.FC = () => {
       pendingCod: acc.pendingCod + (r.pendingCod ?? 0),
       allCollection: acc.allCollection + (r.allCollection ?? r.collection),
       commissionNett: acc.commissionNett + (r.commissionNett ?? 0),
+      pospadaSales: acc.pospadaSales + (r.pospadaSales ?? 0),
+      commissionCombined: acc.commissionCombined + (r.commissionCombined ?? 0),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
-      allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0,
+      allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0, pospadaSales: 0, commissionCombined: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0), extrasPostage: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
@@ -631,10 +686,19 @@ const AccountSalary: React.FC = () => {
     cols.push(...ruleCols);
     cols.push(commissionCol);
     if (showNettComm) cols.push(commNettCol);
+    // "Campur Pospada": open bookings, sales incl. them, and the Nett Sales commission incl. them.
+    if (withPospada) {
+      const combinedSales = (r: SalaryRow) => (r.allSales ?? r.totalSales) + (r.pospadaSales ?? 0);
+      cols.push(
+        { key: 'possales', label: 'Total Sales Pospada', align: 'right', headClass: 'text-cyan-600 dark:text-cyan-400', cell: (r) => <span className="text-cyan-600 dark:text-cyan-400">{fmtRM(r.pospadaSales ?? 0)}</span>, total: <span className="text-cyan-600 dark:text-cyan-400">{fmtRM(totals.pospadaSales)}</span> },
+        { key: 'combsales', label: 'Combine Total Sales', align: 'right', headClass: 'text-foreground', cell: (r) => <span className="font-semibold">{fmtRM(combinedSales(r))}</span>, total: fmtRM(totals.allSales + totals.pospadaSales) },
+        { key: 'combcomm', label: 'Commission Combine Nett Sales', align: 'right', headClass: 'text-cyan-700 dark:text-cyan-300 font-semibold', cell: (r) => <span className="font-bold text-cyan-700 dark:text-cyan-300">{fmtRM(r.commissionCombined ?? 0)}</span>, total: <span className="font-bold text-cyan-700 dark:text-cyan-300">{fmtRM(totals.commissionCombined)}</span> },
+      );
+    }
     // Profit sharing: no "Baki Profit" column (owner hid it 2026-10-24).
     if (!isProfitSharing) cols.push(komPctCol);
     return cols;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, productRules, showNettComm]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, isRoas, basisIsCollection, productRules, showNettComm, withPospada]);
 
   // Summary cards, also config-driven.
   const cards = useMemo(() => {
@@ -700,6 +764,9 @@ const AccountSalary: React.FC = () => {
         else if (c.key === 'orders') row['Bil. Order'] = r.qualifyOrders;
         else if (c.key === 'commission') row[showNettComm ? 'Commission Collection' : 'Commission'] = r.commission.toFixed(2);
         else if (c.key === 'commnett') row['Commission Nett Sales'] = (r.commissionNett ?? 0).toFixed(2);
+        else if (c.key === 'possales') row['Total Sales Pospada'] = (r.pospadaSales ?? 0).toFixed(2);
+        else if (c.key === 'combsales') row['Combine Total Sales'] = ((r.allSales ?? r.totalSales) + (r.pospadaSales ?? 0)).toFixed(2);
+        else if (c.key === 'combcomm') row['Commission Combine Nett Sales'] = (r.commissionCombined ?? 0).toFixed(2);
         else if (c.key === 'kompct') row['Komisyen %'] = pctOf(r.commission, basisIsCollection ? r.collection : r.nettSales);
         else if (c.key === 'baki') row['Baki Profit'] = (r.base - (r.mainCommission ?? r.commission)).toFixed(2);
         else if (c.key.startsWith('rule')) {
@@ -1010,8 +1077,20 @@ const AccountSalary: React.FC = () => {
               <span className="text-xs text-amber-600 dark:text-amber-400">Tarikh collection belum diguna — tekan Filter</span>
             )}
             <ProductFilter value={productFilter} onChange={setProductFilter} products={mainProducts} />
+            {!isKomisyenOrder && (
+              <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-cyan-200 bg-cyan-50/60 px-3 text-sm font-medium text-cyan-800 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-200">
+                <Checkbox checked={withPospada} onCheckedChange={(v) => setWithPospada(!!v)} />
+                Campur Pospada
+              </label>
+            )}
           </div>
         </div>
+        {withPospada && !isKomisyenOrder && (
+          <p className="text-xs text-cyan-700 dark:text-cyan-400 mt-3">
+            Pospada = booking belum di-Process (status Pending) dengan tarikh Pospada <b>{formatDMY(startDate)} – {formatDMY(endDate)}</b>. Belum dikira sales —
+            {' '}<b>Commission Combine Nett Sales</b> = Commission Nett Sales kalau semua booking ni jadi sales (Pospada tolak pos). Commission Collection, Lock &amp; Slip tak berubah.
+          </p>
+        )}
         {collFilterOn && (
           <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-3">
             Tarikh order: <b>{formatDMY(startDate)} – {formatDMY(endDate)}</b> · Tarikh collection: <b>{collStart ? formatDMY(collStart) : '…'} – {collEnd ? formatDMY(collEnd) : '…'}</b>.
