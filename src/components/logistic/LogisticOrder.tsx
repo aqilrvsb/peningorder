@@ -55,7 +55,7 @@ import { ReceiptViewer } from "@/components/ReceiptViewer";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState, type Tone } from "@/components/common/SoftUI";
-import { TrackingLink } from '@/components/common/TrackingLink';
+import { OrderTracking, Box2Status, labelCount } from '@/components/common/TwoBox';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -282,6 +282,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         order.name_customer?.toLowerCase().includes(term) ||
         order.phone_customer?.toLowerCase().includes(term) ||
         order.tracking_number?.toLowerCase().includes(term) ||
+        order.tracking_number_2?.toLowerCase().includes(term) ||
         order.bundle?.name?.toLowerCase().includes(term) ||
         order.address_customer?.toLowerCase().includes(term)
       );
@@ -537,7 +538,15 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
         const skipped = selectedOrdersList.length - printable.length;
-        toast.success(`Waybill untuk ${printable.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ''}`);
+        const labels = labelCount(printable);
+        if (labels > printable.length) {
+          toast.success(`Waybill untuk ${printable.length} order = ${labels} label${skipped ? ` (${skipped} tiada waybill)` : ''}`, {
+            description: `${labels - printable.length} order 2 kotak — tampal label KOTAK 1/2 & KOTAK 2/2 pada setiap kotak.`,
+            duration: 10000,
+          });
+        } else {
+          toast.success(`Waybill untuk ${printable.length} order dibuka${skipped ? ` (${skipped} tiada waybill)` : ''}`);
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Gagal jana waybill");
@@ -1347,7 +1356,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
-                              <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
+                              <OrderTracking order={order} />
                             ) : needsTrackingGeneration(order) && !pospada ? (
                               <Button
                                 variant="outline"
@@ -1407,6 +1416,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           </td>
                           <td className="p-2">
                             <span className="text-xs text-muted-foreground whitespace-normal max-w-[160px] block">{order.seos || "-"}</span>
+                            <Box2Status order={order} />
                           </td>
                           <td className="p-2">
                             <span className={`text-xs font-medium ${
@@ -1674,7 +1684,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                 <p className="text-sm text-amber-800 dark:text-amber-300">
                   <strong>Self Pickup:</strong> pelanggan ambil sendiri, tiada kurier.
                   {editingOrder.tracking_number ? (
-                    <> Tracking <span className="font-mono">{editingOrder.tracking_number}</span> akan <b>dibatalkan</b> di kurier (kredit dipulangkan) dan dikosongkan. Buang waybill lama.</>
+                    <> Tracking <span className="font-mono">{editingOrder.tracking_number}</span>{editingOrder.tracking_number_2 ? <> &amp; <span className="font-mono">{editingOrder.tracking_number_2}</span> (kotak 2)</> : null} akan <b>dibatalkan</b> di kurier (kredit dipulangkan) dan dikosongkan. Buang waybill lama.</>
                   ) : null}
                 </p>
               </div>
@@ -1685,7 +1695,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                 <p className="text-sm text-blue-800 dark:text-blue-300">
                   <strong>Note:</strong> This is a {editForm.kurier?.includes('Poslaju') ? 'Poslaju' : 'NinjaVan'} order ({getOrderPlatform(editingOrder)}).
                   {editingOrder.tracking_number ? (
-                    <> Current tracking <span className="font-mono">{editingOrder.tracking_number}</span> will be cancelled and a new one will be generated.</>
+                    <> Current tracking <span className="font-mono">{editingOrder.tracking_number}</span>{editingOrder.tracking_number_2 ? <> &amp; <span className="font-mono">{editingOrder.tracking_number_2}</span> (kotak 2)</> : null} will be cancelled and a new one will be generated.</>
                   ) : (
                     <> A new tracking number will be generated.</>
                   )}

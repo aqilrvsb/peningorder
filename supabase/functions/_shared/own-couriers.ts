@@ -7,6 +7,8 @@
 // Credentials live in public.own_courier_config (owner-only RLS); OAuth tokens are cached in
 // public.own_courier_tokens (service role only). Callers pass a service-role Supabase client.
 
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+
 export type OwnCourier = "ninjavan" | "poslaju" | "jnt";
 export const OWN_COURIERS: OwnCourier[] = ["ninjavan", "poslaju", "jnt"];
 
@@ -149,11 +151,18 @@ export interface OwnBookingResult {
   waybillUrl: string | null;
 }
 
-/** pd_order_id format for own-courier bookings: "own:<courier>:<tracking>". */
-export const ownRef = (courier: OwnCourier, tracking: string) => `own:${courier}:${tracking}`;
-export function parseOwnRef(ref?: string | null): { courier: OwnCourier; tracking: string } | null {
+/**
+ * pd_order_id format for own-courier bookings: "own:<courier>:<tracking>", or for a "2 Tracking"
+ * bundle (two boxes) "own:<courier>:<box 1>,<box 2>". Box 1 carries the full COD and stays in
+ * tracking_number; a DB trigger copies box 2 into tracking_number_2.
+ */
+export const ownRef = (courier: OwnCourier, tracking: string | string[]) =>
+  `own:${courier}:${Array.isArray(tracking) ? tracking.join(",") : tracking}`;
+export function parseOwnRef(ref?: string | null): { courier: OwnCourier; tracking: string; trackings: string[] } | null {
   const m = /^own:(ninjavan|poslaju|jnt):(.+)$/.exec(String(ref || ""));
-  return m ? { courier: m[1] as OwnCourier, tracking: m[2] } : null;
+  if (!m) return null;
+  const trackings = m[2].split(",").map((t) => t.trim()).filter(Boolean);
+  return trackings.length ? { courier: m[1] as OwnCourier, tracking: trackings[0], trackings } : null;
 }
 
 /** Malaysian phone → +60… (couriers want the international form). */
@@ -384,6 +393,32 @@ export async function ownBook(service: any, cfg: OwnCourierConfig, s: OwnSender,
   if (cfg.courier === "poslaju") return poslajuBook(service, cfg, s, o);
   throw new CourierError(`Kurier ${cfg.courier} belum disokong untuk tempahan.`);
 }
+
+/**
+ * "2 Tracking" bundle: one order shipped as two boxes, each booked separately. The weight is split
+ * in half; box 1 carries the FULL COD (so the courier's remittance has one line per order and
+ * Collection works unchanged), box 2 has no COD and tells the rider to deliver it with box 1.
+ * If box 2 can't be booked, box 1 is cancelled again so the order never ships half-booked.
+ */
+export async function ownBookTwoBoxes(service: any, cfg: OwnCourierConfig, s: OwnSender, o: OwnBookingInput): Promise<OwnBookingResult & { trackings: string[] }> {
+  const half = Math.max(0.1, Math.round(((Number(o.weightKg) || 0.5) / 2) * 100) / 100);
+  const r1 = await ownBook(service, cfg, s, { ...o, weightKg: half, description: `KOTAK 1/2 (COD) - ${o.description}` });
+  let r2: OwnBookingResult;
+  try {
+    r2 = await ownBook(service, cfg, s, {
+      ...o, weightKg: half, isCOD: false, codAmount: 0,
+      description: `KOTAK 2/2 - hantar bersama ${r1.trackingNumber} (COD) - ${o.description}`,
+    });
+  } catch (e) {
+    try { await ownCancel(service, cfg, r1.trackingNumber); } catch (_) { /* reported below */ }
+    const msg = e instanceof CourierError ? e.message : String((e as Error)?.message || e);
+    throw new CourierError(`Kotak 2 gagal ditempah, jadi kotak 1 (${r1.trackingNumber}) dibatalkan semula. ${msg}`, e instanceof CourierError ? e.details : undefined);
+  }
+  const trackings = [r1.trackingNumber, r2.trackingNumber];
+  let waybillUrl: string | null = null;
+  try { waybillUrl = await ownWaybillUrlFor(service, cfg, trackings); } catch (_) { /* merged on print */ }
+  return { trackingNumber: r1.trackingNumber, orderRef: ownRef(cfg.courier, trackings), waybillUrl, trackings };
+}
 export async function ownCancel(service: any, cfg: OwnCourierConfig, tracking: string): Promise<void> {
   if (cfg.courier === "ninjavan") return ninjavanCancel(service, cfg, tracking);
   if (cfg.courier === "poslaju") return poslajuCancel(service, cfg, tracking);
@@ -405,6 +440,63 @@ export async function ownWaybillUrl(service: any, cfg: OwnCourierConfig, trackin
   }
   // Pos Laju only hands out the label at booking; there is no label endpoint to re-fetch.
   throw new CourierError(`Waybill ${cfg.courier} tidak dapat dimuat semula.`);
+}
+
+/** One label's bytes: the copy saved at booking if there is one, else fetched from the courier. */
+async function ownLabelBytes(service: any, cfg: OwnCourierConfig, tracking: string): Promise<Uint8Array> {
+  const url = await ownWaybillUrl(service, cfg, tracking);
+  const res = await fetch(url);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!res.ok || !isPdf(bytes)) throw new CourierError(`Waybill ${tracking} belum tersedia.`);
+  return bytes;
+}
+
+/**
+ * Stamp "KOTAK i / N" big on each box's label and join them into one PDF, so Logistic prints both
+ * labels in one go and can't miss the second box. Ninja Van's A6 label leaves its bottom third
+ * empty — the stamp sits there, clear of the barcode, QR and address.
+ */
+async function mergeBoxLabels(labels: Uint8Array[], trackings: string[]): Promise<Uint8Array> {
+  const out = await PDFDocument.create();
+  const bold = await out.embedFont(StandardFonts.HelveticaBold);
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const n = labels.length;
+  for (let i = 0; i < n; i++) {
+    const src = await PDFDocument.load(labels[i]);
+    const pages = await out.copyPages(src, src.getPageIndices());
+    for (const page of pages) {
+      out.addPage(page);
+      const { width } = page.getSize();
+      const boxW = Math.min(width - 32, 264);
+      const x = (width - boxW) / 2, y = 14, h = 62;
+      page.drawRectangle({ x, y, width: boxW, height: h, color: rgb(1, 1, 1), borderColor: rgb(0, 0, 0), borderWidth: 2.5 });
+      page.drawText(`KOTAK ${i + 1} / ${n}`, { x: x + 10, y: y + 30, size: 26, font: bold, color: rgb(0, 0, 0) });
+      const note = i === 0
+        ? `${n} kotak untuk 1 order - COD penuh pada kotak ini`
+        : `Hantar bersama ${trackings[0]} (kotak 1, COD)`;
+      page.drawText(note, { x: x + 10, y: y + 12, size: 8.5, font, color: rgb(0, 0, 0) });
+    }
+  }
+  return await out.save();
+}
+
+/**
+ * Label link for a booking. One tracking → its label. Several (a "2 Tracking" bundle) → one PDF
+ * with every box's label, each stamped "KOTAK i / N" (saved once, reused on later prints).
+ */
+export async function ownWaybillUrlFor(service: any, cfg: OwnCourierConfig, trackings: string[]): Promise<string> {
+  if (trackings.length <= 1) return ownWaybillUrl(service, cfg, trackings[0]);
+  // "<t1>_<t2>_KOTAK-…pdf": never matches a single label's "<tracking>-" lookup.
+  const key = `${trackings.join("_")}_KOTAK`;
+  const folder = `${cfg.owner_user_id}/${cfg.courier}`;
+  const { data: saved } = await service.storage.from("courier-waybills")
+    .list(folder, { search: `${key}-`, limit: 1, sortBy: { column: "created_at", order: "desc" } });
+  if (saved?.length && saved[0]?.name) {
+    return service.storage.from("courier-waybills").getPublicUrl(`${folder}/${saved[0].name}`).data.publicUrl as string;
+  }
+  const labels: Uint8Array[] = [];
+  for (const t of trackings) labels.push(await ownLabelBytes(service, cfg, t));
+  return storeWaybillPdf(service, cfg.owner_user_id, cfg.courier, key, await mergeBoxLabels(labels, trackings));
 }
 
 // ---------------------------------------------------------------- Test connection

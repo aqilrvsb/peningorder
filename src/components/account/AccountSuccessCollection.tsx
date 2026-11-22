@@ -18,7 +18,7 @@ import * as XLSX from "xlsx";
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, TableSkeleton, EmptyState } from '@/components/common/SoftUI';
 import { useCourierProvider } from '@/hooks/useCourierProvider';
-import { TrackingLink } from '@/components/common/TrackingLink';
+import { OrderTracking } from '@/components/common/TwoBox';
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 // Normalise a stored kurier to its base courier for grouping + filtering.
@@ -84,6 +84,7 @@ const AccountSuccessCollection = () => {
         o.name_customer?.toLowerCase().includes(t) ||
         o.phone_customer?.toLowerCase().includes(t) ||
         o.tracking_number?.toLowerCase().includes(t) ||
+        o.tracking_number_2?.toLowerCase().includes(t) ||
         o.bundle?.name?.toLowerCase().includes(t) ||
         o.address_customer?.toLowerCase().includes(t)
       );
@@ -289,7 +290,7 @@ const AccountSuccessCollection = () => {
                           <td className="p-3"><span className="truncate max-w-[150px] block">{o.bundle?.name || o.nota_staff || "-"}</span></td>
                           <td className="p-3">{o.unit || 1}</td>
                           <td className="p-3 whitespace-nowrap">{o.kurier || "-"}</td>
-                          <td className="p-3 whitespace-nowrap"><TrackingLink kurier={o.kurier} tracking={o.tracking_number} /></td>
+                          <td className="p-3 whitespace-nowrap"><OrderTracking order={o} /></td>
                           <td className="p-3 text-right whitespace-nowrap tabular-nums">RM {formatRM(Number(o.total_sale) || 0)}</td>
                           <td className="p-3 text-xs">{o.jenis_platform || "-"}</td>
                           <td className="p-3 text-xs">{o.state_customer || "-"}</td>

@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  CourierError, loadOwnCourierConfig, ownBook, OWN_COURIER_READY, OWN_COURIERS, providerOf, type OwnCourier,
+  CourierError, loadOwnCourierConfig, ownBook, ownBookTwoBoxes, OWN_COURIER_READY, OWN_COURIERS, providerOf, type OwnCourier,
 } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
@@ -84,7 +84,7 @@ const OWN_LABEL: Record<OwnCourier, string> = { ninjavan: "Ninja Van", poslaju: 
 // Bring Your Courier (plan 'byoc'): book with the tenant's OWN courier account — ParcelDaily is
 // never used (nor named) for them. Same response shape as the ParcelDaily path, plus pdfLink, so
 // every caller (key-in, edit, Logistic, History, WooCommerce, Integration) works unchanged.
-async function bookOwnCourier(service: any, ownerUuid: string, courier: string, orderData: OrderData): Promise<Response> {
+async function bookOwnCourier(service: any, ownerUuid: string, courier: string, orderData: OrderData, twoBoxes = false): Promise<Response> {
   if (!(OWN_COURIERS as string[]).includes(courier)) {
     return fail(`Kurier ${courier.toUpperCase()} tiada dalam Kurier Sendiri. Pilih Ninja Van, Pos Laju atau J&T.`, { code: "courier_not_supported", courier });
   }
@@ -107,7 +107,9 @@ async function bookOwnCourier(service: any, ownerUuid: string, courier: string, 
   const product = clean((orderData as any).productSku) || clean(orderData.productName || orderData.produk) || "Parcel";
   const qty = Number((orderData as any).quantity) || 1;
   try {
-    const r = await ownBook(service, cfg, {
+    // "2 Tracking" bundle → two boxes, two bookings (box 1 carries the full COD).
+    const r: { trackingNumber: string; orderRef: string; waybillUrl: string | null; trackings?: string[] } =
+      await (twoBoxes ? ownBookTwoBoxes : ownBook)(service, cfg, {
       name: clean(pc.sender_name), phone: clean(pc.sender_phone), email: clean(pc.sender_email),
       line1: clean(pc.sender_line1), line2: clean(pc.sender_line2), city: clean(pc.sender_city),
       postcode: clean(pc.sender_postcode), state: clean(pc.sender_state), isDropoff: !!pc.is_dropoff,
@@ -121,11 +123,16 @@ async function bookOwnCourier(service: any, ownerUuid: string, courier: string, 
       description: [`${product} - ${qty}`, clean(orderData.marketerIdStaff)].filter(Boolean).join(", "),
       weightKg: Number(orderData.weight) || 0.5,
     });
+    const trackings = r.trackings || [r.trackingNumber];
     return ok({
       success: true,
       provider: "own",
-      orderId: r.orderRef, // own:<courier>:<tracking> → stored in pd_order_id (cancel/print know it's own)
+      // own:<courier>:<tracking>[,<box 2>] → stored in pd_order_id (cancel/print know it's own). A DB
+      // trigger copies box 2 into tracking_number_2, so callers need no change.
+      orderId: r.orderRef,
       trackingNumber: r.trackingNumber,
+      trackingNumber2: trackings[1] || null,
+      boxes: trackings.length,
       courier,
       // Own couriers have no price API in Malaysia: cost postage comes from the bundle's Postage Bundle
       // (trigger apply_bundle_postage). null = no courier price recorded (no "PD" reference price).
@@ -133,7 +140,9 @@ async function bookOwnCourier(service: any, ownerUuid: string, courier: string, 
       waybillUrl: r.waybillUrl,
       pdfLink: r.waybillUrl, // callers already save pdfLink as waybill_url
       status: "checked_out",
-      message: `Order dihantar ke ${OWN_LABEL[c]}. Tracking: ${r.trackingNumber}.`,
+      message: trackings.length > 1
+        ? `Order dihantar ke ${OWN_LABEL[c]} sebagai ${trackings.length} kotak. Tracking: ${trackings.join(", ")}.`
+        : `Order dihantar ke ${OWN_LABEL[c]}. Tracking: ${r.trackingNumber}.`,
     });
   } catch (e) {
     const msg = e instanceof CourierError ? e.message : `${OWN_LABEL[c]}: ${(e as Error).message || e}`;
@@ -199,7 +208,18 @@ serve(async (req) => {
     }
 
     if (ownerUuid && (await providerOf(service, ownerUuid)) === "own") {
-      return await bookOwnCourier(service, ownerUuid, courier, orderData);
+      // Bundle set to "2 Tracking" (logistic_bundles.two_tracking) → two boxes. Matched by SKU or
+      // name like skip_courier above; a lookup error (e.g. column not there yet) = one box.
+      const sku = clean((orderData as any).productSku);
+      const name = clean(orderData.productName || orderData.produk);
+      const isTwoBox = async (col: "sku" | "name", val: string) => {
+        if (!val) return false;
+        const { data, error } = await service.from("logistic_bundles").select("id")
+          .eq("owner_user_id", ownerUuid).eq("two_tracking", true).eq(col, val).limit(1);
+        return !error && !!data?.length;
+      };
+      const twoBoxes = (await isTwoBox("sku", sku)) || (await isTwoBox("name", name));
+      return await bookOwnCourier(service, ownerUuid, courier, orderData, twoBoxes);
     }
 
     const { data: config, error: configError } = await service

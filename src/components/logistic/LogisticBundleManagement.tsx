@@ -97,6 +97,9 @@ const LogisticBundleManagement = () => {
   const [hadProfitShare, setHadProfitShare] = useState(false);
   // "Tanpa tracking ParcelDaily" — orders for this bundle are never booked with PD (e.g. MOMMYHANA).
   const [skipCourier, setSkipCourier] = useState(false);
+  // "2 Tracking" (own courier only): the bundle ships as two boxes → two courier bookings per order.
+  const [twoTracking, setTwoTracking] = useState(false);
+  const [hadTwoTracking, setHadTwoTracking] = useState(false);
   // Wording follows the package: BYOC tenants book their own couriers, not ParcelDaily.
   const isOwnCourier = useCourierProvider().provider === "own";
   // "Tanpa tracking" is only for clients the owner picked (owner + their staff); hidden for Custom.
@@ -168,6 +171,8 @@ const LogisticBundleManagement = () => {
     setProfitShare("");
     setHadProfitShare(false);
     setSkipCourier(false);
+    setTwoTracking(false);
+    setHadTwoTracking(false);
     setSelectedProductId("");
     setItemQuantity(1);
     setIsEditing(false);
@@ -205,6 +210,8 @@ const LogisticBundleManagement = () => {
     setProfitShare(opt(bundle.profit_share_percent));
     setHadProfitShare(bundle.profit_share_percent != null);
     setSkipCourier(!!bundle.skip_courier);
+    setTwoTracking(!!bundle.two_tracking);
+    setHadTwoTracking(!!bundle.two_tracking);
     // Parse SKU to reconstruct bundle items for editing
     const skuParts = (bundle.sku || "").split(" + ");
     const reconstructedItems: BundleItem[] = [];
@@ -315,6 +322,9 @@ const LogisticBundleManagement = () => {
     }
     const courierFlags = {
       skip_courier: canSkipCourier ? skipCourier : false,
+      // Own-courier clients only (ParcelDaily books one parcel per order). Sent only when on (or being
+      // turned off), so saving still works where the column is missing.
+      ...(isOwnCourier && (twoTracking || hadTwoTracking) ? { two_tracking: twoTracking } : {}),
       // Only sent when set (or being cleared), so saving still works where the column is missing.
       ...(ps !== null || hadProfitShare ? { profit_share_percent: ps } : {}),
     };
@@ -514,6 +524,11 @@ const LogisticBundleManagement = () => {
                   <TableRow key={bundle.id}>
                     <TableCell>
                       <p className="font-medium">{bundle.name}</p>
+                      {bundle.two_tracking && (
+                        <span className="mt-0.5 mr-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                          2 Tracking
+                        </span>
+                      )}
                       {bundle.skip_courier && (
                         <span className="mt-0.5 mr-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
                           Tanpa tracking
@@ -838,6 +853,20 @@ const LogisticBundleManagement = () => {
                   Order biasa = Cost Postage + COD Charges (jika order COD). Order pickup = Cost Pickup.
                 </p>
               </div>
+
+              {/* Own courier (Custom package) only: one order = two boxes = two trackings. */}
+              {isOwnCourier && (
+                <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <span>
+                    <span className="block text-sm font-medium">2 Tracking (2 kotak)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Untuk pakej berat / besar yang dihantar dalam 2 kotak. Setiap order dapat 2 tracking &amp; 2 waybill (berat dibahagi 2).
+                      COD penuh pada kotak 1; kotak 2 tanpa COD dan dihantar bersama. Tidak ditanda = 1 tracking macam biasa.
+                    </span>
+                  </span>
+                  <Switch checked={twoTracking} onCheckedChange={setTwoTracking} />
+                </label>
+              )}
 
               {/* Only allowed clients (SKIP_COURIER_OWNERS), never Custom (own courier). */}
               {canSkipCourier && (

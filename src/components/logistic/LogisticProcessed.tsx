@@ -53,7 +53,7 @@ import { ReceiptViewer } from "@/components/ReceiptViewer";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState, type Tone } from "@/components/common/SoftUI";
-import { TrackingLink } from '@/components/common/TrackingLink';
+import { OrderTracking, Box2Status } from '@/components/common/TwoBox';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -347,6 +347,7 @@ const LogisticProcessed = () => {
         order.name_customer?.toLowerCase().includes(term) ||
         order.phone_customer?.toLowerCase().includes(term) ||
         order.tracking_number?.toLowerCase().includes(term) ||
+        order.tracking_number_2?.toLowerCase().includes(term) ||
         order.bundle?.name?.toLowerCase().includes(term) ||
         order.address_customer?.toLowerCase().includes(term)
       );
@@ -995,7 +996,7 @@ const LogisticProcessed = () => {
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             {order.tracking_number ? (
-                              <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
+                              <OrderTracking order={order} />
                             ) : (/pickup/i.test(order.kurier || "") || order.type_payment === "Pickup") ? (
                               <span className="font-mono text-xs">-</span>
                             ) : (
@@ -1079,6 +1080,7 @@ const LogisticProcessed = () => {
                             <span className={`text-xs ${order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}`}>
                               {order.seos || "-"}
                             </span>
+                            <Box2Status order={order} />
                           </td>
                           <td className="p-2">
                             {whatsappMap.get(order.marketer_id_staff) && (

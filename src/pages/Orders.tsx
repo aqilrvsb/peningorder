@@ -51,6 +51,7 @@ import {
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 import { courierTrackUrl } from '@/components/common/TrackingLink';
+import { OrderTracking, Box2Status } from '@/components/common/TwoBox';
 
 interface OrderForTracking {
   id: string;
@@ -1387,7 +1388,9 @@ ${trackingUrl}`;
                       </td>
                     )}
                     <td className="px-4 py-3 text-sm font-mono text-foreground whitespace-nowrap">
-                      {order.noTracking ? (
+                      {order.noTracking && order.noTracking2 ? (
+                        <OrderTracking order={{ kurier: order.kurier, tracking_number: order.noTracking, tracking_number_2: order.noTracking2 }} className="text-sm" />
+                      ) : order.noTracking ? (
                         <a
                           href={courierTrackUrl(order.kurier || '', order.noTracking)}
                           target="_blank"
@@ -1452,6 +1455,7 @@ ${trackingUrl}`;
                       }`}>
                         {order.seos || '-'}
                       </span>
+                      <Box2Status order={{ tracking_number_2: order.noTracking2, seos_2: order.seos2, delivery_status: order.deliveryStatus }} />
                     </td>
                     <td className="px-4 py-3">
                       {(() => {

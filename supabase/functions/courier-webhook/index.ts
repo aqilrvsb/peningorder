@@ -265,13 +265,19 @@ serve(async (req) => {
     }
     if (!tracking || !group) return await finish(200, { ok: true, action: "no_tracking_or_status" }, { parsed_data: { owner: ownerId } });
 
+    // box2 = the event is for box 2 of a "2 Tracking" order (tracking_number_2).
+    let box2 = false;
     const findRow = async () => {
       const a = await supabase.from("customer_purchases").select(ORDER_COLS)
         .eq("owner_user_id", ownerId).eq("tracking_number", tracking).order("created_at", { ascending: false }).limit(1);
       if (a.data?.length) return a.data[0];
       const b = await supabase.from("customer_purchases").select(ORDER_COLS)
         .eq("owner_user_id", ownerId).eq("pd_order_id", `own:${courier}:${tracking}`).order("created_at", { ascending: false }).limit(1);
-      return b.data?.[0] || null;
+      if (b.data?.length) return b.data[0];
+      const c = await supabase.from("customer_purchases").select(`${ORDER_COLS}, seos_2`)
+        .eq("owner_user_id", ownerId).eq("tracking_number_2", tracking).order("created_at", { ascending: false }).limit(1);
+      if (c.data?.length) { box2 = true; return c.data[0]; }
+      return null;
     };
     let m: any = await findRow();
     // Ninja Van's "Pending Pickup" can land a moment before the key-in has saved the order row.
@@ -284,12 +290,35 @@ serve(async (req) => {
     // Events on the way back (e.g. "On Vehicle for Delivery" on the RTS leg) carry no reason:
     // keep the one already saved so the Return tab doesn't lose it.
     if (m && courier === "ninjavan" && nvRts && !detail.includes(REASON_SEP)) {
-      const prev = String(m.seos || "");
+      const prev = String((box2 ? m.seos_2 : m.seos) || "");
       const i = prev.indexOf(REASON_SEP);
       if (i >= 0) detail = `${detail}${prev.slice(i)}`;
     }
-    const parsed = { owner: ownerId, tracking, status, detail, group, matched_id: m?.id || null };
+    const parsed = { owner: ownerId, tracking, status, detail, group, matched_id: m?.id || null, box: box2 ? 2 : 1 };
     if (!m) return await finish(200, { ok: true, action: "order_not_found" }, { parsed_data: parsed });
+
+    // Box 2 of a "2 Tracking" order: box 1 carries the COD and decides Success / Return / Collected.
+    // Box 2 only records its own status (seos_2), shown under the order's Parcel Status — the app
+    // flags a box 2 that fails / comes back. No customer WhatsApp (box 1 already sends them).
+    if (box2) {
+      const isDelivered2 = group === "Delivered";
+      const isReturn2 = group === "Returned" || group === "Return in transit";
+      const prevFinal = /^(delivered|returned to sender|completed|success)/i.test(String(m.seos_2 || ""));
+      let action = "box2_status_updated";
+      if (remit) {
+        action = "box2_remit_ignored"; // box 2 has no COD
+      } else if (group === "Cancelled") {
+        if (m.delivery_status === "Cancelled") await supabase.from("customer_purchases").update({ seos_2: "Cancelled" }).eq("id", m.id);
+        action = "box2_cancel";
+      } else if (prevFinal && !isDelivered2 && !isReturn2) {
+        action = "box2_stale_event_skip"; // a late scan must not hide Delivered / Returned
+      } else if ((await getTrackPref(supabase, ownerId, group)).track) {
+        await supabase.from("customer_purchases").update({ seos_2: detail }).eq("id", m.id);
+      } else {
+        action = "box2_status_untracked_skip";
+      }
+      return await finish(200, { ok: true, action }, { parsed_data: { ...parsed, action } });
+    }
 
     const mYmd = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 

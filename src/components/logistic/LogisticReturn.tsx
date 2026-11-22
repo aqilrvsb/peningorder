@@ -42,7 +42,7 @@ import { ReceiptViewer } from "@/components/ReceiptViewer";
 import { PageHeader, StatCard, IconTile, TableSkeleton, EmptyState } from "@/components/common/SoftUI";
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
-import { TrackingLink } from '@/components/common/TrackingLink';
+import { OrderTracking, Box2Status } from '@/components/common/TwoBox';
 
 const PAYMENT_OPTIONS = ["All", "CASH", "COD"];
 const PLATFORM_OPTIONS = ["All", "Tiktok", "Threads", "Facebook", "Database", "Google"];
@@ -177,6 +177,7 @@ const LogisticReturn = () => {
         order.name_customer?.toLowerCase().includes(term) ||
         order.phone_customer?.toLowerCase().includes(term) ||
         order.tracking_number?.toLowerCase().includes(term) ||
+        order.tracking_number_2?.toLowerCase().includes(term) ||
         order.bundle?.name?.toLowerCase().includes(term) ||
         order.address_customer?.toLowerCase().includes(term)
       );
@@ -603,7 +604,7 @@ const LogisticReturn = () => {
                             <span className="text-xs">{order.kurier || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
-                            <TrackingLink kurier={order.kurier} tracking={order.tracking_number} />
+                            <OrderTracking order={order} />
                           </td>
                           <td className="p-2 whitespace-nowrap">RM {Number(order.total_sale || 0).toFixed(2)}</td>
                           <td className="p-2 whitespace-nowrap text-rose-500">RM {Number(order.cost_baseproduct || 0).toFixed(2)}</td>
@@ -671,6 +672,7 @@ const LogisticReturn = () => {
                                 <div className="text-xs">
                                   <span className={order.seos === "Successful Delivery" ? "text-green-600" : "text-gray-500"}>{parcelStatus || "-"}</span>
                                   {reason && <span className="block mt-0.5 font-medium text-red-600 dark:text-red-400">Sebab: {reason}</span>}
+                                  <Box2Status order={order} />
                                 </div>
                               );
                             })()}

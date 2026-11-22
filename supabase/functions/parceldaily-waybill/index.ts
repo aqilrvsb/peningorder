@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { loadOwnCourierConfig, ownWaybillUrl, parseOwnRef } from "../_shared/own-couriers.ts";
+import { loadOwnCourierConfig, ownWaybillUrlFor, parseOwnRef } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +82,7 @@ serve(async (req) => {
             if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, owner, ref.courier));
             const cfg = cfgs.get(ref.courier);
             if (!cfg) continue;
-            const url = await ownWaybillUrl(service, cfg, ref.tracking);
+            const url = await ownWaybillUrlFor(service, cfg, ref.trackings);
             await service.from("customer_purchases").update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", owner);
             r.waybill_url = url;
           } catch (_) { /* courier label not ready yet — stays in "missing" */ }

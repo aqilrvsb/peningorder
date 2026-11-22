@@ -115,6 +115,7 @@ const CodRemitImport: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
 
       // Look the trackings up (RLS keeps it to this client's orders).
       const byTracking = new Map<string, any[]>();
+      const box2ByTracking = new Map<string, any>();
       const lookups = [...new Set([...wanted].flatMap(([key, w]) => [key, w.raw]))];
       for (const part of chunk(lookups, 150)) {
         const { data, error } = await (supabase as any)
@@ -127,12 +128,25 @@ const CodRemitImport: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
           if (!byTracking.has(k)) byTracking.set(k, []);
           if (!byTracking.get(k)!.some((x) => x.id === o.id)) byTracking.get(k)!.push(o);
         }
+        // Box 2 of a "2 Tracking" order has no COD — box 1 carries it, so box 2 is never collected on its own.
+        const { data: box2 } = await (supabase as any)
+          .from('customer_purchases')
+          .select('id_sale, tracking_number, tracking_number_2')
+          .in('tracking_number_2', part);
+        for (const o of box2 || []) box2ByTracking.set(String(o.tracking_number_2 || '').replace(/\s+/g, '').toUpperCase(), o);
       }
 
       const ok: ReadyRow[] = [];
       for (const [key, w] of wanted) {
         const found = byTracking.get(key) || [];
-        if (!found.length) { skip.push({ tracking: w.raw, reason: 'Tracking tak jumpa' }); continue; }
+        if (!found.length) {
+          const b2 = box2ByTracking.get(key);
+          skip.push({
+            tracking: w.raw,
+            reason: b2 ? `Kotak 2 bagi ${b2.id_sale || 'order'} — COD dikutip ikut kotak 1 (${b2.tracking_number})` : 'Tracking tak jumpa',
+          });
+          continue;
+        }
         const eligible = found.filter((o) => o.type_payment === 'COD' && o.delivery_status === 'Success' && !o.date_payment);
         if (eligible.length) {
           eligible.forEach((o) => ok.push({ id: o.id, tracking: w.raw, name: o.name_customer || '-', total: Number(o.total_sale) || 0, date: w.date }));

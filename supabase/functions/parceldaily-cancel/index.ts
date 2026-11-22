@@ -96,14 +96,23 @@ serve(async (req) => {
     if (own) {
       const cfg = await loadOwnCourierConfig(service, ownerUuid, own.courier);
       if (!cfg) return fail("Akaun kurier tidak dijumpai di Courier Settings → Kurier Sendiri.", { orderId });
-      try {
-        await ownCancel(service, cfg, own.tracking);
-      } catch (e) {
-        const msg = e instanceof CourierError ? e.message : String((e as Error).message || e);
-        return fail(msg, { orderId, trackingNumber: own.tracking, details: e instanceof CourierError ? e.details : undefined });
+      // A "2 Tracking" order holds both boxes ("own:<courier>:<box 1>,<box 2>"): cancel every box.
+      const failed: string[] = [];
+      let details: unknown;
+      for (const t of own.trackings) {
+        try {
+          await ownCancel(service, cfg, t);
+        } catch (e) {
+          const msg = e instanceof CourierError ? e.message : String((e as Error).message || e);
+          failed.push(own.trackings.length > 1 ? `${t}: ${msg}` : msg);
+          if (e instanceof CourierError) details = e.details;
+        }
+      }
+      if (failed.length) {
+        return fail(failed.join(" | "), { orderId, trackingNumber: own.tracking, details });
       }
       await markCancelled();
-      return ok({ success: true, orderId, trackingNumber: own.tracking, message: "Order dibatalkan di kurier." });
+      return ok({ success: true, orderId, trackingNumber: own.tracking, trackings: own.trackings, message: "Order dibatalkan di kurier." });
     }
     // A BYOC tenant with no ParcelDaily booking on this order: nothing to cancel at ParcelDaily.
     if ((await providerOf(service, ownerUuid)) === "own" && !orderId) {

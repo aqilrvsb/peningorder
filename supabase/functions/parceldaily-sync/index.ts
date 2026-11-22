@@ -13,7 +13,7 @@
 //                                 tenant's stuck orders (Sync Tracking button).
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { loadOwnCourierConfig, ownWaybillUrl, parseOwnRef, providerOf } from "../_shared/own-couriers.ts";
+import { loadOwnCourierConfig, ownWaybillUrlFor, parseOwnRef, providerOf } from "../_shared/own-couriers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,7 +81,7 @@ serve(async (req) => {
         if (!cfgs.has(ref.courier)) cfgs.set(ref.courier, await loadOwnCourierConfig(service, ownerUuid, ref.courier));
         const cfg = cfgs.get(ref.courier);
         if (!cfg) { results.push({ id: r.id, resolved: false }); continue; }
-        const url = await ownWaybillUrl(service, cfg, ref.tracking);
+        const url = await ownWaybillUrlFor(service, cfg, ref.trackings);
         const { error: upErr } = await service.from("customer_purchases")
           .update({ waybill_url: url }).eq("id", r.id).eq("owner_user_id", ownerUuid);
         if (!upErr) updated++;

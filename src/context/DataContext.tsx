@@ -23,6 +23,7 @@ interface CustomerOrder {
   skipCourier?: boolean; // bundle is 'Tanpa tracking ParcelDaily' (brand ships it, e.g. MOMMYHANA)
   receiptType?: string | null; commission?: number; pdOrderId?: string;
   pospadaDate?: string | null; // booking dispatch date; set = held as Pospada booking
+  noTracking2?: string; seos2?: string; // "2 Tracking" bundle: box 2's tracking + latest courier status
 }
 
 interface Prospect {
@@ -117,6 +118,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     waybillUrl: d.waybill_url || '',
     seo: d.seo || '',
     seos: d.seos || '',
+    noTracking2: d.tracking_number_2 || '',
+    seos2: d.seos_2 || '',
     bundleId: d.bundle_id || '',
     skipCourier: !!d.bundle?.skip_courier,
   });
