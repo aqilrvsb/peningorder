@@ -1163,7 +1163,7 @@ const AccountSalary: React.FC = () => {
 
       {/* Summary cards (config-driven) */}
       {cards.length > 0 && (
-        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 7 ? 'lg:grid-cols-4' : cards.length >= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : cards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
+        <div className={`grid grid-cols-2 gap-3 ${cards.length >= 7 ? 'lg:grid-cols-3 xl:grid-cols-4' : cards.length >= 6 ? 'lg:grid-cols-3 xl:grid-cols-6' : cards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : cards.length === 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'lg:grid-cols-3' : ''}`}>
           {cards.map((c) => (
             <StatCard
               key={c.label}
