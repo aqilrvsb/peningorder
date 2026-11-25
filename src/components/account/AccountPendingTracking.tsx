@@ -714,7 +714,7 @@ const AccountPendingTracking = () => {
                           <td className="p-3">{order.name_customer || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-3">
-                            <span className="truncate max-w-[150px] block">{order.bundle?.name || order.nota_staff || "-"}</span>
+                            <span className="block min-w-[160px] max-w-[260px] whitespace-normal break-words">{order.bundle?.name || order.nota_staff || "-"}</span>
                           </td>
                           <td className="p-3">{order.unit || 1}</td>
                           <td className="p-3 whitespace-nowrap">{order.kurier || "-"}</td>

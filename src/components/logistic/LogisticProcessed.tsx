@@ -998,7 +998,7 @@ const LogisticProcessed = () => {
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            <span className="truncate max-w-[150px] block">{order.bundle?.name || "-"}</span>
+                            <span className="block min-w-[160px] max-w-[260px] whitespace-normal break-words">{order.bundle?.name || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">
                             <span className="text-xs">{order.kurier || "-"}</span>

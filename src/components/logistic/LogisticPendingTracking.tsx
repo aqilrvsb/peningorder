@@ -558,7 +558,7 @@ const LogisticPendingTracking = () => {
                           <td className="p-2">{order.name_customer || "-"}</td>
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
-                            <span className="truncate max-w-[150px] block">{order.bundle?.name || order.nota_staff || "-"}</span>
+                            <span className="block min-w-[160px] max-w-[260px] whitespace-normal break-words">{order.bundle?.name || order.nota_staff || "-"}</span>
                           </td>
                           <td className="p-2 whitespace-nowrap">{order.kurier || "-"}</td>
                           <td className="p-2 whitespace-nowrap">

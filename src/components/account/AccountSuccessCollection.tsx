@@ -287,7 +287,7 @@ const AccountSuccessCollection = () => {
                           </td>
                           <td className="p-3">{o.name_customer || "-"}</td>
                           <td className="p-3 whitespace-nowrap">{o.phone_customer || "-"}</td>
-                          <td className="p-3"><span className="truncate max-w-[150px] block">{o.bundle?.name || o.nota_staff || "-"}</span></td>
+                          <td className="p-3"><span className="block min-w-[160px] max-w-[260px] whitespace-normal break-words">{o.bundle?.name || o.nota_staff || "-"}</span></td>
                           <td className="p-3">{o.unit || 1}</td>
                           <td className="p-3 whitespace-nowrap">{o.kurier || "-"}</td>
                           <td className="p-3 whitespace-nowrap"><OrderTracking order={o} /></td>

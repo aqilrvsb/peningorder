@@ -1325,7 +1325,7 @@ const LogisticOrder = ({ pospada = false }: { pospada?: boolean }) => {
                           <td className="p-2 whitespace-nowrap">{order.phone_customer || "-"}</td>
                           <td className="p-2">
                             {order.bundle?.name ? (
-                              <span className="truncate max-w-[150px] block">{order.bundle?.name}</span>
+                              <span className="block min-w-[160px] max-w-[260px] whitespace-normal break-words">{order.bundle?.name}</span>
                             ) : (
                               <Select onValueChange={(v) => handleUpdateProduct(order.id, v)}>
                                 <SelectTrigger className="w-[140px] h-7 text-xs">
