@@ -7,6 +7,8 @@ import { TablePagination } from "@/components/TablePagination";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/hooks/useTeam";
 import { TeamFilter } from "@/components/TeamFilter";
+import ProductFilter from "@/components/ProductFilter";
+import { useProductFilter } from "@/hooks/useProductFilter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +120,9 @@ const LogisticProcessed = () => {
   // Filter states
   const [search, setSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState('');
+  // Main product (products table, not bundles): an order matches when its bundle holds that product.
+  const [productFilter, setProductFilter] = useState('');
+  const { products: mainProducts, matchOrder } = useProductFilter(productFilter);
   const { nameByIdstaff, members } = useTeam();
   // Hide the bundle Komisyen column when the whole MARKETER team is gross-profit
   // (the logistic account is never counted — it earns no commission).
@@ -338,7 +343,10 @@ const LogisticProcessed = () => {
   const isNinjavanPlatform = () => true;
 
   // Filter orders - using new schema field names
-  const filteredOrders = orders.filter((order: any) => {
+  // The product filter narrows everything on the page: cards, courier cards and the table.
+  const productOrders = productFilter ? orders.filter((o: any) => matchOrder(o)) : orders;
+
+  const filteredOrders = productOrders.filter((order: any) => {
     if (teamFilter && (order.marketer_id_staff || '') !== teamFilter) return false;
     // Search filter
     if (search.trim()) {
@@ -394,18 +402,18 @@ const LogisticProcessed = () => {
   const isPickupOrder = (o: any) => (o.kurier || "").toUpperCase().includes("PICKUP");
 
   const counts = {
-    total: orders.length,
-    ninjavanCod: orders.filter((o: any) => o.type_payment === "COD").length,
-    ninjavanCash: orders.filter((o: any) => o.type_payment === "CASH").length,
-    cod: orders.filter(isCodOrder).length,
-    cash: orders.filter((o: any) => !isCodOrder(o)).length,
-    pickup: orders.filter(isPickupOrder).length,
-    success: orders.filter((o: any) => o.delivery_status === "Success").length,
-    returned: orders.filter((o: any) => o.delivery_status === "Return").length,
+    total: productOrders.length,
+    ninjavanCod: productOrders.filter((o: any) => o.type_payment === "COD").length,
+    ninjavanCash: productOrders.filter((o: any) => o.type_payment === "CASH").length,
+    cod: productOrders.filter(isCodOrder).length,
+    cash: productOrders.filter((o: any) => !isCodOrder(o)).length,
+    pickup: productOrders.filter(isPickupOrder).length,
+    success: productOrders.filter((o: any) => o.delivery_status === "Success").length,
+    returned: productOrders.filter((o: any) => o.delivery_status === "Return").length,
   };
 
   // Per-courier split: count + COD/Cash + Success/Return, for the clickable cards.
-  const courierStats = orders.reduce((acc: Record<string, { n: number; cod: number; cash: number; success: number; returned: number }>, o: any) => {
+  const courierStats = productOrders.reduce((acc: Record<string, { n: number; cod: number; cash: number; success: number; returned: number }>, o: any) => {
     const c = baseCourier(o.kurier);
     const e = acc[c] || (acc[c] = { n: 0, cod: 0, cash: 0, success: 0, returned: 0 });
     e.n++;
@@ -824,6 +832,7 @@ const LogisticProcessed = () => {
                   />
                 </div>
                 <TeamFilter value={teamFilter} onChange={(v) => { setTeamFilter(v); handleFilterChange(); }} />
+                <ProductFilter value={productFilter} onChange={(v) => { setProductFilter(v); handleFilterChange(); }} products={mainProducts} />
                 <Button
                   variant="outline"
                   onClick={() => { setStartDate(""); setPendingStart(""); setEndDate(""); setPendingEnd(""); }}

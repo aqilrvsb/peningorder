@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { getMalaysiaYesterday, fetchAllRows } from '@/lib/utils';
-import { isPospadaBooking } from '@/lib/pospada';
+import { isPospadaBooking, isRejectedOrder } from '@/lib/pospada';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
 
@@ -184,6 +184,7 @@ const ReportingSpend: React.FC = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       if (isPospadaBooking(order)) return false; // Pospada booking ≠ sale until Processed
+      if (isRejectedOrder(order)) return false; // Rejected = never shipped, not a sale
       if (teamFilter && ((order as any).marketerIdStaff || '') !== teamFilter) return false;
       const orderDate = order.tarikhTempahan;
       const matchesStartDate = !startDate || (orderDate && orderDate >= startDate);

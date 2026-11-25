@@ -49,7 +49,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
+import { NOT_POSPADA_BOOKING, REJECTED } from '@/lib/pospada';
 import { getMalaysiaYesterday, fetchAllRows, formatDMY } from '@/lib/utils';
 import DateApplyButton from '@/components/DateApplyButton';
 import UnappliedDateNote from '@/components/UnappliedDateNote';
@@ -149,7 +149,8 @@ const Spend: React.FC = () => {
           let q = (supabase as any)
             .from('customer_purchases')
             .select('date_order, total_sale, marketer_id_staff')
-            .or(NOT_POSPADA_BOOKING); // Pospada booking ≠ sale until Processed
+            .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
+            .neq('delivery_status', REJECTED); // Rejected = never shipped, not a sale
           if (startDate) q = q.gte('date_order', startDate);
           if (endDate) q = q.lte('date_order', endDate);
           if (isMarketer && userIdStaff) q = q.eq('marketer_id_staff', userIdStaff);

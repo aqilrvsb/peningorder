@@ -17,6 +17,16 @@ export const isPospadaBooking = (o: {
   return !!date && status === 'Pending';
 };
 
+/**
+ * Rejected (fake receipt, duplicate order…) = never shipped, so it is never a sale: left out of
+ * every sales figure (Salary, Report Profit, Sales Overview, Dashboard, History totals, ranking,
+ * admin stats). Owner 2026-11-25. Sales queries add `.neq('delivery_status', REJECTED)`;
+ * the SQL reports have the same rule. Logistic Summary still counts them as "Reject".
+ */
+export const REJECTED = 'Rejected';
+export const isRejectedOrder = (o: { deliveryStatus?: string | null; delivery_status?: string | null }): boolean =>
+  (o.deliveryStatus ?? o.delivery_status) === REJECTED;
+
 /** PostgREST filter that drops Pospada bookings: `query.or(NOT_POSPADA_BOOKING)`. */
 export const NOT_POSPADA_BOOKING = 'pospada_date.is.null,delivery_status.neq.Pending';
 

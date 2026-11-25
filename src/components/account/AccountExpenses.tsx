@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { NOT_POSPADA_BOOKING } from '@/lib/pospada';
+import { NOT_POSPADA_BOOKING, REJECTED } from '@/lib/pospada';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,6 +122,7 @@ const AccountExpenses: React.FC = () => {
           .from('customer_purchases')
           .select('cost_baseproduct, date_order')
           .or(NOT_POSPADA_BOOKING) // Pospada booking ≠ sale until Processed
+          .neq('delivery_status', REJECTED) // Rejected = never shipped, not a sale
           .gte('date_order', startDate)
           .lte('date_order', endDate)
       );

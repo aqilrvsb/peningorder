@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
-import { isPospadaBooking } from '@/lib/pospada';
+import { isPospadaBooking, isRejectedOrder } from '@/lib/pospada';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -238,6 +238,7 @@ const Dashboard: React.FC = () => {
     return orders.filter(order => {
       if (!order.dateOrder) return false;
       if (isPospadaBooking(order)) return false; // Pospada booking ≠ sale until Processed
+      if (isRejectedOrder(order)) return false; // Rejected = never shipped, not a sale
       if (teamFilter && ((order as any).marketerIdStaff || '') !== teamFilter) return false;
       try {
         const orderDate = parseISO(order.dateOrder);

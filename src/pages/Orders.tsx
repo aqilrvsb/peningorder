@@ -10,7 +10,7 @@ import { ReceiptViewer } from '@/components/ReceiptViewer';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { usePospadaEnabled } from '@/hooks/usePospadaEnabled';
-import { isPospadaBooking, processPospada } from '@/lib/pospada';
+import { isPospadaBooking, isRejectedOrder, processPospada } from '@/lib/pospada';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -286,7 +286,8 @@ const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
   const stats = useMemo(() => {
     // Boxes are computed from baseOrders (team/search/date only) so their totals
     // stay stable while clicking a box narrows the table. (Local shadow.)
-    const filteredOrders = baseOrders;
+    // Rejected orders stay in the list and the Rejected box, but are not sales (owner 2026-11-25).
+    const filteredOrders = baseOrders.filter((o) => !isRejectedOrder(o));
     const totalCustomer = filteredOrders.length;
     const totalSales = filteredOrders.reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalUnit = filteredOrders.reduce((sum, o) => sum + (o.kuantiti || 0), 0);
@@ -295,7 +296,7 @@ const Orders: React.FC<{ pospada?: boolean }> = ({ pospada = false }) => {
     const totalCOD = filteredOrders.filter(o => o.caraBayaran === 'COD' || o.kurier?.includes('COD')).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalPickup = filteredOrders.filter(isPickupO).reduce((sum, o) => sum + (o.hargaJualanSebenar || 0), 0);
     const totalPending = filteredOrders.filter(o => o.deliveryStatus === 'Pending').length;
-    const totalRejected = filteredOrders.filter(o => o.deliveryStatus === 'Rejected').length;
+    const totalRejected = baseOrders.filter(o => o.deliveryStatus === 'Rejected').length;
     // Shipped = ever shipped (in transit + delivered + returned); RemainingShip =
     // shipped but not yet Success/Return (still in transit).
     const totalShipped = filteredOrders.filter(o => ['Shipped', 'Success', 'Return'].includes(o.deliveryStatus)).length;
@@ -1030,7 +1031,8 @@ ${trackingUrl}`;
       </div>
 
       {/* Row 2 — lifecycle (clickable) + Return / costs.
-          Pending + Rejected + Shipped = Total Order; Shipped = RemainingShip + Success + Return. */}
+          Pending + Shipped = Total Customer (Rejected is shown on its own: not a sale, owner 2026-11-25);
+          Shipped = RemainingShip + Success + Return. */}
       <div className={BOX_GRID}>
         <StatCard
           className={BOX}
