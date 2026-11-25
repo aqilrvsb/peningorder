@@ -189,6 +189,17 @@ serve(async (req) => {
       ownerUuid = data;
     }
 
+    // A Rejected order (duplicate, fake receipt…) is never shipped, so never book a courier for it,
+    // whichever screen asks (e.g. a History page opened before the order was rejected).
+    const idSaleIn = clean(orderData.idSale);
+    if (ownerUuid && idSaleIn) {
+      const { data: rejected } = await service.from("customer_purchases").select("id")
+        .eq("owner_user_id", ownerUuid).eq("id_sale", idSaleIn).eq("delivery_status", "Rejected").limit(1);
+      if (rejected?.length) {
+        return fail(`Order ${idSaleIn} telah di-Reject — tracking tidak dijana.`, { rejected: true });
+      }
+    }
+
     // Bundles set to "Tanpa tracking ParcelDaily" (logistic_bundles.skip_courier — e.g.
     // MOMMYHANA, shipped by the brand) are never booked, whichever path calls this
     // (key-in, WooCommerce webhook, Integration map, manual Generate Tracking).

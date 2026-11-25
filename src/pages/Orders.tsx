@@ -1402,8 +1402,9 @@ ${trackingUrl}`;
                         >
                           {order.noTracking}
                         </a>
-                      ) : order.jenisPlatform !== 'Tiktok' && !pospada ? (
+                      ) : order.jenisPlatform !== 'Tiktok' && !pospada && !isRejectedOrder(order) ? (
                         // A booking gets its tracking only after Process (from Logistic → Order).
+                        // A Rejected order (duplicate, fake receipt…) is never shipped: no button.
                         <button
                           onClick={() => handleRegenerateClick(order)}
                           className="p-1.5 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-600 dark:text-orange-400 transition-colors"
