@@ -97,9 +97,8 @@ interface SalaryRow {
   extras?: ExtraCommission[]; // bundles paid on their own Profit Sharing % (e.g. Ajwa 30%)
   pospadaSales?: number; // "Campur Pospada": open bookings (Pospada date in the range, not processed yet)
   commissionCombined?: number; // the Nett Sales commission with those bookings counted as sales
-  // Per bundle-% rule, with those bookings counted as sales: Nett Sales + Pospada and their postage
-  // (feeds the owner's "NETT TAX Combine" card).
-  combinedRule?: { basis: number; postage: number }[];
+  nettTax?: number; // owner's income from this staff's collected bundle-% orders ("NETT TAX" card)
+  nettTaxCombined?: number; // the same on Nett Sales + open bookings ("NETT TAX Combine" card)
 }
 
 // Bundles with the same Profit Sharing %: percent × (Collection − postage of those orders).
@@ -131,10 +130,15 @@ const isSalaryReturn = (o: { type_payment?: string | null; kurier?: string | nul
 const NON_SALES_ROLES = new Set(['logistic', 'hr']);
 
 // "NETT TAX" card = the owner's own income from bundles with a Profit Sharing % (owner account id →
-// % the brand HQ pays the owner). Owner keeps (HQ % − team %) × Collection + the postage of those
-// orders. akhirulnaim: Ajwa HQ pays 35%, team 30% → 5% + postage (owner 2026-11-18). Owner only.
-const NETT_TAX_HQ_PERCENT: Record<string, number> = {
-  '95f2d1be-6608-4456-a721-9c0b6807bc63': 35, // akhirulnaim@gmail.com — Susu Ajwa
+// % the brand HQ pays the owner, per product: first rule whose `sku` matches the bundle SKU, a rule
+// without `sku` = every other product). Per order the owner keeps (HQ % − team %) × sale + its postage.
+// akhirulnaim: Ajwa HQ pays 35%, team 30% → 5% + postage (owner 2026-11-18); Al Kaussar HQ pays the
+// same 30% as the team → postage only (owner 2026-11-25). Owner only.
+const NETT_TAX_HQ: Record<string, { pct: number; sku?: RegExp }[]> = {
+  '95f2d1be-6608-4456-a721-9c0b6807bc63': [ // akhirulnaim@gmail.com
+    { sku: /KAUS/i, pct: 30 }, // Al Kaussar (KAUSSAR-n / KAUSAR-n) — postage only
+    { pct: 35 },               // Susu Ajwa
+  ],
 };
 
 const AccountSalary: React.FC = () => {
@@ -380,6 +384,14 @@ const AccountSalary: React.FC = () => {
     const b = psBundles.get(o.bundle_id);
     return b ? productRules.findIndex((r) => r.percent === b.pct) : -1;
   };
+  // NETT TAX (owner's own login only): the owner's cut of a bundle-% order = HQ % of its product − team %.
+  const nettTaxRules = !isMarketer ? NETT_TAX_HQ[profile?.id || ''] : undefined;
+  const ownerMarginPct = (o: any): number => {
+    const b = nettTaxRules && o.bundle_id ? psBundles.get(o.bundle_id) : undefined;
+    if (!b) return 0;
+    const hq = nettTaxRules!.find((r) => !r.sku || r.sku.test(b.sku))?.pct ?? 0;
+    return Math.max(0, hq - b.pct);
+  };
   // Ads of a product sold in those bundles aren't deducted from the PNL calc either.
   const psProductNames = useMemo(() => {
     const skus = new Set<string>();
@@ -401,9 +413,10 @@ const AccountSalary: React.FC = () => {
     const ensure = (id: string) => (agg[id] ||= { totalSales: 0, returnSales: 0, collection: 0, spend: 0, costProduct: 0, postage: 0, costProductColl: 0, postageColl: 0, komNett: 0, komColl: 0, cntNett: 0, cntColl: 0 });
 
     // Orders of a product paid on its own rule skip the PNL calc entirely.
-    type RuleAgg = { sales: number; ret: number; coll: number; cnt: number; post: number; postAll: number };
+    // tax / taxAll = owner's NETT TAX from the collected orders / from every order counted as a sale.
+    type RuleAgg = { sales: number; ret: number; coll: number; cnt: number; post: number; postAll: number; tax: number; taxAll: number };
     const ruleAgg: Record<string, RuleAgg[]> = {};
-    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, ret: 0, coll: 0, cnt: 0, post: 0, postAll: 0 })));
+    const ensureRule = (id: string) => (ruleAgg[id] ||= productRules.map(() => ({ sales: 0, ret: 0, coll: 0, cnt: 0, post: 0, postAll: 0, tax: 0, taxAll: 0 })));
 
     // Whole-picture numbers per staff, every order (PNL + bundle %): Total Sales, Return,
     // and COD delivered but not yet collected (same as Finance → Pending COD Collection).
@@ -427,8 +440,9 @@ const AccountSalary: React.FC = () => {
         ra.sales += sale;
         if (isSalaryReturn(o)) ra.ret += sale;
         const pos = Number(o.cost_postage) || 0;
-        if (!isSalaryReturn(o)) ra.postAll += pos; // Nett: postage of the orders counted as sales only
-        if (isCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; } // Cash (even if returned) + COD Collected
+        const tax = (sale * ownerMarginPct(o)) / 100 + pos;
+        if (!isSalaryReturn(o)) { ra.postAll += pos; ra.taxAll += tax; } // Nett: postage of the orders counted as sales only
+        if (isCollected(o)) { ra.coll += sale; ra.cnt += 1; ra.post += pos; ra.tax += tax; } // Cash (even if returned) + COD Collected
         return;
       }
       const a = ensure(id);
@@ -459,17 +473,17 @@ const AccountSalary: React.FC = () => {
     });
 
     // Open Pospada bookings ("Campur Pospada"), split like the orders: bundle-% ones vs the PNL part.
-    type PosAgg = { sales: number; pnlSales: number; pnlPost: number; pnlProduct: number; rule: { sales: number; post: number }[] };
+    type PosAgg = { sales: number; pnlSales: number; pnlPost: number; pnlProduct: number; rule: { sales: number; post: number; tax: number }[] };
     const pos: Record<string, PosAgg> = {};
     productPospada.forEach((o) => {
       const id = o.marketer_id_staff || '';
       if (!id) return;
-      const p = (pos[id] ||= { sales: 0, pnlSales: 0, pnlPost: 0, pnlProduct: 0, rule: productRules.map(() => ({ sales: 0, post: 0 })) });
+      const p = (pos[id] ||= { sales: 0, pnlSales: 0, pnlPost: 0, pnlProduct: 0, rule: productRules.map(() => ({ sales: 0, post: 0, tax: 0 })) });
       const sale = Number(o.total_sale) || 0;
       const post = Number(o.cost_postage) || 0;
       p.sales += sale;
       const ri = ruleOfOrder(o);
-      if (ri >= 0) { p.rule[ri].sales += sale; p.rule[ri].post += post; }
+      if (ri >= 0) { p.rule[ri].sales += sale; p.rule[ri].post += post; p.rule[ri].tax += (sale * ownerMarginPct(o)) / 100 + post; }
       else { p.pnlSales += sale; p.pnlPost += post; p.pnlProduct += Number(o.cost_baseproduct) || 0; }
     });
 
@@ -553,16 +567,10 @@ const AccountSalary: React.FC = () => {
         ? {
             pospadaSales: p?.sales || 0,
             commissionCombined: nettCommission(p),
-            combinedRule: productRules.map((_, i) => {
-              const ra = ruleAgg[m.idstaff]?.[i];
-              const ad = p?.rule[i];
-              return {
-                basis: (ra ? ra.sales - ra.ret : 0) + (ad?.sales || 0),
-                postage: (ra?.postAll || 0) + (ad?.post || 0),
-              };
-            }),
+            nettTaxCombined: productRules.reduce((s, _, i) => s + (ruleAgg[m.idstaff]?.[i]?.taxAll || 0) + (p?.rule[i]?.tax || 0), 0),
           }
         : {};
+      const nettTax = productRules.reduce((s, _, i) => s + (ruleAgg[m.idstaff]?.[i]?.tax || 0), 0);
       return {
         ...pospada,
         ...whole,
@@ -571,11 +579,11 @@ const AccountSalary: React.FC = () => {
         collection: a.collection, spend: a.spend, costProduct, postage,
         revenue, base, roas, kpiValue, commissionPercent,
         commission: mainCommission + extraCommission, mainCommission, extras, qualifyOrders,
-        commissionNett,
+        commissionNett, nettTax,
       };
     });
     return rows.sort((x, y) => y.commission - x.commission);
-  }, [productOrders, productSpends, productPospada, withPospada, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames, collStart, collEnd]);
+  }, [productOrders, productSpends, productPospada, withPospada, members, nameByIdstaff, config, isMarketer, ownIdStaff, productRules, psBundles, psProductNames, collStart, collEnd, nettTaxRules]);
 
   const totals = useMemo(() => salaryRows.reduce(
     (acc, r) => ({
@@ -600,14 +608,14 @@ const AccountSalary: React.FC = () => {
       commissionNett: acc.commissionNett + (r.commissionNett ?? 0),
       pospadaSales: acc.pospadaSales + (r.pospadaSales ?? 0),
       commissionCombined: acc.commissionCombined + (r.commissionCombined ?? 0),
-      combinedBasis: acc.combinedBasis.map((v, i) => v + (r.combinedRule?.[i]?.basis || 0)),
-      combinedPostage: acc.combinedPostage.map((v, i) => v + (r.combinedRule?.[i]?.postage || 0)),
+      nettTax: acc.nettTax + (r.nettTax ?? 0),
+      nettTaxCombined: acc.nettTaxCombined + (r.nettTaxCombined ?? 0),
     }),
     {
       totalSales: 0, nettSales: 0, collection: 0, returnSales: 0, spend: 0, costProduct: 0, postage: 0, base: 0, commission: 0, mainCommission: 0, qualifyOrders: 0,
       allSales: 0, allReturn: 0, pendingCod: 0, allCollection: 0, commissionNett: 0, pospadaSales: 0, commissionCombined: 0,
+      nettTax: 0, nettTaxCombined: 0,
       extras: productRules.map(() => 0), extrasBasis: productRules.map(() => 0), extrasPostage: productRules.map(() => 0),
-      combinedBasis: productRules.map(() => 0), combinedPostage: productRules.map(() => 0),
     },
   ), [salaryRows, productRules]);
 
@@ -723,17 +731,14 @@ const AccountSalary: React.FC = () => {
     if (!config) return [];
     const out: { label: string; value: string; color: string; hint?: string }[] = [];
     const ruleCards = productRules.map((rule, i) => ({ label: `Komisyen ${rule.label}`, value: fmtRM(totals.extras[i] || 0), color: 'green' }));
-    // NETT TAX — owner's income (owner's own login only, never staff).
-    const hqPct = !isMarketer ? NETT_TAX_HQ_PERCENT[profile?.id || ''] : undefined;
-    const ownerIncome = (basis: number[], postage: number[]) =>
-      productRules.reduce((sum, rule, i) => sum + ((basis[i] || 0) * Math.max(0, (hqPct || 0) - rule.percent)) / 100 + (postage[i] || 0), 0);
-    const showNettTax = hqPct != null && productRules.length > 0;
+    // NETT TAX — owner's income (owner's own login only, never staff), per order by product HQ %.
+    const showNettTax = nettTaxRules != null && productRules.length > 0;
     // owner asked: no working line
-    const nettTaxCard = showNettTax ? { label: 'NETT TAX', value: fmtRM(ownerIncome(totals.extrasBasis, totals.extrasPostage)), color: 'indigo' } : null;
+    const nettTaxCard = showNettTax ? { label: 'NETT TAX', value: fmtRM(totals.nettTax), color: 'indigo' } : null;
     // "Campur Pospada": the same income if every Nett Sales order + open booking became collection
     // (pairs with the "Commission Combine Nett Sales" column).
     const nettTaxCombinedCard = showNettTax && withPospada
-      ? { label: 'NETT TAX Combine', value: fmtRM(ownerIncome(totals.combinedBasis, totals.combinedPostage)), color: 'cyan' }
+      ? { label: 'NETT TAX Combine', value: fmtRM(totals.nettTaxCombined), color: 'cyan' }
       : null;
     if (isKomisyenOrder) {
       out.push({ label: 'Total Sales', value: fmtRM(totals.totalSales), color: 'blue' });
@@ -753,7 +758,7 @@ const AccountSalary: React.FC = () => {
     if (nettTaxCard) out.push(nettTaxCard); // last cards
     if (nettTaxCombinedCard) out.push(nettTaxCombinedCard);
     return out;
-  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm, isMarketer, profile?.id, withPospada]);
+  }, [config, totals, totalBasis, isKomisyenOrder, isProfitSharing, basisIsCollection, productRules, showNettComm, nettTaxRules, withPospada]);
 
   const exportToXLSX = () => {
     const data = salaryRows.map((r, i) => {
