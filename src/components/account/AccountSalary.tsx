@@ -176,7 +176,7 @@ const AccountSalary: React.FC = () => {
   };
   // Main product ('' = all). Orders match by their bundle's products, spends by product name.
   const [productFilter, setProductFilter] = useState('');
-  const { products: mainProducts, product: selectedProduct, matchOrder, matchSpend } = useProductFilter(productFilter);
+  const { products: mainProducts, allProducts, product: selectedProduct, matchOrder, matchSpend } = useProductFilter(productFilter);
   const applyLockFilter = () => { setLockMonth(pendingLockMonth); setLockYear(pendingLockYear); };
 
   // In-app Bundle breakdown modal (Komisyen Order only) — same data as the slip.
@@ -396,8 +396,10 @@ const AccountSalary: React.FC = () => {
   const psProductNames = useMemo(() => {
     const skus = new Set<string>();
     psBundles.forEach((b) => bundleProductSkus(b.sku).forEach((s) => skus.add(s)));
-    return new Set(mainProducts.filter((p) => skus.has((p.sku || '').trim().toLowerCase())).map((p) => p.name.trim().toLowerCase()));
-  }, [psBundles, mainProducts]);
+    // Spend rows store the product SKU (older rows the name) → keep both.
+    return new Set(allProducts.filter((p) => skus.has((p.sku || '').trim().toLowerCase()))
+      .flatMap((p) => [p.name.trim().toLowerCase(), (p.sku || '').trim().toLowerCase()]));
+  }, [psBundles, allProducts]);
   const ruleOfSpend = (s: any) => (productRules.length && psProductNames.has((s.product || '').trim().toLowerCase()) ? 0 : -1);
 
   const productOrders = useMemo(() => allOrders.filter((o: any) => matchOrder(o)), [allOrders, productFilter, selectedProduct, matchOrder]);

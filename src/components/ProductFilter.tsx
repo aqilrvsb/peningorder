@@ -1,9 +1,9 @@
 import React from 'react';
 import { Package } from 'lucide-react';
-import type { MainProduct } from '@/hooks/useProductFilter';
+import type { ProductOption } from '@/hooks/useProductFilter';
 
-/** Main-product dropdown: "Semua Produk" ('' ) or one product from the products table. */
-export const ProductFilter: React.FC<{ value: string; onChange: (v: string) => void; products: MainProduct[]; className?: string }> = ({ value, onChange, products, className }) => (
+/** Main-product dropdown: "Semua Produk" ('') or one product / product group (Logistic → Product → Kumpulan). */
+export const ProductFilter: React.FC<{ value: string; onChange: (v: string) => void; products: ProductOption[]; className?: string }> = ({ value, onChange, products, className }) => (
   <div className={`flex min-w-0 items-center gap-2 ${className || ''}`}>
     <Package className="w-4 h-4 text-muted-foreground shrink-0" />
     <select

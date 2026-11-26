@@ -36,6 +36,7 @@ const LogisticProductManagement = () => {
   const [newProductSku, setNewProductSku] = useState("");
   const [newProductBaseCost, setNewProductBaseCost] = useState("");
   const [newProductQuantity, setNewProductQuantity] = useState("0");
+  const [newProductGroup, setNewProductGroup] = useState("");
 
   // Edit state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -44,6 +45,7 @@ const LogisticProductManagement = () => {
   const [editSku, setEditSku] = useState("");
   const [editQuantity, setEditQuantity] = useState("");
   const [editBaseCost, setEditBaseCost] = useState("");
+  const [editGroup, setEditGroup] = useState("");
 
   // Delete state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -71,11 +73,13 @@ const LogisticProductManagement = () => {
       sku,
       baseCost,
       quantity,
+      group,
     }: {
       name: string;
       sku: string;
       baseCost: number;
       quantity: number;
+      group: string;
     }) => {
       // Check for duplicate SKU
       const { data: existingProduct, error: checkError } = await supabase
@@ -101,7 +105,8 @@ const LogisticProductManagement = () => {
           stock_in: quantity,
           stock_out: 0,
           is_active: true,
-        })
+          ...(group ? { filter_group: group } : {}),
+        } as any)
         .select()
         .single();
 
@@ -111,12 +116,13 @@ const LogisticProductManagement = () => {
     },
     onSuccess: () => {
       toast.success("Product added successfully");
-      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] }); queryClient.invalidateQueries({ queryKey: ["main-products-filter"] });
       setIsAddDialogOpen(false);
       setNewProductName("");
       setNewProductSku("");
       setNewProductBaseCost("");
       setNewProductQuantity("0");
+      setNewProductGroup("");
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to add product");
@@ -132,6 +138,7 @@ const LogisticProductManagement = () => {
       baseCost,
       quantity,
       originalSku,
+      group,
     }: {
       productId: string;
       name: string;
@@ -139,6 +146,7 @@ const LogisticProductManagement = () => {
       baseCost: number;
       quantity: number;
       originalSku: string;
+      group: string;
     }) => {
       // Check for duplicate SKU if SKU changed
       if (sku !== originalSku) {
@@ -164,21 +172,23 @@ const LogisticProductManagement = () => {
           sku,
           base_cost: baseCost,
           quantity: quantity,
+          filter_group: group || null,
           updated_at: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", productId);
 
       if (productError) throw productError;
     },
     onSuccess: () => {
       toast.success("Product updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] }); queryClient.invalidateQueries({ queryKey: ["main-products-filter"] });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
       setEditName("");
       setEditSku("");
       setEditQuantity("");
       setEditBaseCost("");
+      setEditGroup("");
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update product");
@@ -198,7 +208,7 @@ const LogisticProductManagement = () => {
     },
     onSuccess: () => {
       toast.success("Product deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["all-products"] });
+      queryClient.invalidateQueries({ queryKey: ["all-products"] }); queryClient.invalidateQueries({ queryKey: ["main-products-filter"] });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     },
@@ -227,6 +237,7 @@ const LogisticProductManagement = () => {
     setEditSku(product.sku || "");
     setEditQuantity(String(product.quantity || 0));
     setEditBaseCost(String(product.base_cost || 0));
+    setEditGroup(product.filter_group || "");
     setIsEditDialogOpen(true);
   };
 
@@ -256,6 +267,7 @@ const LogisticProductManagement = () => {
       sku: newProductSku.trim().toUpperCase(),
       baseCost,
       quantity: qty,
+      group: newProductGroup.trim().toUpperCase(),
     });
   };
 
@@ -288,6 +300,7 @@ const LogisticProductManagement = () => {
       baseCost,
       quantity: qty,
       originalSku: editingProduct.sku,
+      group: editGroup.trim().toUpperCase(),
     });
   };
 
@@ -361,7 +374,14 @@ const LogisticProductManagement = () => {
                   products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell className="font-medium whitespace-nowrap">{product.sku}</TableCell>
-                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        {product.name}
+                        {(product as any).filter_group && (
+                          <span className="ml-2 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary" title="Kumpulan dalam dropdown produk">
+                            {(product as any).filter_group}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">RM {(product.base_cost || 0).toFixed(2)}</TableCell>
                       <TableCell className="font-bold text-lg">
                         {(product.quantity || 0).toLocaleString()}
@@ -402,6 +422,12 @@ const LogisticProductManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      <datalist id="product-groups">
+        {[...new Set((products || []).map((p: any) => p.filter_group).filter(Boolean))].map((g: any) => (
+          <option key={g} value={g} />
+        ))}
+      </datalist>
 
       {/* Add Product Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -451,6 +477,17 @@ const LogisticProductManagement = () => {
                 onChange={(e) => setNewProductQuantity(e.target.value)}
                 placeholder="Enter initial quantity"
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="newProductGroup">Kumpulan (pilihan)</Label>
+              <Input
+                id="newProductGroup"
+                list="product-groups"
+                value={newProductGroup}
+                onChange={(e) => setNewProductGroup(e.target.value.toUpperCase())}
+                placeholder="cth. AL KAUSSAR"
+              />
+              <p className="text-xs text-muted-foreground">Produk dengan kumpulan yang sama keluar sebagai <b>satu pilihan</b> dalam dropdown produk (Salary, Report Profit, Logistic). Stok kekal ikut produk.</p>
             </div>
             </div>
             <MissingHint
@@ -530,6 +567,17 @@ const LogisticProductManagement = () => {
                 onChange={(e) => setEditQuantity(e.target.value)}
                 placeholder="Enter quantity"
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="editGroup">Kumpulan (pilihan)</Label>
+              <Input
+                id="editGroup"
+                list="product-groups"
+                value={editGroup}
+                onChange={(e) => setEditGroup(e.target.value.toUpperCase())}
+                placeholder="cth. AL KAUSSAR"
+              />
+              <p className="text-xs text-muted-foreground">Produk dengan kumpulan yang sama keluar sebagai <b>satu pilihan</b> dalam dropdown produk (Salary, Report Profit, Logistic). Stok kekal ikut produk.</p>
             </div>
             </div>
             <MissingHint
